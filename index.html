@@ -102,7 +102,7 @@
       <!-- Sağ Çekmece Menü Butonu -->
       <button id="btn-sidebar-toggle" class="sidebar-toggle-btn-inline" title="Yan Menüyü Aç / Kapat">
         <span id="sidebar-toggle-arrow">◀</span>
-        <span>📜 MENÜ</span>
+        <span>☰ MENÜ</span>
       </button>
     </div>
   </header>
@@ -206,11 +206,11 @@
       </div>
     </div>
 
-    <!-- 3. BÖLÜM: Global Günlük Kaynak Çıkarma Limiti -->
+    <!-- 3. BÖLÜM: Global Haftalık Kaynak Çıkarma Limiti -->
     <div class="sidebar-section sidebar-daily-limits">
       <div class="sidebar-section-title" style="display: flex; justify-content: space-between; align-items: center;">
-        <span>📊 GÜNLÜK ÇIKARMA LİMİTİ</span>
-        <span id="sidebar-reset-timer" style="font-size: 0.65rem; color: #94a3b8; font-weight: 600;">⏳ 18s 42d</span>
+        <span>📊 HAFTALIK ÇIKARMA LİMİTİ</span>
+        <span id="sidebar-reset-timer" style="font-size: 0.65rem; color: #94a3b8; font-weight: 600;">⏳ 6g 18s 0dk</span>
       </div>
 
       <!-- Demir Limiti -->
@@ -312,6 +312,13 @@
       </div>
 
       <div class="dev-modal-body">
+        <!-- ⚠️ VANILLA HESAP SIFIRLAMA (TÜM İLERLEMEYİ SİLER) -->
+        <div class="dev-group dev-vanilla-reset-box">
+          <button id="btn-dev-vanilla-reset" class="dev-btn dev-btn-red dev-btn-vanilla-reset" data-dev-action="vanilla-reset" title="Tüm ilerlemeyi kalıcı olarak siler ve hesabı sıfırdan vanilla başlangıç profiline döndürür">
+            🍦 VANILLA HESAP SIFIRLA
+          </button>
+        </div>
+
         <!-- 0. ÖZEL DEBUG DÜZENLEYİCİSİ (CUSTOM VALUE INJECTOR) -->
         <div class="dev-custom-editor-box">
           <div class="dev-group-title">🎯 İSTEDİĞİN MİKTARI EKLE / ÇIKAR / EŞİTLE</div>
@@ -413,17 +420,6 @@
               </tr>
             </tbody>
           </table>
-        </div>
-
-        <!-- 0. BÖLÜM: Vanilla Reset (Sıfır Hesap) -->
-        <div class="dev-group" style="border: 2px solid #ec4899; background: rgba(236, 72, 153, 0.12); padding: 12px; border-radius: 8px;">
-          <div class="dev-group-title" style="color: #f472b6; font-size: 1rem;">🍦 VANILLA HESAP SIFIRLAMA (YEPYENİ BAŞLANGIÇ)</div>
-          <div style="font-size: 0.8rem; color: #cbd5e1; margin-bottom: 10px; line-height: 1.4;">
-            Hesabındaki tüm kaynakları, seviyeyi, 18 asker yuvasını, eşyaları ve zindan ilerlemesini sıfırlar. Oyuna ilk kez başlayan tertemiz bir başlangıç profili yükler.
-          </div>
-          <button class="dev-btn dev-btn-red" data-dev-action="vanilla-reset" style="width: 100%; padding: 12px; font-size: 0.95rem; font-weight: 800; background: linear-gradient(135deg, #be185d, #e11d48); border: 1px solid #f43f5e; box-shadow: 0 0 12px rgba(225,29,72,0.4);">
-            🍦 HESABI VANILLA SIFIRLA (İLK GÜN PROFİLİNE DÖN)
-          </button>
         </div>
 
         <!-- 1. BÖLÜM: Hammadde Hızlı Butonları -->

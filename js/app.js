@@ -287,9 +287,10 @@ function renderRealmSidebar(state, maxStamina, staminaInt) {
 
   if (dom.sidebarResetTimer) {
     const secToReset = globalPool.getSecondsUntilReset();
-    const hrs = Math.floor(secToReset / 3600);
+    const days = Math.floor(secToReset / 86400);
+    const hrs = Math.floor((secToReset % 86400) / 3600);
     const mins = Math.floor((secToReset % 3600) / 60);
-    dom.sidebarResetTimer.innerText = `⏳ ${hrs}s ${mins}d`;
+    dom.sidebarResetTimer.innerText = days > 0 ? `⏳ ${days}g ${hrs}s ${mins}d` : `⏳ ${hrs}s ${mins}d`;
   }
 }
 
@@ -3996,13 +3997,6 @@ function initDevPanelEvents() {
     const level = parseInt(btn.getAttribute('data-level'), 10) || 0;
 
     switch (action) {
-      case 'vanilla-reset':
-        const vRes = gameState.vanillaReset();
-        showToast(vRes.message, 'success');
-        closeDevModal();
-        closeModal();
-        break;
-
       case 'add-wood':
         gameState.addDevResource('wood', amount);
         showToast(`🌲 +${amount.toLocaleString()} Odun eklendi!`, 'success');
@@ -4124,6 +4118,19 @@ function initDevPanelEvents() {
         showToast(`💀 Zindan ilerlemesi Seviye ${level} olarak ayarlandı!`, 'success');
         sound.playLevelUp();
         break;
+
+      case 'vanilla-reset': {
+        const confirmReset = window.confirm(
+          '🍦 EMİN MİSİN?\n\nBu işlem TÜM ilerlemeni (seviye, XP, ordu, kaynaklar, envanter, teçhizat, zindan ilerlemesi, aktif seferler ve görev ilerlemesi) kalıcı olarak silecek ve hesabını sıfırdan vanilla başlangıç profiline (Lv.1, 100 Stamina, 250 ADA) döndürecek.\n\nDevam etmek istiyor musun?'
+        );
+        if (!confirmReset) break;
+        gameState.vanillaReset();
+        showToast('🍦 Hesabın tamamen vanilla başlangıç profiline sıfırlandı! Sayfa yenileniyor...', 'success');
+        sound.playLevelUp();
+        renderTopBar();
+        setTimeout(() => location.reload(), 900);
+        break;
+      }
     }
 
     syncDevLiveInputs();

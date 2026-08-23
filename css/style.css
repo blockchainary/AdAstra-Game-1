@@ -79,18 +79,22 @@ html, body {
   top: 0;
   left: 0;
   right: 0;
+  width: 100%;
   height: 56px;
   background: linear-gradient(180deg, #1e1107 0%, #0c0603 100%);
   border-bottom: 2.5px solid #ca8a04;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.12);
   display: flex;
+  flex-wrap: nowrap;
   justify-content: space-between;
   align-items: center;
   padding: 0 14px;
+  gap: 10px;
   z-index: 1000;
   pointer-events: auto;
   user-select: none;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 /* Sol Profil Bölümü */
@@ -105,7 +109,9 @@ html, body {
   box-shadow: inset 0 2px 0 rgba(255,255,255,0.2), 0 4px 8px rgba(0,0,0,0.8);
   cursor: pointer;
   transition: all 0.15s ease;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .top-profile-badge:hover, .pixi-profile-badge:hover {
@@ -133,6 +139,10 @@ html, body {
   display: flex;
   align-items: center;
   gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .top-lvl-tag {
@@ -158,7 +168,16 @@ html, body {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex: 1 1 auto;
   flex-wrap: nowrap;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.top-nav-menu::-webkit-scrollbar {
+  display: none;
 }
 
 .top-menu-btn {
@@ -204,6 +223,15 @@ html, body {
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+  flex-wrap: nowrap;
+  max-width: 60%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.top-resource-dock::-webkit-scrollbar {
+  display: none;
 }
 
 .top-res-pill, .pixi-res-pill {
@@ -221,6 +249,8 @@ html, body {
   cursor: pointer;
   transition: all 0.15s ease;
   user-select: none;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .top-res-pill:hover, .pixi-res-pill:hover {
@@ -256,6 +286,8 @@ html, body {
   align-items: center;
   gap: 5px;
   transition: all 0.12s ease;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .sidebar-toggle-btn-inline:hover {
@@ -1933,6 +1965,27 @@ body.modal-open .realm-tooltip {
   color: #ffffff;
 }
 
+/* 🍦 Vanilla Hesap Sıfırlama Kutusu (En Belirgin Uyarı Butonu) */
+.dev-vanilla-reset-box {
+  border-color: #fca5a5;
+  background: rgba(127, 29, 29, 0.25);
+  margin-bottom: 14px;
+}
+
+.dev-btn-vanilla-reset {
+  width: 100%;
+  padding: 16px 10px;
+  font-size: 1.05rem;
+  letter-spacing: 0.03em;
+  border-width: 2px;
+  animation: ada-vanilla-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes ada-vanilla-pulse {
+  0%, 100% { box-shadow: 0 3px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 0 rgba(220, 38, 38, 0); }
+  50% { box-shadow: 0 3px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 16px rgba(220, 38, 38, 0.8); }
+}
+
 /* Custom Debug Live Editor & Table */
 .dev-custom-editor-box {
   background: linear-gradient(135deg, #1f140a 0%, #120904 100%);
@@ -2983,6 +3036,7 @@ body.modal-open .realm-tooltip {
   padding: 4px 8px;
   border-radius: 8px;
   transition: background 0.2s;
+  flex-shrink: 0;
 }
 .notif-bell:hover { background: rgba(245,158,11,0.12); }
 .notif-badge {

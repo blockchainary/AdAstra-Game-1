@@ -1477,6 +1477,56 @@ export class GameStateManager {
     this.saveState();
   }
 
+  // 🍦 VANILLA HESAP SIFIRLAMA: localStorage'ı tamamen temizler ve karakteri
+  // sıfırdan (Lv.1, 0 XP, 100 Stamina, 250 ADA, 0 Asker, 0 Teçhizat, %100 Alet,
+  // 1. Kat Zindan, 0 Aktif Sefer, 0 Görev İlerlemesi) vanilla başlangıç profiline döndürür.
+  vanillaReset() {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.clear();
+    }
+    this.state = {
+      name: 'AlphAvax Gezgini',
+      level: 1,
+      currentXp: 0,
+      stamina: 100,
+      adAstraBalance: 250,
+      inventory: {
+        wood: 60,
+        iron: 40,
+        wheat: 80,
+        fragments: 0
+      },
+      tools: {
+        axe: { durability: 100, totalGathered: 0 },
+        pickaxe: { durability: 100, totalGathered: 0 },
+        sickle: { durability: 100, totalGathered: 0 }
+      },
+      army: {
+        infantry: 0,
+        archer: 0,
+        knight: 0
+      },
+      equipment: {
+        weapon: null,
+        helmet: null,
+        armor: null,
+        legs: null,
+        boots: null
+      },
+      warehouseLevel: 1,
+      lockedBoxes: 0,
+      arenaKeys: 0,
+      genesisNftMinted: false,
+      activeBuffs: {},
+      activeExpeditions: {},
+      dungeonProgress: 1,
+      questProgress: {},
+      collectionArtifacts: this.mergeCollectionArtifacts([]),
+      soldierUnits: []
+    };
+    this.saveState();
+  }
+
   // =========================================================================
   // DASHBOARD: KRALIK GENEL BAKIŞ & TOPLU EYLEMLER
   // =========================================================================
@@ -1755,58 +1805,6 @@ export class GameStateManager {
       { id: 'autoEquip', icon: '⚔️', label: 'En İyi Eşyaları Otomatik Dağıt', shortcut: '', category: 'Eylem' },
       { id: 'economy', icon: '📈', label: 'Ekonomi & Tokenomics Dashboard', shortcut: '', category: 'Panel' },
     ];
-  }
-
-  // 🍦 Hesabı Tamamen Sıfırlayıp Yepyeni Bir Başlangıç Profiline Döndürür
-  vanillaReset() {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem(this.storageKey);
-    }
-    const fresh = {
-      ...GAME_CONFIG.STARTING_PROFILE,
-      name: 'AlphAvax',
-      level: 1,
-      currentXp: 0,
-      stamina: GAME_CONFIG.MAX_STAMINA || 100,
-      adAstraBalance: 250,
-      inventory: {
-        wood: 0,
-        iron: 0,
-        wheat: 0,
-        fragments: 0
-      },
-      tools: {
-        axe: { durability: 100, totalGathered: 0 },
-        pickaxe: { durability: 100, totalGathered: 0 },
-        sickle: { durability: 100, totalGathered: 0 }
-      },
-      army: {
-        infantry: 0,
-        archer: 0,
-        knight: 0
-      },
-      soldierUnits: [],
-      soldiers: [],
-      warehouseLevel: 1,
-      lockedBoxes: 0,
-      arenaKeys: 0,
-      dungeonProgress: 1,
-      genesisNftMinted: false,
-      activeBuffs: {},
-      activeExpeditions: {},
-      equipment: {
-        weapon: null,
-        helmet: null,
-        armor: null,
-        legs: null,
-        boots: null
-      },
-      collectionArtifacts: this.mergeCollectionArtifacts([])
-    };
-    this.state = fresh;
-    this.saveState();
-    sound.playLevelUp();
-    return { success: true, message: '🍦 Hesabın sıfırlandı! Yepyeni bir başlangıç profili yüklendi.' };
   }
 }
 

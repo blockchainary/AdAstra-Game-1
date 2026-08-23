@@ -10,14 +10,48 @@ export class GlobalResourceManager {
     this.state = this.loadState();
   }
 
+  // Her Pazartesi saat 18:00 (Türkiye Saati / UTC+3 = 15:00 UTC) reset zamanını hesaplar
+  getNextMonday1800TRT(fromTimestamp = Date.now()) {
+    const now = new Date(fromTimestamp);
+    const targetUtcHour = 15; // 18:00 TRT = 15:00 UTC
+    const currentDay = now.getUTCDay(); // 0 = Pazar, 1 = Pazartesi...
+    const currentHour = now.getUTCHours();
+    const currentMin = now.getUTCMinutes();
+
+    let daysUntilMonday = (1 - currentDay + 7) % 7;
+    // Eğer bugün Pazartesi ise ve 15:00 UTC (18:00 TRT) geçtiyse bir sonraki haftanın Pazartesi gününe ata
+    if (daysUntilMonday === 0 && (currentHour > targetUtcHour || (currentHour === targetUtcHour && currentMin >= 0))) {
+      daysUntilMonday = 7;
+    }
+
+    const nextMonday = new Date(now);
+    nextMonday.setUTCDate(now.getUTCDate() + daysUntilMonday);
+    nextMonday.setUTCHours(targetUtcHour, 0, 0, 0);
+    return nextMonday.getTime();
+  }
+
   loadState() {
     if (typeof localStorage === 'undefined') return this.createNewEpoch();
     const saved = localStorage.getItem(this.storageKey);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Date.now() > parsed.epochEndTime) {
+        // Zamanı dolduysa yeni haftalık epoch başlat
+        if (Date.now() > (parsed.epochEndTime || 0)) {
           return this.createNewEpoch(parsed);
+        }
+        // Mevcut kaynak limitlerini config ile senkronize et (overflow hatasını önler)
+        if (parsed.resources) {
+          for (const key of Object.keys(GAME_CONFIG.GLOBAL_RESOURCE_CAPS)) {
+            const configCap = GAME_CONFIG.GLOBAL_RESOURCE_CAPS[key].totalCap;
+            if (!parsed.resources[key] || parsed.resources[key].totalCap !== configCap) {
+              parsed.resources[key] = {
+                remaining: Math.min(configCap, parsed.resources[key]?.remaining || configCap),
+                totalCap: configCap,
+                depleted: false
+              };
+            }
+          }
         }
         return parsed;
       } catch (e) {
@@ -30,9 +64,10 @@ export class GlobalResourceManager {
   createNewEpoch(prevState = null) {
     const pool = {};
     for (const key of Object.keys(GAME_CONFIG.GLOBAL_RESOURCE_CAPS)) {
+      const cap = GAME_CONFIG.GLOBAL_RESOURCE_CAPS[key].totalCap;
       pool[key] = {
-        remaining: GAME_CONFIG.GLOBAL_RESOURCE_CAPS[key].totalCap,
-        totalCap: GAME_CONFIG.GLOBAL_RESOURCE_CAPS[key].totalCap,
+        remaining: cap,
+        totalCap: cap,
         depleted: false
       };
     }
@@ -40,7 +75,7 @@ export class GlobalResourceManager {
     const state = {
       epochId: prevState ? (prevState.epochId || 1) + 1 : 1,
       epochStartTime: Date.now(),
-      epochEndTime: Date.now() + (GAME_CONFIG.EPOCH_DURATION_SECONDS * 1000),
+      epochEndTime: this.getNextMonday1800TRT(),
       resources: pool,
       
       // 🪙 10 MİLYAR MAKRO TOKENOMİK VE MUHASEBE
@@ -222,17 +257,12 @@ export class GlobalResourceManager {
     return projection;
   }
 
-  // Dünya genelindeki diğer madencilerin toplama simülasyonu
+  // Küresel Havuz Aktivite Denetleyicisi:
+  // KURAL: Kimse kaynak çıkartmıyorsa limitler durduk yere ASLA eksilmez!
+  // Havuz yalnızca oyuncular seferlerden kaynak topladığında harvest() metoduyla düşürülür.
   simulateGlobalActivity(timeDeltaSeconds) {
-    for (const key of Object.keys(this.state.resources)) {
-      const res = this.state.resources[key];
-      if (res.remaining > 0) {
-        const drain = Math.random() * (res.totalCap / (GAME_CONFIG.EPOCH_DURATION_SECONDS * 2)) * timeDeltaSeconds;
-        res.remaining = Math.max(0, res.remaining - drain);
-        if (res.remaining === 0) res.depleted = true;
-      }
-    }
-    this.saveState();
+    // Otomatik sızıntı kaldırıldı
+    return;
   }
 
   getResourceInfo(resourceKey) {
