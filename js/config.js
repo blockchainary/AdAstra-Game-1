@@ -354,19 +354,6 @@ export const GAME_CONFIG = {
     5: { name: '👑 Tam Takım Şampiyon Bonusu', desc: 'Tam 5 parça kuşanıldığında +%25 Saldırı & +%25 Can', atkMultiplier: 1.25, hpMultiplier: 1.25 }
   },
 
-  // =========================================================================
-  // GÜNLÜK & HAFTALIK GÖREVLER (QUEST ENGINE)
-  // =========================================================================
-  DAILY_QUESTS: [
-    { id: 'daily_expeditions', title: '⏳ Günlük Sefer Ustası', desc: '3 kaynak seferi tamamla ve topla', target: 3, rewardAda: 150, rewardXp: 80, rewardFragments: 2 },
-    { id: 'daily_repairs', title: '🔨 Alet Bakımı', desc: '2 alet tamiri yap', target: 2, rewardAda: 80, rewardXp: 40, rewardFragments: 1 },
-    { id: 'daily_dungeon_kills', title: '💀 Zindan Avcısı', desc: 'Zindanda 3 canavar yen', target: 3, rewardAda: 200, rewardXp: 120, rewardFragments: 3 }
-  ],
-  WEEKLY_QUESTS: [
-    { id: 'weekly_expeditions', title: '🏆 Haftalık Sefer Şampiyonu', desc: '20 kaynak seferi tamamla ve topla', target: 20, rewardAda: 1200, rewardXp: 600, rewardFragments: 15 },
-    { id: 'weekly_dungeon_kills', title: '🐉 Haftalık Zindan Fatihi', desc: 'Zindanda 15 canavar yen', target: 15, rewardAda: 1500, rewardXp: 900, rewardFragments: 20 }
-  ],
-
   // 18 Eşsiz Koleksiyon Eseri (6 Kat x 3 Seviyelik Zindanın Her Katından Bir Ganimet)
   COLLECTION_ARTIFACTS: [
     { id: 'artifact_01', name: 'Balçık Özü Kristali', icon: '🟢', dropLevel: 1, rarity: 'common', lore: 'Bataklık Balçığının çekirdeğinde donmuş, hafif nabız atan yeşil bir öz.' },

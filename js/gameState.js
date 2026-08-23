@@ -279,84 +279,6 @@ export class GameStateManager {
     };
   }
 
-  // =========================================================================
-  // AAA OYUN STÜDYOSU: GÜNLÜK & HAFTALIK GÖREV MOTORU (QUEST ENGINE)
-  // =========================================================================
-  progressQuest(questId, amount = 1) {
-    if (!this.state.questProgress) this.state.questProgress = {};
-    const curr = (this.state.questProgress[questId] || 0) + amount;
-    this.state.questProgress[questId] = curr;
-    this.saveState();
-  }
-
-  claimQuestReward(questId, type = 'daily') {
-    const list = type === 'weekly' ? (GAME_CONFIG.WEEKLY_QUESTS || []) : (GAME_CONFIG.DAILY_QUESTS || []);
-    const quest = list.find(q => q.id === questId);
-    if (!quest) return { success: false, message: 'Görev bulunamadı.' };
-
-    if (!this.state.questProgress) this.state.questProgress = {};
-    if (!this.state.claimedQuests) this.state.claimedQuests = {};
-
-    if (this.state.claimedQuests[questId]) {
-      return { success: false, message: 'Bu görev ödülü zaten toplandı!' };
-    }
-
-    const currentProgress = this.state.questProgress[questId] || 0;
-    if (currentProgress < quest.target) {
-      return { success: false, message: `Görev henüz tamamlanmadı (${currentProgress}/${quest.target})` };
-    }
-
-    this.state.claimedQuests[questId] = true;
-    this.state.adAstraBalance += quest.rewardAda;
-    this.state.xp += quest.rewardXp;
-    this.state.inventory.fragments = (this.state.inventory.fragments || 0) + quest.rewardFragments;
-    
-    sound.playLevelUp();
-    this.saveState();
-    return {
-      success: true,
-      message: `🎉 Görev Ödülü Alındı: +${quest.rewardAda} ADA, +${quest.rewardXp} XP, +${quest.rewardFragments} Parça!`
-    };
-  }
-
-  resetDailyQuests() {
-    const ids = (GAME_CONFIG.DAILY_QUESTS || []).map(q => q.id);
-    if (!this.state.claimedQuests) this.state.claimedQuests = {};
-    if (!this.state.questProgress) this.state.questProgress = {};
-    ids.forEach(id => {
-      delete this.state.claimedQuests[id];
-      this.state.questProgress[id] = 0;
-    });
-    this.saveState();
-  }
-
-  resetWeeklyQuests() {
-    const ids = (GAME_CONFIG.WEEKLY_QUESTS || []).map(q => q.id);
-    if (!this.state.claimedQuests) this.state.claimedQuests = {};
-    if (!this.state.questProgress) this.state.questProgress = {};
-    ids.forEach(id => {
-      delete this.state.claimedQuests[id];
-      this.state.questProgress[id] = 0;
-    });
-    this.saveState();
-  }
-
-  // Gerçek zamana göre günlük/haftalık görevleri otomatik sıfırlar (görev paneli her açıldığında kontrol edilir)
-  checkQuestResets() {
-    const now = Date.now();
-    const DAY_MS = 24 * 3600 * 1000;
-    const WEEK_MS = 7 * DAY_MS;
-
-    if (!this.state.lastDailyQuestReset || (now - this.state.lastDailyQuestReset) >= DAY_MS) {
-      this.state.lastDailyQuestReset = now;
-      this.resetDailyQuests();
-    }
-    if (!this.state.lastWeeklyQuestReset || (now - this.state.lastWeeklyQuestReset) >= WEEK_MS) {
-      this.state.lastWeeklyQuestReset = now;
-      this.resetWeeklyQuests();
-    }
-  }
-
   equipSoldierSlot(soldierIndex, slotKey) {
     const soldier = (this.state.soldierUnits || [])[soldierIndex];
     if (!soldier) return { success: false, message: 'Asker bulunamadı.' };
@@ -1113,12 +1035,13 @@ export class GameStateManager {
     };
   }
 
-  // 3. Ekipman Geliştirme Maliyeti (Upgrade Cost: Demir + Odun + AdAstra)
+  // 3. Ekipman Geliştirme Maliyeti (Upgrade Cost: Demir + Odun + Parça + AdAstra)
   calculateEquipmentUpgradeCost(slotKey) {
     const item = this.state.equipment ? this.state.equipment[slotKey] : null;
     if (!item) return null;
 
     const nextLvl = (item.level || 1) + 1;
+    const fragmentCost = nextLvl * 5;
     const ironCost = nextLvl * 30;
     const woodCost = nextLvl * 20;
     const adAstraCost = Math.floor(1800 * Math.pow(nextLvl, 2.05) * Math.pow(1.015, nextLvl - 1));
@@ -1126,6 +1049,7 @@ export class GameStateManager {
     return {
       currentLevel: item.level || 1,
       nextLevel: nextLvl,
+      fragmentCost,
       ironCost,
       woodCost,
       adAstraCost,
@@ -1134,12 +1058,15 @@ export class GameStateManager {
     };
   }
 
-  // Ekipmanı Geliştir (Upgrade Level: Demir + Odun + AdAstra)
+  // Ekipmanı Geliştir (Upgrade Level: Demir + Odun + Parça + AdAstra)
   upgradeEquipment(slotKey) {
     const cost = this.calculateEquipmentUpgradeCost(slotKey);
     if (!cost) return { success: false, message: 'Ekipman bulunamadı!' };
 
     const inv = this.state.inventory;
+    if ((inv.fragments || 0) < cost.fragmentCost) {
+      return { success: false, message: `Yetersiz Parça! (${cost.fragmentCost} Parça gerekli)` };
+    }
     if ((inv.iron || 0) < cost.ironCost) {
       return { success: false, message: `Yetersiz Demir! (${cost.ironCost} Demir gerekli)` };
     }
@@ -1150,6 +1077,7 @@ export class GameStateManager {
       return { success: false, message: `Yetersiz AdAstra! (${cost.adAstraCost} $ADASTRA gerekli)` };
     }
 
+    inv.fragments = (inv.fragments || 0) - cost.fragmentCost;
     inv.iron -= cost.ironCost;
     inv.wood -= cost.woodCost;
     this.state.adAstraBalance -= cost.adAstraCost;
@@ -1796,12 +1724,10 @@ export class GameStateManager {
       { id: 'market', icon: '🏪', label: 'AMM Pazar Yeri', shortcut: '5 / M', category: 'Bina' },
       { id: 'dungeon', icon: '💀', label: 'Zindan', shortcut: '6 / D', category: 'Bina' },
       { id: 'colosseum', icon: '🏟️', label: 'Kolezyum Arenası', shortcut: '7 / C', category: 'Bina' },
-      { id: 'quests', icon: '📜', label: 'Günlük & Haftalık Görevler', shortcut: 'Q', category: 'Panel' },
       { id: 'inventory', icon: '🎒', label: 'Envanter & Karakter', shortcut: 'E', category: 'Panel' },
       { id: 'claimAll', icon: '⚡', label: 'Tüm Seferleri Topla & Yeniden Başlat', shortcut: '', category: 'Eylem' },
       { id: 'repairAll', icon: '🔨', label: 'Tüm Aletleri Onar', shortcut: '', category: 'Eylem' },
       { id: 'healAll', icon: '🌾', label: 'Tüm Orduyu İyileştir', shortcut: '', category: 'Eylem' },
-      { id: 'claimQuests', icon: '🎁', label: 'Tüm Görev Ödüllerini Topla', shortcut: '', category: 'Eylem' },
       { id: 'autoEquip', icon: '⚔️', label: 'En İyi Eşyaları Otomatik Dağıt', shortcut: '', category: 'Eylem' },
       { id: 'economy', icon: '📈', label: 'Ekonomi & Tokenomics Dashboard', shortcut: '', category: 'Panel' },
     ];

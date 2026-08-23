@@ -12,7 +12,7 @@ let lastTickTime = performance.now();
 let phaserGame = null;
 
 // PHASE 2: GAMEFI & RPG EKONOMİSİ - MODAL SEKME & GEÇİCİ DURUM DEĞİŞKENLERİ
-let barracksActiveTab = 'equipment';
+let barracksActiveTab = 'army';
 let mineActiveTab = 'mining';
 let marketActiveTab = 'resources';
 let selectedSoldierIndex = 0;
@@ -29,7 +29,6 @@ const dom = {
   resWheat: document.getElementById('res-wheat'),
   resWood: document.getElementById('res-wood'),
   resIron: document.getElementById('res-iron'),
-  resFish: document.getElementById('res-fish'),
   resFragments: document.getElementById('res-fragments'),
   btnDailyLimits: document.getElementById('btn-daily-limits'),
   profileBadgeBtn: document.getElementById('profile-badge-btn'),
@@ -192,7 +191,6 @@ function renderTopBar() {
   dom.resWheat.innerText = state.inventory.wheat || 0;
   dom.resWood.innerText = state.inventory.wood || 0;
   dom.resIron.innerText = state.inventory.iron || 0;
-  if (dom.resFish) dom.resFish.innerText = state.inventory.fish || 0;
   if (dom.resFragments) dom.resFragments.innerText = state.inventory.fragments || 0;
 
   if (dom.sidebarBoxBadge) {
@@ -1121,16 +1119,21 @@ function openTownZoneModal(zoneId, zoneName) {
     `;
   }
 
-  // 2. MADEN (IRON) - Maden Seferleri & Tamirhane
+  // 2. MADEN (IRON) - Maden Seferleri, Demirci & Tamirhane
   else if (zoneId === 'mine') {
     const pickaxeTool = state.tools.pickaxe || { durability: 0 };
+    const axeTool = state.tools.axe || { durability: 0 };
+    const sickleTool = state.tools.sickle || { durability: 0 };
     const pickCost = gameState.calculateRepairCost('pickaxe');
+    const axeCost = gameState.calculateRepairCost('axe');
+    const sickleCost = gameState.calculateRepairCost('sickle');
     const activeExp = state.activeExpeditions.iron;
     const isSpeedActive = gameState.isBuffActive('speed_iron');
 
     const tabsHtml = `
       <div class="phase2-tab-row">
         <button class="phase2-tab-btn mine-tab-btn ${mineActiveTab === 'mining' ? 'active' : ''}" data-tab="mining">⛏️ Maden Seferleri</button>
+        <button class="phase2-tab-btn mine-tab-btn ${mineActiveTab === 'blacksmith' ? 'active' : ''}" data-tab="blacksmith">⚒️ Demirci (Silah & Zırh Döv)</button>
         <button class="phase2-tab-btn mine-tab-btn ${mineActiveTab === 'repair' ? 'active' : ''}" data-tab="repair">🔧 Tamirhane</button>
       </div>
     `;
@@ -1157,51 +1160,186 @@ function openTownZoneModal(zoneId, zoneName) {
           `}
         </div>
       `;
-    } else {
-      const slotNames = { weapon: 'Silah', helmet: 'Miğfer', armor: 'Gövde Zırhı', legs: 'Pantolon', boots: 'Ayakkabı' };
-      const slotIcons = { weapon: '🗡️', helmet: '🪖', armor: '🛡️', legs: '👖', boots: '👢' };
+    } else if (mineActiveTab === 'blacksmith') {
+      // ⚒️ DEMİRCİ: 5 PARÇA SİLAH & ZIRH DÖVME VE SEVİYE YÜKSELTME
+      const equipConfig = GAME_CONFIG.EQUIPMENT_RECIPES;
       const currentEquip = state.equipment || {};
-      const brokenSlots = ['weapon', 'helmet', 'armor', 'legs', 'boots'].filter(slot => currentEquip[slot]);
+      const totalStats = gameState.getEquipmentBonusStats();
+      const slots = ['weapon', 'helmet', 'armor', 'legs', 'boots'];
+      const slotNames = { weapon: 'Silah', helmet: 'Miğfer', armor: 'Gövde Zırhı', legs: 'Pantolon', boots: 'Ayakkabı' };
 
-      const equipmentRepairCards = brokenSlots.map(slot => {
+      contentHtml = `
+        <div class="clean-card" style="border-color: #f59e0b; background: #1c140c;">
+          <div class="card-title-row">
+            <div class="card-title">⚒️ Maden Demircisi - Silah & Zırh Dövme & Geliştirme</div>
+            <span class="card-badge" style="color: #4ade80;">⚔️ +${totalStats.totalAtk} ATK | ❤️ +${totalStats.totalHp} HP</span>
+          </div>
+          <div class="clean-desc">
+            Demirci ocağında 5 parça teçhizat dövebilir ve seviyelerini yükseltebilirsin. Yeni silah ve zırh döverken veya seviye atlatırken <strong>Demir, Odun, Parça (Fragment) ve ADA</strong> kullanılır.
+          </div>
+        </div>
+
+        <div class="equip-grid">
+          ${slots.map(slot => {
+            const recipe = equipConfig[slot];
+            const item = currentEquip[slot];
+
+            if (!item) {
+              // Henüz Dövülmemiş (Craftable)
+              return `
+                <div class="equip-card" style="border-left: 4px solid #78350f;">
+                  <div class="equip-card-header">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span style="font-size: 1.6rem;">${recipe.icon}</span>
+                      <div>
+                        <div style="font-size: 0.95rem; font-weight: 800; color: #fff;">${recipe.name} (${slotNames[slot]})</div>
+                        <div style="font-size: 0.78rem; color: #94a3b8;">Temel Güç: ${recipe.baseAtk > 0 ? `+${recipe.baseAtk} ATK ` : ''}${recipe.baseHp > 0 ? `+${recipe.baseHp} HP` : ''} • 13/13 Dayanıklılık</div>
+                      </div>
+                    </div>
+                    <span class="card-badge" style="color: #94a3b8;">Dövülmedi</span>
+                  </div>
+                  <div class="clean-desc" style="font-size: 0.8rem;">${recipe.desc}</div>
+                  <div style="background: #120905; padding: 8px 12px; border-radius: 8px; border: 1px solid #4a2105; display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 700; color: #cbd5e1;">
+                    <span>Maliyet:</span>
+                    <span>🧩 ${recipe.cost.fragments} • ⛏️ ${recipe.cost.iron} • 🌲 ${recipe.cost.wood} • 🟣 ${recipe.cost.adAstra} ADA</span>
+                  </div>
+                  <button class="btn-clean btn-clean-green btn-craft-equipment" data-slot="${slot}" style="padding: 10px; font-size: 0.85rem;">
+                    🔨 ÖRSTE DÖV (13/13 DAYANIKLILIK)
+                  </button>
+                </div>
+              `;
+            }
+
+            // Dövülmüş Eşya - Seviye Yükseltme
+            const upgradeCost = gameState.calculateEquipmentUpgradeCost(slot);
+            const durPct = Math.floor((item.durability / 13) * 100);
+
+            return `
+              <div class="equip-card" style="border-left: 4px solid ${item.durability <= 0 ? '#ef4444' : '#22c55e'};">
+                <div class="equip-card-header">
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 1.6rem;">${item.icon}</span>
+                    <div>
+                      <div style="font-size: 0.98rem; font-weight: 800; color: #fff;">${item.name} (${slotNames[slot]})</div>
+                      <div style="font-size: 0.78rem; color: #fde047;">Seviye ${item.level} Şampiyon Teçhizatı</div>
+                    </div>
+                  </div>
+                  <div style="display: flex; gap: 6px;">
+                    <span class="card-badge" style="color: #4ade80;">⚔️ +${item.atkBonus || 0} ATK</span>
+                    <span class="card-badge" style="color: #38bdf8;">❤️ +${item.hpBonus || 0} HP</span>
+                  </div>
+                </div>
+
+                <!-- Dayanıklılık Durumu -->
+                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 700;">
+                  <span style="color: ${item.durability <= 0 ? '#ef4444' : '#cbd5e1'};">🛡️ Dayanıklılık: ${item.durability}/13 ${item.durability === 0 ? '(KIRIK - TAMİRHANEDE ONARIN)' : ''}</span>
+                  <span style="color: #94a3b8;">%${durPct}</span>
+                </div>
+
+                <div style="background: #120905; padding: 8px 12px; border-radius: 8px; border: 1px solid #4a2105; display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 700; color: #cbd5e1; margin-top: 4px;">
+                  <span>Yükseltme:</span>
+                  <span>🧩 ${upgradeCost.fragmentCost} • ⛏️ ${upgradeCost.ironCost} • 🌲 ${upgradeCost.woodCost} • 🟣 ${upgradeCost.adAstraCost} ADA</span>
+                </div>
+
+                <!-- Seviye Yükselt -->
+                <button class="btn-clean btn-clean-green btn-upgrade-equipment" data-slot="${slot}" style="font-size: 0.85rem; padding: 10px; margin-top: 6px;">
+                  ✨ Seviye ${upgradeCost.nextLevel}'e Yükselt (+${upgradeCost.nextAtk} ATK, +${upgradeCost.nextHp} HP)
+                </button>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    } else if (mineActiveTab === 'repair') {
+      // 🔧 TAMİRHANE: AŞINMIŞ/KIRIK SİLAH, ZIRH VE ALETLERİN ONARIMI (PARÇA KULLANILMAZ!)
+      const slotNames = { weapon: 'Silah', helmet: 'Miğfer', armor: 'Gövde Zırhı', legs: 'Pantolon', boots: 'Ayakkabı' };
+      const currentEquip = state.equipment || {};
+      const forgedSlots = ['weapon', 'helmet', 'armor', 'legs', 'boots'].filter(slot => currentEquip[slot]);
+
+      const equipmentRepairCards = forgedSlots.map(slot => {
         const item = currentEquip[slot];
         const reforgeCost = gameState.calculateEquipmentReforgeCost(slot);
         const durPct = Math.floor((item.durability / 13) * 100);
+        const isBroken = item.durability <= 0;
 
         return `
-          <div class="clean-card" style="border-left: 4px solid ${item.durability <= 0 ? '#ef4444' : '#22c55e'};">
+          <div class="clean-card" style="border-left: 4px solid ${isBroken ? '#ef4444' : (item.durability < 13 ? '#facc15' : '#22c55e')}; background: ${isBroken ? '#2a0a0a' : '#140e08'};">
             <div class="card-title-row">
-              <div class="card-title">${item.icon} ${item.name} (${slotNames[slot]})</div>
-              <span style="font-size: 0.8rem; color: ${item.durability <= 3 ? '#ef4444' : '#94a3b8'};">🛡️ ${item.durability}/13 ${item.durability === 0 ? '(KIRIK!)' : `(%${durPct})`}</span>
+              <div class="card-title">${item.icon} ${item.name} (${slotNames[slot]} - Seviye ${item.level})</div>
+              <span class="card-badge" style="color: ${isBroken ? '#ef4444' : (item.durability < 13 ? '#facc15' : '#22c55e')};">
+                ${isBroken ? '🚨 KIRIK (0/13) - ONARIM GEREKİYOR!' : `🛡️ ${item.durability}/13 (%${durPct})`}
+              </span>
             </div>
-            <button class="btn-clean btn-clean-outline btn-reforge-equipment" data-slot="${slot}" style="border-color: ${item.durability < 13 ? '#facc15' : '#582a08'}; color: #fde047;" ${item.durability >= 13 ? 'disabled' : ''}>
-              ${item.durability >= 13 ? '✅ 13/13 Sağlam' : `🔧 Onar (${reforgeCost.ironCost}⛏️ + ${reforgeCost.woodCost}🌲 + ${reforgeCost.adAstraCost}ADA)`}
-            </button>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; flex-wrap: wrap; gap: 8px;">
+              <span style="font-size: 0.82rem; color: #cbd5e1; font-weight: 600;">
+                ${item.durability >= 13 ? 'Teçhizat tamamen sağlam durumda.' : `Onarım Maliyeti: ⛏️ ${reforgeCost.ironCost} Demir + 🌲 ${reforgeCost.woodCost} Odun + 🟣 ${reforgeCost.adAstraCost} ADA`}
+              </span>
+              <button class="btn-clean ${isBroken ? 'btn-clean-red' : 'btn-clean-outline'} btn-reforge-equipment" data-slot="${slot}" style="width: auto; padding: 8px 18px; font-weight: 800;" ${item.durability >= 13 ? 'disabled' : ''}>
+                ${item.durability >= 13 ? '✅ Sağlam' : `🔧 ONAR (${reforgeCost.ironCost}⛏️ + ${reforgeCost.woodCost}🌲 + ${reforgeCost.adAstraCost}ADA)`}
+              </button>
+            </div>
           </div>
         `;
       }).join('');
 
       contentHtml = `
-        <div class="clean-card">
-          <div class="card-title">🔧 Tamirhane</div>
-          <div class="clean-desc">Dayanıklılığı biten aletlerin ve kırık teçhizatların tamir edildiği yer. Yeni ekipman dövmek için Kışla'daki ⚒️ Demirci'yi ziyaret et.</div>
-        </div>
-
-        <div class="clean-card">
-          <div class="card-title-row">
-            <div class="card-title">🔨 Kazma Tamiratı</div>
-            <span style="font-size: 0.85rem; color: #fde047; font-weight: 700;">${pickCost.resourceCost} Demir + ${pickCost.adAstraCost} ADA</span>
+        <div class="clean-card" style="border-color: #38bdf8; background: #0c1524;">
+          <div class="card-title">🔧 Maden Tamirhanesi</div>
+          <div class="clean-desc">
+            Dayanıklılığı sıfırlanan veya aşınan silahlar, zırhlar ve işçi aletleri burada onarılır. <strong>Onarımlarda sadece Odun, Demir ve ADA kullanılır, kesinlikle Parça harcanmaz!</strong>
           </div>
-          <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="pickaxe" ${pickaxeTool.durability >= 100 ? 'disabled' : ''}>
-            ${pickaxeTool.durability >= 100 ? 'Kazma Tamamen Sağlam' : `Kazmayı Onar (${pickCost.resourceCost} Demir + ${pickCost.adAstraCost} ADA)`}
-          </button>
         </div>
 
-        ${brokenSlots.length > 0 ? equipmentRepairCards : `
-          <div class="clean-card" style="text-align: center; color: #94a3b8;">
-            Henüz dövülmüş bir teçhizatın yok. Kışla'daki ⚒️ Demirci'de yeni ekipman dövebilirsin.
+        <div style="font-weight: 800; font-size: 0.9rem; color: #fde047; margin: 10px 0 6px 2px;">⚒️ Dövülmüş Silah & Zırh Onarımı</div>
+        ${forgedSlots.length > 0 ? equipmentRepairCards : `
+          <div class="clean-card" style="text-align: center; color: #94a3b8; font-size: 0.85rem;">
+            Henüz dövülmüş bir silah veya zırhın yok. ⚒️ Demirci sekmesinden yeni eşyalar dövebilirsin.
           </div>
         `}
+
+        <div style="font-weight: 800; font-size: 0.9rem; color: #38bdf8; margin: 14px 0 6px 2px;">🔨 İşçi Aletleri Bakımı</div>
+        <!-- Kazma -->
+        <div class="clean-card">
+          <div class="card-title-row">
+            <div class="card-title">⛏️ Kazma Bakımı</div>
+            <span class="card-badge" style="color: ${pickaxeTool.durability <= 25 ? '#ef4444' : '#22c55e'};">%${pickaxeTool.durability}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
+            <span style="font-size: 0.82rem; color: #cbd5e1;">Maliyet: ${pickCost.resourceCost} Demir + ${pickCost.adAstraCost} ADA</span>
+            <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="pickaxe" style="width: auto; padding: 6px 14px;" ${pickaxeTool.durability >= 100 ? 'disabled' : ''}>
+              ${pickaxeTool.durability >= 100 ? '✅ Sağlam' : `Onar (${pickCost.resourceCost}⛏️ + ${pickCost.adAstraCost}ADA)`}
+            </button>
+          </div>
+        </div>
+
+        <!-- Balta -->
+        <div class="clean-card">
+          <div class="card-title-row">
+            <div class="card-title">🪓 Balta Bakımı</div>
+            <span class="card-badge" style="color: ${axeTool.durability <= 25 ? '#ef4444' : '#22c55e'};">%${axeTool.durability}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
+            <span style="font-size: 0.82rem; color: #cbd5e1;">Maliyet: ${axeCost.resourceCost} Odun + ${axeCost.adAstraCost} ADA</span>
+            <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="axe" style="width: auto; padding: 6px 14px;" ${axeTool.durability >= 100 ? 'disabled' : ''}>
+              ${axeTool.durability >= 100 ? '✅ Sağlam' : `Onar (${axeCost.resourceCost}🌲 + ${axeCost.adAstraCost}ADA)`}
+            </button>
+          </div>
+        </div>
+
+        <!-- Orak -->
+        <div class="clean-card">
+          <div class="card-title-row">
+            <div class="card-title">🌾 Orak Bakımı</div>
+            <span class="card-badge" style="color: ${sickleTool.durability <= 25 ? '#ef4444' : '#22c55e'};">%${sickleTool.durability}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
+            <span style="font-size: 0.82rem; color: #cbd5e1;">Maliyet: ${sickleCost.resourceCost} Buğday + ${sickleCost.adAstraCost} ADA</span>
+            <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="sickle" style="width: auto; padding: 6px 14px;" ${sickleTool.durability >= 100 ? 'disabled' : ''}>
+              ${sickleTool.durability >= 100 ? '✅ Sağlam' : `Onar (${sickleCost.resourceCost}🌾 + ${sickleCost.adAstraCost}ADA)`}
+            </button>
+          </div>
+        </div>
       `;
     }
 
@@ -1446,7 +1584,7 @@ function openTownZoneModal(zoneId, zoneName) {
 }
 
 // =========================================================================
-// 4.5 PHASE 2: ASKERİ KIŞLA (DEMİRCİ & 18 KİŞİLİK ORDU)
+// 4.5 PHASE 2: ASKERİ KIŞLA (18 KİŞİLİK ORDU & AKILLI SİLAH DEPOSU)
 // =========================================================================
 const BARRACKS_CLASS_NAMES = { warrior: 'Asker' };
 const BARRACKS_CLASS_ICONS = { warrior: '⚔️' };
@@ -1457,7 +1595,6 @@ function renderBarracksHtml() {
 
   const tabsHtml = `
     <div class="phase2-tab-row">
-      <button class="phase2-tab-btn barracks-tab-btn ${barracksActiveTab === 'equipment' ? 'active' : ''}" data-tab="equipment">⚒️ Demirci (5 Ekipman Döv)</button>
       <button class="phase2-tab-btn barracks-tab-btn ${barracksActiveTab === 'army' ? 'active' : ''}" data-tab="army">🛡️ Ordu Yönetimi</button>
       <button class="phase2-tab-btn barracks-tab-btn ${barracksActiveTab === 'armory' ? 'active' : ''}" data-tab="armory">📦 Akıllı Silah Deposu</button>
     </div>
@@ -1507,7 +1644,7 @@ function renderBarracksHtml() {
               </div>
               <span class="rarity-tag ${(item.rarity || 'rare').toLowerCase()}">${item.rarity || 'RARE'}</span>
             </div>
-          `).join('') || '<div style="padding:20px; text-align:center; color:#94a3b8; font-size:0.8rem;">Envanterde boş eşya yok. Demirci sekmesinde yeni eşyalar dövebilirsin!</div>'}
+          `).join('') || '<div style="padding:20px; text-align:center; color:#94a3b8; font-size:0.8rem;">Envanterde boş eşya yok. Maden Ocağındaki ⚒️ Demirci sekmesinde yeni eşyalar dövebilirsin!</div>'}
         </div>
 
         <div class="armory-soldiers-panel">
@@ -1539,106 +1676,8 @@ function renderBarracksHtml() {
         </div>
       </div>
     `;
-  } else if (barracksActiveTab === 'equipment') {
-    // 1. KRALİYET DEMİRCİSİ (5 EKİPMAN PARÇASI)
-    const equipConfig = GAME_CONFIG.EQUIPMENT_RECIPES;
-    const currentEquip = state.equipment || {};
-    const totalStats = gameState.getEquipmentBonusStats();
-
-    const slots = ['weapon', 'helmet', 'armor', 'legs', 'boots'];
-    const slotNames = { weapon: 'Silah', helmet: 'Miğfer', armor: 'Gövde Zırhı', legs: 'Pantolon', boots: 'Ayakkabı' };
-
-    contentHtml = `
-      <div class="clean-card" style="border-color: #f59e0b; background: #1c140c;">
-        <div class="card-title-row">
-          <div class="card-title">⚒️ Kraliyet Demircisi - 5 Parça Ekipman Takımı</div>
-          <span class="card-badge" style="color: #4ade80;">⚔️ +${totalStats.totalAtk} ATK | ❤️ +${totalStats.totalHp} HP</span>
-        </div>
-        <div class="clean-desc">
-          Demirci ocağında tam 5 parça teçhizat dövebilirsin (Silah, Miğfer, Zırh, Pantolon, Ayakkabı). Tüm eşyalar <strong>13/13 Dayanıklılık</strong> ile başlar. Dayanıklılık bittiğinde <strong>örste yeniden dövülerek (13/13)</strong> tamir edilir! Demir, Odun ve ADA ile <strong>seviyeleri yükseltilebilir</strong>.
-        </div>
-      </div>
-
-      <div class="equip-grid">
-        ${slots.map(slot => {
-          const recipe = equipConfig[slot];
-          const item = currentEquip[slot];
-
-          if (!item) {
-            // Henüz Dövülmemiş (Craftable)
-            return `
-              <div class="equip-card" style="border-left: 4px solid #78350f;">
-                <div class="equip-card-header">
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 1.6rem;">${recipe.icon}</span>
-                    <div>
-                      <div style="font-size: 0.95rem; font-weight: 800; color: #fff;">${recipe.name} (${slotNames[slot]})</div>
-                      <div style="font-size: 0.78rem; color: #94a3b8;">Temel Güç: ${recipe.baseAtk > 0 ? `+${recipe.baseAtk} ATK ` : ''}${recipe.baseHp > 0 ? `+${recipe.baseHp} HP` : ''} • 13/13 Dayanıklılık</div>
-                    </div>
-                  </div>
-                  <span class="card-badge" style="color: #94a3b8;">Dövülmedi</span>
-                </div>
-                <div class="clean-desc" style="font-size: 0.8rem;">${recipe.desc}</div>
-                <div style="background: #120905; padding: 8px 12px; border-radius: 8px; border: 1px solid #4a2105; display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 700; color: #cbd5e1;">
-                  <span>Maliyet:</span>
-                  <span>🧩 ${recipe.cost.fragments} • ⛏️ ${recipe.cost.iron} • 🌲 ${recipe.cost.wood} • 🟣 ${recipe.cost.adAstra} ADA</span>
-                </div>
-                <button class="btn-clean btn-clean-green btn-craft-equipment" data-slot="${slot}" style="padding: 10px; font-size: 0.85rem;">
-                  🔨 ÖRSTE DÖV (13/13 DAYANIKLILIK)
-                </button>
-              </div>
-            `;
-          }
-
-          // Dövülmüş Eşya (Crafted & Equipped)
-          const reforgeCost = gameState.calculateEquipmentReforgeCost(slot);
-          const upgradeCost = gameState.calculateEquipmentUpgradeCost(slot);
-          const durPct = Math.floor((item.durability / 13) * 100);
-
-          return `
-            <div class="equip-card" style="border-left: 4px solid ${item.durability <= 0 ? '#ef4444' : '#22c55e'};">
-              <div class="equip-card-header">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <span style="font-size: 1.6rem;">${item.icon}</span>
-                  <div>
-                    <div style="font-size: 0.98rem; font-weight: 800; color: #fff;">${item.name} (${slotNames[slot]})</div>
-                    <div style="font-size: 0.78rem; color: #fde047;">Seviye ${item.level} Şampiyon Teçhizatı</div>
-                  </div>
-                </div>
-                <div style="display: flex; gap: 6px;">
-                  <span class="card-badge" style="color: #4ade80;">⚔️ +${item.atkBonus || 0} ATK</span>
-                  <span class="card-badge" style="color: #38bdf8;">❤️ +${item.hpBonus || 0} HP</span>
-                </div>
-              </div>
-
-              <!-- Dayanıklılık Çubuğu -->
-              <div style="display: flex; flex-direction: column; gap: 4px;">
-                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 700;">
-                  <span style="color: ${item.durability <= 3 ? '#ef4444' : '#cbd5e1'};">🛡️ Dayanıklılık: ${item.durability}/13 ${item.durability === 0 ? '(KIRIK - TEKRAR DÖVÜLMELİ!)' : ''}</span>
-                  <span style="color: #94a3b8;">%${durPct}</span>
-                </div>
-                <div class="equip-durability-track">
-                  <div class="equip-durability-fill" style="width: ${durPct}%;"></div>
-                </div>
-              </div>
-
-              <div class="equip-actions-grid">
-                <!-- Yeniden Döv (13/13 Durability) -->
-                <button class="btn-clean btn-clean-outline btn-reforge-equipment" data-slot="${slot}" style="font-size: 0.78rem; padding: 8px; border-color: ${item.durability < 13 ? '#facc15' : '#582a08'}; color: #fde047;" ${item.durability >= 13 ? 'disabled' : ''}>
-                  ${item.durability >= 13 ? '✅ 13/13 Sağlam' : `🔨 Tekrar Döv (${reforgeCost.ironCost}⛏️ + ${reforgeCost.woodCost}🌲 + ${reforgeCost.adAstraCost}ADA)`}
-                </button>
-
-                <!-- Geliştir (Seviye +1) -->
-                <button class="btn-clean btn-clean-green btn-upgrade-equipment" data-slot="${slot}" style="font-size: 0.78rem; padding: 8px;">
-                  ✨ Seviye ${upgradeCost.nextLevel}'e Yükselt (${upgradeCost.ironCost}⛏️ + ${upgradeCost.woodCost}🌲 + ${upgradeCost.adAstraCost}ADA)
-                </button>
-              </div>
-            </div>
-          `;
-        }).join('')}
-      </div>
-    `;
-  } else if (barracksActiveTab === 'army') {
+  } else {
+    // Default Tab: 🛡️ Ordu Yönetimi (army)
     const soldiers = state.soldierUnits || [];
     const maxSoldiers = GAME_CONFIG.MAX_SOLDIERS;
     const canBuy = soldiers.length < maxSoldiers && state.adAstraBalance >= GAME_CONFIG.SOLDIER_PRICE;
@@ -3457,7 +3496,7 @@ function initAppEvents() {
       if (res.success) {
         showToast(res.message, 'success');
         sound.playLevelUp();
-        openBarracksModal();
+        openTownZoneModal('mine', '⛏️ Maden Ocağı, Demirci & Tamirhane');
       } else {
         showToast(res.message, 'error');
       }
@@ -3465,7 +3504,7 @@ function initAppEvents() {
       return;
     }
 
-    // Demirci: Ekipmanı Yeniden Dövme (Reforge to 13/13)
+    // Demirci: Ekipmanı Yeniden Dövme / Onarım (Reforge to 13/13)
     const equipReforgeBtn = e.target.closest('.btn-reforge-equipment');
     if (equipReforgeBtn) {
       const slotKey = equipReforgeBtn.dataset.slot;
@@ -3473,7 +3512,7 @@ function initAppEvents() {
       if (res.success) {
         showToast(res.message, 'success');
         sound.playPickaxe();
-        openBarracksModal();
+        openTownZoneModal('mine', '⛏️ Maden Ocağı, Demirci & Tamirhane');
       } else {
         showToast(res.message, 'error');
       }
@@ -3489,7 +3528,7 @@ function initAppEvents() {
       if (res.success) {
         showToast(res.message, 'success');
         sound.playLevelUp();
-        openBarracksModal();
+        openTownZoneModal('mine', '⛏️ Maden Ocağı, Demirci & Tamirhane');
       } else {
         showToast(res.message, 'error');
       }
