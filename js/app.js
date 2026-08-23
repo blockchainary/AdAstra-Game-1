@@ -3996,6 +3996,13 @@ function initDevPanelEvents() {
     const level = parseInt(btn.getAttribute('data-level'), 10) || 0;
 
     switch (action) {
+      case 'vanilla-reset':
+        const vRes = gameState.vanillaReset();
+        showToast(vRes.message, 'success');
+        closeDevModal();
+        closeModal();
+        break;
+
       case 'add-wood':
         gameState.addDevResource('wood', amount);
         showToast(`🌲 +${amount.toLocaleString()} Odun eklendi!`, 'success');

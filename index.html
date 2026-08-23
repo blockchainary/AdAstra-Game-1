@@ -61,7 +61,7 @@
       </div>
     </div>
 
-    <!-- ORTA: Hızlı Menü Butonları (Şerit Menü) -->
+    <!-- ORTA: Hızlı Menü Butonları (Sadeleştirilmiş & Asla Taşmayan) -->
     <nav class="top-nav-menu">
       <button class="top-menu-btn top-menu-dashboard" id="btn-nav-dashboard" title="Krallık Kontrol Paneli & Toplu Eylemler (TAB)" style="border-color: #f59e0b; background: linear-gradient(135deg, rgba(245,158,11,0.2), rgba(120,53,15,0.4)); color: #fde047; font-weight: 800;">
         <span>🏰</span> <span>DASHBOARD</span>
@@ -69,29 +69,8 @@
       <button class="top-menu-btn" id="top-btn-inventory" title="Envanter & Çanta">
         <span>🎒</span> <span>ENVANTER</span>
       </button>
-      <button class="top-menu-btn" id="top-btn-barracks" title="Kışla & Ordu Yönetimi">
-        <span>⚔️</span> <span>KIŞLA</span>
-      </button>
-      <button class="top-menu-btn" id="top-btn-market" title="AMM Pazar Alanı">
-        <span>🏪</span> <span>PAZAR</span>
-      </button>
-      <button class="top-menu-btn" id="top-btn-tavern" title="Taverna & Güçlendirmeler">
-        <span>🍺</span> <span>TAVERNA</span>
-      </button>
-      <button class="top-menu-btn" id="top-btn-colosseum" title="Kolezyum Gladyatör Arenası">
-        <span>🏟️</span> <span>KOLEZYUM</span>
-      </button>
-      <button class="top-menu-btn top-menu-dungeon" id="top-btn-dungeon" title="Zindana Gir">
-        <span>💀</span> <span>ZİNDAN</span>
-      </button>
-      <button class="top-menu-btn" id="btn-nav-quests" title="Günlük & Haftalık Görevler (Q)" style="border-color: #f59e0b; color: #fde047;">
-        <span>📜</span> <span>GÖREVLER</span>
-      </button>
       <button class="top-menu-btn" id="btn-daily-limits" title="Haftalık Kaynak Çıkarma Limitleri">
         <span>📊</span> <span>HAFTALIK LİMİT</span>
-      </button>
-      <button class="top-menu-btn top-menu-economy" id="btn-economy-dashboard" title="10B Makro Tokenomics, Hazine & Canlı Simülatör" style="border-color: #c084fc; color: #e9d5ff;">
-        <span>📈</span> <span>EKONOMİ</span>
       </button>
     </nav>
 
@@ -434,6 +413,17 @@
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <!-- 0. BÖLÜM: Vanilla Reset (Sıfır Hesap) -->
+        <div class="dev-group" style="border: 2px solid #ec4899; background: rgba(236, 72, 153, 0.12); padding: 12px; border-radius: 8px;">
+          <div class="dev-group-title" style="color: #f472b6; font-size: 1rem;">🍦 VANILLA HESAP SIFIRLAMA (YEPYENİ BAŞLANGIÇ)</div>
+          <div style="font-size: 0.8rem; color: #cbd5e1; margin-bottom: 10px; line-height: 1.4;">
+            Hesabındaki tüm kaynakları, seviyeyi, 18 asker yuvasını, eşyaları ve zindan ilerlemesini sıfırlar. Oyuna ilk kez başlayan tertemiz bir başlangıç profili yükler.
+          </div>
+          <button class="dev-btn dev-btn-red" data-dev-action="vanilla-reset" style="width: 100%; padding: 12px; font-size: 0.95rem; font-weight: 800; background: linear-gradient(135deg, #be185d, #e11d48); border: 1px solid #f43f5e; box-shadow: 0 0 12px rgba(225,29,72,0.4);">
+            🍦 HESABI VANILLA SIFIRLA (İLK GÜN PROFİLİNE DÖN)
+          </button>
         </div>
 
         <!-- 1. BÖLÜM: Hammadde Hızlı Butonları -->

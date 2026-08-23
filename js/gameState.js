@@ -1756,6 +1756,58 @@ export class GameStateManager {
       { id: 'economy', icon: '📈', label: 'Ekonomi & Tokenomics Dashboard', shortcut: '', category: 'Panel' },
     ];
   }
+
+  // 🍦 Hesabı Tamamen Sıfırlayıp Yepyeni Bir Başlangıç Profiline Döndürür
+  vanillaReset() {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(this.storageKey);
+    }
+    const fresh = {
+      ...GAME_CONFIG.STARTING_PROFILE,
+      name: 'AlphAvax',
+      level: 1,
+      currentXp: 0,
+      stamina: GAME_CONFIG.MAX_STAMINA || 100,
+      adAstraBalance: 250,
+      inventory: {
+        wood: 0,
+        iron: 0,
+        wheat: 0,
+        fragments: 0
+      },
+      tools: {
+        axe: { durability: 100, totalGathered: 0 },
+        pickaxe: { durability: 100, totalGathered: 0 },
+        sickle: { durability: 100, totalGathered: 0 }
+      },
+      army: {
+        infantry: 0,
+        archer: 0,
+        knight: 0
+      },
+      soldierUnits: [],
+      soldiers: [],
+      warehouseLevel: 1,
+      lockedBoxes: 0,
+      arenaKeys: 0,
+      dungeonProgress: 1,
+      genesisNftMinted: false,
+      activeBuffs: {},
+      activeExpeditions: {},
+      equipment: {
+        weapon: null,
+        helmet: null,
+        armor: null,
+        legs: null,
+        boots: null
+      },
+      collectionArtifacts: this.mergeCollectionArtifacts([])
+    };
+    this.state = fresh;
+    this.saveState();
+    sound.playLevelUp();
+    return { success: true, message: '🍦 Hesabın sıfırlandı! Yepyeni bir başlangıç profili yüklendi.' };
+  }
 }
 
 export const gameState = new GameStateManager();
