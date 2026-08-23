@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AdAstra: Genesis Realm - Pixiland Edition</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+</head>
+<body>
+
+  <!-- ============================================================
+       0. CINEMATIC LOADING SCREEN
+       ============================================================ -->
+  <div id="loading-screen" class="loading-screen-overlay">
+    <div class="crystal-glow" style="font-size: 3.2rem;">⚔️</div>
+    <div class="loading-logo crystal-glow">ADASTRA: GENESIS REALM</div>
+    <div id="loading-quote" class="loading-subtext">Dağ zindan mağaraları ve canavarlar yükleniyor...</div>
+    <div class="loading-bar-container">
+      <div id="loading-bar-fill" class="loading-bar-fill"></div>
+    </div>
+    <div id="loading-percentage" style="font-family: var(--font-game); font-size: 0.95rem; font-weight: 800; color: #fde047;">%0</div>
+  </div>
+  <script>
+    // Failsafe: Loading screen her durumda 3 saniyede kapanır (JS modül hatasından bağımsız)
+    (function() {
+      var fill = document.getElementById('loading-bar-fill');
+      var pct = document.getElementById('loading-percentage');
+      var screen = document.getElementById('loading-screen');
+      var p = 0;
+      var iv = setInterval(function() {
+        p += Math.floor(Math.random() * 12) + 8;
+        if (p >= 95) { p = 95; clearInterval(iv); }
+        if (fill) fill.style.width = p + '%';
+        if (pct) pct.innerText = '%' + p;
+      }, 80);
+      setTimeout(function() {
+        clearInterval(iv);
+        if (fill) fill.style.width = '100%';
+        if (pct) pct.innerText = '%100';
+        setTimeout(function() {
+          if (screen) { screen.style.opacity = '0'; setTimeout(function(){ screen.style.display = 'none'; }, 400); }
+        }, 200);
+      }, 2500);
+    })();
+  </script>
+
+  <!-- ============================================================
+       1. TOP GAME MENU STRIP (HARİTADAN AYRI ÜST ŞERİT MENÜ)
+       ============================================================ -->
+  <header id="top-nav-strip" class="top-nav-strip">
+    <!-- SOL: Karakter Profili & Cüzdan -->
+    <div class="top-profile-badge" id="profile-badge-btn" style="cursor: pointer;" title="Karakter Seviyesi & Envanteri Aç">
+      <div class="top-avatar-frame">🧙‍♂️</div>
+      <div class="top-profile-info">
+        <div class="top-player-name">AlphAvax <span id="player-level" class="top-lvl-tag">Lv.1</span></div>
+        <div class="top-profile-sub">
+          <span style="color: #38bdf8;">⚡ <span id="stamina-text">100/100</span></span>
+          <span style="color: #c084fc;">🟣 <span id="adastra-balance">250.00</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ORTA: Hızlı Menü Butonları (Şerit Menü) -->
+    <nav class="top-nav-menu">
+      <button class="top-menu-btn top-menu-dashboard" id="btn-nav-dashboard" title="Krallık Kontrol Paneli & Toplu Eylemler (TAB)" style="border-color: #f59e0b; background: linear-gradient(135deg, rgba(245,158,11,0.2), rgba(120,53,15,0.4)); color: #fde047; font-weight: 800;">
+        <span>🏰</span> <span>DASHBOARD</span>
+      </button>
+      <button class="top-menu-btn" id="top-btn-inventory" title="Envanter & Çanta">
+        <span>🎒</span> <span>ENVANTER</span>
+      </button>
+      <button class="top-menu-btn" id="top-btn-barracks" title="Kışla & Ordu Yönetimi">
+        <span>⚔️</span> <span>KIŞLA</span>
+      </button>
+      <button class="top-menu-btn" id="top-btn-market" title="AMM Pazar Alanı">
+        <span>🏪</span> <span>PAZAR</span>
+      </button>
+      <button class="top-menu-btn" id="top-btn-tavern" title="Taverna & Güçlendirmeler">
+        <span>🍺</span> <span>TAVERNA</span>
+      </button>
+      <button class="top-menu-btn" id="top-btn-colosseum" title="Kolezyum Gladyatör Arenası">
+        <span>🏟️</span> <span>KOLEZYUM</span>
+      </button>
+      <button class="top-menu-btn top-menu-dungeon" id="top-btn-dungeon" title="Zindana Gir">
+        <span>💀</span> <span>ZİNDAN</span>
+      </button>
+      <button class="top-menu-btn" id="btn-nav-quests" title="Günlük & Haftalık Görevler (Q)" style="border-color: #f59e0b; color: #fde047;">
+        <span>📜</span> <span>GÖREVLER</span>
+      </button>
+      <button class="top-menu-btn" id="btn-daily-limits" title="Haftalık Kaynak Çıkarma Limitleri">
+        <span>📊</span> <span>HAFTALIK LİMİT</span>
+      </button>
+      <button class="top-menu-btn top-menu-economy" id="btn-economy-dashboard" title="10B Makro Tokenomics, Hazine & Canlı Simülatör" style="border-color: #c084fc; color: #e9d5ff;">
+        <span>📈</span> <span>EKONOMİ</span>
+      </button>
+    </nav>
+
+    <!-- SAĞ ÜST KÖŞE: Demir, Odun, Buğday ve Fragment (Tıklayınca İlgili Pencere Açılır) -->
+    <div class="top-resource-dock">
+      <div class="top-res-pill" id="res-pill-wheat" title="🌾 Buğday: Güneş Tarlası & Değirmen'i Açmak İçin Tıkla">
+        <span>🌾</span>
+        <span id="res-wheat">60</span>
+      </div>
+      <div class="top-res-pill" id="res-pill-wood" title="🌲 Odun: Zümrüt Ormanı & Oduncu Kulübesi'ni Açmak İçin Tıkla">
+        <span>🌲</span>
+        <span id="res-wood">40</span>
+      </div>
+      <div class="top-res-pill" id="res-pill-iron" title="⛏️ Demir: Maden Ocağı & Demirci'yi Açmak İçin Tıkla">
+        <span>⛏️</span>
+        <span id="res-iron">30</span>
+      </div>
+      <div class="top-res-pill fragment-pill" id="res-pill-fragments" title="🧩 Parça (Fragment): Silah & Zırh Dövmek / Pazar İçin Tıkla">
+        <span>🧩</span>
+        <span id="res-fragments">0</span>
+      </div>
+
+      <!-- Bildirim Çanı -->
+      <div class="notif-bell" id="btn-notif-bell" title="Bildirim Merkezi">
+        <span>🔔</span>
+        <span class="notif-badge" id="notif-badge" style="display:none;">0</span>
+      </div>
+
+      <!-- Sağ Çekmece Menü Butonu -->
+      <button id="btn-sidebar-toggle" class="sidebar-toggle-btn-inline" title="Yan Menüyü Aç / Kapat">
+        <span id="sidebar-toggle-arrow">◀</span>
+        <span>📜 MENÜ</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ============================================================
+       1.5 FIXED DUNGEON FLOOR SELECTOR (SABİT 6 KAT MENÜSÜ)
+       ============================================================ -->
+  <nav id="dungeon-floor-bar" class="dungeon-floor-nav hidden">
+    <button id="btn-dungeon-return-town" class="dungeon-home-btn" title="Kasabaya Dön">
+      <span>🏰</span> <span>KASABAYA DÖN</span>
+    </button>
+    <span class="dungeon-nav-divider"></span>
+    <button class="floor-tab active" data-floor="1"><span>👺</span> <span>1. KAT</span></button>
+    <button class="floor-tab" data-floor="2"><span>💀</span> <span>2. KAT</span></button>
+    <button class="floor-tab boss-tab" data-floor="3"><span>🗿</span> <span>3. KAT (ARA BOSS)</span></button>
+    <button class="floor-tab" data-floor="4"><span>👻</span> <span>4. KAT</span></button>
+    <button class="floor-tab" data-floor="5"><span>🌋</span> <span>5. KAT</span></button>
+    <button class="floor-tab mega-tab" data-floor="6"><span>🐉</span> <span>6. KAT (BÜYÜK BOSS)</span></button>
+    <span class="dungeon-nav-divider"></span>
+    <div class="dungeon-dock-item" title="Arena Anahtarları">🔑 <span id="dungeon-dock-keys">0</span></div>
+    <div class="dungeon-dock-item" title="Kilitli Sandıklar">📦 <span id="dungeon-dock-boxes">0</span></div>
+    <div class="dungeon-dock-item" title="Ganimet Parçaları">🧩 <span id="dungeon-dock-fragments">0</span></div>
+  </nav>
+
+  <!-- ============================================================
+       1.8 ULTRA-CRISP HTML HOVER TOOLTIP (KRİSTAL NETLİĞİNDE BAŞLIK)
+       ============================================================ -->
+  <div id="realm-hover-tooltip" class="realm-tooltip hidden">
+    <div id="realm-tooltip-title" class="realm-tooltip-title">KRALLIK MEYDANI</div>
+    <div id="realm-tooltip-sub" class="realm-tooltip-sub">Tıkla ve İncele</div>
+  </div>
+
+
+  <aside id="realm-sidebar" class="realm-sidebar">
+
+    <!-- 1. BÖLÜM: AlphAvax Karakter & Cüzdan Kartı -->
+    <div id="sidebar-character-card" class="sidebar-section sidebar-character-card" title="Karakter Gelişimi & Envanter">
+      <div class="sidebar-avatar-frame">🧙‍♂️</div>
+      <div class="sidebar-char-info">
+        <div class="sidebar-char-name">AlphAvax <span id="sidebar-player-level" class="sidebar-lvl-badge">Lv.1</span></div>
+        <div class="sidebar-stamina-row">
+          <span>⚡ STAMINA</span>
+          <span id="sidebar-stamina-text">100/100</span>
+        </div>
+        <div class="sidebar-stamina-track">
+          <div id="sidebar-stamina-fill" class="sidebar-stamina-fill" style="width: 100%;"></div>
+        </div>
+        <div class="sidebar-balance-row">
+          <span>🟣 $ADASTRA</span>
+          <span id="sidebar-adastra-balance">1,250.00</span>
+        </div>
+        <div class="sidebar-balance-row avax-row">
+          <span>🔺 AVAX</span>
+          <span id="sidebar-avax-balance">250.00</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1.5 BÖLÜM: Düşme Oranları -->
+    <div class="sidebar-section sidebar-drop-rates">
+      <div class="sidebar-section-title">🎁 ZİNDAN GANÎMET ORANLARI</div>
+      <div class="sidebar-drop-rate-item">
+        <span>🧩 Parça Şansı:</span>
+        <span id="sidebar-fragment-rate" class="drop-rate-value">1.80%</span>
+      </div>
+      <div class="sidebar-drop-rate-item">
+        <span>🎁 Kutu Şansı:</span>
+        <span id="sidebar-box-rate" class="drop-rate-value">0.0018%</span>
+      </div>
+    </div>
+
+    <!-- 2. BÖLÜM: Aktif İşçi Seferleri Takipçisi -->
+    <div class="sidebar-section sidebar-expeditions">
+      <div class="sidebar-section-title">⏳ AKTİF İŞÇİ SEFERLERİ</div>
+
+      <!-- Demir Seferi -->
+      <div class="sidebar-exp-card" data-node="iron">
+        <div class="sidebar-exp-header">
+          <span class="exp-title">⛏️ Demir Madeni</span>
+          <span id="exp-time-iron" class="sidebar-exp-time">BOŞTA</span>
+        </div>
+        <div class="sidebar-exp-track"><div id="exp-fill-iron" class="sidebar-exp-fill idle"></div></div>
+      </div>
+
+      <!-- Odun Seferi -->
+      <div class="sidebar-exp-card" data-node="wood">
+        <div class="sidebar-exp-header">
+          <span class="exp-title">🌲 Zümrüt Ormanı</span>
+          <span id="exp-time-wood" class="sidebar-exp-time">BOŞTA</span>
+        </div>
+        <div class="sidebar-exp-track"><div id="exp-fill-wood" class="sidebar-exp-fill idle"></div></div>
+      </div>
+
+      <!-- Buğday Seferi -->
+      <div class="sidebar-exp-card" data-node="wheat">
+        <div class="sidebar-exp-header">
+          <span class="exp-title">🌾 Güneş Tarlası</span>
+          <span id="exp-time-wheat" class="sidebar-exp-time">BOŞTA</span>
+        </div>
+        <div class="sidebar-exp-track"><div id="exp-fill-wheat" class="sidebar-exp-fill idle"></div></div>
+      </div>
+    </div>
+
+    <!-- 3. BÖLÜM: Global Günlük Kaynak Çıkarma Limiti -->
+    <div class="sidebar-section sidebar-daily-limits">
+      <div class="sidebar-section-title" style="display: flex; justify-content: space-between; align-items: center;">
+        <span>📊 GÜNLÜK ÇIKARMA LİMİTİ</span>
+        <span id="sidebar-reset-timer" style="font-size: 0.65rem; color: #94a3b8; font-weight: 600;">⏳ 18s 42d</span>
+      </div>
+
+      <!-- Demir Limiti -->
+      <div class="sidebar-limit-item">
+        <div class="sidebar-limit-label">
+          <span>⛏️ Demir</span>
+          <span id="sidebar-limit-text-iron">8,450 / 10,000</span>
+        </div>
+        <div class="sidebar-limit-track">
+          <div id="sidebar-limit-fill-iron" class="sidebar-limit-fill iron" style="width: 84.5%;"></div>
+        </div>
+      </div>
+
+      <!-- Odun Limiti -->
+      <div class="sidebar-limit-item">
+        <div class="sidebar-limit-label">
+          <span>🌲 Odun</span>
+          <span id="sidebar-limit-text-wood">12,200 / 15,000</span>
+        </div>
+        <div class="sidebar-limit-track">
+          <div id="sidebar-limit-fill-wood" class="sidebar-limit-fill wood" style="width: 81.3%;"></div>
+        </div>
+      </div>
+
+      <!-- Buğday Limiti -->
+      <div class="sidebar-limit-item">
+        <div class="sidebar-limit-label">
+          <span>🌾 Buğday</span>
+          <span id="sidebar-limit-text-wheat">18,000 / 20,000</span>
+        </div>
+        <div class="sidebar-limit-track">
+          <div id="sidebar-limit-fill-wheat" class="sidebar-limit-fill wheat" style="width: 90%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Hızlı Yönetim Butonları -->
+    <div class="sidebar-3d-btn-row">
+      <button id="side-btn-inventory" class="sidebar-3d-btn" title="Envanter">
+        🎒<span>ENVANTER</span>
+      </button>
+      <button id="side-btn-workers" class="sidebar-3d-btn" title="İşçiler">
+        🔨<span>İŞÇİLER</span>
+      </button>
+      <button id="side-btn-barracks" class="sidebar-3d-btn" title="Kışla: 18 Kişilik Ordu & Teçhizat Kuşanması">
+        ⚔️<span>KIŞLA</span>
+      </button>
+      <button id="side-btn-colosseum" class="sidebar-3d-btn" title="Kolezyum: 18v18 Gladyatör Arena Savaşı">
+        🏟️<span>KOLEZYUM</span>
+      </button>
+      <button id="side-btn-collection" class="sidebar-3d-btn" title="18 Parçalık NFT Koleksiyonu & Genesis Mühür">
+        👑<span>KOLEKSİYON</span>
+      </button>
+      <button id="side-btn-boxes" class="sidebar-3d-btn" title="Kilitli Kutular & Şans Sandıkları">
+        📦<span>KUTULAR</span>
+        <span id="sidebar-box-badge" class="sidebar-mini-badge hidden">0</span>
+      </button>
+    </div>
+
+  </aside>
+
+  <!-- ============================================================
+       2. FULLSCREEN PHASER VIEWPORT
+       ============================================================ -->
+  <div id="phaser-game-container"></div>
+
+  <!-- ============================================================
+       4. SIMPLIFIED CLEAN RPG MODAL OVERLAY
+       ============================================================ -->
+  <div id="rpg-modal" class="rpg-modal-overlay">
+    <div class="rpg-modal-window">
+      <div class="rpg-modal-header">
+        <div id="modal-title" class="rpg-modal-title">
+          <span>🌲</span> <span>ZÜMRÜT ORMANI</span>
+        </div>
+        <button id="btn-close-modal" class="rpg-modal-close">✕</button>
+      </div>
+      <div id="modal-body" class="rpg-modal-body">
+        <!-- Dinamik İçerik -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       5. 🧪 FLOATING TEST & DEVELOPER PANEL (TEST MENÜSÜ)
+       ============================================================ -->
+  <button id="btn-dev-panel-toggle" class="dev-panel-toggle-btn" title="Hızlı Test & Geliştirici Menüsü (Klavye Kısayolu: T)">
+    <span>🧪</span>
+    <span>TEST MENÜSÜ</span>
+  </button>
+
+  <div id="dev-modal" class="dev-modal-overlay hidden">
+    <div class="dev-modal-window">
+      <div class="dev-modal-header">
+        <div class="dev-modal-title">
+          <span>🧪</span> <span>GELİŞTİRİCİ & HIZLI TEST KONSOLU</span>
+        </div>
+        <button id="btn-close-dev-modal" class="dev-modal-close">✕</button>
+      </div>
+
+      <div class="dev-modal-body">
+        <!-- 0. ÖZEL DEBUG DÜZENLEYİCİSİ (CUSTOM VALUE INJECTOR) -->
+        <div class="dev-custom-editor-box">
+          <div class="dev-group-title">🎯 İSTEDİĞİN MİKTARI EKLE / ÇIKAR / EŞİTLE</div>
+          <div style="font-size: 0.78rem; color: #94a3b8; margin-bottom: 6px;">
+            Herhangi bir kaynağı seç, istediğin miktarı yaz ve tek tıkla hesabına ekle, çıkart veya tam o değere eşitle:
+          </div>
+          <div class="dev-custom-form-row">
+            <select id="dev-select-target" class="dev-select">
+              <option value="wood">🌲 Odun (wood)</option>
+              <option value="iron">⛏️ Demir (iron)</option>
+              <option value="wheat">🌾 Buğday (wheat)</option>
+              <option value="fragments">🧩 Parça (fragments)</option>
+              <option value="adAstra">🟣 $ADASTRA Token</option>
+              <option value="stamina">⚡ Stamina</option>
+              <option value="level">🧙‍♂️ Karakter Seviyesi</option>
+              <option value="arenaKeys">🗝️ Arena Anahtarı</option>
+              <option value="lockedBoxes">📦 Kilitli Sandık</option>
+              <option value="dungeon">💀 Zindan Seviyesi</option>
+            </select>
+            <input type="number" id="dev-input-custom-val" class="dev-input" value="1000" placeholder="Miktar..." />
+            <div class="dev-custom-actions">
+              <button id="btn-dev-custom-add" class="dev-btn dev-btn-green">➕ EKLE</button>
+              <button id="btn-dev-custom-sub" class="dev-btn dev-btn-red">➖ ÇIKAR</button>
+              <button id="btn-dev-custom-set" class="dev-btn dev-btn-gold">🎯 EŞİTLE</button>
+              <button id="btn-dev-custom-zero" class="dev-btn dev-btn-purple">🗑️ 0 YAP</button>
+            </div>
+          </div>
+
+          <!-- Canlı Bakiye Tablosu (Interactive Live Table) -->
+          <table class="dev-custom-table">
+            <tbody>
+              <tr>
+                <td class="res-name">🌲 Odun</td>
+                <td><input type="number" id="dev-live-wood" class="dev-mini-input" /></td>
+                <td>
+                  <button class="dev-mini-btn dev-btn-green" data-dev-quick="wood" data-delta="1000">+1k</button>
+                  <button class="dev-mini-btn dev-btn-green" data-dev-quick="wood" data-delta="10000">+10k</button>
+                  <button class="dev-mini-btn dev-btn-red" data-dev-quick="wood" data-delta="-1000">-1k</button>
+                  <button class="dev-mini-btn dev-btn-purple" data-dev-quick-zero="wood">Sıfırla</button>
+                </td>
+              </tr>
+              <tr>
+                <td class="res-name">⛏️ Demir</td>
+                <td><input type="number" id="dev-live-iron" class="dev-mini-input" /></td>
+                <td>
+                  <button class="dev-mini-btn dev-btn-blue" data-dev-quick="iron" data-delta="1000">+1k</button>
+                  <button class="dev-mini-btn dev-btn-blue" data-dev-quick="iron" data-delta="10000">+10k</button>
+                  <button class="dev-mini-btn dev-btn-red" data-dev-quick="iron" data-delta="-1000">-1k</button>
+                  <button class="dev-mini-btn dev-btn-purple" data-dev-quick-zero="iron">Sıfırla</button>
+                </td>
+              </tr>
+              <tr>
+                <td class="res-name">🌾 Buğday</td>
+                <td><input type="number" id="dev-live-wheat" class="dev-mini-input" /></td>
+                <td>
+                  <button class="dev-mini-btn dev-btn-yellow" data-dev-quick="wheat" data-delta="1000">+1k</button>
+                  <button class="dev-mini-btn dev-btn-yellow" data-dev-quick="wheat" data-delta="10000">+10k</button>
+                  <button class="dev-mini-btn dev-btn-red" data-dev-quick="wheat" data-delta="-1000">-1k</button>
+                  <button class="dev-mini-btn dev-btn-purple" data-dev-quick-zero="wheat">Sıfırla</button>
+                </td>
+              </tr>
+              <tr>
+                <td class="res-name">🧩 Parça</td>
+                <td><input type="number" id="dev-live-fragments" class="dev-mini-input" /></td>
+                <td>
+                  <button class="dev-mini-btn dev-btn-purple" data-dev-quick="fragments" data-delta="100">+100</button>
+                  <button class="dev-mini-btn dev-btn-purple" data-dev-quick="fragments" data-delta="1000">+1k</button>
+                  <button class="dev-mini-btn dev-btn-red" data-dev-quick="fragments" data-delta="-100">-100</button>
+                  <button class="dev-mini-btn dev-btn-purple" data-dev-quick-zero="fragments">Sıfırla</button>
+                </td>
+              </tr>
+              <tr>
+                <td class="res-name">🟣 $ADASTRA</td>
+                <td><input type="number" id="dev-live-adastra" class="dev-mini-input" /></td>
+                <td>
+                  <button class="dev-mini-btn dev-btn-gold" data-dev-quick="adAstra" data-delta="5000">+5k</button>
+                  <button class="dev-mini-btn dev-btn-gold" data-dev-quick="adAstra" data-delta="50000">+50k</button>
+                  <button class="dev-mini-btn dev-btn-red" data-dev-quick="adAstra" data-delta="-5000">-5k</button>
+                  <button class="dev-mini-btn dev-btn-purple" data-dev-quick-zero="adAstra">Sıfırla</button>
+                </td>
+              </tr>
+              <tr>
+                <td class="res-name">⚡ Stamina</td>
+                <td><input type="number" id="dev-live-stamina" class="dev-mini-input" min="0" max="100" /></td>
+                <td>
+                  <button class="dev-mini-btn dev-btn-green" data-dev-set-exact="stamina" data-val="100">100 (Full)</button>
+                  <button class="dev-mini-btn dev-btn-yellow" data-dev-set-exact="stamina" data-val="50">50</button>
+                  <button class="dev-mini-btn dev-btn-red" data-dev-set-exact="stamina" data-val="0">0 (Boş)</button>
+                </td>
+              </tr>
+              <tr>
+                <td class="res-name">🧙‍♂️ Seviye</td>
+                <td><input type="number" id="dev-live-level" class="dev-mini-input" min="1" max="81" /></td>
+                <td>
+                  <button class="dev-mini-btn dev-btn-green" data-dev-set-exact="level" data-val="1">Lv.1</button>
+                  <button class="dev-mini-btn dev-btn-yellow" data-dev-set-exact="level" data-val="18">Lv.18</button>
+                  <button class="dev-mini-btn dev-btn-gold" data-dev-set-exact="level" data-val="81">Lv.81 (MAX)</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 1. BÖLÜM: Hammadde Hızlı Butonları -->
+        <div class="dev-group">
+          <div class="dev-group-title">🪵 HIZLI HAMMADDE PAKETLERİ</div>
+          <div class="dev-btn-grid">
+            <button class="dev-btn dev-btn-green" data-dev-action="add-wood" data-amount="10000">🌲 +10k Odun</button>
+            <button class="dev-btn dev-btn-green" data-dev-action="add-wood" data-amount="50000">🌲 +50k Odun</button>
+            <button class="dev-btn dev-btn-blue" data-dev-action="add-iron" data-amount="10000">⛏️ +10k Demir</button>
+            <button class="dev-btn dev-btn-blue" data-dev-action="add-iron" data-amount="50000">⛏️ +50k Demir</button>
+            <button class="dev-btn dev-btn-yellow" data-dev-action="add-wheat" data-amount="10000">🌾 +10k Buğday</button>
+            <button class="dev-btn dev-btn-yellow" data-dev-action="add-wheat" data-amount="50000">🌾 +50k Buğday</button>
+            <button class="dev-btn dev-btn-purple" data-dev-action="add-fragments" data-amount="1000">🧩 +1k Parça</button>
+            <button class="dev-btn dev-btn-purple" data-dev-action="add-fragments" data-amount="5000">🧩 +5k Parça</button>
+          </div>
+        </div>
+
+        <!-- 2. BÖLÜM: Token & Bakiye -->
+        <div class="dev-group">
+          <div class="dev-group-title">🟣 $ADASTRA & CÜZDAN</div>
+          <div class="dev-btn-grid">
+            <button class="dev-btn dev-btn-purple" data-dev-action="add-adastra" data-amount="10000">🟣 +10,000 $ADASTRA</button>
+            <button class="dev-btn dev-btn-purple" data-dev-action="add-adastra" data-amount="100000">🟣 +100,000 $ADASTRA</button>
+            <button class="dev-btn dev-btn-cyan" data-dev-action="add-keys" data-amount="10">🗝️ +10 Arena Anahtarı</button>
+            <button class="dev-btn dev-btn-orange" data-dev-action="add-boxes" data-amount="5">📦 +5 Kilitli Kutu</button>
+          </div>
+        </div>
+
+        <!-- 3. BÖLÜM: Zamanı Hızlandır & Görevler -->
+        <div class="dev-group">
+          <div class="dev-group-title">⏩ ZAMANI HIZLANDIR & SEFERLER</div>
+          <div class="dev-btn-grid">
+            <button class="dev-btn dev-btn-cyan" data-dev-action="fast-forward" data-hours="1">⏩ +1 Saat İlerlet</button>
+            <button class="dev-btn dev-btn-cyan" data-dev-action="fast-forward" data-hours="6">⏩ +6 Saat İlerlet</button>
+            <button class="dev-btn dev-btn-cyan" data-dev-action="fast-forward" data-hours="18">⏩ +18 Saat İlerlet</button>
+            <button class="dev-btn dev-btn-cyan" data-dev-action="fast-forward" data-hours="24">⏩ +24 Saat İlerlet</button>
+            <button class="dev-btn dev-btn-gold" data-dev-action="complete-expeditions">⚡ Tüm Seferleri Bitir</button>
+            <button class="dev-btn dev-btn-gold" data-dev-action="claim-expeditions">🎁 Tüm Seferleri Topla</button>
+            <button class="dev-btn dev-btn-red" data-dev-action="reset-daily-limits">📊 Günlük Limitleri Yenile</button>
+          </div>
+        </div>
+
+        <!-- 4. BÖLÜM: Karakter & Seviye (Level) -->
+        <div class="dev-group">
+          <div class="dev-group-title">🧙‍♂️ KARAKTER SEVİYESİ & STAMINA</div>
+          <div class="dev-btn-grid">
+            <button class="dev-btn dev-btn-green" data-dev-action="refill-stamina">⚡ Stamina 100/100</button>
+            <button class="dev-btn dev-btn-yellow" data-dev-action="level-up">🆙 +1 Seviye Atla</button>
+            <button class="dev-btn dev-btn-yellow" data-dev-action="set-level" data-level="18">👑 Lv.18 Yap</button>
+            <button class="dev-btn dev-btn-yellow" data-dev-action="set-level" data-level="50">👑 Lv.50 Yap</button>
+            <button class="dev-btn dev-btn-gold" data-dev-action="set-level" data-level="81">🔥 Lv.81 (MAX LEVEL)</button>
+            <button class="dev-btn dev-btn-blue" data-dev-action="set-level" data-level="1">🔄 Lv.1'e Sıfırla</button>
+          </div>
+        </div>
+
+        <!-- 5. BÖLÜM: Ordu, Tamir & Zindan -->
+        <div class="dev-group">
+          <div class="dev-group-title">🛡️ ORDU, TAMİR & ZİNDAN</div>
+          <div class="dev-btn-grid">
+            <button class="dev-btn dev-btn-green" data-dev-action="heal-soldiers">❤️ Tüm Askerleri İyileştir (%100)</button>
+            <button class="dev-btn dev-btn-blue" data-dev-action="repair-tools">🔨 Tüm Alet & Silahları Tamir Et</button>
+            <button class="dev-btn dev-btn-purple" data-dev-action="unlock-artifacts">👑 18 NFT Eserini Aç</button>
+            <button class="dev-btn dev-btn-orange" data-dev-action="unlock-all-soldiers">⚔️ 18 Askeri Kuşandır</button>
+            <button class="dev-btn dev-btn-red" data-dev-action="set-dungeon" data-level="18">💀 Zindanı 18. Kata Aç</button>
+            <button class="dev-btn dev-btn-red" data-dev-action="set-dungeon" data-level="1">🔄 Zindanı Sıfırla (Kat 1)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Scriptler -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
+
