@@ -1588,6 +1588,106 @@ export class GameStateManager {
     };
   }
 
+  // =========================================================================
+  // 🏦 KRALLIK HAZİNESİ & ÖDÜL HAVUZLARI (TREASURY VAULT SUMMARY)
+  // =========================================================================
+  getTreasuryVaultSummary() {
+    const state = this.state;
+    const boss = this.getWorldBossInfo();
+    const colosseum = state.colosseumStats || { wins: 0, losses: 0, totalAdaWon: 0 };
+    
+    // 1. Ödül Havuzları
+    const worldBossPool = boss.weeklyAdaPool || 100000;
+    const colosseumPool = 50000 + (colosseum.wins * 350);
+    const parliamentStakingPool = 85000;
+    const dungeonLootVault = 125000;
+    const burnedNftPool = 42500 + ((state.genesisNftMinted ? 1 : 0) * 18000);
+    const totalAmmLiquidityAda = 3200000;
+
+    const totalVaultAda = worldBossPool + colosseumPool + parliamentStakingPool + dungeonLootVault + totalAmmLiquidityAda;
+
+    // 2. Kullanıcının Hak Edişleri & Payları
+    const userBossDamage = boss.userDamage || 0;
+    const maxBossHp = boss.maxBossHp || 1000000;
+    const userBossRewardEstimate = Math.floor((userBossDamage / maxBossHp) * worldBossPool);
+
+    const userStakedArmyCount = boss.userStakedSoldiersCount || 0;
+    const userStakedAtk = boss.userStakedAtk || 0;
+
+    return {
+      totalVaultAda,
+      totalAmmLiquidityAda,
+      burnedNftPool,
+      pools: [
+        {
+          id: 'world_boss',
+          name: 'Haftalık World Boss Ödül Havuzu',
+          icon: '🌋',
+          color: '#ef4444',
+          totalPoolAda: worldBossPool,
+          description: 'Her Pazar 20:00\'da kilitlenen orduların vurduğu hasara göre dağıtılır.',
+          userShareText: userBossDamage > 0 ? `%${((userBossDamage / maxBossHp) * 100).toFixed(2)} Hasar Payı (~${userBossRewardEstimate.toLocaleString()} ADA)` : (userStakedArmyCount > 0 ? `${userStakedArmyCount} Asker Kilitli (${userStakedAtk} ATK)` : 'Ordu Kilitlenmedi'),
+          userClaimableAda: 0,
+          statusBadge: userStakedArmyCount > 0 ? '🛡️ Ordu Kilitli' : '⚠️ Katılmadın',
+          actionType: 'boss',
+          actionText: '🌋 Boss Savaşına Katıl'
+        },
+        {
+          id: 'colosseum_arena',
+          name: 'Kolezyum Gladyatör Şampiyonluk Havuzu',
+          icon: '🏟️',
+          color: '#f59e0b',
+          totalPoolAda: colosseumPool,
+          description: 'Arena anahtarı kullanan gladyatörlerin dövüşlerinden biriken haftalık zafer fonu.',
+          userShareText: `${colosseum.wins || 0} Galibiyet • Kazanılan: ${(colosseum.totalAdaWon || 0).toLocaleString()} ADA`,
+          userClaimableAda: 0,
+          statusBadge: colosseum.wins > 0 ? '⚔️ Gladyatör' : 'Çaylak',
+          actionType: 'colosseum',
+          actionText: '🏟️ Arenaya Git'
+        },
+        {
+          id: 'parliament_staking',
+          name: 'AdAstra Meclisi & Staking Getiri Havuzu',
+          icon: '👑',
+          color: '#a855f7',
+          totalPoolAda: parliamentStakingPool,
+          description: 'Topluluk meclisi oylamalarına katılan ve Arena bileti sahiplerine %18 payla dağıtılan staking havuzu.',
+          userShareText: state.arenaKeys > 0 ? `${state.arenaKeys} Arena Bileti / 1:18 Oy Ağırlığı` : 'Bilet Yok (1:1 Standart Oy)',
+          userClaimableAda: 0,
+          statusBadge: '🏛️ Aktif Meclis',
+          actionType: 'parliament',
+          actionText: '🏛️ Meclis Oylaması'
+        },
+        {
+          id: 'dungeon_loot',
+          name: 'Zindan Kat & Boss Ganimet Kasası',
+          icon: '🗺️',
+          color: '#06b6d4',
+          totalPoolAda: dungeonLootVault,
+          description: '6 Katlı ve 18 Seviyeli kadim zindan canavarlarını yenen gezginlere tahsis edilen rezerv.',
+          userShareText: `İlerleme: ${state.dungeonProgress || 1}. Seviye`,
+          userClaimableAda: 0,
+          statusBadge: `Kat ${Math.ceil((state.dungeonProgress || 1) / 3)}/6`,
+          actionType: 'dungeon',
+          actionText: '💀 Zindana Gir'
+        },
+        {
+          id: 'nft_burn',
+          name: 'Deflasyonist NFT Yakım (Burn) Kasası',
+          icon: '🔥',
+          color: '#f97316',
+          totalPoolAda: burnedNftPool,
+          description: 'P2P Pazaryerindeki %18 indirimli alımlardan ve Genesis NFT üretiminden kalıcı yakılan $ADASTRA.',
+          userShareText: `${(state.collectionArtifacts || []).filter(a => a.discovered).length}/18 Eser Keşfedildi`,
+          userClaimableAda: 0,
+          statusBadge: state.genesisNftMinted ? '💎 Genesis NFT Basıldı' : '🔥 Kalıcı Yakım',
+          actionType: 'collection',
+          actionText: '👑 Koleksiyon & NFT'
+        }
+      ]
+    };
+  }
+
   claimAndRestartAllExpeditions() {
     const results = { claimed: 0, restarted: 0, totalHarvest: 0, messages: [] };
     const completed = Object.keys(this.state.activeExpeditions || {}).filter(
@@ -2190,6 +2290,7 @@ export class GameStateManager {
   getCommandPaletteActions() {
     return [
       { id: 'dashboard', icon: '🏰', label: 'Krallık Dashboard', shortcut: 'TAB', category: 'Panel' },
+      { id: 'treasury', icon: '🏦', label: 'Krallık Hazinesi & Ödül Havuzları', shortcut: 'H', category: 'Panel' },
       { id: 'forest', icon: '🌲', label: 'Zümrüt Ormanı & Oduncu', shortcut: '1 / S', category: 'Bina' },
       { id: 'mine', icon: '⛏️', label: 'Maden Ocağı & Demirci', shortcut: '2 / I', category: 'Bina' },
       { id: 'farm', icon: '🌾', label: 'Güneş Tarlası & Çiftlik', shortcut: '3 / F', category: 'Bina' },

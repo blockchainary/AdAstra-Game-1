@@ -144,7 +144,24 @@ import { chromium } from 'playwright';
       currentFloor: activeTab ? activeTab.dataset.floor : null
     };
   });
-  console.log('✅ Dungeon Floor 6 Status:', floor6Switch);
+  // TEST 6: Kingdom Treasury & Reward Pools Modal Test
+  console.log('\n[SDLC Test 6] Kingdom Treasury & Reward Pools Modal Verification...');
+  await page.click('#btn-dungeon-return-town');
+  await page.waitForTimeout(600);
+  await page.click('#btn-nav-treasury');
+  await page.waitForTimeout(600);
+
+  const treasuryTest = await page.evaluate(() => {
+    const modalTitle = document.getElementById('modal-title')?.innerText || '';
+    const modalBody = document.getElementById('modal-body')?.innerText || '';
+    return {
+      opened: modalTitle.includes('KRALLIK HAZİNESİ'),
+      hasWorldBoss: modalBody.includes('World Boss'),
+      hasColosseum: modalBody.includes('Kolezyum'),
+      hasBurnedPool: modalBody.includes('Kalıcı Yakılan')
+    };
+  });
+  console.log('✅ Treasury Vault Status:', treasuryTest);
 
   console.log('\n==================================================');
   console.log('Total Unhandled Page Errors:', errors.length);

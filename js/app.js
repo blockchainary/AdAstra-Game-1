@@ -2820,6 +2820,112 @@ function openDashboardModal() {
 }
 
 // =========================================================================
+// 4.10B KRALLIK HAZİNESİ & ÖDÜL HAVUZLARI MERKEZİ (TREASURY VAULT DASHBOARD)
+// =========================================================================
+function openTreasuryVaultModal() {
+  const summary = gameState.getTreasuryVaultSummary();
+
+  dom.modalTitle.innerHTML = `<span>🏦</span> <span>KRALLIK HAZİNESİ & ÖDÜL HAVUZLARI</span>`;
+
+  const topOverviewHtml = `
+    <div class="clean-card" style="background: linear-gradient(135deg, rgba(26,18,8,0.95), rgba(45,28,10,0.95)); border-color: #eab308; box-shadow: 0 0 25px rgba(234,179,8,0.15);">
+      <div class="card-title-row">
+        <div class="card-title" style="color: #fef08a; font-size: 1.1rem;">👑 Büyük Krallık Kasası & Tokenomics Rezervi</div>
+        <span class="card-badge" style="color: #4ade80; background: rgba(74,222,128,0.15); border: 1px solid #4ade80;">10 Yıllık Sürdürülebilir Ekonomi</span>
+      </div>
+      <div class="clean-desc" style="color: #cbd5e1; font-size: 0.84rem; line-height: 1.5; margin-top: 4px;">
+        AdAstra ekosistemindeki tüm harcamalar, pazar vergileri, arena girişleri ve NFT alımları bu ana hazinede toplanır ve topluluğa ödül olarak geri dağıtılır.
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 14px;">
+        <div style="background: #140e07; padding: 12px 14px; border-radius: 8px; border: 1px solid #583007;">
+          <div style="font-size: 0.76rem; color: #94a3b8; font-weight: 700; text-transform: uppercase;">Toplam Kilitli Ödül & Hazine</div>
+          <div style="font-size: 1.3rem; font-weight: 900; color: #fde047; margin-top: 4px;">
+            ${summary.totalVaultAda.toLocaleString('tr-TR')} <span style="font-size: 0.85rem; color: #c084fc;">$ADASTRA</span>
+          </div>
+        </div>
+        <div style="background: #140e07; padding: 12px 14px; border-radius: 8px; border: 1px solid #583007;">
+          <div style="font-size: 0.76rem; color: #94a3b8; font-weight: 700; text-transform: uppercase;">AMM Likidite Rezervi</div>
+          <div style="font-size: 1.3rem; font-weight: 900; color: #38bdf8; margin-top: 4px;">
+            ${summary.totalAmmLiquidityAda.toLocaleString('tr-TR')} <span style="font-size: 0.85rem; color: #c084fc;">$ADASTRA</span>
+          </div>
+        </div>
+        <div style="background: #140e07; padding: 12px 14px; border-radius: 8px; border: 1px solid #583007;">
+          <div style="font-size: 0.76rem; color: #94a3b8; font-weight: 700; text-transform: uppercase;">Kalıcı Yakılan (Deflasyon)</div>
+          <div style="font-size: 1.3rem; font-weight: 900; color: #f97316; margin-top: 4px;">
+            🔥 ${summary.burnedNftPool.toLocaleString('tr-TR')} <span style="font-size: 0.85rem; color: #c084fc;">$ADASTRA</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const poolsGridHtml = `
+    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 14px;">
+      <div style="font-size: 0.95rem; font-weight: 800; color: #facc15; display: flex; align-items: center; gap: 6px;">
+        <span>📊</span> <span>Aktif Ödül Havuzları ve Biriken Miktarlar</span>
+      </div>
+
+      ${summary.pools.map(pool => `
+        <div class="clean-card" style="border-color: ${pool.color}; background: #150f09; margin: 0; padding: 12px 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <span style="font-size: 2rem;">${pool.icon}</span>
+              <div>
+                <div style="font-weight: 800; font-size: 1rem; color: #fff;">${pool.name}</div>
+                <div style="font-size: 0.78rem; color: #94a3b8; margin-top: 2px; max-width: 480px; line-height: 1.3;">
+                  ${pool.description}
+                </div>
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 1.25rem; font-weight: 900; color: ${pool.color};">
+                ${pool.totalPoolAda.toLocaleString('tr-TR')} <span style="font-size: 0.8rem; color: #c084fc;">ADA</span>
+              </div>
+              <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 4px; background: rgba(255,255,255,0.08); color: #cbd5e1; font-weight: 700;">
+                ${pool.statusBadge}
+              </span>
+            </div>
+          </div>
+
+          <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #2d1806; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <div style="font-size: 0.82rem; color: #fde047;">
+              <strong>👤 Senin Durumun / Payın:</strong> <span style="color: #cbd5e1;">${pool.userShareText}</span>
+            </div>
+            <button class="btn-clean btn-clean-outline btn-treasury-action" data-action="${pool.actionType}" style="padding: 6px 14px; font-size: 0.8rem; width: auto; border-color: ${pool.color}; color: #fff;">
+              ${pool.actionText} ➔
+            </button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  dom.modalBody.innerHTML = topOverviewHtml + poolsGridHtml;
+
+  document.querySelectorAll('.btn-treasury-action').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const act = btn.dataset.action;
+      if (act === 'boss') {
+        openTownZoneModal('barracks', '⚔️ KRALLIK KIŞLASI & ASKERİ KARARGAH');
+        barracksActiveTab = 'world_boss';
+        renderBarracksContent();
+      } else if (act === 'colosseum') {
+        openTownZoneModal('colosseum', '🏟️ KOLEZYUM ARENASI & GLADYATÖR');
+      } else if (act === 'dungeon') {
+        closeModal();
+        window.dispatchEvent(new CustomEvent('enter-dungeon-view'));
+      } else if (act === 'collection') {
+        openCollectionModal();
+      } else if (act === 'parliament') {
+        showToast('🏛️ AdAstra Meclisi: Topluluk oylamaları ve NFT pazar indirimleri aktiftir.', 'info');
+      }
+    });
+  });
+
+  displayModal();
+}
+
+// =========================================================================
 // 4.11 SMART ARMORY (AKILLI SİLAH DEPOSU & ENTITLE MATRİSİ)
 // =========================================================================
 function openSmartArmoryModal() {
@@ -3306,6 +3412,7 @@ function executeCommand(actionId) {
   closeCommandPalette();
   switch (actionId) {
     case 'dashboard': openDashboardModal(); break;
+    case 'treasury': openTreasuryVaultModal(); break;
     case 'forest': openTownZoneModal('forest', '🌲 Zümrüt Ormanı & Oduncu'); break;
     case 'mine': openTownZoneModal('mine', '⛏️ Maden Ocağı & Tamirhane'); break;
     case 'farm': openTownZoneModal('farm', '🌾 Güneş Tarlası & Değirmen'); break;
@@ -3435,6 +3542,9 @@ function initAppEvents() {
   // ÜST ŞERİT MENÜ BUTONLARI (TOP NAV STRIP BUTTONS)
   const btnNavDash = document.getElementById('btn-nav-dashboard');
   if (btnNavDash) btnNavDash.addEventListener('click', openDashboardModal);
+
+  const btnNavTreasury = document.getElementById('btn-nav-treasury');
+  if (btnNavTreasury) btnNavTreasury.addEventListener('click', openTreasuryVaultModal);
 
   const btnNotifBell = document.getElementById('btn-notif-bell');
   if (btnNotifBell) btnNotifBell.addEventListener('click', toggleNotificationPanel);
