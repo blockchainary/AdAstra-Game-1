@@ -2917,12 +2917,21 @@ function openSmartArmoryModal() {
 // 4.12 SAVAŞ ÖNCESİ TAKTİK & FORMASYON HAZIRLIĞI (PRE-BATTLE FORMATION)
 // =========================================================================
 let preBattleProtectWeapons = false;
-let preBattleSelectedSoldiers = Array.from({ length: 18 }, (_, i) => i);
+let preBattleSelectedSoldiers = [0];
 
 function openPreBattleModal(monster) {
   dom.modalTitle.innerHTML = `<span>⚔️</span> <span>SAVAŞ ÖNCESİ TAKTİK FORMASYON HAZIRLIĞI</span>`;
 
   const state = gameState.state;
+  const soldiers = state.soldierUnits || [];
+  const totalSoldiers = soldiers.length;
+
+  // Sadece var olan asker indekslerini seçili tut
+  preBattleSelectedSoldiers = preBattleSelectedSoldiers.filter(idx => idx < totalSoldiers);
+  if (preBattleSelectedSoldiers.length === 0 && totalSoldiers > 0) {
+    preBattleSelectedSoldiers = Array.from({ length: totalSoldiers }, (_, i) => i);
+  }
+
   const prediction = gameState.getBattlePrediction(monster.hp, monster.atk, preBattleSelectedSoldiers, preBattleProtectWeapons);
 
   const enemyCardHtml = `
@@ -2956,10 +2965,21 @@ function openPreBattleModal(monster) {
     </div>
   `;
 
-  const armySelectHtml = `
+  const armySelectHtml = totalSoldiers === 0 ? `
+    <div class="prebattle-army-panel" style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:24px 16px;">
+      <div style="font-size:2.2rem; margin-bottom:6px;">⚠️</div>
+      <div style="font-weight:800; font-size:1rem; color:#f87171;">Ordunuzda Asker Bulunmuyor!</div>
+      <div style="font-size:0.8rem; color:#cbd5e1; margin-top:6px; max-width:260px; line-height:1.4;">
+        Zindan canavarlarıyla savaşmak için Kışla binasından yeni askerler eğitmelisiniz.
+      </div>
+      <button class="btn-clean btn-clean-gold" id="btn-goto-barracks-prebattle" style="margin-top:14px; width:auto; padding:8px 18px;">
+        ⚔️ Kışlaya Git & Asker Eğit
+      </button>
+    </div>
+  ` : `
     <div class="prebattle-army-panel">
       <div style="font-weight:800; font-size:0.9rem; color:#34d399; margin-bottom:6px; display:flex; justify-content:space-between;">
-        <span>🛡️ Savaşa Girecek Askerler (${preBattleSelectedSoldiers.length}/18)</span>
+        <span>🛡️ Savaşa Girecek Askerler (${preBattleSelectedSoldiers.length}/${totalSoldiers})</span>
       </div>
 
       <div class="prebattle-weapon-toggle ${preBattleProtectWeapons ? 'active' : ''}" id="btn-toggle-weapon-protection">
@@ -2971,7 +2991,7 @@ function openPreBattleModal(monster) {
       </div>
 
       <div style="max-height:220px; overflow-y:auto; padding-right:4px;">
-        ${(state.soldierUnits || []).map((sol, idx) => {
+        ${soldiers.map((sol, idx) => {
           const stats = gameState.getSoldierFullStats(idx);
           const isChecked = preBattleSelectedSoldiers.includes(idx);
           return `
@@ -2996,11 +3016,18 @@ function openPreBattleModal(monster) {
       <button class="btn-clean btn-clean-outline" id="btn-cancel-prebattle" style="width:auto; padding:10px 20px;">
         🏳️ Vazgeç
       </button>
-      <button class="btn-clean btn-clean-green" id="btn-start-tactical-battle" style="width:auto; padding:10px 28px; font-weight:800; font-size:0.95rem;">
+      <button class="btn-clean btn-clean-green" id="btn-start-tactical-battle" style="width:auto; padding:10px 28px; font-weight:800; font-size:0.95rem;" ${totalSoldiers === 0 ? 'disabled' : ''}>
         ⚔️ SAVAŞA BAŞLA
       </button>
     </div>
   `;
+
+  const barracksBtn = document.getElementById('btn-goto-barracks-prebattle');
+  if (barracksBtn) {
+    barracksBtn.addEventListener('click', () => {
+      openTownZoneModal('barracks', '⚔️ KRALLIK KIŞLASI & ASKERİ KARARGAH');
+    });
+  }
 
   const weaponToggle = document.getElementById('btn-toggle-weapon-protection');
   if (weaponToggle) {
@@ -3045,22 +3072,29 @@ function executeMonsterBattle(monster, selectedIndices, protectWeapons) {
   const state = gameState.state;
   const soldiers = state.soldierUnits || [];
 
-  let playerSquad = selectedIndices.map(idx => {
-    const stats = gameState.getSoldierFullStats(idx) || { totalAtk: 20, totalMaxHp: 100 };
-    const sol = soldiers[idx];
-    let atk = stats.totalAtk;
-    if (protectWeapons && sol.equipment?.weapon) {
-      atk -= (sol.equipment.weapon.atkBonus || 0);
-    }
-    return {
-      idx,
-      name: sol.name,
-      icon: BARRACKS_CLASS_ICONS[sol.class] || '🛡️',
-      hp: sol.hp != null ? sol.hp : 100,
-      maxHp: stats.totalMaxHp,
-      atk
-    };
-  });
+  let playerSquad = selectedIndices
+    .filter(idx => soldiers[idx])
+    .map(idx => {
+      const stats = gameState.getSoldierFullStats(idx) || { totalAtk: 20, totalMaxHp: 100 };
+      const sol = soldiers[idx];
+      let atk = stats.totalAtk;
+      if (protectWeapons && sol.equipment?.weapon) {
+        atk -= (sol.equipment.weapon.atkBonus || 0);
+      }
+      return {
+        idx,
+        name: sol.name,
+        icon: BARRACKS_CLASS_ICONS[sol.class] || '🛡️',
+        hp: sol.hp != null ? sol.hp : 100,
+        maxHp: stats.totalMaxHp,
+        atk
+      };
+    });
+
+  if (playerSquad.length === 0) {
+    showToast('Savaşa katılacak geçerli bir asker bulunamadı!', 'error');
+    return;
+  }
 
   const playerTotalHp = playerSquad.reduce((s, u) => s + u.hp, 0);
   const playerTotalAtk = playerSquad.reduce((s, u) => s + u.atk, 0);
