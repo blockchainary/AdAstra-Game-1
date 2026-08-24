@@ -4,6 +4,8 @@
 
 Bu depo, **AdAstra Token ($ADASTRA)** ekonomisi üzerine kurulu, Phaser 3 Canvas grafik motoru ve Vanilla ES6+ modüler State Yönetim Mimarisiyle geliştirilmiş **AdAstra: Genesis Realm** oyununun tam kaynak kodlarını içerir.
 
+📖 **Kapsamlı Ekonomi & Oyun Tasarım Dokümanı (Whitepaper):** [docs/GAME_DESIGN_AND_ECONOMY_WHITEPAPER.md](docs/GAME_DESIGN_AND_ECONOMY_WHITEPAPER.md)
+
 ---
 
 ## 🏗️ Proje Mimarisi ve Teknoloji Yığını
@@ -12,6 +14,7 @@ Bu depo, **AdAstra Token ($ADASTRA)** ekonomisi üzerine kurulu, Phaser 3 Canvas
 * **Build & Dev Server:** Vite 5 (`vite --port 5173`).
 * **Test & Doğrulama:** Node.js ES Modules test suiteleri & Playwright E2E otomasyon testleri.
 * **Blockchain Entegrasyonu:** Avalanche C-Chain ($ADASTRA Tokenomics, Pangolin DEX AMM modeli, Hazine & Burn Mekanizması).
+* **Kapsamlı Dokümantasyon:** [Oyun & Ekonomi Whitepaper'ı](docs/GAME_DESIGN_AND_ECONOMY_WHITEPAPER.md)
 
 ---
 
@@ -20,6 +23,8 @@ Bu depo, **AdAstra Token ($ADASTRA)** ekonomisi üzerine kurulu, Phaser 3 Canvas
 ```
 adastra-realm/
 ├── index.html                 # Ana HTML5 UI Shell, Üst Bilgi Barı, HUD & Modal İskeleti
+├── docs/                      # 📚 Kapsamlı Dokümantasyon & Whitepaper
+│   └── GAME_DESIGN_AND_ECONOMY_WHITEPAPER.md # Tam Oyun Tasarımı & 10 Yıllık Tokenomics
 ├── vite.config.js             # Vite geliştirme ve port yapılandırması
 ├── package.json               # Bağımlılıklar ve npm scriptleri
 │
