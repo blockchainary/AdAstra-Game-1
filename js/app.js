@@ -3729,10 +3729,6 @@ function initAppEvents() {
       showToast(`🔒 Şu an Seviye ${currentLevel}'desiniz! [Seviye ${monster.level}] ${monster.name} bölümüne girmek için önce Seviye ${currentLevel} ve önceki bölümleri tamamlamalısınız.`, 'error');
       return;
     }
-    if (monster.level < currentLevel) {
-      showToast(`✅ [Seviye ${monster.level}] ${monster.name} zaten tamamlandı! Sıradaki Seviye ${currentLevel}'e ilerleyin.`, 'info');
-      return;
-    }
     openPreBattleModal(monster);
   });
 

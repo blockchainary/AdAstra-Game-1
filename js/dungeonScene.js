@@ -280,11 +280,6 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   createMonsterZone(m, chamberIndex = 0) {
-    const currentLevel = gameState.state.dungeonProgress || 1;
-    const isCleared = currentLevel > m.level;
-    const isCurrent = currentLevel === m.level;
-    const isLocked = currentLevel < m.level;
-
     // Şeffaf İnteraktif Tıklama Alanı (Görseldeki taş kartların üzerine %100 oturur)
     const zone = this.add.rectangle(m.x, m.y, m.bw, m.bh, 0x000000, 0)
       .setInteractive({ useHandCursor: true });
@@ -292,15 +287,20 @@ export class DungeonScene extends Phaser.Scene {
     if (!this.activeZones) this.activeZones = [];
     this.activeZones.push(zone);
 
-    // Hover esnasında temiz HTML tooltip göster
+    // Hover esnasında dinamik kontrol ile tooltip göster
     zone.on('pointerover', (pointer) => {
+      const currentLevel = gameState.state.dungeonProgress || 1;
+      const isCleared = currentLevel > m.level;
+      const isCurrent = currentLevel === m.level;
+      const isLocked = currentLevel < m.level;
+
       const tooltipEl = document.getElementById('realm-hover-tooltip');
       const titleEl = document.getElementById('realm-tooltip-title');
       const subEl = document.getElementById('realm-tooltip-sub');
       if (tooltipEl && titleEl && subEl) {
         titleEl.textContent = `Chamber ${chamberIndex + 1} — Lv.${m.level}: ${m.name}`;
         titleEl.style.color = isCurrent ? '#fde047' : (isCleared ? '#4ade80' : '#a8a29e');
-        subEl.textContent = isCurrent ? '⚔️ Tıkla ve Savaşa Gir!' : (isCleared ? '✅ Tamamlandı' : '🔒 Kilitli Seviye');
+        subEl.textContent = isLocked ? `🔒 Kilitli (Önce Seviye ${currentLevel} tamamlanmalı)` : (isCurrent ? '⚔️ Tıkla ve Savaşa Gir!' : '⚔️ Tamamlandı (Tekrar Savaş)');
         tooltipEl.classList.remove('hidden');
         tooltipEl.classList.add('visible');
         tooltipEl.style.left = `${pointer.x}px`;
@@ -334,13 +334,8 @@ export class DungeonScene extends Phaser.Scene {
       const rpgModal = document.getElementById('rpg-modal');
       if (rpgModal && rpgModal.classList.contains('active')) return;
 
-      if (isCleared) {
-        window.dispatchEvent(new CustomEvent('toast-notify', {
-          detail: { message: `✅ [Seviye ${m.level}] ${m.name} zaten tamamlandı!`, type: 'info' }
-        }));
-        return;
-      }
-      if (isLocked) {
+      const currentLevel = gameState.state.dungeonProgress || 1;
+      if (m.level > currentLevel) {
         window.dispatchEvent(new CustomEvent('toast-notify', {
           detail: {
             message: `🔒 Şu an Seviye ${currentLevel}'desiniz! [Seviye ${m.level}] ${m.name} bölümüne girmek için önce Seviye ${currentLevel} ve önceki bölümleri tamamlamalısınız.`,
@@ -349,6 +344,7 @@ export class DungeonScene extends Phaser.Scene {
         }));
         return;
       }
+
       sound.playPickaxe();
       window.dispatchEvent(new CustomEvent('open-monster-battle', { detail: { monster: m } }));
     });
