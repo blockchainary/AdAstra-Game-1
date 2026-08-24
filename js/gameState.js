@@ -1996,7 +1996,7 @@ export class GameStateManager {
   }
 
   // =========================================================================
-  // SAVAŞ ALANI: HAFTALIK WORLD BOSS ORDU STAKE ETKİNLİĞİ
+  // SAVAŞ ALANI: HAFTALIK WORLD BOSS ORDU STAKE & OTOMATİK SAVAŞ (PAZAR 18:00 TSİ)
   // =========================================================================
   getWorldBossInfo() {
     if (!this.state.worldBoss) {
@@ -2012,17 +2012,42 @@ export class GameStateManager {
         totalStakedHp: 0,
         userStaked: false,
         userDamage: 0,
-        userStakedSoldiersCount: 0
+        userStakedSoldiersCount: 0,
+        userStakedAtk: 0,
+        userStakedHp: 0,
+        claimableRewardAda: 0,
+        totalClaimedAda: 0,
+        lastBattleTimestamp: null
       };
     } else {
-      // Kullanıcı ordusunu henüz kilitlemediyse varsayılan değerler 0 olmalıdır
       if (!this.state.worldBoss.userStaked) {
         this.state.worldBoss.stakedArmyCount = 0;
         this.state.worldBoss.totalStakedAtk = 0;
         this.state.worldBoss.totalStakedHp = 0;
       }
+      if (this.state.worldBoss.claimableRewardAda == null) {
+        this.state.worldBoss.claimableRewardAda = 0;
+      }
     }
     return this.state.worldBoss;
+  }
+
+  // Kullanıcının ordusunun Pazar 18:00 TSİ savaşındaki hasar gücünü hesaplar:
+  // Her 1 ATK = 1:1 rasyo, Her 1 HP = 1:0.25 rasyo
+  calculateUserWorldBossPower() {
+    const boss = this.getWorldBossInfo();
+    const atk = boss.userStakedAtk || 0;
+    const hp = boss.userStakedHp || 0;
+    const calculatedDamage = Math.floor((atk * 1.0) + (hp * 0.25));
+    const estimatedAda = Math.floor((calculatedDamage * boss.weeklyAdaPool) / boss.maxBossHp);
+    return {
+      atk,
+      hp,
+      atkContribution: Math.floor(atk * 1.0),
+      hpContribution: Math.floor(hp * 0.25),
+      calculatedDamage,
+      estimatedAda
+    };
   }
 
   stakeArmyForWorldBoss() {
@@ -2053,42 +2078,69 @@ export class GameStateManager {
     boss.totalStakedAtk = (boss.totalStakedAtk || 0) + userAtk;
     boss.totalStakedHp = (boss.totalStakedHp || 0) + userHp;
 
+    const power = this.calculateUserWorldBossPower();
+
     sound.playLevelUp();
     this.saveState();
 
     return {
       success: true,
-      message: `🛡️ ${soldiers.length} kişilik ordun (${userAtk} ATK / ${userHp} HP) Pazar günkü World Boss savaşı için başarıyla kilitlendi!`,
-      boss
+      message: `🛡️ ${soldiers.length} kişilik ordun (${userAtk} ATK + ${userHp} HP ➔ ${power.calculatedDamage.toLocaleString()} Hasar Gücü) Pazar 18:00 TSİ otomatik World Boss savaşı için başarıyla kilitlendi!`,
+      boss,
+      power
     };
   }
 
-  attackWorldBoss() {
+  // Her Pazar TSİ 18:00'da tek seferlik otomatik savaş simülasyonu
+  executeSundayAutoWorldBossBattle() {
     const boss = this.getWorldBossInfo();
     if (!boss.userStaked) {
-      return { success: false, message: 'Savaşa katılmak için önce ordunuzu kilitlemelisiniz!' };
+      return { success: false, message: 'Kilitli ordunuz bulunmadığı için bu haftaki savaşa dahil olunamadı.' };
     }
 
-    // Kullanıcının ordusunun verdiği toplam hasar
-    const userAtk = boss.userStakedAtk || 500;
-    const damageDealt = Math.floor(userAtk * (1.8 + Math.random() * 0.4));
+    const power = this.calculateUserWorldBossPower();
+    const damageDealt = power.calculatedDamage;
+
     boss.userDamage = (boss.userDamage || 0) + damageDealt;
     boss.bossHp = Math.max(0, boss.bossHp - damageDealt);
 
-    // Hasar Başına Tekil ADA Dağıtım Hesaplaması: (damageDealt / maxBossHp) * weeklyAdaPool
-    const rewardAda = Math.max(1, Math.floor((damageDealt / boss.maxBossHp) * boss.weeklyAdaPool));
-    this.state.adAstraBalance += rewardAda;
+    // Hasara göre kazanılan ADA ödülü claim havuzuna eklenir:
+    const rewardAda = Math.max(1, Math.floor((damageDealt * boss.weeklyAdaPool) / boss.maxBossHp));
+    boss.claimableRewardAda = (boss.claimableRewardAda || 0) + rewardAda;
+    boss.lastBattleTimestamp = Date.now();
 
-    sound.playPickaxe();
+    sound.playLevelUp();
     this.saveState();
 
     return {
       success: true,
       damageDealt,
-      totalUserDamage: boss.userDamage,
-      remainingBossHp: boss.bossHp,
       rewardAda,
-      message: `💥 Ordun World Boss'a ${damageDealt.toLocaleString()} HASAR vurdu ve payına ${rewardAda.toLocaleString()} $ADASTRA düştü!`
+      claimableRewardAda: boss.claimableRewardAda,
+      message: `💥 Pazar 18:00 TSİ World Boss savaşı otomatik tamamlandı! Ordun ${damageDealt.toLocaleString()} Hasar vurdu. ${rewardAda.toLocaleString()} $ADASTRA ödülün toplanmaya hazır!`
+    };
+  }
+
+  // Kullanıcının World Boss ekranına düşen ADA ödülünü cüzdanına çekmesi (Claim)
+  claimWorldBossReward() {
+    const boss = this.getWorldBossInfo();
+    const claimable = boss.claimableRewardAda || 0;
+    if (claimable <= 0) {
+      return { success: false, message: 'Toplanacak World Boss ödülü bulunmuyor!' };
+    }
+
+    this.state.adAstraBalance += claimable;
+    boss.totalClaimedAda = (boss.totalClaimedAda || 0) + claimable;
+    boss.claimableRewardAda = 0;
+
+    sound.playLevelUp();
+    this.saveState();
+
+    return {
+      success: true,
+      claimedAda: claimable,
+      newBalance: this.state.adAstraBalance,
+      message: `🎁 ${claimable.toLocaleString()} $ADASTRA World Boss ödülü başarıyla cüzdanına aktarıldı!`
     };
   }
 

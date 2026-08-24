@@ -2087,6 +2087,8 @@ function openBattlefieldModal() {
   const soldiers = state.soldierUnits || [];
   const hasSoldiers = soldiers.length > 0;
   const isStaked = boss.userStaked;
+  const power = gameState.calculateUserWorldBossPower();
+  const claimable = boss.claimableRewardAda || 0;
 
   dom.modalTitle.innerHTML = `<span>🌋</span> <span>BÜYÜK SAVAŞ ALANI & WORLD BOSS ETKİNLİĞİ</span>`;
 
@@ -2094,51 +2096,61 @@ function openBattlefieldModal() {
     <div class="clean-card" style="border-color: #ef4444; background: #1c0a0a;">
       <div class="card-title-row">
         <div class="card-title">🌋 Haftalık Savaş Alanı & World Boss Etkinliği</div>
-        <span class="card-badge" style="color: #fde047;">Ödül Havuzu: 🟣 ${boss.weeklyAdaPool.toLocaleString()} ADA</span>
+        <span class="card-badge" style="color: #fde047; border-color: #fde047;">Ödül Havuzu: 🟣 ${boss.weeklyAdaPool.toLocaleString()} ADA</span>
       </div>
-      <div class="clean-desc">
-        Pazartesi'den Cumartesi'ye kadar (6 gün) tüm ordunu silah ve zırhlarıyla bu alana kilitle! Pazar günü devasa World Boss uyanır. Orduların vurduğu toplam hasar oranına göre <strong>100.000 $ADASTRA ödül havuzu</strong> hasar payı oranında tüm katılımcılara paylaştırılır.
+      <div class="clean-desc" style="line-height: 1.5; color: #cbd5e1;">
+        ⏰ <strong>Otomatik Savaş Mekaniği:</strong> Oyuncular manuel saldırmaz. Hafta boyunca kilitlenen orduların saldırı ve can puanları üzerinden toplam hasar gücü hesaplanır. <strong>Her Pazar TSİ 18:00'da</strong> savaşlar tek seferlik <strong>otomatik</strong> gerçekleşir ve hak edilen $ADASTRA ödülü bu ekrana düşer.
+      </div>
+      <div style="margin-top: 8px; background: rgba(0,0,0,0.35); padding: 8px 12px; border-radius: 6px; border: 1px dashed #ef4444; font-size: 0.8rem; color: #fca5a5;">
+        📐 <strong>Hasar Formülü:</strong> Hasar = (Toplam ATK × 1.0) + (Toplam HP × 0.25) <span style="color:#fde047;">(ATK 1:1 rasyo • HP 1:0.25 rasyo)</span>
       </div>
     </div>
 
-    <!-- Toplam Stake Edilen Ordular Widget'ı -->
+    <!-- 1. KULLANICININ KİLİTLİ ORDUSU & GÜÇ HESABI -->
     <div class="clean-card" style="background: #140e08; border-color: #ca8a04;">
-      <div style="font-weight: 800; font-size: 0.95rem; color: #fde047; margin-bottom: 10px;">
-        🏰 Krallık Genelinde Kilitlenen Toplam Ordular:
+      <div class="card-title-row">
+        <div style="font-weight: 800; font-size: 0.95rem; color: #fde047;">
+          🛡️ Senin Kilitlediğin Ordu & Hasar Potansiyeli
+        </div>
+        <span class="card-badge" style="color: ${isStaked ? '#4ade80' : '#f97316'}; border-color: ${isStaked ? '#4ade80' : '#f97316'};">
+          ${isStaked ? '✅ SAVAŞ İÇİN KİLİTLENDİ' : '⚠️ ORDU KİLİTLENMEDİ'}
+        </span>
       </div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-top: 8px;">
         <div style="background: #0f0a06; padding: 10px; border-radius: 6px; border: 1px solid #4a250a; text-align: center;">
-          <div style="font-size: 0.75rem; color: #94a3b8;">Kilitlenen Asker</div>
-          <div style="font-size: 1.15rem; font-weight: 800; color: #38bdf8;">⚔️ ${boss.stakedArmyCount.toLocaleString()} Asker</div>
+          <div style="font-size: 0.72rem; color: #94a3b8;">Kilitli Asker</div>
+          <div style="font-size: 1.1rem; font-weight: 800; color: #38bdf8;">⚔️ ${boss.userStakedSoldiersCount || 0} Asker</div>
         </div>
         <div style="background: #0f0a06; padding: 10px; border-radius: 6px; border: 1px solid #4a250a; text-align: center;">
-          <div style="font-size: 0.75rem; color: #94a3b8;">Toplam Ordu Saldırısı</div>
-          <div style="font-size: 1.15rem; font-weight: 800; color: #4ade80;">💥 ${boss.totalStakedAtk.toLocaleString()} ATK</div>
+          <div style="font-size: 0.72rem; color: #94a3b8;">Saldırı Gücü (1:1)</div>
+          <div style="font-size: 1.1rem; font-weight: 800; color: #4ade80;">💥 +${power.atkContribution.toLocaleString()}</div>
         </div>
         <div style="background: #0f0a06; padding: 10px; border-radius: 6px; border: 1px solid #4a250a; text-align: center;">
-          <div style="font-size: 0.75rem; color: #94a3b8;">Toplam Ordu Canı</div>
-          <div style="font-size: 1.15rem; font-weight: 800; color: #facc15;">❤️ ${boss.totalStakedHp.toLocaleString()} HP</div>
+          <div style="font-size: 0.72rem; color: #94a3b8;">Can Katkısı (1:0.25)</div>
+          <div style="font-size: 1.1rem; font-weight: 800; color: #facc15;">❤️ +${power.hpContribution.toLocaleString()}</div>
+        </div>
+        <div style="background: #0f0a06; padding: 10px; border-radius: 6px; border: 1px solid #eab308; text-align: center;">
+          <div style="font-size: 0.72rem; color: #fef08a; font-weight: 700;">HESAPLANAN HASAR</div>
+          <div style="font-size: 1.25rem; font-weight: 900; color: #fde047;">🎯 ${power.calculatedDamage.toLocaleString()}</div>
         </div>
       </div>
 
-      <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center; background: #0c0805; padding: 10px 14px; border-radius: 8px;">
-        <div>
-          <div style="font-weight: 700; color: #fff; font-size: 0.88rem;">Senin Kilitlediğin Ordu:</div>
-          <div style="font-size: 0.78rem; color: ${isStaked ? '#4ade80' : '#94a3b8'};">
-            ${isStaked ? `✅ ${boss.userStakedSoldiersCount} Asker (${boss.userStakedAtk} ATK / ${boss.userStakedHp} HP) Kilitlendi!` : 'Henüz ordunu kilitlemedin.'}
-          </div>
+      <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center; background: #0c0805; padding: 10px 14px; border-radius: 8px; flex-wrap: wrap; gap: 8px;">
+        <div style="font-size: 0.82rem; color: #cbd5e1;">
+          🔮 <strong>Tahmini Pazar Günü Kazancı:</strong> <span style="color: #fde047; font-weight: 800;">~${power.estimatedAda.toLocaleString()} $ADASTRA</span>
         </div>
-        <button id="btn-stake-army-boss" class="btn-clean ${isStaked ? 'btn-clean-outline' : 'btn-clean-gold'}" style="width: auto; padding: 8px 18px;" ${!hasSoldiers || isStaked ? 'disabled' : ''}>
-          ${isStaked ? '✅ Ordun Kilitlendi' : '🛡️ Tüm Ordumu Kilitle (6 Gün)'}
+        <button id="btn-stake-army-boss" class="btn-clean ${isStaked ? 'btn-clean-outline' : 'btn-clean-gold'}" style="width: auto; padding: 8px 18px;" ${!hasSoldiers ? 'disabled' : ''}>
+          ${isStaked ? '🔄 Kilitli Orduyu Güncelle' : '🛡️ Tüm Ordumu Kilitle (Pazar 18:00 İçin)'}
         </button>
       </div>
     </div>
 
-    <!-- World Boss Savaş Alanı Kartı -->
+    <!-- 2. WORLD BOSS CANI & SAVAŞ ZAMANI -->
     <div class="clean-card" style="background: #1c0808; border-color: #ef4444; margin-top: 10px;">
       <div class="card-title-row">
         <div class="card-title">${boss.icon} ${boss.name}</div>
-        <span class="card-badge" style="color: #ef4444;">Pazar Günü Savaş Etkinliği</span>
+        <span class="card-badge" style="color: #ef4444;">Pazar 18:00 TSİ Otomatik Savaş</span>
       </div>
 
       <div style="margin: 10px 0;">
@@ -2151,15 +2163,28 @@ function openBattlefieldModal() {
         </div>
       </div>
 
-      <div style="background: #0f0505; padding: 10px; border-radius: 6px; font-size: 0.82rem; color: #cbd5e1; line-height: 1.4; margin-bottom: 10px;">
-        📊 <strong>Hasar Başına ADA Dağıtım Oranı:</strong> 1 Hasar = ${(boss.weeklyAdaPool / boss.maxBossHp).toFixed(3)} $ADASTRA
-        <br>Senin Verdiğin Toplam Hasar: <span style="color:#4ade80; font-weight:800;">${(boss.userDamage || 0).toLocaleString()} Hasar</span>
-        • Kazandığın Ödül: <span style="color:#fde047; font-weight:800;">🟣 ${Math.floor(((boss.userDamage || 0) / boss.maxBossHp) * boss.weeklyAdaPool).toLocaleString()} ADA</span>
+      <div style="background: #0f0505; padding: 10px 14px; border-radius: 6px; font-size: 0.82rem; color: #cbd5e1; line-height: 1.5; margin-bottom: 10px;">
+        <div>📊 <strong>Hasar Başına ADA Dağıtım Oranı:</strong> 1 Hasar = ${(boss.weeklyAdaPool / boss.maxBossHp).toFixed(3)} $ADASTRA</div>
+        <div>💥 <strong>Önceki Savaşta Verdiğin Toplam Hasar:</strong> <span style="color:#4ade80; font-weight:800;">${(boss.userDamage || 0).toLocaleString()} Hasar</span></div>
       </div>
 
-      <button id="btn-attack-world-boss" class="btn-clean btn-clean-red" style="font-size: 1.02rem; padding: 12px; font-weight: 800;" ${!isStaked || boss.bossHp <= 0 ? 'disabled' : ''}>
-        ${!isStaked ? '⚠️ Önce Ordunu Kilitlemelisin' : boss.bossHp <= 0 ? '🏆 Boss Yenildi! Ödüller Dağıtıldı' : '💥 World Boss\'a Saldır & ADA Payını Al'}
-      </button>
+      <!-- 3. ÖDÜL TOPLAMA (CLAIM) BÖLÜMÜ -->
+      <div style="background: linear-gradient(135deg, rgba(34,197,94,0.1), rgba(234,179,8,0.15)); border: 1px solid #eab308; border-radius: 8px; padding: 14px; text-align: center; margin-top: 10px;">
+        <div style="font-size: 0.85rem; color: #94a3b8; font-weight: 700; text-transform: uppercase;">Toplanmaya Hazır World Boss Ödülün</div>
+        <div style="font-size: 1.8rem; font-weight: 900; color: #fde047; margin: 4px 0;">
+          🟣 ${claimable.toLocaleString()} <span style="font-size: 1rem; color: #c084fc;">$ADASTRA</span>
+        </div>
+        <button id="btn-claim-world-boss-reward" class="btn-clean ${claimable > 0 ? 'btn-clean-gold' : 'btn-clean-outline'}" style="font-size: 1.05rem; padding: 12px 24px; font-weight: 800; margin-top: 6px; box-shadow: ${claimable > 0 ? '0 0 20px rgba(234,179,8,0.4)' : 'none'};" ${claimable <= 0 ? 'disabled' : ''}>
+          ${claimable > 0 ? `🎁 Hak Edilen ${claimable.toLocaleString()} ADA Ödülünü Topla (Claim)` : '⏳ Pazar 18:00 Savaşı Bekleniyor (Ödül Yok)'}
+        </button>
+      </div>
+
+      <!-- Hızlı Test Butonu -->
+      <div style="margin-top: 10px; text-align: right;">
+        <button id="btn-dev-simulate-sunday-boss" class="btn-clean btn-clean-sm btn-clean-outline" style="font-size: 0.75rem; color: #f472b6; border-color: #ec4899; width: auto; padding: 4px 10px;">
+          ⚡ [Test] Pazar 18:00 Savaşını Şimdi Simüle Et
+        </button>
+      </div>
     </div>
   `;
 
@@ -4075,12 +4100,17 @@ function initAppEvents() {
           const stRes = gameState.stakeArmyForWorldBoss();
           toastMsg = stRes.message;
           break;
+        case 'simulate_sunday_boss':
         case 'attack_boss':
           if (!gameState.state.worldBoss || !gameState.state.worldBoss.userStaked) {
             gameState.stakeArmyForWorldBoss();
           }
-          const atkRes = gameState.attackWorldBoss();
+          const atkRes = gameState.executeSundayAutoWorldBossBattle();
           toastMsg = atkRes.message;
+          break;
+        case 'claim_boss':
+          const clRes = gameState.claimWorldBossReward();
+          toastMsg = clRes.message;
           break;
         case 'enable_bot':
           gameState.activateTavernBuff('auto_collector_monthly', 30);
@@ -4407,9 +4437,9 @@ function initAppEvents() {
       return;
     }
 
-    // World Boss: Saldırı & ADA Ödülü
-    if (e.target.closest('#btn-attack-world-boss')) {
-      const res = gameState.attackWorldBoss();
+    // World Boss: Hak Edilen Ödülü Topla (Claim)
+    if (e.target.closest('#btn-claim-world-boss-reward')) {
+      const res = gameState.claimWorldBossReward();
       if (res.success) {
         showToast(res.message, 'success');
         openBattlefieldModal();
@@ -4420,12 +4450,12 @@ function initAppEvents() {
       return;
     }
 
-    // World Boss: Saldırı & ADA Ödülü
-    if (e.target.closest('#btn-attack-world-boss')) {
-      const res = gameState.attackWorldBoss();
+    // World Boss: Pazar 18:00 Savaşını Simüle Et (Test)
+    if (e.target.closest('#btn-dev-simulate-sunday-boss')) {
+      const res = gameState.executeSundayAutoWorldBossBattle();
       if (res.success) {
         showToast(res.message, 'success');
-        openBarracksModal();
+        openBattlefieldModal();
       } else {
         showToast(res.message, 'error');
       }

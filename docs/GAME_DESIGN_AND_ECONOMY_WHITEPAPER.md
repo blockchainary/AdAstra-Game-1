@@ -200,14 +200,23 @@ Sandıklardan hiçbir hammadde çıkmaz; **%100 oranında sadece 18 Koleksiyon E
 
 ---
 
-## 11. 🌋 Haftalık World Boss Ordu Staking Etkinliği
+## 11. 🌋 Haftalık World Boss Ordu Staking & Otomatik Savaş (Pazar 18:00 TSİ)
 
-Her Pazar günü saat 20:00'da **Kadim Kıyamet Behemoth'u (1.000.000 HP)** krallığa saldırır.
+Her Pazar günü **TSİ 18:00'da** **Kadim Kıyamet Behemoth'u (1.000.000 HP)** savaşı tek seferlik ve **otomatik** olarak gerçekleşir.
 
-- **Ordu Kilitleme (Staking):** Oyuncular tüm ordularını kilitler (Toplam ATK ve HP havuza eklenir).
-- **Haftalık 100.000 $ADASTRA Ödülü:** Boss'a verilen toplam hasar oranına göre haftalık ödül havuzu tüm katılımcılara dağıtılır:
+### 🛡️ Savaş & Hasar Kuralları:
+- **Manuel Saldırı Yoktur:** Oyuncular ekrandaki butona basarak kendileri manuel saldırmazlar. Hafta boyunca kilitlenen orduların güçleri üzerinden otomatik hesaplama yapılır.
+- **Hasar Formülü (ATK 1:1 & HP 1:0.25 Rasyosu):**
+  - Her 1 Saldırı Puanı (ATK) = 1.0 Hasar (1:1 Rasyo)
+  - Her 1 Can Puanı (HP) = 0.25 Hasar (1:0.25 Rasyo)
 
-$$\text{Kazanılan ADA} = \left( \frac{\text{Verilen Hasar}}{\text{Maksimum Boss Canı}} \right) \times 100.000 \text{ ADA}$$
+$$\text{Hesaplanan Hasar} = (\text{Toplam Kilitli ATK} \times 1.0) + (\text{Toplam Kilitli HP} \times 0.25)$$
+
+- **Haftalık 100.000 $ADASTRA Ödül Dağıtımı & Claim:**
+  - Savaş Pazar TSİ 18:00'da simüle edildiğinde, kazanılan ADA doğrudan oyuncunun World Boss paneline **Toplanabilir Ödül (Claimable)** olarak düşer.
+  - Oyuncu dilediği zaman **"🎁 Hak Edilen Ödülü Topla"** butonuyla ödülünü cüzdanına aktarır:
+
+$$\text{Kazanılan ADA} = \left( \frac{\text{Hesaplanan Hasar}}{\text{Maksimum Boss Canı (1.000.000)}} \right) \times 100.000 \text{ ADA}$$
 
 ---
 
