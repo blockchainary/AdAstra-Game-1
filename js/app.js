@@ -189,10 +189,10 @@ function renderTopBar() {
 
   dom.adAstraBalance.innerText = state.adAstraBalance.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  dom.resWheat.innerText = state.inventory.wheat || 0;
-  dom.resWood.innerText = state.inventory.wood || 0;
-  dom.resIron.innerText = state.inventory.iron || 0;
-  if (dom.resFragments) dom.resFragments.innerText = state.inventory.fragments || 0;
+  dom.resWheat.innerText = (Number(state.inventory.wheat) || 0).toFixed(2);
+  dom.resWood.innerText = (Number(state.inventory.wood) || 0).toFixed(2);
+  dom.resIron.innerText = (Number(state.inventory.iron) || 0).toFixed(2);
+  if (dom.resFragments) dom.resFragments.innerText = (Number(state.inventory.fragments) || 0).toFixed(2);
 
   if (dom.sidebarBoxBadge) {
     const boxCount = state.lockedBoxes || 0;
@@ -810,10 +810,10 @@ function openInventoryModal() {
     <div class="clean-card">
       <div class="card-title">📦 Depolanan Hammaddeler</div>
       <div class="inv-grid">
-        <div class="inv-slot"><div class="inv-icon">🌲</div><div class="inv-qty">${wood}</div><div class="inv-name">Odun</div></div>
-        <div class="inv-slot"><div class="inv-icon">⛏️</div><div class="inv-qty">${iron}</div><div class="inv-name">Demir</div></div>
-        <div class="inv-slot"><div class="inv-icon">🌾</div><div class="inv-qty">${wheat}</div><div class="inv-name">Buğday</div></div>
-        <div class="inv-slot"><div class="inv-icon">🧩</div><div class="inv-qty">${state.inventory.fragments || 0}</div><div class="inv-name">Parça</div></div>
+        <div class="inv-slot"><div class="inv-icon">🌲</div><div class="inv-qty">${(Number(wood) || 0).toFixed(2)}</div><div class="inv-name">Odun</div></div>
+        <div class="inv-slot"><div class="inv-icon">⛏️</div><div class="inv-qty">${(Number(iron) || 0).toFixed(2)}</div><div class="inv-name">Demir</div></div>
+        <div class="inv-slot"><div class="inv-icon">🌾</div><div class="inv-qty">${(Number(wheat) || 0).toFixed(2)}</div><div class="inv-name">Buğday</div></div>
+        <div class="inv-slot"><div class="inv-icon">🧩</div><div class="inv-qty">${(Number(state.inventory.fragments) || 0).toFixed(2)}</div><div class="inv-name">Parça</div></div>
       </div>
     </div>
 
@@ -2817,21 +2817,21 @@ function openDashboardModal() {
         <div class="dashboard-widget-title"><span>📦</span> <span>Depo Kapasitesi (${summary.warehouseCapacity} Birim)</span></div>
         <div class="dashboard-stat-row">
           <span>🌲 Odun (%${summary.woodPct})</span>
-          <span class="dashboard-stat-value">${summary.inventory.wood || 0}</span>
+          <span class="dashboard-stat-value">${(Number(summary.inventory.wood) || 0).toFixed(2)}</span>
         </div>
         <div class="dashboard-mini-bar">
           <div class="dashboard-mini-bar-fill" style="width:${summary.woodPct}%; background:#10b981;"></div>
         </div>
         <div class="dashboard-stat-row" style="margin-top:6px;">
           <span>⛏️ Demir (%${summary.ironPct})</span>
-          <span class="dashboard-stat-value">${summary.inventory.iron || 0}</span>
+          <span class="dashboard-stat-value">${(Number(summary.inventory.iron) || 0).toFixed(2)}</span>
         </div>
         <div class="dashboard-mini-bar">
           <div class="dashboard-mini-bar-fill" style="width:${summary.ironPct}%; background:#0284c7;"></div>
         </div>
         <div class="dashboard-stat-row" style="margin-top:6px;">
           <span>🌾 Buğday (%${summary.wheatPct})</span>
-          <span class="dashboard-stat-value">${summary.inventory.wheat || 0}</span>
+          <span class="dashboard-stat-value">${(Number(summary.inventory.wheat) || 0).toFixed(2)}</span>
         </div>
         <div class="dashboard-mini-bar">
           <div class="dashboard-mini-bar-fill" style="width:${summary.wheatPct}%; background:#f59e0b;"></div>

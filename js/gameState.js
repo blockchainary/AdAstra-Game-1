@@ -238,8 +238,8 @@ export class GameStateManager {
       }
 
       if (hpGain > 0) {
-        this.state.inventory.wheat = Math.max(0, availableWheat - wheatCost);
-        soldier.hp = Math.min(maxHp, currentHp + hpGain);
+        this.state.inventory.wheat = Math.max(0, Math.round((availableWheat - wheatCost) * 100) / 100);
+        soldier.hp = Math.min(maxHp, Math.round((currentHp + hpGain) * 100) / 100);
         changed = true;
       }
     });
