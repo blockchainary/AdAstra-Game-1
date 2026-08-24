@@ -2,15 +2,20 @@
 export const GAME_CONFIG = {
   EPOCH_DURATION_SECONDS: 24 * 3600, // 24 Saatlik Günlük Havuz
   
-  // Stamina
+  // Stamina — v2: 3 paralel sefer HER seviyede mümkün olacak şekilde kalibre edildi.
+  // v1'de max = 100+20(L-1) iken maliyet = 25+12(L-1) idi; 3 sefer Lv.3'ten itibaren
+  // imkânsız hâle geliyordu (bkz. denetim bulgusu F-14).
   MAX_STAMINA: 100,
-  STAMINA_COST_PER_EXPEDITION: 25,
-  STAMINA_NATURAL_REGEN_INTERVAL: 180,
+  STAMINA_MAX_PER_LEVEL: 25,          // max = 100 + 25·(L-1)
+  STAMINA_COST_PER_EXPEDITION: 20,    // maliyet = 20 + 8·(L-1)
+  STAMINA_COST_PER_LEVEL: 8,
+  STAMINA_NATURAL_REGEN_INTERVAL: 150,
   STAMINA_INSTANT_REFILL_ADASTRA_COST: 50,
-  
-  // %18 Matematiksel Denge
-  TOKEN_BURN_RATE: 0.18,
-  TOKEN_REWARD_POOL_RATE: 0.82,
+
+  // %22 Yakım — v2: sink kapsamı genişletildiği için oran yükseltildi.
+  // Artık asker alımı, AMM ücreti, iyileştirme ve tamir de muhasebeleşiyor (F-06).
+  TOKEN_BURN_RATE: 0.22,
+  TOKEN_REWARD_POOL_RATE: 0.78,
   TOOL_REPAIR_RESOURCE_RATIO: 0.18,
 
   // =========================================================================
@@ -140,13 +145,30 @@ export const GAME_CONFIG = {
     10: { iron: 450, wood: 300, fragments: 80, adAstra: 5000 }
   },
 
-  // AMM Likidite Havuzları Taban - Tavan Fiyat Koridoru (ADA Cinsinden)
+  // ═══════════════════════════════════════════════════════════════════════
+  // AMM FİYAT KORİDORU — v2: ARTIK GERÇEKTEN UYGULANIYOR (F-04)
+  // ═══════════════════════════════════════════════════════════════════════
+  // YASA 3: "Kıt olan pahalıdır." Haftalık küresel kota 180.000 odunsa odun
+  // ucuz olamaz. Fiyatlar kota kıtlığına göre yeniden türetildi:
+  //   odun  180.000/hafta × 2,50 =   450.000 ADA
+  //   demir 130.000/hafta × 4,00 =   520.000 ADA
+  //   buğday 490.000/hafta × 0,90 = 441.000 ADA
+  //   ────────────────────────────────────────────
+  //   Tüm evrenin haftalık emek geliri = 1.411.000 ADA (v1'de 6.264 ADA idi)
   AMM_CORRIDORS: {
-    iron: { minPriceAda: 0.15, maxPriceAda: 1.20, defaultPriceAda: 0.40 },
-    wood: { minPriceAda: 0.10, maxPriceAda: 0.90, defaultPriceAda: 0.30 },
-    wheat: { minPriceAda: 0.08, maxPriceAda: 0.75, defaultPriceAda: 0.25 },
-    fragments: { minPriceAda: 1.50, maxPriceAda: 12.00, defaultPriceAda: 4.50 }
+    wood:      { minPriceAda: 1.20, maxPriceAda: 6.00,  defaultPriceAda: 2.50 },
+    iron:      { minPriceAda: 2.00, maxPriceAda: 9.00,  defaultPriceAda: 4.00 },
+    wheat:     { minPriceAda: 0.45, maxPriceAda: 2.20,  defaultPriceAda: 0.90 },
+    fragments: { minPriceAda: 20.0, maxPriceAda: 120.0, defaultPriceAda: 45.0 },
+    boxes:     { minPriceAda: 400,  maxPriceAda: 2500,  defaultPriceAda: 900 },
+    keys:      { minPriceAda: 150,  maxPriceAda: 900,   defaultPriceAda: 350 }
   },
+
+  // Swap ücreti: yarısı yakılır, yarısı likiditeye kalır (F-07)
+  AMM_FEE_RATE: 0.003,
+  AMM_FEE_BURN_SHARE: 0.5,
+  // Fiyat koridoru dışına çıkan işlemler reddedilir; hazine buyback devreye girer
+  AMM_MAX_SLIPPAGE_PER_TX: 0.12,
 
   // Karakter Seviye Atlama Maliyetleri (Level Up Requirements)
   MAX_PLAYER_LEVEL: 81,
@@ -161,7 +183,13 @@ export const GAME_CONFIG = {
   // =========================================================================
   // SOLDIER & MILITARY SYSTEM (SOLDIERS)
   // =========================================================================
-  SOLDIER_PRICE: 18000,
+  // v2: Sabit 18.000 ADA yerine ARTAN MALİYET EĞRİSİ (F-08 / F-13).
+  // cost(n) = 400 · n^1.85 → 1. asker 400, 6. asker 11.006, 18. asker 84.007 ADA.
+  // Amaç: F2P ilk 48 saatte orduya kavuşsun, 18 kişilik tam kadro uzun vadeli
+  // bir ADA sink'i olsun. Toplam: 573.288 ADA (v1: 324.000 sabit).
+  SOLDIER_PRICE: 400,                 // geriye dönük uyumluluk: 1. askerin fiyatı
+  SOLDIER_COST_BASE: 400,
+  SOLDIER_COST_EXPONENT: 1.85,
   MAX_SOLDIERS: 18,
   SOLDIER_MAX_HP: 100,
   SOLDIER_HEAL_DURATION_MINUTES: 1080,
@@ -262,14 +290,20 @@ export const GAME_CONFIG = {
     }
   },
 
-  // Taverna Güçlendirmeleri & Otomasyon Botları
+  // ═══════════════════════════════════════════════════════════════════════
+  // TAVERNA — v2 fiyatlaması (F-17)
+  // ═══════════════════════════════════════════════════════════════════════
+  // v1'de 45.000 ADA'lık iksir verimi HİÇ artırmıyordu; 40 ADA'lık eski
+  // `speed_wood` buff'ı ise hem süreyi hem verimi 1,5× yapıyordu. Yani pahalı
+  // ürün ucuzdan 1.125 kat daha kötüydü. Eski buff'lar kaldırıldı, iksirler
+  // artık HEM süreyi HEM verimi çarpıyor ve yeni gelir düzeyine göre fiyatlandı.
   TAVERN_BUFFS: {
     auto_collector: {
       id: 'auto_collector',
       name: 'Günlük Otomatik Toplama & Tamir Botu (24 Saat)',
       icon: '🤖',
       durationSeconds: 24 * 3600,
-      costAdAstra: 23500,
+      costAdAstra: 1800,
       desc: 'Seferler bittiğinde kaynakları otomatik toplar, aletleri depodaki hammaddeyle otomatik tamir eder ve seferi kesintisiz sürdürür.'
     },
     auto_collector_weekly: {
@@ -277,7 +311,7 @@ export const GAME_CONFIG = {
       name: 'Haftalık Otomatik Toplama & Tamir Botu (7 Gün)',
       icon: '🤖',
       durationSeconds: 7 * 24 * 3600,
-      costAdAstra: 140000,
+      costAdAstra: 10700,
       desc: '7 gün boyunca tüm seferleri otomatik toplar, depodaki hammaddeyle aletleri otomatik onarır ve seferleri sürdürür (%15 İndirimli).'
     },
     auto_collector_monthly: {
@@ -285,40 +319,36 @@ export const GAME_CONFIG = {
       name: 'Aylık Otomatik Toplama & Tamir Botu (30 Gün)',
       icon: '🤖',
       durationSeconds: 30 * 24 * 3600,
-      costAdAstra: 490000,
+      costAdAstra: 37800,
       desc: '30 gün boyunca kesintisiz tam otomasyon! Kaynakları toplar, aletleri otomatik tamir eder ve seferleri yönetir (%30 İndirimli).'
     },
     speed_potion_1: {
       id: 'speed_potion_1',
-      name: 'Kısa Darbe İksiri (1.50x Hız)',
+      name: 'Kısa Darbe İksiri (1.50x Hız & Verim)',
       icon: '⚡',
       durationSeconds: 2 * 3600,
-      costAdAstra: 4500,
+      costAdAstra: 350,
       speedMultiplier: 1.50,
-      desc: '2 saat boyunca tüm seferlerin süresini 1.50 kat hızlandırır.'
+      desc: '2 saat boyunca seferlerin hem süresini hem verimini 1.50 kat artırır.'
     },
     speed_potion_2: {
       id: 'speed_potion_2',
-      name: 'Standart Sefer İksiri (1.75x Hız)',
+      name: 'Standart Sefer İksiri (1.75x Hız & Verim)',
       icon: '⚡',
       durationSeconds: 6 * 3600,
-      costAdAstra: 15000,
+      costAdAstra: 1200,
       speedMultiplier: 1.75,
-      desc: '6 saat boyunca tüm seferlerin süresini 1.75 kat hızlandırır.'
+      desc: '6 saat boyunca seferlerin hem süresini hem verimini 1.75 kat artırır.'
     },
     speed_potion_3: {
       id: 'speed_potion_3',
-      name: 'Büyük Sefer İksiri (2.00x Hız - Balina)',
+      name: 'Büyük Sefer İksiri (2.00x Hız & Verim)',
       icon: '⚡',
       durationSeconds: 24 * 3600,
-      costAdAstra: 45000,
+      costAdAstra: 4200,
       speedMultiplier: 2.00,
-      desc: '24 saat boyunca tüm seferlerin süresini 2.00 kat (2 kat) hızlandırır.'
-    },
-    // Geriye dönük uyumluluk
-    speed_wood: { id: 'speed_wood', name: 'Hızlı Odunculuk', icon: '🌲', durationSeconds: 24 * 3600, costAdAstra: 40, speedMultiplier: 1.5 },
-    speed_iron: { id: 'speed_iron', name: 'Hızlı Madencilik', icon: '⛏️', durationSeconds: 24 * 3600, costAdAstra: 40, speedMultiplier: 1.5 },
-    speed_wheat: { id: 'speed_wheat', name: 'Hızlı Hasat', icon: '🌾', durationSeconds: 24 * 3600, costAdAstra: 40, speedMultiplier: 1.5 }
+      desc: '24 saat boyunca seferlerin hem süresini hem verimini 2.00 kat artırır.'
+    }
   },
   
   // =========================================================================
@@ -430,6 +460,213 @@ export const GAME_CONFIG = {
     icon: '🏆',
     requiredArtifacts: 18,
     adAstraCost: 500
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // ⚔️  SAVAŞ MOTORU v2 — SINIFLAR, ELEMENTLER, MEVZİ
+  // ═══════════════════════════════════════════════════════════════════════
+  // v1'de her asker `class: 'warrior'`, `baseAtk: 20` idi; savaş iki HP
+  // yığınının toplamıydı ve "tüm askerleri gönder" baskın stratejiydi (F-19).
+  // v2'de dört sınıfın dört ayrı rolü, gerçek bir tur sırası ve mevzi var.
+  COMBAT: {
+    ARMOR_CONSTANT: 120,        // zırh azaltması: 1 - zırh/(zırh+120), asla %100 olmaz
+    BASE_CRIT_DAMAGE: 1.75,
+    FRONTLINE_COVER: 0.85,      // ön saf ayaktayken saldırıların %85'i ön safa gider
+    MAX_ROUNDS: 30,
+    // Alan hasarı en fazla 4 hedef vurur. Sınırsız bırakılırsa "yarma" saldırısı
+    // ordu büyüklüğüyle doğrusal ölçeklenir ve 18 kişilik kadro cezalandırılır.
+    MAX_AOE_TARGETS: 4,
+    RAGE_AFTER_ROUND: 12,       // 12. turdan sonra düşman her tur güçlenir
+    RAGE_PER_ROUND: 0.18,
+    // Yenilgi bedeli: ölüm yok ama "yaralı" durumu var
+    WOUNDED_RECOVERY_HOURS: 6,
+    FIELD_HOSPITAL_ADA_PER_HP: 2.2
+  },
+
+  COMBAT_CLASSES: {
+    guardian: {
+      id: 'guardian', name: 'Kraliyet Muhafızı', icon: '🛡️', preferredRow: 'front',
+      hpMult: 1.35, atkMult: 0.75, baseArmor: 55, baseSpeed: 8, baseCrit: 0.05, basePen: 0,
+      cooldown: 3,
+      ability: 'Kalkan Duvarı',
+      desc: 'Düşman ateşini üzerine çeker (taunt), zırhını %45 artırır ve kalkan kazanır. Safı ayakta tutan birim.'
+    },
+    ranger: {
+      id: 'ranger', name: 'Zümrüt Okçusu', icon: '🏹', preferredRow: 'back',
+      hpMult: 0.75, atkMult: 1.25, baseArmor: 15, baseSpeed: 14, baseCrit: 0.28, basePen: 40,
+      cooldown: 2,
+      ability: 'Delici Ok',
+      desc: 'Zırhı tamamen yok sayan 1,65× hasar. Arka saftaki büyücü ve şifacıları infaz eder.'
+    },
+    mage: {
+      id: 'mage', name: 'Element Büyücüsü', icon: '🔮', preferredRow: 'back',
+      hpMult: 0.70, atkMult: 1.15, baseArmor: 10, baseSpeed: 11, baseCrit: 0.15, basePen: 25,
+      cooldown: 3,
+      ability: 'Element Patlaması',
+      desc: 'Tüm düşman safına 0,8× hasar + elementine göre yanma / donma / zehir uygular.'
+    },
+    paladin: {
+      id: 'paladin', name: 'Paladin Şampiyonu', icon: '⚔️', preferredRow: 'front',
+      hpMult: 1.15, atkMult: 1.00, baseArmor: 38, baseSpeed: 10, baseCrit: 0.12, basePen: 15,
+      cooldown: 3,
+      ability: 'Kutsal Işık',
+      desc: 'En yaralı müttefiki iyileştirir, lanetleri temizler. Pasif: savaşta bir kez düşen müttefiki %25 canla ayağa kaldırır.'
+    }
+  },
+
+  // Element üçgeni: Ateş → Doğa → Buz → Ateş
+  ELEMENT_TRIANGLE: {
+    fire:    { name: 'Ateş',  icon: '🔥', strongVs: 'nature' },
+    nature:  { name: 'Doğa',  icon: '🌿', strongVs: 'ice' },
+    ice:     { name: 'Buz',   icon: '❄️', strongVs: 'fire' },
+    neutral: { name: 'Nötr',  icon: '⚪', strongVs: null },
+    STRONG_MULT: 1.35,
+    WEAK_MULT: 0.75
+  },
+
+  // Haftalık rotasyonlu kat etkileri — aynı zindan her hafta farklı oynanır
+  DUNGEON_MODIFIERS: [
+    { id: 'lava', name: 'Kaynayan Zemin', desc: 'Her tur tüm birimler 18 yanma hasarı alır.', kind: 'dot', magnitude: 18 },
+    { id: 'gloom', name: 'Kadim Karanlık', desc: 'Tüm iyileştirmeler %50 azalır.', kind: 'healCut', magnitude: 0.5 },
+    { id: 'gale', name: 'Fırtına Rüzgârı', desc: 'Arka saf koruması zayıflar: sızma şansı iki katına çıkar.', kind: 'coverCut', magnitude: 0.7 },
+    { id: 'ironstorm', name: 'Demir Fırtınası', desc: 'Tüm birimlerin zırhı %25 azalır.', kind: 'armorCut', magnitude: 0.25 },
+    { id: 'blessing', name: 'Yıldız Kutsaması', desc: 'Tüm müttefikler +%12 saldırı gücü kazanır.', kind: 'allyBuff', magnitude: 0.12 }
+  ],
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 💀 ZİNDAN KOŞUSU — sonsuz farm yerine günlük hak + azalan getiri (F-01)
+  // ═══════════════════════════════════════════════════════════════════════
+  DUNGEON: {
+    DAILY_RUNS: 5,                    // günde 5 koşu hakkı
+    RUN_STAMINA_COST: 15,
+    ROOMS_PER_RUN: 3,                 // 2 normal oda + 1 kat muhafızı
+    FIRST_CLEAR_MULTIPLIER: 1.0,      // ilk temizlemede tam ödül
+    REPEAT_MULTIPLIER: 0.15,          // tekrarlarda %15
+    // Odalar arası iyileşme YOK — kaynak yönetimi savaşın parçası
+    INTER_ROOM_HEAL: 0,
+    // Ganimet oranları (v1'de ölü koddaydı, artık canlı savaş yoluna bağlı)
+    FRAGMENT_DROP_BASE: 0.35,
+    FRAGMENT_DROP_PER_LEVEL: 0.012,
+    BOX_DROP_BASE: 0.02,
+    BOX_DROP_PER_LEVEL: 0.004,
+    BOSS_DROP_MULTIPLIER: 2.5,
+    FIRST_CLEAR_GUARANTEED_FRAGMENTS: 3
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🏟️ KOLEZYUM — anahtar tüketilir, ELO eşleşmesi, beş lig (F-02 / F-20)
+  // ═══════════════════════════════════════════════════════════════════════
+  COLOSSEUM: {
+    ENTRY_KEY_COST: 1,
+    ENTRY_STAMINA_COST: 12,
+    DAILY_MATCH_CAP: 10,
+    STARTING_RATING: 1000,
+    K_FACTOR: 32,
+    // Rakip artık oyuncudan türetilmez; puana göre NPC kadro havuzundan seçilir
+    OPPONENT_POWER_TOLERANCE: 0.18,
+    LEAGUES: [
+      { id: 'bronze',   name: 'Bronz Lig',        icon: '🥉', minRating: 0,    weeklyAda: 400,   weeklyKeys: 1 },
+      { id: 'silver',   name: 'Gümüş Lig',        icon: '🥈', minRating: 1100, weeklyAda: 1200,  weeklyKeys: 2 },
+      { id: 'gold',     name: 'Altın Lig',        icon: '🥇', minRating: 1300, weeklyAda: 3500,  weeklyKeys: 3 },
+      { id: 'diamond',  name: 'Elmas Lig',        icon: '💎', minRating: 1550, weeklyAda: 9000,  weeklyKeys: 5 },
+      { id: 'champion', name: 'Şampiyonlar Ligi', icon: '👑', minRating: 1800, weeklyAda: 25000, weeklyKeys: 8 }
+    ]
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🌋 WORLD BOSS — gerçek zamanlayıcı, fazlar, gerçek stake kilidi (F-03/F-21)
+  // ═══════════════════════════════════════════════════════════════════════
+  WORLD_BOSS: {
+    BATTLE_DAY_UTC: 0,          // 0 = Pazar
+    BATTLE_HOUR_UTC: 15,        // 15:00 UTC = 18:00 TSİ
+    BASE_HP: 1000000,
+    HP_GROWTH_ON_SURVIVE: 1.25, // öldürülemezse boss güçlenir, havuz devreder
+    // Stake edilen ordu Pazar'a kadar zindanda ve arenada KULLANILAMAZ
+    LOCK_UNTIL_BATTLE: true,
+    // Rol katkısı: dengeli kadro tek tip ordudan daha çok hasar üretir
+    ROLE_SYNERGY: { guardian: 0.22, ranger: 0.30, mage: 0.28, paladin: 0.20 },
+    SYNERGY_MAX_BONUS: 0.35,
+    PHASES: [
+      { atPct: 0.66, name: 'Kanatlar Açılıyor', text: 'Behemoth arka safı hedeflemeye başladı!' },
+      { atPct: 0.33, name: 'Kıyamet Öfkesi',    text: 'Boss çıldırdı — hasarı ve hızı arttı!' }
+    ]
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🏦 HAZİNE DEFTERİ — YASA 1: ödül basılmaz, transfer edilir (F-05)
+  // ═══════════════════════════════════════════════════════════════════════
+  TREASURY_ALLOCATION: { dungeon: 0.34, arena: 0.22, worldBoss: 0.20, ammBuyback: 0.16, season: 0.08 },
+  TREASURY_POOL_NAMES: {
+    dungeon: 'Zindan Ganimet Kasası',
+    arena: 'Kolezyum Şampiyonluk Havuzu',
+    worldBoss: 'World Boss Ödül Havuzu',
+    ammBuyback: 'AMM Likidite & Buyback Rezervi',
+    season: 'Sezon & Staking Havuzu'
+  },
+  TREASURY_TARGET_RESERVE: { dungeon: 180000, arena: 120000, worldBoss: 110000, ammBuyback: 90000, season: 45000 },
+  TREASURY_MIN_PAYOUT_RATIO: 0.15,   // havuz boşalsa bile ödül tamamen sıfırlanmaz
+  TREASURY_SINGLE_DRAW_CAP: 0.02,    // tek ödül havuzun en fazla %2'sini çekebilir
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🎲 EKİPMAN EKLENTİLERİ (AFFIX) — aynı kılıç artık iki oyuncuda aynı değil
+  // ═══════════════════════════════════════════════════════════════════════
+  EQUIPMENT_AFFIXES: [
+    { id: 'sharp',    name: 'Keskin',     icon: '🗡️', stat: 'atk',       tiers: [4, 9, 16],       weight: 22 },
+    { id: 'sturdy',   name: 'Sağlam',     icon: '🛡️', stat: 'armor',     tiers: [6, 13, 24],      weight: 22 },
+    { id: 'vital',    name: 'Dirençli',   icon: '❤️', stat: 'hp',        tiers: [18, 40, 75],     weight: 20 },
+    { id: 'swift',    name: 'Çevik',      icon: '💨', stat: 'speed',     tiers: [2, 4, 7],        weight: 14 },
+    { id: 'deadly',   name: 'Ölümcül',    icon: '🎯', stat: 'crit',      tiers: [0.03, 0.06, 0.10], weight: 12 },
+    { id: 'piercing', name: 'Delici',     icon: '🔺', stat: 'pen',       tiers: [8, 18, 32],      weight: 7 },
+    { id: 'vampiric', name: 'Kan Emici',  icon: '🩸', stat: 'lifesteal', tiers: [0.04, 0.08, 0.14], weight: 3 }
+  ],
+  AFFIX_RARITY: [
+    { id: 'common',    name: 'Yaygın',   color: '#94a3b8', affixCount: 1, tier: 0, weight: 55 },
+    { id: 'rare',      name: 'Nadir',    color: '#38bdf8', affixCount: 2, tier: 0, weight: 27 },
+    { id: 'epic',      name: 'Epik',     color: '#c084fc', affixCount: 2, tier: 1, weight: 13 },
+    { id: 'legendary', name: 'Efsanevi', color: '#fbbf24', affixCount: 3, tier: 2, weight: 5 }
+  ],
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 📜 GÖREV SİSTEMİ — README'de duyurulmuş ama kodda hiç yoktu (F-24)
+  // ═══════════════════════════════════════════════════════════════════════
+  QUESTS: {
+    DAILY_SLOTS: 4,
+    WEEKLY_SLOTS: 3,
+    DAILY: [
+      { id: 'd_claim',    icon: '🌲', name: 'Hasat Zamanı',        desc: '3 sefer tamamla ve topla',        metric: 'expeditionsClaimed', goal: 3,  reward: { ada: 120, seasonPoints: 10 } },
+      { id: 'd_dungeon',  icon: '💀', name: 'Zindan Devriyesi',    desc: '2 zindan koşusu tamamla',         metric: 'dungeonRuns',        goal: 2,  reward: { ada: 180, fragments: 2, seasonPoints: 15 } },
+      { id: 'd_arena',    icon: '🏟️', name: 'Arena Çağrısı',       desc: '3 kolezyum düellosu yap',         metric: 'arenaMatches',       goal: 3,  reward: { ada: 150, keys: 1, seasonPoints: 15 } },
+      { id: 'd_repair',   icon: '🔨', name: 'Usta Demirci',        desc: '2 alet veya ekipman onar',        metric: 'repairs',            goal: 2,  reward: { ada: 90,  seasonPoints: 8 } },
+      { id: 'd_trade',    icon: '🏪', name: 'Tüccar Ruhu',         desc: 'AMM pazarında 1 işlem yap',       metric: 'trades',             goal: 1,  reward: { ada: 100, seasonPoints: 10 } },
+      { id: 'd_heal',     icon: '🌾', name: 'Sahra Revizi',        desc: '3 askeri tam cana getir',         metric: 'soldiersHealed',     goal: 3,  reward: { ada: 110, seasonPoints: 10 } },
+      { id: 'd_upgrade',  icon: '✨', name: 'Güç Artışı',          desc: '1 ekipman seviyesi yükselt',      metric: 'equipmentUpgrades',  goal: 1,  reward: { ada: 200, seasonPoints: 18 } }
+    ],
+    WEEKLY: [
+      { id: 'w_boss',     icon: '🌋', name: 'Behemoth Avcısı',     desc: 'World Boss savaşına ordunu kilitle', metric: 'bossStakes',      goal: 1,  reward: { ada: 900,  seasonPoints: 80 } },
+      { id: 'w_dungeon',  icon: '🗺️', name: 'Derinlere İniş',      desc: '15 zindan koşusu tamamla',        metric: 'dungeonRuns',        goal: 15, reward: { ada: 1400, boxes: 1, seasonPoints: 100 } },
+      { id: 'w_arena',    icon: '⚔️', name: 'Gladyatör Yolu',      desc: '20 arena düellosu kazan',         metric: 'arenaWins',          goal: 20, reward: { ada: 1800, keys: 3, seasonPoints: 120 } },
+      { id: 'w_craft',    icon: '🔮', name: 'Kadim Zanaat',        desc: '3 ekipman döv veya yükselt',      metric: 'craftsOrUpgrades',   goal: 3,  reward: { ada: 1100, fragments: 8, seasonPoints: 90 } },
+      { id: 'w_harvest',  icon: '📦', name: 'Ambar Dolusu',        desc: '25 sefer topla',                  metric: 'expeditionsClaimed', goal: 25, reward: { ada: 1000, seasonPoints: 85 } }
+    ]
+  },
+
+  // 60 günlük sezon: ücretsiz şerit herkese, premium şerit ADA ile.
+  // F2P/P2E dengesinin en temiz kaldıracı — para EKSTRA alır, ZORUNLU değil.
+  SEASON: {
+    DURATION_DAYS: 60,
+    PREMIUM_COST_ADA: 12000,
+    TIERS: 30,
+    POINTS_PER_TIER: 150,
+    FREE_TRACK:    { adaPerTier: 60,  keysEvery: 5, fragmentsEvery: 3, boxEvery: 10 },
+    PREMIUM_TRACK: { adaPerTier: 190, keysEvery: 3, fragmentsEvery: 2, boxEvery: 5 }
+  },
+
+  // Prestij: Lv.81'e ulaşan oyuncuya yeni ufuk
+  PRESTIGE: {
+    REQUIRED_LEVEL: 81,
+    PRODUCTION_BONUS_PER_STAR: 0.05,
+    MAX_STARS: 10,
+    COST_ADA: 50000
   },
 
   // Başlangıç Profili

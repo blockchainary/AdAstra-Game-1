@@ -1,8 +1,20 @@
 // AdAstra: Genesis Realm - Küresel Kıtlık Havuzu, 10B Macro Tokenomics & Muhasebe Yöneticisi
 import { GAME_CONFIG } from './config.js';
 
+import { treasury } from './treasury.js';
+
 export const MAX_SUPPLY = 10000000000;
-export const CONTRACT_ADDRESS = '0xCA29d740502F4bA1Fa8e9DcAfBD85137b4CebEb01';
+
+// v1'deki adres 43 karakterdi (hex kısmı 41 hane) — geçerli bir EVM adresi
+// 0x + 40 hanedir, bu yüzden hiçbir cüzdanda çözülmüyordu (denetim bulgusu F-12).
+// Fazladan hane kaldırıldı. GERÇEK sözleşme adresiyle değiştirilmelidir.
+export const CONTRACT_ADDRESS = '0xCA29d740502F4bA1Fa8e9DcAfBD85137b4CeBeB0';
+
+export const isValidEvmAddress = (a) => /^0x[a-fA-F0-9]{40}$/.test(String(a || ''));
+
+// Dolaşımdaki arz varsayımı — deflasyon anlatısı MAX_SUPPLY üzerinden değil,
+// dolaşım üzerinden kurulmalıdır (F-11). Gerçek rakamla değiştirin.
+export const CIRCULATING_SUPPLY_ESTIMATE = 1200000000;
 
 export class GlobalResourceManager {
   constructor() {
@@ -126,47 +138,47 @@ export class GlobalResourceManager {
     return actualHarvested;
   }
 
-  // 🪙 TOKEN HARCANDIĞINDA: %18 ANINDA YAKIM + %82 HAZİNE ALT DAĞILIMI (35/30/25/10)
+  // 🪙 TOKEN HARCANDIĞINDA: %22 KALICI YAKIM + %78 HAZİNE DEFTERİNE GİRİŞ
+  //
+  // v2 farkı: hazine payı artık sadece bir sayaç değil, GERÇEK BİR BÜTÇE.
+  // treasury.deposit() ile beş havuza dağıtılır ve ödüller yalnızca oradan
+  // çekilebilir (YASA 1). Böylece dağıtılan toplam, biriken toplamı aşamaz.
+  //
+  // Ayrıca bu fonksiyon artık asker alımı, AMM ücreti, anlık iyileştirme ve
+  // ekipman tamiri yollarından da çağrılıyor — v1'de bu dört yol muhasebe
+  // dışıydı ve 324.000 ADA'lık asker harcaması hiçbir istatistiğe girmiyordu (F-06).
   recordTokenSpend(adAstraAmount) {
-    if (isNaN(adAstraAmount) || adAstraAmount <= 0) return { burned: 0, treasury: 0 };
+    if (isNaN(adAstraAmount) || adAstraAmount <= 0) return { burned: 0, treasuryShare: 0 };
 
+    const burnRate = GAME_CONFIG.TOKEN_BURN_RATE;
     this.state.totalSpent = (this.state.totalSpent || 0) + adAstraAmount;
 
-    // 1. %18 Kalıcı Yakım (Permanent Burn)
-    const burned = adAstraAmount * 0.18;
+    const burned = adAstraAmount * burnRate;
     this.state.totalBurned = (this.state.totalBurned || 0) + burned;
 
-    // 2. %82 Hazine & Ödül Havuzu
-    const treasuryShare = adAstraAmount * 0.82;
+    const treasuryShare = adAstraAmount * (1 - burnRate);
     this.state.totalTreasury = (this.state.totalTreasury || 0) + treasuryShare;
 
-    if (!this.state.treasury) {
-      this.state.treasury = { dungeon: 0, ammBuyback: 0, arena: 0, staking: 0 };
-    }
+    // Hazine defterine gerçek giriş
+    const result = treasury.deposit(treasuryShare);
+    treasury.recordBurn(burned);
 
-    // 3. %82 İçindeki Alt Dağılımlar
-    const dungeonAdd = treasuryShare * 0.35;    // %35 Zindan Katları & Bosslar
-    const ammBuybackAdd = treasuryShare * 0.30; // %30 AMM Likidite & Fiyat Desteği
-    const arenaAdd = treasuryShare * 0.25;      // %25 18v18 Kolezyum Arenası
-    const stakingAdd = treasuryShare * 0.10;    // %10 Staking & Sadakat Rezervi
-
-    this.state.treasury.dungeon = (this.state.treasury.dungeon || 0) + dungeonAdd;
-    this.state.treasury.ammBuyback = (this.state.treasury.ammBuyback || 0) + ammBuybackAdd;
-    this.state.treasury.arena = (this.state.treasury.arena || 0) + arenaAdd;
-    this.state.treasury.staking = (this.state.treasury.staking || 0) + stakingAdd;
+    // Geriye dönük uyumluluk: eski panel alanları defterden beslenir
+    this.state.treasury = {
+      dungeon: treasury.getPool('dungeon'),
+      ammBuyback: treasury.getPool('ammBuyback'),
+      arena: treasury.getPool('arena'),
+      staking: treasury.getPool('season'),
+      worldBoss: treasury.getPool('worldBoss')
+    };
 
     this.saveState();
+    return { burned, treasuryShare, allocations: result.allocations };
+  }
 
-    return {
-      burned,
-      treasuryShare,
-      allocations: {
-        dungeon: dungeonAdd,
-        ammBuyback: ammBuybackAdd,
-        arena: arenaAdd,
-        staking: stakingAdd
-      }
-    };
+  // Ödül çekimi — tek geçit. Hiçbir modül bakiyeye doğrudan ADA eklemez.
+  withdrawReward(poolId, amount) {
+    return treasury.withdraw(poolId, amount);
   }
 
   // 📺 YAYIN GELİRİ BUYBACK ENJEKSİYONU (%35 Avalanche Arena Geliri)
@@ -180,42 +192,73 @@ export class GlobalResourceManager {
     return adAstraAmount;
   }
 
-  // 🩺 CANLI EKONOMİK SAĞLIK GÖSTERGELERİ (DeepSeek R1 Master Identity)
+  // 🩺 CANLI EKONOMİK SAĞLIK GÖSTERGELERİ
+  //
+  // v1'DEKİ İKİ HATA:
+  //  1) E_net = hazine/(yakım×1,5) − 1 idi. Yakım her zaman harcamanın %18'i,
+  //     hazine her zaman %82'si olduğu için bu oran daima 0,82/0,27−1 = +2,037
+  //     değerine yakınsıyordu. Gösterge SABİTTİ — hiçbir şey ölçmüyordu (F-09).
+  //  2) Eşik sırası ters yazılmıştı:
+  //         if (E_net > 0.05) uyarı; else if (E_net > 0.15) kritik;
+  //     0,15'ten büyük her değer zaten 0,05'ten de büyük olduğu için "kritik"
+  //     dalı ASLA çalışmıyordu. Panel ne olursa olsun en fazla sarı gösteriyordu.
+  //
+  // v2'de ölçülen şey ÖDEME GÜCÜ: hazineye giren ile hazineden çıkanın oranı.
+  // Bu gerçekten dalgalanır ve gerçekten bir şey söyler.
   getEconomicHealthMetrics() {
-    const totalBurned = this.state.totalBurned || 1;
-    const totalSpent = this.state.totalSpent || 1;
-    
-    // E_net Oranı: Net emisyon / Yakım baskısı
-    const E_net = (this.state.totalTreasury / (totalBurned * 1.5)) - 1;
+    const t = treasury.getSummary();
 
-    // Kaynak Tüketim Standart Sapma ve Denge Katsayıları
-    const sigmaWheat = 1.04; // Tüketim >= Üretim (Dengeli)
-    const sigmaIron = 1.02;  // 13/13 Reforge + Tamir dengeli
-    const sigmaWood = 1.03;  // Alet + Silo dengeli
+    // Net emisyon oranı: dağıtılan ödüller / toplanan hazine.
+    // > 1 → dağıtım girişten fazla (havuzlar eriyor), < 1 → birikim var.
+    const payoutRatio = t.lifetimeDeposited > 0
+      ? t.lifetimeWithdrawn / t.lifetimeDeposited
+      : 0;
+    const E_net = payoutRatio - 1;
 
-    let healthStatus = 'healthy';
-    let statusText = '🟢 Mükemmel Denge (Deflasyonist & Sürdürülebilir)';
-    let statusBadgeColor = '#22c55e';
+    // Kaynak denge katsayıları: artık sabit değil, gerçek havuz tüketiminden.
+    const sigmaOf = (key) => {
+      const res = this.state.resources[key];
+      if (!res || !res.totalCap) return 1;
+      const consumedRatio = 1 - (res.remaining / res.totalCap);
+      const elapsed = Math.max(1, Date.now() - (this.state.epochStartTime || Date.now()));
+      const epochLength = Math.max(1, (this.state.epochEndTime || Date.now()) - (this.state.epochStartTime || Date.now()));
+      const expectedRatio = Math.min(1, elapsed / epochLength);
+      return expectedRatio > 0 ? +(consumedRatio / expectedRatio).toFixed(3) : 1;
+    };
 
-    if (E_net > 0.05) {
-      healthStatus = 'warning';
-      statusText = '🟡 Dikkat (Emisyon Hafif Yükseldi)';
-      statusBadgeColor = '#facc15';
-    } else if (E_net > 0.15) {
+    // ÖNEMLİ: en ağır eşik ÖNCE kontrol edilir.
+    let healthStatus, statusText, statusBadgeColor;
+    if (E_net > 0.15 || t.avgHealth < 0.25) {
       healthStatus = 'critical';
-      statusText = '🔴 Kritik (Enflasyon Baskısı)';
+      statusText = '🔴 Kritik — Ödül havuzları eriyor, dağıtım girişi aşıyor';
       statusBadgeColor = '#ef4444';
+    } else if (E_net > 0.05 || t.avgHealth < 0.55) {
+      healthStatus = 'warning';
+      statusText = '🟡 Dikkat — Emisyon yükseldi, hazine tamponu inceliyor';
+      statusBadgeColor = '#facc15';
+    } else {
+      healthStatus = 'healthy';
+      statusText = '🟢 Sağlıklı — Deflasyonist ve sürdürülebilir';
+      statusBadgeColor = '#22c55e';
     }
+
+    const circulating = Math.max(0, CIRCULATING_SUPPLY_ESTIMATE - (this.state.totalBurned || 0));
 
     return {
       E_net: parseFloat(E_net.toFixed(4)),
-      sigmaWheat,
-      sigmaIron,
-      sigmaWood,
+      payoutRatio: parseFloat(payoutRatio.toFixed(4)),
+      treasuryHealth: parseFloat(t.avgHealth.toFixed(3)),
+      sigmaWheat: sigmaOf('wheat'),
+      sigmaIron: sigmaOf('iron'),
+      sigmaWood: sigmaOf('wood'),
       healthStatus,
       statusText,
       statusBadgeColor,
-      circulatingEstimate: MAX_SUPPLY - this.state.totalBurned
+      totalBurned: this.state.totalBurned || 0,
+      // Deflasyon DOLAŞIMDAKİ arz üzerinden raporlanır, max supply üzerinden değil
+      circulatingEstimate: circulating,
+      burnedPctOfCirculating: parseFloat((((this.state.totalBurned || 0) / CIRCULATING_SUPPLY_ESTIMATE) * 100).toFixed(4)),
+      treasuryPools: t.pools
     };
   }
 

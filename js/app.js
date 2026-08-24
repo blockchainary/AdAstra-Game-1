@@ -2179,11 +2179,21 @@ function openBattlefieldModal() {
         </button>
       </div>
 
-      <!-- Hızlı Test Butonu -->
-      <div style="margin-top: 10px; text-align: right;">
-        <button id="btn-dev-simulate-sunday-boss" class="btn-clean btn-clean-sm btn-clean-outline" style="font-size: 0.75rem; color: #f472b6; border-color: #ec4899; width: auto; padding: 4px 10px;">
-          ⚡ [Test] Pazar 18:00 Savaşını Şimdi Simüle Et
-        </button>
+      <!--
+        v1'de burada oyuncunun görebildiği bir "[Test] Pazar Savaşını Şimdi
+        Simüle Et" butonu vardı. Her tıklama hasarı ve toplanabilir ödülü
+        artırıyordu, sınır yoktu: sınırsız ADA basımı (denetim bulgusu F-03).
+        Savaş artık gerçek takvime bağlı; buton üretimden kaldırıldı ve
+        yalnızca geliştirici panelinden (T) tetiklenebiliyor.
+      -->
+      <div style="margin-top: 10px; text-align: center; font-size: 0.78rem; color: #94a3b8;">
+        ⏳ Sonraki otomatik savaş: <strong style="color:#fde047;">${(() => {
+          const s = gameState.getWorldBossSchedule();
+          const d = Math.floor(s.msUntilNext / 86400000);
+          const h = Math.floor((s.msUntilNext % 86400000) / 3600000);
+          const m = Math.floor((s.msUntilNext % 3600000) / 60000);
+          return `${d}g ${h}s ${m}dk`;
+        })()}</strong> (Pazar 18:00 TSİ)
       </div>
     </div>
   `;
@@ -4450,9 +4460,9 @@ function initAppEvents() {
       return;
     }
 
-    // World Boss: Pazar 18:00 Savaşını Simüle Et (Test)
+    // World Boss: Pazar 18:00 Savaşını Simüle Et — YALNIZCA geliştirici paneli (F-03)
     if (e.target.closest('#btn-dev-simulate-sunday-boss')) {
-      const res = gameState.executeSundayAutoWorldBossBattle();
+      const res = gameState.executeSundayAutoWorldBossBattle({ force: true });
       if (res.success) {
         showToast(res.message, 'success');
         openBattlefieldModal();

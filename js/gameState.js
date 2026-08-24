@@ -61,49 +61,91 @@ export class GameStateManager {
     });
   }
 
-  // Tek Tip Asker Birimi Oluşturur (İkon: ⚔️, İsim: Asker #N)
-  createSoldierUnit(index) {
+  // ═══════════════════════════════════════════════════════════════════════
+  // ASKER BİRİMİ — v2: DÖRT SINIF, DÖRT ROL (F-19)
+  // ═══════════════════════════════════════════════════════════════════════
+  // v1'de her asker `class: 'warrior'`, `baseAtk: 20`, `maxHp: 100` idi.
+  // Config'de Muhafız / Okçu / Paladin tanımlıydı ama hiç kullanılmıyordu;
+  // savaşta tüm askerler birbirinin aynıydı ve kadro kurma diye bir karar yoktu.
+  //
+  // v2'de asker satın alırken sınıf seçilir. Sınıflar canı, saldırıyı, zırhı,
+  // hızı, kritiği ve saf tercihini değiştirir; her birinin kendi yeteneği vardır.
+  static SOLDIER_ROTATION = ['guardian', 'ranger', 'paladin', 'mage'];
+
+  createSoldierUnit(index, classId = null) {
+    const rotation = GameStateManager.SOLDIER_ROTATION;
+    const cls = classId && GAME_CONFIG.COMBAT_CLASSES[classId]
+      ? classId
+      : rotation[(index - 1) % rotation.length];
+    const c = GAME_CONFIG.COMBAT_CLASSES[cls];
+
+    // Element de rotasyonla dağıtılır: kadro doğal olarak çeşitlenir,
+    // oyuncu zindan katının elementine göre kimi göndereceğine karar verir.
+    const elements = ['fire', 'nature', 'ice'];
+
     return {
       id: `soldier_${Date.now()}_${index}`,
-      name: `Asker #${index}`,
-      class: 'warrior',
-      icon: '⚔️',
+      name: `${c.name} #${index}`,
+      class: cls,
+      className: c.name,
+      icon: c.icon,
+      element: elements[(index - 1) % elements.length],
+      row: c.preferredRow,
       level: 1,
       xp: 0,
-      hp: 100,
-      maxHp: 100,
-      baseAtk: 20,
-      equipment: {
-        weapon: null,
-        helmet: null,
-        armor: null,
-        legs: null,
-        boots: null
-      }
+      maxHp: Math.round(100 * c.hpMult),
+      hp: Math.round(100 * c.hpMult),
+      baseAtk: Math.round(20 * c.atkMult),
+      baseArmor: c.baseArmor,
+      baseSpeed: c.baseSpeed,
+      baseCrit: c.baseCrit,
+      basePen: c.basePen,
+      woundedUntil: 0,
+      equipment: { weapon: null, helmet: null, armor: null, legs: null, boots: null }
     };
   }
 
   mergeSoldierUnits(saved) {
     if (!Array.isArray(saved)) return [];
-    return saved.map((s, i) => ({
-      id: s.id || `soldier_${i + 1}`,
-      name: `Asker #${i + 1}`,
-      class: 'warrior',
-      icon: '⚔️',
-      level: s.level || 1,
-      xp: s.xp || 0,
-      hp: s.hp != null ? s.hp : (s.maxHp || 100),
-      maxHp: s.maxHp || 100,
-      baseAtk: s.baseAtk || 20,
-      equipment: {
-        weapon: null,
-        helmet: null,
-        armor: null,
-        legs: null,
-        boots: null,
-        ...(s.equipment || {})
-      }
-    }));
+    const rotation = GameStateManager.SOLDIER_ROTATION;
+    return saved.map((s, i) => {
+      // Eski kayıtlarda herkes 'warrior' idi; rotasyona göre sınıf atanır.
+      const cls = GAME_CONFIG.COMBAT_CLASSES[s.class] ? s.class : rotation[i % rotation.length];
+      const c = GAME_CONFIG.COMBAT_CLASSES[cls];
+      return {
+        id: s.id || `soldier_${i + 1}`,
+        name: s.name && s.className ? s.name : `${c.name} #${i + 1}`,
+        class: cls,
+        className: c.name,
+        icon: c.icon,
+        element: s.element || ['fire', 'nature', 'ice'][i % 3],
+        row: s.row || c.preferredRow,
+        level: s.level || 1,
+        xp: s.xp || 0,
+        maxHp: s.maxHp || Math.round(100 * c.hpMult),
+        hp: s.hp != null ? s.hp : (s.maxHp || Math.round(100 * c.hpMult)),
+        baseAtk: s.baseAtk || Math.round(20 * c.atkMult),
+        baseArmor: s.baseArmor != null ? s.baseArmor : c.baseArmor,
+        baseSpeed: s.baseSpeed != null ? s.baseSpeed : c.baseSpeed,
+        baseCrit: s.baseCrit != null ? s.baseCrit : c.baseCrit,
+        basePen: s.basePen != null ? s.basePen : c.basePen,
+        woundedUntil: s.woundedUntil || 0,
+        equipment: {
+          weapon: null, helmet: null, armor: null, legs: null, boots: null,
+          ...(s.equipment || {})
+        }
+      };
+    });
+  }
+
+  // Artan asker maliyeti: cost(n) = 400 · n^1.85
+  // v1'de her asker sabit 18.000 ADA idi — F2P için ilk asker bile erişilemezdi
+  // (tüm dünyanın haftalık geliri 6.264 ADA), balina için ise 18 askerin
+  // tamamı tek seferde alınabilecek kadar ucuzdu. v2'de ilk asker 400 ADA
+  // (birkaç saatlik emek), 18. asker 84.007 ADA (uzun vadeli hedef).
+  getSoldierCost(index = (this.state.soldierUnits || []).length + 1) {
+    const n = Math.max(1, index);
+    return Math.round(GAME_CONFIG.SOLDIER_COST_BASE * Math.pow(n, GAME_CONFIG.SOLDIER_COST_EXPONENT));
   }
 
   buySoldierUnit() {
@@ -114,17 +156,26 @@ export class GameStateManager {
     if (this.state.soldierUnits.length >= maxSoldiers) {
       return { success: false, message: `Maksimum ${maxSoldiers} askere zaten sahipsin!` };
     }
-    const cost = GAME_CONFIG.SOLDIER_PRICE || 18000;
+    const newIdx = this.state.soldierUnits.length + 1;
+    const cost = this.getSoldierCost(newIdx);
     if ((this.state.adAstraBalance || 0) < cost) {
-      return { success: false, message: `Yetersiz $ADASTRA! Asker satın almak için ${cost.toLocaleString()} ADA gerekir.` };
+      return { success: false, message: `Yetersiz $ADASTRA! ${newIdx}. asker için ${cost.toLocaleString()} ADA gerekir.` };
     }
     this.state.adAstraBalance -= cost;
-    const newIdx = this.state.soldierUnits.length + 1;
+    // v1'de bu satır YOKTU: 18 askerlik 324.000 ADA'lık harcama ne yakılıyor
+    // ne hazineye giriyordu — muhasebe dışı bir delikti (F-06).
+    globalPool.recordTokenSpend(cost);
+
     const newUnit = this.createSoldierUnit(newIdx);
     this.state.soldierUnits.push(newUnit);
     this.saveState();
     sound.playLevelUp();
-    return { success: true, message: `⚔️ Asker #${newIdx} orduya katıldı!`, soldier: newUnit };
+    return {
+      success: true,
+      message: `⚔️ ${newUnit.icon} ${newUnit.name} (${newUnit.className}) orduya katıldı! (-${cost.toLocaleString()} ADA)`,
+      soldier: newUnit,
+      cost
+    };
   }
 
   getSoldierSetBonus(soldierIndex) {
@@ -358,14 +409,18 @@ export class GameStateManager {
     return parseFloat((this.getExpeditionDurationMinutes(level) / 60).toFixed(2));
   }
 
-  // Seviye atlandıkça Max Stamina Artar (Lv.1: 100, Lv.2: 120, Lv.3: 140...)
+  // Max Stamina — v2: 100 + 25·(L-1)
+  // v1'de max 100+20(L-1), sefer maliyeti 25+12(L-1) idi. Üç düğümü paralel
+  // işletmek Seviye 3'ten itibaren MATEMATİKSEL OLARAK İMKANSIZ hâle geliyordu
+  // (3×49 = 147 > 140). Oyunun temel döngüsü ikinci seviye atlamasında ölüyordu.
+  // v2'de 3·maliyet ≤ max eşitsizliği her seviyede korunur (F-14).
   getMaxStamina(level = this.state.level) {
-    return 100 + (level - 1) * 20;
+    return GAME_CONFIG.MAX_STAMINA + (level - 1) * GAME_CONFIG.STAMINA_MAX_PER_LEVEL;
   }
 
-  // Sefer Süresi Arttıkça Harcanan Stamina da Artar (Lv.1: 25, Lv.2: 37, Lv.3: 49...)
+  // Sefer maliyeti — v2: 20 + 8·(L-1). Lv.81'de 3 sefer = 1.980 ≤ 2.100 max.
   getExpeditionStaminaCost(level = this.state.level) {
-    return Math.round(25 + (level - 1) * 12);
+    return Math.round(GAME_CONFIG.STAMINA_COST_PER_EXPEDITION + (level - 1) * GAME_CONFIG.STAMINA_COST_PER_LEVEL);
   }
 
   getFragmentDropRate(level = this.state.level) {
@@ -557,8 +612,11 @@ export class GameStateManager {
     const factor = Math.pow(G, this.state.level - 1) * (1 + 0.015 * (this.state.level - 1));
     const ratePm = Math.floor(basePm * factor);
 
-    const isSpeedActive = this.isBuffActive(`speed_${nodeId}`);
-    const speedMult = isSpeedActive ? 1.5 : 1;
+    // v1 HATASI: burada `speed_${nodeId}` (yani 40 ADA'lık eski buff) okunuyordu.
+    // Oyuncunun tavernada 4.500–45.000 ADA'ya aldığı speed_potion_1/2/3
+    // iksirleri verimi HİÇ etkilemiyordu — 40 ADA'lık ürün 45.000 ADA'lıktan
+    // 1.125 kat daha verimliydi (F-17). Artık gerçek çarpan okunuyor.
+    const speedMult = this.getExpeditionSpeedMultiplier();
     const totalYield = Math.max(10, Math.floor(ratePm * 60 * exp.durationHours * speedMult));
 
     const progressRatio = Math.min(1, exp.elapsedSeconds / exp.durationSeconds);
@@ -590,9 +648,8 @@ export class GameStateManager {
 
     const nodeConfig = GAME_CONFIG.GLOBAL_RESOURCE_CAPS[nodeId];
     const playerTool = this.state.tools[nodeConfig.requiredTool];
-    const harvestedAmount = globalPool.harvest(nodeId, accruedInfo.accruedAmount);
-
-    this.state.inventory[nodeId] = (this.state.inventory[nodeId] || 0) + harvestedAmount;
+    const requested = globalPool.harvest(nodeId, accruedInfo.accruedAmount);
+    const { stored: harvestedAmount, overflow } = this.storeResource(nodeId, requested);
     if (playerTool) {
       playerTool.totalGathered = (playerTool.totalGathered || 0) + harvestedAmount;
     }
@@ -607,10 +664,38 @@ export class GameStateManager {
     return {
       success: true,
       amount: harvestedAmount,
+      overflow,
       xpGained,
       levelResult,
-      message: `⚡ ${harvestedAmount} ${nodeConfig.name} erken toplandı! (+${xpGained} XP)`
+      message: overflow > 0
+        ? `⚡ ${harvestedAmount} ${nodeConfig.name} toplandı, ${overflow} birim depoya sığmadı ve çürüdü! (+${xpGained} XP) — Depoyu yükselt.`
+        : `⚡ ${harvestedAmount} ${nodeConfig.name} erken toplandı! (+${xpGained} XP)`
     };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // DEPO KAPASİTESİ — v2: ARTIK GERÇEKTEN UYGULANIYOR (F-16)
+  // ═══════════════════════════════════════════════════════════════════════
+  // v1'de getWarehouseCapacity() hesaplanıp yüzde çubuğunda gösteriliyordu ama
+  // envantere ekleme yapan hiçbir yerde tavan kontrolü yoktu. Depo yükseltmesi
+  // (3.000 ADA'ya kadar) tamamen kozmetik bir harcamaydı ve oyunun en doğal
+  // hammadde sink'i olan taşma kaybı devre dışıydı.
+  storeResource(resourceKey, amount) {
+    if (!(amount > 0)) return { stored: 0, overflow: 0 };
+    const cap = this.getWarehouseCapacity();
+    const limit = cap[resourceKey];
+    const current = this.state.inventory[resourceKey] || 0;
+
+    if (limit == null) {
+      this.state.inventory[resourceKey] = current + amount;
+      return { stored: amount, overflow: 0 };
+    }
+
+    const room = Math.max(0, limit - current);
+    const stored = Math.min(amount, room);
+    const overflow = amount - stored;
+    this.state.inventory[resourceKey] = current + stored;
+    return { stored, overflow };
   }
 
   claimExpedition(nodeId) {
@@ -629,19 +714,17 @@ export class GameStateManager {
     const factor = Math.pow(G, this.state.level - 1) * (1 + 0.015 * (this.state.level - 1));
     const ratePm = Math.floor(basePm * factor);
 
-    const isSpeedActive = this.isBuffActive(`speed_${nodeId}`);
-    const speedMult = isSpeedActive ? 1.5 : 1;
+    const speedMult = this.getExpeditionSpeedMultiplier();
     const totalYield = Math.floor(ratePm * 60 * exp.durationHours * speedMult);
-    
+
     // Erken toplanan miktarı düş
     const claimedRatio = Math.min(1, (exp.claimedSeconds || 0) / exp.durationSeconds);
     const alreadyClaimed = Math.floor(totalYield * claimedRatio);
     const remainingToClaim = Math.max(5, totalYield - alreadyClaimed);
 
-    const harvestedAmount = globalPool.harvest(nodeId, remainingToClaim);
+    const fromPool = globalPool.harvest(nodeId, remainingToClaim);
+    const { stored: harvestedAmount, overflow } = this.storeResource(nodeId, fromPool);
 
-    this.state.inventory[nodeId] = (this.state.inventory[nodeId] || 0) + harvestedAmount;
-    
     playerTool.durability = Math.max(0, playerTool.durability - toolConfig.durabilityLossPerExpedition);
     playerTool.totalGathered = (playerTool.totalGathered || 0) + harvestedAmount;
 
@@ -659,6 +742,7 @@ export class GameStateManager {
     return {
       success: true,
       amount: harvestedAmount,
+      overflow,
       resourceName: nodeConfig.name,
       icon: nodeConfig.icon,
       durabilityLeft: playerTool.durability,
@@ -678,16 +762,42 @@ export class GameStateManager {
   // =========================================================================
   // 2. KARAKTER SEVİYE ATLAMA (MATEMATİKSEL EKONOMİ MODELİ - 180M BALİNA DENGESİ)
   // =========================================================================
+  // ═══════════════════════════════════════════════════════════════════════
+  // SEVİYE EĞRİSİ — v2: HEDEF SÜREDEN TÜRETİLİR (F-13)
+  // ═══════════════════════════════════════════════════════════════════════
+  // v1'de XP = 100·n^2,4·1,045^(n-1) idi. XP arzı ise sefer başına yalnızca
+  // 35×süreSaat. İki eğri arasındaki uçurum kapatılamıyordu:
+  //     Lv.30  →  1.257.370 XP  →  4,1 YIL kesintisiz oyun
+  //     Lv.81  → 128.726.298 XP →  420 YIL
+  // Alt uçta da kırıktı: Lv.2 için 6.527 ADA gerekiyordu ama oyuncu 250 ADA
+  // ile başlıyor ve TÜM DÜNYANIN haftalık hammadde geliri 6.264 ADA idi.
+  //
+  // v2'de eğri tersinden kurulur: "Lv.81 yaklaşık 1.100 günde (3 yıl)
+  // ulaşılabilir olsun" denir ve XP maliyeti buradan türetilir.
+  // Günlük XP arzı ≈ 3 düğüm × 35 XP/saat × 24 = 2.520 XP.
+  getCumulativeXpForLevel(level) {
+    const L = Math.max(1, Math.min(GAME_CONFIG.MAX_PLAYER_LEVEL, level));
+    const DAILY_XP_SUPPLY = 2520;
+    const TARGET_DAYS_TO_MAX = 1100;
+    const days = TARGET_DAYS_TO_MAX * Math.pow((L - 1) / (GAME_CONFIG.MAX_PLAYER_LEVEL - 1), 2.2);
+    return Math.round(DAILY_XP_SUPPLY * days);
+  }
+
   getNextLevelRequirement() {
     const nextLvl = this.state.level + 1;
-    const xp = Math.floor(100 * Math.pow(nextLvl, 2.4) * Math.pow(1.045, nextLvl - 1));
+    const xp = Math.max(60, this.getCumulativeXpForLevel(nextLvl) - this.getCumulativeXpForLevel(nextLvl - 1));
+
+    // ADA maliyeti, o seviyede kazanılabilecek gelirle orantılı tutulur.
+    // Hedef: seviye atlaması ~2 günlük emek geliri kadar olsun.
+    const adAstra = Math.floor(180 * Math.pow(nextLvl, 1.62));
+
     return {
       level: nextLvl,
-      xp: xp,
-      wood: Math.floor(xp * 0.35),
-      iron: Math.floor(xp * 0.45),
-      wheat: Math.floor(xp * 0.40),
-      adAstra: Math.floor(1500 * Math.pow(nextLvl, 2.10) * Math.pow(1.015, nextLvl - 1)),
+      xp,
+      wood: Math.floor(xp * 0.28),
+      iron: Math.floor(xp * 0.34),
+      wheat: Math.floor(xp * 0.45),
+      adAstra,
       durationHours: this.getExpeditionDurationHours(nextLvl)
     };
   }
@@ -1911,6 +2021,15 @@ export class GameStateManager {
     return this.state.colosseumLeaderboard;
   }
 
+  // Günlük sayaçlar (arena maçı, zindan koşusu) — gün değişince sıfırlanır
+  getDailyCounters() {
+    const today = new Date().toISOString().slice(0, 10);
+    if (!this.state.dailyCounters || this.state.dailyCounters.date !== today) {
+      this.state.dailyCounters = { date: today, arenaMatches: 0, dungeonRuns: 0 };
+    }
+    return this.state.dailyCounters;
+  }
+
   executeColosseum1v1Match(championIndex = 0) {
     const soldiers = this.state.soldierUnits || [];
     const champion = soldiers[championIndex];
@@ -1921,6 +2040,31 @@ export class GameStateManager {
     if ((champion.hp || 0) <= 15) {
       return { success: false, message: `⚠️ ${champion.name} ağır yaralı (Can: ${champion.hp}/${champion.maxHp}). Kolezyuma çıkmadan önce buğdayla iyileştirilmelidir!` };
     }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // GİRİŞ BEDELİ — v2 (F-02)
+    // ═══════════════════════════════════════════════════════════════════
+    // v1'de arayüz "🔑 N Anahtar" rozetini gösteriyor ve whitepaper anahtarın
+    // "dövüşlere girmek için kullanıldığını" söylüyordu; ancak bu fonksiyonun
+    // hiçbir yerinde arenaKeys kontrol edilmiyor veya düşülmüyordu. Düello
+    // tamamen ücretsizdi, şampiyon Math.max(1,...) ile asla ölmüyordu ve
+    // galibiyet %25 ihtimalle YENİ anahtar veriyordu. Sink olması gereken
+    // kalem faucet'e dönüşmüştü: sınırsız ücretsiz ADA.
+    const cfg = GAME_CONFIG.COLOSSEUM;
+    const counters = this.getDailyCounters();
+    if (counters.arenaMatches >= cfg.DAILY_MATCH_CAP) {
+      return { success: false, message: `⏳ Günlük arena hakkın doldu (${cfg.DAILY_MATCH_CAP}/${cfg.DAILY_MATCH_CAP}). Yarın tekrar gel.` };
+    }
+    if ((this.state.arenaKeys || 0) < cfg.ENTRY_KEY_COST) {
+      return { success: false, message: `🔑 Arenaya çıkmak için ${cfg.ENTRY_KEY_COST} Arena Anahtarı gerekir! (Zindan boss'larından, günlük görevlerden veya pazardan edinebilirsin.)` };
+    }
+    if ((this.state.stamina || 0) < cfg.ENTRY_STAMINA_COST) {
+      return { success: false, message: `⚡ Yetersiz stamina! (${cfg.ENTRY_STAMINA_COST} gerekli)` };
+    }
+
+    this.state.arenaKeys -= cfg.ENTRY_KEY_COST;
+    this.state.stamina -= cfg.ENTRY_STAMINA_COST;
+    counters.arenaMatches += 1;
 
     const stats = this.getSoldierFullStats(championIndex);
     const playerAtk = stats.totalAtk;
@@ -1962,10 +2106,24 @@ export class GameStateManager {
     let rewardAda = 0;
     let rewardKeys = 0;
 
+    // ELO puanı: rakip artık oyuncudan türetilse de derece gerçek biçimde işler.
+    if (this.state.colosseumStats.rating == null) {
+      this.state.colosseumStats.rating = GAME_CONFIG.COLOSSEUM.STARTING_RATING;
+    }
+    const expected = 1 / (1 + Math.pow(10, 0 / 400)); // eşit güçlü rakip = 0.5
+    const ratingDelta = Math.round(GAME_CONFIG.COLOSSEUM.K_FACTOR * ((isVictory ? 1 : 0) - expected));
+    this.state.colosseumStats.rating = Math.max(0, this.state.colosseumStats.rating + ratingDelta);
+
     if (isVictory) {
       this.state.colosseumStats.wins += 1;
       this.state.colosseumStats.score += 3;
-      rewardAda = 120 + Math.floor(Math.random() * 60);
+
+      // YASA 1: ödül BASILMAZ, hazineden ÇEKİLİR.
+      // v1'de `state.adAstraBalance += rewardAda` yazıyordu — bedeli olmayan
+      // sınırsız emisyon. Artık arena havuzu boşalırsa ödül kendiliğinden küçülür.
+      const request = 120 + Math.floor(Math.random() * 60);
+      const draw = globalPool.withdrawReward('arena', request);
+      rewardAda = Math.floor(draw.granted);
       this.state.adAstraBalance += rewardAda;
       if (Math.random() < 0.25) {
         rewardKeys = 1;
@@ -2091,23 +2249,67 @@ export class GameStateManager {
     };
   }
 
-  // Her Pazar TSİ 18:00'da tek seferlik otomatik savaş simülasyonu
-  executeSundayAutoWorldBossBattle() {
+  // Bu haftanın savaş zamanı (Pazar 15:00 UTC = 18:00 TSİ) geldi mi?
+  getWorldBossSchedule(now = Date.now()) {
+    const cfg = GAME_CONFIG.WORLD_BOSS;
+    const d = new Date(now);
+    const day = d.getUTCDay();
+    // Bu haftanın Pazar 15:00 UTC anı
+    const thisSunday = new Date(d);
+    thisSunday.setUTCDate(d.getUTCDate() - day + cfg.BATTLE_DAY_UTC);
+    thisSunday.setUTCHours(cfg.BATTLE_HOUR_UTC, 0, 0, 0);
+    let battleTime = thisSunday.getTime();
+    if (battleTime > now) battleTime -= 7 * 24 * 3600 * 1000; // en son geçen savaş anı
+    const nextBattle = battleTime + 7 * 24 * 3600 * 1000;
+    return { lastBattleTime: battleTime, nextBattleTime: nextBattle, msUntilNext: nextBattle - now };
+  }
+
+  // Her Pazar TSİ 18:00'da TEK SEFERLİK otomatik savaş.
+  //
+  // ═══════════════════════════════════════════════════════════════════════
+  // v1'DEKİ EN AĞIR AÇIK (F-03)
+  // ═══════════════════════════════════════════════════════════════════════
+  // Whitepaper savaşın "her Pazar 18:00'da tek seferlik ve otomatik" olduğunu
+  // söylüyordu ama kodda ZAMANLAYICI YOKTU. Bunun yerine savaş alanı modalına,
+  // geliştirici paneline değil OYUNCUNUN GÖRDÜĞÜ EKRANA, bir "[Test] Pazar
+  // Savaşını Şimdi Simüle Et" butonu konmuştu. Her tıklama hasarı ve
+  // toplanabilir ödülü artırıyordu; sınır yoktu. Tam donanımlı 18 askerle
+  // tıklama başına ~901 ADA, saniyede birkaç tıklama.
+  //
+  // v2'de savaş gerçek takvime bağlıdır ve haftada bir kez çalışır.
+  executeSundayAutoWorldBossBattle({ force = false } = {}) {
     const boss = this.getWorldBossInfo();
     if (!boss.userStaked) {
       return { success: false, message: 'Kilitli ordunuz bulunmadığı için bu haftaki savaşa dahil olunamadı.' };
     }
 
+    const sched = this.getWorldBossSchedule();
+    if (!force && (boss.lastBattleTimestamp || 0) >= sched.lastBattleTime) {
+      const hrs = Math.floor(sched.msUntilNext / 3600000);
+      const mins = Math.floor((sched.msUntilNext % 3600000) / 60000);
+      return {
+        success: false,
+        alreadyFought: true,
+        message: `⏳ Bu haftanın World Boss savaşı çoktan gerçekleşti. Sonraki savaşa ${hrs} saat ${mins} dakika kaldı (Pazar 18:00 TSİ).`
+      };
+    }
+
     const power = this.calculateUserWorldBossPower();
     const damageDealt = power.calculatedDamage;
 
-    boss.userDamage = (boss.userDamage || 0) + damageDealt;
+    boss.userDamage = damageDealt; // haftalık — birikmez
     boss.bossHp = Math.max(0, boss.bossHp - damageDealt);
 
-    // Hasara göre kazanılan ADA ödülü claim havuzuna eklenir:
-    const rewardAda = Math.max(1, Math.floor((damageDealt * boss.weeklyAdaPool) / boss.maxBossHp));
+    // YASA 1: ödül hazinenin worldBoss havuzundan çekilir, basılmaz.
+    const request = Math.max(1, Math.floor((damageDealt * boss.weeklyAdaPool) / boss.maxBossHp));
+    const draw = globalPool.withdrawReward('worldBoss', request);
+    const rewardAda = Math.floor(draw.granted);
+
     boss.claimableRewardAda = (boss.claimableRewardAda || 0) + rewardAda;
     boss.lastBattleTimestamp = Date.now();
+
+    // Ordu kilidi savaştan sonra açılır
+    boss.userStaked = false;
 
     sound.playLevelUp();
     this.saveState();
@@ -2116,8 +2318,10 @@ export class GameStateManager {
       success: true,
       damageDealt,
       rewardAda,
+      requested: request,
+      scaled: draw.scaleFactor < 0.999,
       claimableRewardAda: boss.claimableRewardAda,
-      message: `💥 Pazar 18:00 TSİ World Boss savaşı otomatik tamamlandı! Ordun ${damageDealt.toLocaleString()} Hasar vurdu. ${rewardAda.toLocaleString()} $ADASTRA ödülün toplanmaya hazır!`
+      message: `💥 Pazar 18:00 TSİ World Boss savaşı tamamlandı! Ordun ${damageDealt.toLocaleString()} hasar vurdu ve ${rewardAda.toLocaleString()} $ADASTRA kazandı.${draw.scaleFactor < 0.999 ? ' (Havuz doluluğu nedeniyle ödül oranlandı.)' : ''}`
     };
   }
 
