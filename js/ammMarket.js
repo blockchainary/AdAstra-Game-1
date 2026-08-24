@@ -14,6 +14,12 @@ export class AMMMarketEngine {
         try {
           const parsed = JSON.parse(saved);
           if (parsed && parsed.wood && parsed.iron && parsed.wheat && parsed.fragments) {
+            if (!parsed.boxes) {
+              parsed.boxes = { resourceReserve: 4000, adAstraReserve: 100000, name: 'Kilitli Sandık', icon: '📦' };
+            }
+            if (!parsed.keys) {
+              parsed.keys = { resourceReserve: 2850, adAstraReserve: 100000, name: 'Arena Anahtarı', icon: '🔑' };
+            }
             return parsed;
           }
         } catch (e) {
@@ -21,12 +27,14 @@ export class AMMMarketEngine {
         }
       }
     }
-    // 180 Günlük Kaynak Üretimi & 1000 Parça / 1.000.000 ADA Likidite Oranı
+    // 180 Günlük Kaynak Üretimi & Likidite Oranı
     return {
       wood: { resourceReserve: 109111140, adAstraReserve: 1000000, name: 'Odun', icon: '🌲' },
       iron: { resourceReserve: 54555480, adAstraReserve: 1000000, name: 'Demir', icon: '⛏️' },
       wheat: { resourceReserve: 218222280, adAstraReserve: 1000000, name: 'Buğday', icon: '🌾' },
-      fragments: { resourceReserve: 1000, adAstraReserve: 1000000, name: 'Parça', icon: '🧩' }
+      fragments: { resourceReserve: 1000, adAstraReserve: 1000000, name: 'Parça', icon: '🧩' },
+      boxes: { resourceReserve: 4000, adAstraReserve: 100000, name: 'Kilitli Sandık', icon: '📦' },
+      keys: { resourceReserve: 2850, adAstraReserve: 100000, name: 'Arena Anahtarı', icon: '🔑' }
     };
   }
 

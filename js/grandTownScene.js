@@ -9,13 +9,19 @@ export class GrandTownScene extends Phaser.Scene {
   }
 
   preload() {
-    this.load.image('grand_town_map', 'assets/adastra_grand_town.jpg');
-    this.load.image('dungeon_tex_f1', 'assets/dungeon_map.jpg');
-    this.load.image('dungeon_tex_f2', 'assets/dungeon_floor2.jpg');
-    this.load.image('dungeon_tex_f3', 'assets/dungeon_floor3.jpg');
-    this.load.image('dungeon_tex_f4', 'assets/dungeon_floor4.jpg');
-    this.load.image('dungeon_tex_f5', 'assets/dungeon_floor5.jpg');
-    this.load.image('dungeon_tex_f6', 'assets/dungeon_floor6.jpg');
+    const v = Date.now();
+    this.load.image('grand_town_map', 'assets/adastra_grand_town.jpg?v=' + v);
+    // NOT: Bu katlar DungeonScene.preload() içinde de aynı anahtarlarla
+    // yükleniyor, ancak Phaser zaten kayıtlı bir texture anahtarını tekrar
+    // indirmiyor. Bu yüzden cache-busting sorgu parametresi burada da
+    // eklenmeli; aksi halde DungeonScene tarafındaki cache-busting hiç
+    // devreye girmez (anahtar zaten burada, sorgusuz olarak kayıtlı olur).
+    this.load.image('dungeon_tex_f1', 'assets/dungeon_map.jpg?v=' + v);
+    this.load.image('dungeon_tex_f2', 'assets/dungeon_floor2.jpg?v=' + v);
+    this.load.image('dungeon_tex_f3', 'assets/dungeon_floor3.jpg?v=' + v);
+    this.load.image('dungeon_tex_f4', 'assets/dungeon_floor4.jpg?v=' + v);
+    this.load.image('dungeon_tex_f5', 'assets/dungeon_floor5.jpg?v=' + v);
+    this.load.image('dungeon_tex_f6', 'assets/dungeon_floor6.jpg?v=' + v);
 
     this.load.on('progress', (value) => {
       if (window.__updateLoadingBar) window.__updateLoadingBar(30 + value * 60);
@@ -49,97 +55,138 @@ export class GrandTownScene extends Phaser.Scene {
       this.map = { setDisplaySize: () => {} }; // dummy
     }
 
-    // 2. 8 Ana Bölgenin Yüzdesel Koordinatları (Menü butonlarından uzak ve tam bina merkezli)
+    // 2. Krallık Haritası Bölge Koordinatları (Tüm Görsellerle 100% Milimetrik Senkronize)
     this.zoneDefs = [
-      // 1. ODUNCU KULÜBESİ & ZÜMRÜT ORMANI (Sol Orta)
-      {
-        id: 'forest',
-        name: '🌲 ZÜMRÜT ORMANI & ODUNCU KULÜBESİ',
-        sub: '🪓 Odun & Kereste Toplama',
-        px: 0.075,
-        py: 0.385,
-        pr: 0.070,
-        colorHex: '#22c55e'
-      },
-
-      // 2. ASKERİ KIŞLA & TALİM KAMPI (Sol Alt)
-      {
-        id: 'barracks',
-        name: '⚔️ ASKERİ KIŞLA & TALİM KAMPI',
-        sub: '🛡️ Asker Alma, Okçuluk & Talim',
-        px: 0.179,
-        py: 0.800,
-        pr: 0.100,
-        colorHex: '#3b82f6'
-      },
-
-      // 3. DAĞ ZİNDAN MAĞARASI (Sol Üst)
+      // 1. GÖRSEL (Önceki 1): DAĞ ZİNDAN MAĞARASI (Sol Üst Mor Kristalli Mağara)
       {
         id: 'dungeon',
         name: '💀 DAĞ ZİNDAN MAĞARASI',
         sub: '🔮 Tıkla ve 18 Seviyeli Zindana Gir!',
-        px: 0.200,
-        py: 0.118,
-        pr: 0.065,
-        colorHex: '#a855f7',
-        flipDown: true
+        px: 0.078,
+        py: 0.295,
+        pr: 0.055,
+        colorHex: '#a855f7'
       },
 
-      // 4. DAĞ MADEN OCAĞI (Kuzey)
+      // 2. GÖRSEL (Önceki 2): KRALLIK SİLOSU & DEPO (Sol Orta Silolar & Ahşap Depo)
+      {
+        id: 'warehouse',
+        name: '📦 KRALLIK SİLOSU & DEPO',
+        sub: '🛡️ Envanter, Hammaddeler & Teçhizat',
+        px: 0.105,
+        py: 0.550,
+        pr: 0.065,
+        colorHex: '#fbbf24'
+      },
+
+      // 3. GÖRSEL (Önceki 3): ASKERİ KIŞLA & TALİM KAMPI (Sol Alt Surlu Talim Kalesi)
+      {
+        id: 'barracks',
+        name: '⚔️ ASKERİ KIŞLA & TALİM KAMPI',
+        sub: '🛡️ Asker Alma, Okçuluk & Ordu Yönetimi',
+        px: 0.160,
+        py: 0.840,
+        pr: 0.090,
+        colorHex: '#3b82f6'
+      },
+
+      // 4. GÖRSEL (Önceki 4): DAĞ MADEN OCAĞI (Sol Üst Dağ Tepesi Tüneller & Raylar)
       {
         id: 'mine',
         name: '⛏️ DAĞ MADEN OCAĞI & DEMİR',
-        sub: '💎 Demir ve Değerli Cevherler',
-        px: 0.387,
-        py: 0.104,
-        pr: 0.055,
-        colorHex: '#38bdf8',
-        flipDown: true
+        sub: '💎 Demir ve Değerli Cevher Seferleri',
+        px: 0.275,
+        py: 0.185,
+        pr: 0.065,
+        colorHex: '#38bdf8'
       },
 
-      // 5. KRALLIK TAVERNASI & HAN (Kuzey-Orta)
+      // 5. GÖRSEL (Önceki 5): DEMİRCİ FIRINI & TAMİRHANE (Şehir İçi Sol Yanan Ocak & Örs)
       {
-        id: 'tavern',
-        name: '🍺 KRALLIK TAVERNASI & HAN',
-        sub: '🍗 Günlük Güçlendirmeler & Dinlenme',
-        px: 0.525,
-        py: 0.207,
-        pr: 0.068,
-        colorHex: '#eab308'
+        id: 'blacksmith',
+        name: '⚒️ KRALLIK DEMİRCİSİ & TAMİRHANE',
+        sub: '🔥 Silah & Zırh Dövme, Ekipman Onarımı',
+        px: 0.275,
+        py: 0.515,
+        pr: 0.045,
+        colorHex: '#f97316'
       },
 
-      // 6. KRALLIK MEYDANI PAZARI (Tam Merkez)
+      // 6. YENİ GÖRSEL 1: KRALLIK MEYDANI PAZARI (Şehir Merkezi Çeşme & Tezgahlar)
       {
         id: 'market',
         name: '🏪 KRALLIK MEYDANI PAZARI',
         sub: '🪙 AMM DEX & Ticaret Çadırları',
-        px: 0.492,
-        py: 0.578,
-        pr: 0.115,
-        colorHex: '#f97316'
+        px: 0.380,
+        py: 0.535,
+        pr: 0.065,
+        colorHex: '#e11d48'
       },
 
-      // 7. BÜYÜK GLADYATÖR KOLEZYUMU (Sağ Alt)
+      // 7. YENİ GÖRSEL 2: KRALLIK KARNAVALI & SİRK (Şehir İçi Çizgili Sirk Çadırı)
+      {
+        id: 'carnival',
+        name: '🎪 KRALLIK KARNAVALI & SİRK',
+        sub: '🎈 Şenlikler, Gösteriler & Sürprizler',
+        px: 0.465,
+        py: 0.415,
+        pr: 0.050,
+        colorHex: '#ec4899'
+      },
+
+      // 8. YENİ GÖRSEL 3: KRALLIK TAVERNASI & HAN (Şehir İçi Kuzeydoğu İki Katlı Han)
+      {
+        id: 'tavern',
+        name: '🍺 KRALLIK TAVERNASI & HAN',
+        sub: '🍗 Günlük Güçlendirmeler & Dinlenme',
+        px: 0.585,
+        py: 0.275,
+        pr: 0.065,
+        colorHex: '#eab308'
+      },
+
+      // 9. YENİ GÖRSEL 4: BÜYÜK GLADYATÖR KOLEZYUMU (Şehir Sağı Devasa Arena)
       {
         id: 'colosseum',
         name: '🏟️ BÜYÜK GLADYATÖR KOLEZYUMU',
         sub: '⚔️ Gladyatör Düelloları & Ordu Arenası',
-        px: 0.833,
-        py: 0.778,
+        px: 0.745,
+        py: 0.535,
         pr: 0.110,
         colorHex: '#ef4444'
       },
 
-      // 8. GÜNEŞ TARLASI & DEĞİRMEN (Sağ Üst - Menü butonuna taşmayacak şekilde ayarlandı)
+      // 10. YENİ GÖRSEL 5: GÜNEŞ TARLASI & DEĞİRMEN (Sağ Taraf Yel Değirmeni & Hasat)
       {
         id: 'farm',
         name: '🌾 GÜNEŞ TARLASI & DEĞİRMEN',
         sub: '🥖 Buğday ve Tarım Hasadı',
-        px: 0.760,
-        py: 0.220,
-        pr: 0.075,
-        colorHex: '#facc15',
-        flipDown: true
+        px: 0.945,
+        py: 0.540,
+        pr: 0.065,
+        colorHex: '#facc15'
+      },
+
+      // 11. ZÜMRÜT ORMANI & ODUNCU KULÜBESİ (Sağ Üst Çam Ormanı & Kütükler)
+      {
+        id: 'forest',
+        name: '🌲 ZÜMRÜT ORMANI & ODUNCU KULÜBESİ',
+        sub: '🪓 Odun & Kereste Toplama',
+        px: 0.845,
+        py: 0.165,
+        pr: 0.070,
+        colorHex: '#22c55e'
+      },
+
+      // 12. GÖRSEL 1: BÜYÜK SAVAŞ ALANI & CEPHE (Alt Orta Ordu Formasyonları)
+      {
+        id: 'battlefield',
+        name: '⚔️ BÜYÜK SAVAŞ ALANI & CEPHE',
+        sub: '🚩 Krallık Orduları Meydan Savaşı',
+        px: 0.530,
+        py: 0.860,
+        pr: 0.120,
+        colorHex: '#dc2626'
       }
     ];
 
@@ -215,13 +262,18 @@ export class GrandTownScene extends Phaser.Scene {
 
         const clampedX = Phaser.Math.Clamp(cx, 190, w - 190);
 
+        // dungeon, mine, carnival için yukarıda; forest için ise menünün altında (aşağıda) göster
+        const forceAbove = def.id === 'dungeon' || def.id === 'mine' || def.id === 'carnival';
+        const isForest = def.id === 'forest';
+        const tooltipCy = forceAbove ? Math.max(cy, 110) : (isForest ? cy + 30 : cy);
+
         titleEl.textContent = def.name;
         subEl.textContent = def.sub;
         tooltipEl.style.borderColor = def.colorHex;
         tooltipEl.style.left = `${clampedX}px`;
-        tooltipEl.style.top = `${cy}px`;
+        tooltipEl.style.top = `${tooltipCy}px`;
 
-        if (def.flipDown || cy < 160) {
+        if (isForest || (!forceAbove && (def.flipDown || cy < 160))) {
           tooltipEl.classList.add('flip-down');
         } else {
           tooltipEl.classList.remove('flip-down');
@@ -255,6 +307,7 @@ export class GrandTownScene extends Phaser.Scene {
 
         sound.playPickaxe();
         if (def.id === 'dungeon') {
+          window.dispatchEvent(new CustomEvent('enter-dungeon-view'));
           this.scene.start('DungeonScene');
         } else {
           window.dispatchEvent(new CustomEvent('open-town-modal', { detail: { zoneId: def.id, zoneName: def.name } }));

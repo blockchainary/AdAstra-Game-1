@@ -61,8 +61,8 @@
       </div>
     </div>
 
-    <!-- ORTA: Hızlı Menü Butonları (Sadeleştirilmiş & Asla Taşmayan) -->
-    <nav class="top-nav-menu">
+    <!-- ORTA (KASABA MENÜSÜ): Kasabadayken Görünür, Zindandayken Gizlenir -->
+    <nav class="top-nav-menu" id="town-nav-menu">
       <button class="top-menu-btn top-menu-dashboard" id="btn-nav-dashboard" title="Krallık Kontrol Paneli & Toplu Eylemler (TAB)" style="border-color: #f59e0b; background: linear-gradient(135deg, rgba(245,158,11,0.2), rgba(120,53,15,0.4)); color: #fde047; font-weight: 800;">
         <span>🏰</span> <span>DASHBOARD</span>
       </button>
@@ -72,6 +72,23 @@
       <button class="top-menu-btn" id="btn-daily-limits" title="Haftalık Kaynak Çıkarma Limitleri">
         <span>📊</span> <span>HAFTALIK LİMİT</span>
       </button>
+      <button class="top-menu-btn" id="btn-open-test-menu" title="Geliştirici & Test Paneli (Cheat & Test Hileleri)" style="border-color: #ec4899; background: linear-gradient(135deg, rgba(236,72,153,0.25), rgba(131,24,67,0.4)); color: #f472b6; font-weight: 800;">
+        <span>🧪</span> <span>TEST MENÜSÜ</span>
+      </button>
+    </nav>
+
+    <!-- ORTA (ZİNDAN MENÜSÜ): Zindandayken Üst Barda Görünür, Kasabadayken Gizlenir -->
+    <nav id="dungeon-floor-bar" class="dungeon-floor-nav hidden">
+      <button id="btn-dungeon-return-town" class="dungeon-home-btn" title="Kasabaya Dön">
+        <span>🏰</span> <span>KASABAYA DÖN</span>
+      </button>
+      <span class="dungeon-nav-divider"></span>
+      <button class="floor-tab active" data-floor="1"><span>👺</span> <span>1. KAT</span></button>
+      <button class="floor-tab" data-floor="2"><span>💀</span> <span>2. KAT</span></button>
+      <button class="floor-tab boss-tab" data-floor="3"><span>🗿</span> <span>3. KAT (ARA BOSS)</span></button>
+      <button class="floor-tab" data-floor="4"><span>👻</span> <span>4. KAT</span></button>
+      <button class="floor-tab" data-floor="5"><span>🌋</span> <span>5. KAT</span></button>
+      <button class="floor-tab mega-tab" data-floor="6"><span>🐉</span> <span>6. KAT (BÜYÜK BOSS)</span></button>
     </nav>
 
     <!-- SAĞ ÜST KÖŞE: Demir, Odun, Buğday ve Fragment (Tıklayınca İlgili Pencere Açılır) -->
@@ -107,25 +124,7 @@
     </div>
   </header>
 
-  <!-- ============================================================
-       1.5 FIXED DUNGEON FLOOR SELECTOR (SABİT 6 KAT MENÜSÜ)
-       ============================================================ -->
-  <nav id="dungeon-floor-bar" class="dungeon-floor-nav hidden">
-    <button id="btn-dungeon-return-town" class="dungeon-home-btn" title="Kasabaya Dön">
-      <span>🏰</span> <span>KASABAYA DÖN</span>
-    </button>
-    <span class="dungeon-nav-divider"></span>
-    <button class="floor-tab active" data-floor="1"><span>👺</span> <span>1. KAT</span></button>
-    <button class="floor-tab" data-floor="2"><span>💀</span> <span>2. KAT</span></button>
-    <button class="floor-tab boss-tab" data-floor="3"><span>🗿</span> <span>3. KAT (ARA BOSS)</span></button>
-    <button class="floor-tab" data-floor="4"><span>👻</span> <span>4. KAT</span></button>
-    <button class="floor-tab" data-floor="5"><span>🌋</span> <span>5. KAT</span></button>
-    <button class="floor-tab mega-tab" data-floor="6"><span>🐉</span> <span>6. KAT (BÜYÜK BOSS)</span></button>
-    <span class="dungeon-nav-divider"></span>
-    <div class="dungeon-dock-item" title="Arena Anahtarları">🔑 <span id="dungeon-dock-keys">0</span></div>
-    <div class="dungeon-dock-item" title="Kilitli Sandıklar">📦 <span id="dungeon-dock-boxes">0</span></div>
-    <div class="dungeon-dock-item" title="Ganimet Parçaları">🧩 <span id="dungeon-dock-fragments">0</span></div>
-  </nav>
+
 
   <!-- ============================================================
        1.8 ULTRA-CRISP HTML HOVER TOOLTIP (KRİSTAL NETLİĞİNDE BAŞLIK)

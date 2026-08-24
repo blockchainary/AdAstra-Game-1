@@ -93,7 +93,7 @@ export const GAME_CONFIG = {
     }
   },
   
-  // Aletler & Tamir Maliyetleri (Odun + Demir + AdAstra)
+  // Aletler & Tamir Maliyetleri (Odun + Demir + Buğday + AdAstra)
   TOOLS: {
     axe: {
       id: 'axe',
@@ -102,7 +102,7 @@ export const GAME_CONFIG = {
       maxDurability: 100,
       durabilityLossPerExpedition: 25,
       producedResource: 'wood',
-      fullRepairCost: { wood: 20, iron: 15, adAstra: 10 }
+      fullRepairCost: { wood: 20, iron: 15, wheat: 0, adAstra: 15 }
     },
     pickaxe: {
       id: 'pickaxe',
@@ -111,7 +111,7 @@ export const GAME_CONFIG = {
       maxDurability: 100,
       durabilityLossPerExpedition: 25,
       producedResource: 'iron',
-      fullRepairCost: { wood: 15, iron: 25, adAstra: 15 }
+      fullRepairCost: { wood: 10, iron: 25, wheat: 0, adAstra: 15 }
     },
     sickle: {
       id: 'sickle',
@@ -120,8 +120,32 @@ export const GAME_CONFIG = {
       maxDurability: 100,
       durabilityLossPerExpedition: 25,
       producedResource: 'wheat',
-      fullRepairCost: { wood: 25, iron: 10, adAstra: 5 }
+      fullRepairCost: { wood: 0, iron: 10, wheat: 5, adAstra: 15 }
     }
+  },
+
+  // =========================================================================
+  // 📈 DEEPSEEK-R1 10 YILLIK TEÇHİZAT YÜKSELTME MATRİKSİ (LV.1 -> LV.10)
+  // =========================================================================
+  EQUIPMENT_MAX_LEVEL: 10,
+  EQUIPMENT_UPGRADE_TIERS: {
+    2: { iron: 20, wood: 15, fragments: 0, adAstra: 50 },
+    3: { iron: 35, wood: 25, fragments: 0, adAstra: 100 },
+    4: { iron: 50, wood: 40, fragments: 5, adAstra: 250 },
+    5: { iron: 75, wood: 55, fragments: 10, adAstra: 500 },
+    6: { iron: 110, wood: 80, fragments: 15, adAstra: 850 },
+    7: { iron: 160, wood: 115, fragments: 25, adAstra: 1350 },
+    8: { iron: 230, wood: 160, fragments: 35, adAstra: 2100 },
+    9: { iron: 320, wood: 225, fragments: 50, adAstra: 3200 },
+    10: { iron: 450, wood: 300, fragments: 80, adAstra: 5000 }
+  },
+
+  // AMM Likidite Havuzları Taban - Tavan Fiyat Koridoru (ADA Cinsinden)
+  AMM_CORRIDORS: {
+    iron: { minPriceAda: 0.15, maxPriceAda: 1.20, defaultPriceAda: 0.40 },
+    wood: { minPriceAda: 0.10, maxPriceAda: 0.90, defaultPriceAda: 0.30 },
+    wheat: { minPriceAda: 0.08, maxPriceAda: 0.75, defaultPriceAda: 0.25 },
+    fragments: { minPriceAda: 1.50, maxPriceAda: 12.00, defaultPriceAda: 4.50 }
   },
 
   // Karakter Seviye Atlama Maliyetleri (Level Up Requirements)
@@ -238,40 +262,63 @@ export const GAME_CONFIG = {
     }
   },
 
-  // Taverna 24 Saatlik Güçlendirmeleri (Tavern 24h Buffs)
+  // Taverna Güçlendirmeleri & Otomasyon Botları
   TAVERN_BUFFS: {
     auto_collector: {
       id: 'auto_collector',
-      name: '24 Saatlik Otomatik Toplama Botu',
+      name: 'Günlük Otomatik Toplama & Tamir Botu (24 Saat)',
       icon: '🤖',
       durationSeconds: 24 * 3600,
       costAdAstra: 23500,
-      desc: 'Seferler bittiğinde kaynakları otomatik toplar ve alet sağlam oldukça görevi yeniden başlatır.'
+      desc: 'Seferler bittiğinde kaynakları otomatik toplar, aletleri depodaki hammaddeyle otomatik tamir eder ve seferi kesintisiz sürdürür.'
     },
-    speed_wood: {
-      id: 'speed_wood',
-      name: '24 Saatlik 1.5x Hızlı Odunculuk',
-      icon: '🌲',
-      durationSeconds: 24 * 3600,
-      costAdAstra: 40,
-      desc: 'Odun toplama görev süresini 1.5 kat hızlandırır (%33 süre avantajı).'
+    auto_collector_weekly: {
+      id: 'auto_collector_weekly',
+      name: 'Haftalık Otomatik Toplama & Tamir Botu (7 Gün)',
+      icon: '🤖',
+      durationSeconds: 7 * 24 * 3600,
+      costAdAstra: 140000,
+      desc: '7 gün boyunca tüm seferleri otomatik toplar, depodaki hammaddeyle aletleri otomatik onarır ve seferleri sürdürür (%15 İndirimli).'
     },
-    speed_iron: {
-      id: 'speed_iron',
-      name: '24 Saatlik 1.5x Hızlı Madencilik',
-      icon: '⛏️',
-      durationSeconds: 24 * 3600,
-      costAdAstra: 40,
-      desc: 'Demir madeni görev süresini 1.5 kat hızlandırır.'
+    auto_collector_monthly: {
+      id: 'auto_collector_monthly',
+      name: 'Aylık Otomatik Toplama & Tamir Botu (30 Gün)',
+      icon: '🤖',
+      durationSeconds: 30 * 24 * 3600,
+      costAdAstra: 490000,
+      desc: '30 gün boyunca kesintisiz tam otomasyon! Kaynakları toplar, aletleri otomatik tamir eder ve seferleri yönetir (%30 İndirimli).'
     },
-    speed_wheat: {
-      id: 'speed_wheat',
-      name: '24 Saatlik 1.5x Hızlı Hasat',
-      icon: '🌾',
+    speed_potion_1: {
+      id: 'speed_potion_1',
+      name: 'Kısa Darbe İksiri (1.50x Hız)',
+      icon: '⚡',
+      durationSeconds: 2 * 3600,
+      costAdAstra: 4500,
+      speedMultiplier: 1.50,
+      desc: '2 saat boyunca tüm seferlerin süresini 1.50 kat hızlandırır.'
+    },
+    speed_potion_2: {
+      id: 'speed_potion_2',
+      name: 'Standart Sefer İksiri (1.75x Hız)',
+      icon: '⚡',
+      durationSeconds: 6 * 3600,
+      costAdAstra: 15000,
+      speedMultiplier: 1.75,
+      desc: '6 saat boyunca tüm seferlerin süresini 1.75 kat hızlandırır.'
+    },
+    speed_potion_3: {
+      id: 'speed_potion_3',
+      name: 'Büyük Sefer İksiri (2.00x Hız - Balina)',
+      icon: '⚡',
       durationSeconds: 24 * 3600,
-      costAdAstra: 40,
-      desc: 'Buğday hasadı süresini 1.5 kat hızlandırır.'
-    }
+      costAdAstra: 45000,
+      speedMultiplier: 2.00,
+      desc: '24 saat boyunca tüm seferlerin süresini 2.00 kat (2 kat) hızlandırır.'
+    },
+    // Geriye dönük uyumluluk
+    speed_wood: { id: 'speed_wood', name: 'Hızlı Odunculuk', icon: '🌲', durationSeconds: 24 * 3600, costAdAstra: 40, speedMultiplier: 1.5 },
+    speed_iron: { id: 'speed_iron', name: 'Hızlı Madencilik', icon: '⛏️', durationSeconds: 24 * 3600, costAdAstra: 40, speedMultiplier: 1.5 },
+    speed_wheat: { id: 'speed_wheat', name: 'Hızlı Hasat', icon: '🌾', durationSeconds: 24 * 3600, costAdAstra: 40, speedMultiplier: 1.5 }
   },
   
   // =========================================================================

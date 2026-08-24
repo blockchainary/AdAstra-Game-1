@@ -6,3 +6,6 @@ dist/
 Thumbs.db
 .env
 .env.local
+/*.png
+/test-results/
+/playwright-report/

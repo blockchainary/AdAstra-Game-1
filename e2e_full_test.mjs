@@ -140,7 +140,7 @@ async function main() {
   const shortcuts = [
     ['1', 'Zümrüt Ormanı'], ['2', 'Maden Ocağı'], ['3', 'Güneş Tarlası'],
     ['4', 'ASKERİ KIŞLA'], ['5', 'AMM Pazar'], ['7', 'GLADYATÖR KOLEZYUMU'],
-    ['q', 'Krallık Görevleri'], ['e', 'KARAKTER GELİŞİMİ']
+    ['e', 'KARAKTER GELİŞİMİ']
   ];
   for (const [key, expectedText] of shortcuts) {
     await page.keyboard.press(key);
@@ -507,12 +507,15 @@ async function main() {
   await page.keyboard.press('6');
   await page.waitForTimeout(1200);
 
-  const scaleX = 1600 / 2400;
-  const scaleY = 950 / 1350;
+  // Yeni sabit normalize (0-1) oda yerleşimi: tüm katlarda aynı 3 konum.
   const clickDungeonZone = async (px, py) => {
-    await page.mouse.click(px * scaleX, py * scaleY);
+    await page.mouse.click(px * 1600, py * 950);
     await page.waitForTimeout(500);
   };
+  const CHAMBER_1 = [0.180, 0.450];
+  const CHAMBER_2 = [0.480, 0.450];
+  const CHAMBER_3 = [0.760, 0.450];
+  const PORTAL = [0.940, 0.750];
   const fightAndClose = async () => {
     const fightBtn = page.locator('#btn-start-dungeon-fight');
     if (!(await fightBtn.count())) return { opened: false };
@@ -526,7 +529,7 @@ async function main() {
   };
 
   // 1. Kat, 1. Canavar (Bataklık Balçığı, Lv.1)
-  await clickDungeonZone(340, 550);
+  await clickDungeonZone(...CHAMBER_1);
   const monsterModalOpened = await isModalOpen();
   logResult('Zindan: 1.Kat canlı canavar bölgesine tıklayınca savaş modalı açılıyor', monsterModalOpened ? 'PASS' : 'FAIL');
   const f1 = await fightAndClose();
@@ -534,6 +537,17 @@ async function main() {
   logResult('Zindan: 1.Kat canavarı yenildi (güçlü ordu ile)', victoryText1 ? 'PASS' : 'FAIL', (f1.logText || '').replace(/<[^>]+>/g, ' ').slice(0, 100));
   const progressAfterF1 = await evalState('return gameState.state.dungeonProgress');
   logResult('Zindan: Canavar yenilince bir sonraki seviyenin kilidi açılıyor', progressAfterF1 === 2 ? 'PASS' : 'FAIL', `dungeonProgress=${progressAfterF1}`);
+
+  // Sonraki Kat Portalı: 1.Kat'tan 2.Kat'a tıklayarak geçiş
+  await clickDungeonZone(...PORTAL);
+  await page.waitForTimeout(400);
+  const activeFloorAfterPortal = await page.evaluate(() => {
+    const tab = document.querySelector('.floor-tab.active');
+    return tab ? parseInt(tab.dataset.floor, 10) : null;
+  });
+  logResult('Zindan: Portala tıklayınca 2.Kata geçiliyor', activeFloorAfterPortal === 2 ? 'PASS' : 'FAIL', `aktifKat=${activeFloorAfterPortal}`);
+  await page.click('.floor-tab[data-floor="1"]');
+  await page.waitForTimeout(400);
 
   // Ara Boss'a (Kat 3, Lv.9 - Kadim Taş Golyat) dev panelinden atla
   await openDev();
@@ -546,7 +560,7 @@ async function main() {
   await page.click('.floor-tab[data-floor="3"]');
   await page.waitForTimeout(600);
   const arenaKeysBeforeBoss = await evalState('return gameState.state.arenaKeys');
-  await clickDungeonZone(1690, 420); // Sağ slot: Kadim Taş Golyat (ARA BOSS)
+  await clickDungeonZone(...CHAMBER_3); // Sağ slot: Kadim Taş Golyat (ARA BOSS)
   const bossModalOpened = await isModalOpen();
   const bossModalTitle = await page.textContent('#modal-title').catch(() => '');
   logResult('Zindan: ARA BOSS (3.Kat, Lv.9) bölgesine tıklayınca savaş açılıyor', bossModalOpened && /GOLYAT/i.test(bossModalTitle), bossModalTitle);
@@ -564,7 +578,7 @@ async function main() {
 
   await page.click('.floor-tab[data-floor="6"]');
   await page.waitForTimeout(600);
-  await clickDungeonZone(1950, 450); // Sağ slot: Kıyamet Ejderhası IGNIS (BÜYÜK BOSS)
+  await clickDungeonZone(...CHAMBER_3); // Sağ slot: Kıyamet Ejderhası IGNIS (BÜYÜK BOSS)
   const finalBossOpened = await isModalOpen();
   const finalBossTitle = await page.textContent('#modal-title').catch(() => '');
   logResult('Zindan: BÜYÜK BOSS (6.Kat, Lv.18 IGNIS) bölgesine tıklayınca savaş açılıyor', finalBossOpened && /IGNIS/i.test(finalBossTitle), finalBossTitle);
@@ -591,7 +605,7 @@ async function main() {
   await closeModal();
 
   // =========================================================================
-  setPhase('9-taverna-ve-gorevler');
+  setPhase('9-taverna');
   await evalState(`gameState.state.adAstraBalance = 200000; gameState.state.activeBuffs = {}; gameState.saveState();`);
   const tavernBtn = page.locator('#top-btn-tavern');
   await tavernBtn.click().catch(async () => { await page.evaluate(() => window.dispatchEvent(new CustomEvent('open-town-modal', { detail: { zoneId: 'tavern', zoneName: 'Taverna' } }))); });
@@ -622,46 +636,6 @@ async function main() {
     const staminaFull = await evalState('return gameState.state.stamina >= gameState.getMaxStamina()');
     logResult('Taverna: ADA karşılığı anında stamina fullleme çalışıyor', staminaFull ? 'PASS' : 'FAIL');
   }
-  await closeModal();
-
-  // Günlük/Haftalık Görevler
-  await page.keyboard.press('q');
-  await page.waitForTimeout(300);
-  const questModalOpened = await isModalOpen();
-  logResult('Görevler modalı (Q) açılıyor', questModalOpened ? 'PASS' : 'FAIL');
-  const questProgress = await evalState(`return gameState.state.questProgress || {}`);
-  logResult('Önceki fazlarda yapılan eylemler görev ilerlemesine otomatik yansıyor', Object.values(questProgress).some(v => v > 0) ? 'PASS' : 'FAIL', JSON.stringify(questProgress));
-
-  // Tüm günlük görevleri tamamlanacak şekilde zorla ilerlet, ödülü UI'dan topla
-  await evalState(`
-    (GAME_CONFIG.DAILY_QUESTS || []).forEach(q => { gameState.state.questProgress[q.id] = q.target; });
-    gameState.saveState();
-  `);
-  await page.keyboard.press('q');
-  await page.waitForTimeout(300);
-  const claimableBtn = page.locator('.btn-claim-quest-reward:not([disabled])').first();
-  if (await claimableBtn.count()) {
-    const adaBeforeQuest = await evalState('return gameState.state.adAstraBalance');
-    await claimableBtn.click();
-    await page.waitForTimeout(300);
-    const adaAfterQuest = await evalState('return gameState.state.adAstraBalance');
-    logResult('Görev ödülü UI üzerinden başarıyla toplanıyor', adaAfterQuest > adaBeforeQuest ? 'PASS' : 'FAIL', `${adaBeforeQuest} -> ${adaAfterQuest}`);
-  } else {
-    logResult('Tamamlanmış görev ödül butonu bulunamadı', 'FAIL');
-  }
-  await closeModal();
-
-  // Reset döngüsü: 24 saat öncesine tarihle, modalı yeniden aç ve otomatik sıfırlanmayı doğrula
-  await evalState(`
-    gameState.state.lastDailyQuestReset = Date.now() - (25 * 3600 * 1000);
-    gameState.state.lastWeeklyQuestReset = Date.now() - (8 * 24 * 3600 * 1000);
-    gameState.saveState();
-  `);
-  await page.keyboard.press('q');
-  await page.waitForTimeout(300);
-  const afterReset = await evalState(`return { progress: gameState.state.questProgress, claimed: gameState.state.claimedQuests }`);
-  const allReset = Object.values(afterReset.progress).every(v => v === 0) && Object.values(afterReset.claimed).every(v => v === false || v === undefined);
-  logResult('Günlük/Haftalık görevler 24s/7g sonra otomatik sıfırlanıyor', allReset ? 'PASS' : 'FAIL', JSON.stringify(afterReset));
   await closeModal();
 
   await browser.close();

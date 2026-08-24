@@ -480,24 +480,47 @@ export class GameStateManager {
     return { success: true, message: `${hours} Saatlik ${nodeConfig.name} görevi başlatıldı! (-${staminaCost} ⚡)` };
   }
 
+  getExpeditionSpeedMultiplier() {
+    if (this.isBuffActive('speed_potion_3')) return 2.0;
+    if (this.isBuffActive('speed_potion_2')) return 1.75;
+    if (this.isBuffActive('speed_potion_1')) return 1.5;
+    if (this.isBuffActive('speed_wood') || this.isBuffActive('speed_iron') || this.isBuffActive('speed_wheat')) return 1.5;
+    return 1.0;
+  }
+
   updateExpeditions(deltaSeconds) {
     let hasChanges = false;
+    const speedMult = this.getExpeditionSpeedMultiplier();
     for (const nodeId of Object.keys(this.state.activeExpeditions)) {
       const exp = this.state.activeExpeditions[nodeId];
-      if (!exp.isCompleted) {
-        exp.elapsedSeconds += deltaSeconds;
+      if (exp && !exp.isCompleted) {
+        exp.elapsedSeconds += (deltaSeconds * speedMult);
         if (exp.elapsedSeconds >= exp.durationSeconds) {
           exp.elapsedSeconds = exp.durationSeconds;
           exp.isCompleted = true;
           hasChanges = true;
 
-          // 🤖 24 SAATLİK OTOMATİK TOPLAMA BOTU (AUTO-COLLECTOR)
-          if (this.isBuffActive('auto_collector')) {
+          // 🤖 OTOMATİK TOPLAMA & OTOMATİK TAMİR BOTU (AUTO-COLLECTOR & AUTO-REPAIR)
+          if (this.isAutoCollectorActive()) {
             setTimeout(() => {
               this.claimExpedition(nodeId);
-              // Alet sağlamsa ve stamina varsa yeniden başlat
+
               const toolId = GAME_CONFIG.GLOBAL_RESOURCE_CAPS[nodeId].requiredTool;
-              if (this.state.tools[toolId].durability > 0 && this.state.stamina >= 25) {
+              const tool = this.state.tools[toolId];
+
+              // Eğer aletin dayanıklılığı sıfırlandıysa, depodaki hammaddelerle otomatik tamir et
+              if (tool && tool.durability <= 0) {
+                const repCost = this.calculateRepairCost(toolId);
+                const inv = this.state.inventory;
+                const resKey = toolId === 'pickaxe' ? 'iron' : toolId === 'axe' ? 'wood' : 'wheat';
+
+                if ((inv[resKey] || 0) >= repCost.resourceCost && this.state.adAstraBalance >= repCost.adAstraCost) {
+                  this.repairTool(toolId);
+                }
+              }
+
+              // Alet sağlamsa ve stamina varsa yeniden başlat
+              if (this.state.tools[toolId] && this.state.tools[toolId].durability > 0 && this.state.stamina >= 25) {
                 this.startExpedition(nodeId);
               }
             }, 500);
@@ -506,6 +529,23 @@ export class GameStateManager {
       }
     }
     if (hasChanges) this.saveState();
+  }
+
+  isAutoCollectorActive() {
+    return this.isBuffActive('auto_collector') ||
+           this.isBuffActive('auto_collector_weekly') ||
+           this.isBuffActive('auto_collector_monthly');
+  }
+
+  getAutoCollectorExpiry() {
+    let maxExp = 0;
+    for (const id of ['auto_collector', 'auto_collector_weekly', 'auto_collector_monthly']) {
+      const b = this.state.activeBuffs[id];
+      if (b && b.expiresAt > maxExp && b.expiresAt > Date.now()) {
+        maxExp = b.expiresAt;
+      }
+    }
+    return maxExp;
   }
 
   getAccruedExpeditionHarvest(nodeId) {
@@ -610,10 +650,6 @@ export class GameStateManager {
     this.addXp(xpGained);
 
     delete this.state.activeExpeditions[nodeId];
-
-    // Görev İlerlemesi (Quest Progress)
-    this.progressQuest('daily_expeditions', 1);
-    this.progressQuest('weekly_expeditions', 1);
 
     if (playerTool.durability === 0) sound.playBreakWarning();
     else sound.playHarvest();
@@ -814,9 +850,6 @@ export class GameStateManager {
     this.state.adAstraBalance -= cost.adAstraCost;
     globalPool.recordTokenSpend(cost.adAstraCost);
     this.state.tools[toolId].durability = 100;
-
-    // Görev İlerlemesi (Quest Progress)
-    this.progressQuest('daily_repairs', 1);
 
     sound.playRepair();
     this.saveState();
@@ -1035,24 +1068,32 @@ export class GameStateManager {
     };
   }
 
-  // 3. Ekipman Geliştirme Maliyeti (Upgrade Cost: Demir + Odun + Parça + AdAstra)
+  // 3. Ekipman Geliştirme Maliyeti (Upgrade Cost: Lv.1 -> Lv.10 DeepSeek-R1 Matriksi)
   calculateEquipmentUpgradeCost(slotKey) {
     const item = this.state.equipment ? this.state.equipment[slotKey] : null;
     if (!item) return null;
 
-    const nextLvl = (item.level || 1) + 1;
-    const fragmentCost = nextLvl * 5;
-    const ironCost = nextLvl * 30;
-    const woodCost = nextLvl * 20;
-    const adAstraCost = Math.floor(1800 * Math.pow(nextLvl, 2.05) * Math.pow(1.015, nextLvl - 1));
+    const currentLvl = item.level || 1;
+    if (currentLvl >= (GAME_CONFIG.EQUIPMENT_MAX_LEVEL || 10)) {
+      return { isMaxLevel: true, currentLevel: currentLvl };
+    }
+
+    const nextLvl = currentLvl + 1;
+    const tier = GAME_CONFIG.EQUIPMENT_UPGRADE_TIERS[nextLvl] || {
+      iron: nextLvl * 30,
+      wood: nextLvl * 20,
+      fragments: nextLvl * 5,
+      adAstra: nextLvl * 100
+    };
 
     return {
-      currentLevel: item.level || 1,
+      isMaxLevel: false,
+      currentLevel: currentLvl,
       nextLevel: nextLvl,
-      fragmentCost,
-      ironCost,
-      woodCost,
-      adAstraCost,
+      ironCost: tier.iron,
+      woodCost: tier.wood,
+      fragmentCost: tier.fragments,
+      adAstraCost: tier.adAstra,
       nextAtk: Math.round(item.baseAtk * (1 + (nextLvl - 1) * 0.35)),
       nextHp: Math.round(item.baseHp * (1 + (nextLvl - 1) * 0.35))
     };
@@ -1062,6 +1103,7 @@ export class GameStateManager {
   upgradeEquipment(slotKey) {
     const cost = this.calculateEquipmentUpgradeCost(slotKey);
     if (!cost) return { success: false, message: 'Ekipman bulunamadı!' };
+    if (cost.isMaxLevel) return { success: false, message: 'Bu ekipman zaten maksimum seviyede (Lv.10 Master)!' };
 
     const inv = this.state.inventory;
     if ((inv.fragments || 0) < cost.fragmentCost) {
@@ -1207,7 +1249,7 @@ export class GameStateManager {
     return { id: pick.id, name: cfg.name, icon: cfg.icon, rarity: cfg.rarity, lore: cfg.lore };
   }
 
-  // Kilitli Sandığı Açar (Parça, AdAstra, Arena Anahtarı veya Koleksiyon Eseri Kazandırır)
+  // Kilitli Sandığı Açar (SADECE 18 Koleksiyon Eserinden Biri Çıkar - Rarity Ağırlıklı)
   unboxMysteryBox() {
     if ((this.state.lockedBoxes || 0) <= 0) {
       return { success: false, message: 'Açılacak Kilitli Sandığın yok!' };
@@ -1215,33 +1257,64 @@ export class GameStateManager {
 
     this.state.lockedBoxes -= 1;
 
+    // Rarity Ağırlıkları: Common (%50), Rare (%30), Epic (%15), Legendary (%5)
     const roll = Math.random();
-    let result;
-    if (roll < 0.5) {
-      const amount = 5 + Math.floor(Math.random() * 10);
-      this.state.inventory.fragments = (this.state.inventory.fragments || 0) + amount;
-      result = { type: 'fragments', amount, message: `📦 Sandıktan ${amount} Parça çıktı!` };
-    } else if (roll < 0.85) {
-      const amount = 50 + Math.floor(Math.random() * 150);
-      this.state.adAstraBalance += amount;
-      result = { type: 'adAstra', amount, message: `📦 Sandıktan ${amount} $ADASTRA çıktı!` };
-    } else if (roll < 0.97) {
-      this.state.arenaKeys = (this.state.arenaKeys || 0) + 1;
-      result = { type: 'arenaKey', amount: 1, message: '📦 Sandıktan 1 Arena Anahtarı çıktı!' };
+    let selectedRarity = 'common';
+    if (roll < 0.05) {
+      selectedRarity = 'legendary'; // %5 Efsanevi
+    } else if (roll < 0.20) {
+      selectedRarity = 'epic';      // %15 Epik
+    } else if (roll < 0.50) {
+      selectedRarity = 'rare';      // %30 Nadir
     } else {
-      const artifact = this.discoverArtifact();
-      if (artifact) {
-        result = { type: 'artifact', artifact, message: `📦 Sandıktan efsanevi bir eser çıktı: ${artifact.icon} ${artifact.name}!` };
-      } else {
-        this.state.adAstraBalance += 200;
-        result = { type: 'adAstra', amount: 200, message: '📦 Tüm eserler zaten keşfedilmiş, bunun yerine 200 $ADASTRA kazandın!' };
-      }
+      selectedRarity = 'common';    // %50 Yaygın
     }
+
+    // Seçilen rarity'ye ait tüm eserleri bul
+    const pool = GAME_CONFIG.COLLECTION_ARTIFACTS.filter(c => c.rarity === selectedRarity);
+    const chosenConfig = pool.length > 0
+      ? pool[Math.floor(Math.random() * pool.length)]
+      : GAME_CONFIG.COLLECTION_ARTIFACTS[Math.floor(Math.random() * GAME_CONFIG.COLLECTION_ARTIFACTS.length)];
+
+    // Kullanıcının koleksiyonundaki eşleşen eseri bul veya oluştur
+    let userArt = (this.state.collectionArtifacts || []).find(a => a.id === chosenConfig.id);
+    if (!userArt) {
+      userArt = { id: chosenConfig.id, discovered: false, discoveredAt: null, count: 0 };
+      if (!this.state.collectionArtifacts) this.state.collectionArtifacts = [];
+      this.state.collectionArtifacts.push(userArt);
+    }
+
+    const wasDiscovered = userArt.discovered;
+    userArt.discovered = true;
+    if (!userArt.discoveredAt) userArt.discoveredAt = Date.now();
+    userArt.count = (userArt.count || 0) + 1;
+
+    const rarityBadge = chosenConfig.rarity === 'legendary' ? '💎 EFSANEVİ' : (chosenConfig.rarity === 'epic' ? '🟣 EPİK' : (chosenConfig.rarity === 'rare' ? '🔵 NADİR' : '🟢 YAYGIN'));
+    const isDuplicate = wasDiscovered;
 
     sound.playLevelUp();
     this.saveState();
 
-    return { success: true, ...result };
+    return {
+      success: true,
+      type: 'artifact',
+      isDuplicate,
+      artifact: {
+        id: chosenConfig.id,
+        name: chosenConfig.name,
+        icon: chosenConfig.icon,
+        rarity: chosenConfig.rarity,
+        lore: chosenConfig.lore,
+        count: userArt.count
+      },
+      message: isDuplicate
+        ? `📦 Sandıktan [${rarityBadge}] ${chosenConfig.icon} ${chosenConfig.name} çıktı! (Koleksiyonunda ${userArt.count} adet oldu)`
+        : `🎉 TEBRİKLER! Sandıktan YENİ [${rarityBadge}] ${chosenConfig.icon} ${chosenConfig.name} keşfettin!`
+    };
+  }
+
+  openMysteryBox() {
+    return this.unboxMysteryBox();
   }
 
   // 18 Koleksiyon Eseri Tamamlandığında Genesis NFT'yi Basar
@@ -1305,6 +1378,18 @@ export class GameStateManager {
     this.state.adAstraBalance = Math.max(0, exactAmount);
     this.saveState();
     return this.state.adAstraBalance;
+  }
+
+  activateTavernBuff(buffId, durationDays = 1) {
+    const buffConfig = GAME_CONFIG.TAVERN_BUFFS[buffId] || { name: buffId, durationSeconds: durationDays * 86400 };
+    const now = Date.now();
+    const durSec = (buffConfig.durationSeconds || durationDays * 86400);
+    this.state.activeBuffs[buffId] = {
+      id: buffId,
+      name: buffConfig.name,
+      expiresAt: now + durSec * 1000
+    };
+    this.saveState();
   }
 
   fastForwardTime(hours) {
@@ -1448,7 +1533,6 @@ export class GameStateManager {
       activeBuffs: {},
       activeExpeditions: {},
       dungeonProgress: 1,
-      questProgress: {},
       collectionArtifacts: this.mergeCollectionArtifacts([]),
       soldierUnits: []
     };
@@ -1487,19 +1571,6 @@ export class GameStateManager {
     const woundedCount = soldiers.filter(s => (s.hp || 0) < (s.maxHp || 100)).length;
     const avgHpPct = soldiers.length > 0 ? Math.round(soldiers.reduce((s, sol) => s + ((sol.hp || 0) / (sol.maxHp || 100)) * 100, 0) / soldiers.length) : 100;
 
-    // Görevler
-    const dailyQuests = (GAME_CONFIG.DAILY_QUESTS || []).map(q => ({
-      ...q,
-      progress: Math.min(q.target, (state.questProgress || {})[q.id] || 0),
-      claimed: (state.claimedQuests || {})[q.id] || false
-    }));
-    const weeklyQuests = (GAME_CONFIG.WEEKLY_QUESTS || []).map(q => ({
-      ...q,
-      progress: Math.min(q.target, (state.questProgress || {})[q.id] || 0),
-      claimed: (state.claimedQuests || {})[q.id] || false
-    }));
-    const claimableQuests = [...dailyQuests, ...weeklyQuests].filter(q => q.progress >= q.target && !q.claimed);
-
     // Depo
     const inv = state.inventory || {};
     const whCap = this.getWarehouseCapacity();
@@ -1510,11 +1581,10 @@ export class GameStateManager {
       activeExps, completedExps,
       toolSummary, avgToolHealth,
       soldierCount: soldiers.length, totalAtk, totalHp, woundedCount, avgHpPct,
-      dailyQuests, weeklyQuests, claimableQuests,
       inventory: inv, warehouseCapacity: whCap,
-      woodPct: Math.min(100, Math.round(((inv.wood || 0) / whCap) * 100)),
-      ironPct: Math.min(100, Math.round(((inv.iron || 0) / whCap) * 100)),
-      wheatPct: Math.min(100, Math.round(((inv.wheat || 0) / whCap) * 100)),
+      woodPct: Math.min(100, Math.round(((inv.wood || 0) / (whCap.wood || 500)) * 100)),
+      ironPct: Math.min(100, Math.round(((inv.iron || 0) / (whCap.iron || 400)) * 100)),
+      wheatPct: Math.min(100, Math.round(((inv.wheat || 0) / (whCap.wheat || 800)) * 100)),
     };
   }
 
@@ -1607,23 +1677,6 @@ export class GameStateManager {
     return { totalWheat, totalAda, count };
   }
 
-  claimAllQuestRewards() {
-    const results = { claimed: 0, totalAda: 0, totalXp: 0, totalFragments: 0 };
-    for (const type of ['daily', 'weekly']) {
-      const list = type === 'weekly' ? (GAME_CONFIG.WEEKLY_QUESTS || []) : (GAME_CONFIG.DAILY_QUESTS || []);
-      for (const q of list) {
-        const res = this.claimQuestReward(q.id, type);
-        if (res.success) {
-          results.claimed++;
-          results.totalAda += q.rewardAda;
-          results.totalXp += q.rewardXp;
-          results.totalFragments += q.rewardFragments;
-        }
-      }
-    }
-    return results;
-  }
-
   // =========================================================================
   // SMART ARMORY: OTOMATİK EN İYİ EŞYALARI DAĞIT & TOPLU SÖK
   // =========================================================================
@@ -1709,6 +1762,426 @@ export class GameStateManager {
     else if (winChance < 75) difficulty = 'Orta';
 
     return { totalAtk, totalHp, turnsToKillEnemy, winChance, difficulty, selectedCount: selectedSoldierIndices.length, protectWeapons };
+  }
+
+  // =========================================================================
+  // BOT KAYNAK EKSİKLİĞİ KONTROLÜ (BİLDİRİM MERKEZİ İÇİN)
+  // =========================================================================
+  getBotResourceDeficitWarning() {
+    if (!this.isAutoCollectorActive()) return null;
+    const inv = this.state.inventory || {};
+    const ada = this.state.adAstraBalance || 0;
+    const missing = [];
+
+    if ((inv.iron || 0) < 50) missing.push(`${50 - (inv.iron || 0)} ⛏️ Demir`);
+    if ((inv.wood || 0) < 50) missing.push(`${50 - (inv.wood || 0)} 🌲 Odun`);
+    if ((inv.wheat || 0) < 50) missing.push(`${50 - (inv.wheat || 0)} 🌾 Buğday`);
+    if (ada < 50) missing.push(`${(50 - ada).toFixed(0)} 🟣 ADA`);
+
+    if (missing.length > 0) {
+      return {
+        type: 'warning',
+        icon: '⚠️',
+        title: 'Otomasyon Botu Kaynak Uyarısı',
+        text: `Botun kesintisiz çalışması ve aşınan aletleri otomatik onarabilmesi için deponuzda en az 50 Demir, 50 Odun, 50 Buğday ve 50 $ADASTRA bulundurmalısınız. (Eksikler: ${missing.join(', ')})`,
+        missing
+      };
+    }
+    return null;
+  }
+
+  // =========================================================================
+  // KOLEZYUM 1v1 PVP & HAFTALIK LİDERLİK TABLOSU
+  // =========================================================================
+  getColosseumLeaderboard() {
+    if (!this.state.colosseumLeaderboard) {
+      this.state.colosseumLeaderboard = [
+        { rank: 1, name: 'Kraliyet Gladyatörü Leonidas', score: 48, wins: 48, losses: 2, icon: '🦁', title: 'Arena Şampiyonu', rewardKeys: 5, rewardAda: 15000 },
+        { rank: 2, name: 'Valkyrie Selin', score: 42, wins: 42, losses: 5, icon: '⚔️', title: 'Yenilmez Gladyatör', rewardKeys: 3, rewardAda: 8000 },
+        { rank: 3, name: 'Gölge Şövalyesi Eren', score: 38, wins: 38, losses: 7, icon: '🗡️', title: 'Arenanın Fatihi', rewardKeys: 1, rewardAda: 2500 },
+        { rank: 4, name: 'Titan Barok', score: 35, wins: 35, losses: 8, icon: '🗿', title: 'Taş Muhafız', rewardKeys: 1, rewardAda: 2500 },
+        { rank: 5, name: 'Büyücü Zafira', score: 31, wins: 31, losses: 9, icon: '🧙‍♀️', title: 'Kadim Elementalist', rewardKeys: 1, rewardAda: 2500 },
+        { rank: 6, name: 'Gece Avcısı Kaan', score: 28, wins: 28, losses: 10, icon: '🏹', title: 'Usta Nişancı', rewardKeys: 1, rewardAda: 2500 },
+        { rank: 7, name: 'Korsan Kaptan Drake', score: 25, wins: 25, losses: 12, icon: '🏴‍☠️', title: 'Denizler Fatihi', rewardKeys: 1, rewardAda: 2500 },
+        { rank: 8, name: 'Ejderha Süvarisi Alperen', score: 22, wins: 22, losses: 13, icon: '🐉', title: 'Ateş Lordu', rewardKeys: 1, rewardAda: 2500 },
+        { rank: 9, name: 'Kutsal Şövalye Galahad', score: 19, wins: 19, losses: 14, icon: '🛡️', title: 'Işık Muhafızı', rewardKeys: 1, rewardAda: 2500 },
+        { rank: 10, name: 'Fırtına Savaşçısı Zephyr', score: 16, wins: 16, losses: 15, icon: '⚡', title: 'Fırtına Getiren', rewardKeys: 1, rewardAda: 2500 },
+      ];
+    }
+    return this.state.colosseumLeaderboard;
+  }
+
+  executeColosseum1v1Match(championIndex = 0) {
+    const soldiers = this.state.soldierUnits || [];
+    const champion = soldiers[championIndex];
+    if (!champion) {
+      return { success: false, message: 'Kolezyum arenasına çıkacak geçerli bir şampiyon askerin yok!' };
+    }
+
+    if ((champion.hp || 0) <= 15) {
+      return { success: false, message: `⚠️ ${champion.name} ağır yaralı (Can: ${champion.hp}/${champion.maxHp}). Kolezyuma çıkmadan önce buğdayla iyileştirilmelidir!` };
+    }
+
+    const stats = this.getSoldierFullStats(championIndex);
+    const playerAtk = stats.totalAtk;
+    const playerMaxHp = stats.totalMaxHp;
+    let playerCurrentHp = champion.hp || playerMaxHp;
+
+    // Gerçekçi Rakip Şampiyon Havuzu
+    const opponents = [
+      { name: 'Gölge Gladyatörü Kael', atk: Math.floor(playerAtk * (0.85 + Math.random() * 0.3)), hp: Math.floor(playerMaxHp * (0.85 + Math.random() * 0.3)), icon: '🥷' },
+      { name: 'Çöl Akrebi Malok', atk: Math.floor(playerAtk * (0.90 + Math.random() * 0.3)), hp: Math.floor(playerMaxHp * (0.90 + Math.random() * 0.3)), icon: '🦂' },
+      { name: 'Kolezyum Şampiyonu Ragnar', atk: Math.floor(playerAtk * (0.95 + Math.random() * 0.35)), hp: Math.floor(playerMaxHp * (0.95 + Math.random() * 0.35)), icon: '🪓' }
+    ];
+    const opp = opponents[Math.floor(Math.random() * opponents.length)];
+    let oppHp = opp.hp;
+
+    const combatLog = [];
+    let round = 0;
+    while (playerCurrentHp > 0 && oppHp > 0 && round < 8) {
+      round++;
+      const pDmg = Math.floor(playerAtk * (0.9 + Math.random() * 0.3));
+      oppHp = Math.max(0, oppHp - pDmg);
+      combatLog.push(`⚔️ Tur ${round}: ${champion.name} hamle yaptı ve rakibe **-${pDmg} hasar** verdi!`);
+
+      if (oppHp <= 0) break;
+
+      const eDmg = Math.floor(opp.atk * (0.85 + Math.random() * 0.25));
+      playerCurrentHp = Math.max(0, playerCurrentHp - eDmg);
+      combatLog.push(`💥 Tur ${round}: ${opp.name} karşı saldırıyla **-${eDmg} hasar** vurdu!`);
+    }
+
+    const isVictory = playerCurrentHp > 0 && oppHp <= 0;
+    champion.hp = Math.max(1, playerCurrentHp); // Hayatta kalır ama yaralanır
+    const damageTaken = playerMaxHp - champion.hp;
+
+    if (!this.state.colosseumStats) {
+      this.state.colosseumStats = { wins: 0, losses: 0, score: 0, rank: 11 };
+    }
+
+    let rewardAda = 0;
+    let rewardKeys = 0;
+
+    if (isVictory) {
+      this.state.colosseumStats.wins += 1;
+      this.state.colosseumStats.score += 3;
+      rewardAda = 120 + Math.floor(Math.random() * 60);
+      this.state.adAstraBalance += rewardAda;
+      if (Math.random() < 0.25) {
+        rewardKeys = 1;
+        this.state.arenaKeys = (this.state.arenaKeys || 0) + 1;
+      }
+      sound.playLevelUp();
+    } else {
+      this.state.colosseumStats.losses += 1;
+      this.state.colosseumStats.score = Math.max(0, this.state.colosseumStats.score - 1);
+    }
+
+    this.saveState();
+
+    return {
+      success: true,
+      isVictory,
+      championName: champion.name,
+      opponentName: opp.name,
+      opponentIcon: opp.icon,
+      damageTaken,
+      currentHp: champion.hp,
+      maxHp: champion.maxHp,
+      rewardAda,
+      rewardKeys,
+      combatLog,
+      colosseumStats: this.state.colosseumStats
+    };
+  }
+
+  // =========================================================================
+  // SAVAŞ ALANI: HAFTALIK WORLD BOSS ORDU STAKE ETKİNLİĞİ
+  // =========================================================================
+  getWorldBossInfo() {
+    if (!this.state.worldBoss) {
+      this.state.worldBoss = {
+        name: 'Kadim Kıyamet Behemoth\'u (WORLD BOSS)',
+        icon: '🌋',
+        weeklyAdaPool: 100000,
+        bossHp: 1000000,
+        maxBossHp: 1000000,
+        bossAtk: 500000,
+        stakedArmyCount: 0,
+        totalStakedAtk: 0,
+        totalStakedHp: 0,
+        userStaked: false,
+        userDamage: 0,
+        userStakedSoldiersCount: 0
+      };
+    } else {
+      // Kullanıcı ordusunu henüz kilitlemediyse varsayılan değerler 0 olmalıdır
+      if (!this.state.worldBoss.userStaked) {
+        this.state.worldBoss.stakedArmyCount = 0;
+        this.state.worldBoss.totalStakedAtk = 0;
+        this.state.worldBoss.totalStakedHp = 0;
+      }
+    }
+    return this.state.worldBoss;
+  }
+
+  stakeArmyForWorldBoss() {
+    const soldiers = this.state.soldierUnits || [];
+    if (soldiers.length === 0) {
+      return { success: false, message: 'World Boss savaşına kilitlemek için ordunuzda asker bulunmalıdır!' };
+    }
+
+    let userAtk = 0;
+    let userHp = 0;
+    for (let i = 0; i < soldiers.length; i++) {
+      const stats = this.getSoldierFullStats(i);
+      userAtk += stats.totalAtk;
+      userHp += stats.totalMaxHp;
+    }
+
+    const boss = this.getWorldBossInfo();
+    if (boss.userStaked) {
+      boss.stakedArmyCount = Math.max(0, (boss.stakedArmyCount || 0) - (boss.userStakedSoldiersCount || 0));
+      boss.totalStakedAtk = Math.max(0, (boss.totalStakedAtk || 0) - (boss.userStakedAtk || 0));
+      boss.totalStakedHp = Math.max(0, (boss.totalStakedHp || 0) - (boss.userStakedHp || 0));
+    }
+    boss.userStaked = true;
+    boss.userStakedSoldiersCount = soldiers.length;
+    boss.userStakedAtk = userAtk;
+    boss.userStakedHp = userHp;
+    boss.stakedArmyCount = (boss.stakedArmyCount || 0) + soldiers.length;
+    boss.totalStakedAtk = (boss.totalStakedAtk || 0) + userAtk;
+    boss.totalStakedHp = (boss.totalStakedHp || 0) + userHp;
+
+    sound.playLevelUp();
+    this.saveState();
+
+    return {
+      success: true,
+      message: `🛡️ ${soldiers.length} kişilik ordun (${userAtk} ATK / ${userHp} HP) Pazar günkü World Boss savaşı için başarıyla kilitlendi!`,
+      boss
+    };
+  }
+
+  attackWorldBoss() {
+    const boss = this.getWorldBossInfo();
+    if (!boss.userStaked) {
+      return { success: false, message: 'Savaşa katılmak için önce ordunuzu kilitlemelisiniz!' };
+    }
+
+    // Kullanıcının ordusunun verdiği toplam hasar
+    const userAtk = boss.userStakedAtk || 500;
+    const damageDealt = Math.floor(userAtk * (1.8 + Math.random() * 0.4));
+    boss.userDamage = (boss.userDamage || 0) + damageDealt;
+    boss.bossHp = Math.max(0, boss.bossHp - damageDealt);
+
+    // Hasar Başına Tekil ADA Dağıtım Hesaplaması: (damageDealt / maxBossHp) * weeklyAdaPool
+    const rewardAda = Math.max(1, Math.floor((damageDealt / boss.maxBossHp) * boss.weeklyAdaPool));
+    this.state.adAstraBalance += rewardAda;
+
+    sound.playPickaxe();
+    this.saveState();
+
+    return {
+      success: true,
+      damageDealt,
+      totalUserDamage: boss.userDamage,
+      remainingBossHp: boss.bossHp,
+      rewardAda,
+      message: `💥 Ordun World Boss'a ${damageDealt.toLocaleString()} HASAR vurdu ve payına ${rewardAda.toLocaleString()} $ADASTRA düştü!`
+    };
+  }
+
+  // =========================================================================
+  // P2P KOLEKSİYON ESERİ PAZARYERİ (ORDER BOOK & İLAN YÖNETİMİ)
+  // =========================================================================
+  getP2PArtifactListings() {
+    if (!this.state.p2pMarketListings || this.state.p2pMarketListings.length === 0) {
+      this.state.p2pMarketListings = [
+        { id: 'p2p_1', artifactId: 'artifact_01', sellerName: 'Gezgin_Goblins', priceAda: 85, createdAt: Date.now() - 3600000 },
+        { id: 'p2p_2', artifactId: 'artifact_04', sellerName: 'Lord_Kaelen', priceAda: 160, createdAt: Date.now() - 7200000 },
+        { id: 'p2p_3', artifactId: 'artifact_06', sellerName: 'Tüccar_Kael', priceAda: 290, createdAt: Date.now() - 14400000 },
+        { id: 'p2p_4', artifactId: 'artifact_09', sellerName: 'Gladyator_Rex', priceAda: 650, createdAt: Date.now() - 28800000 },
+        { id: 'p2p_5', artifactId: 'artifact_12', sellerName: 'Saray_Muhafizi', priceAda: 1200, createdAt: Date.now() - 43200000 },
+        { id: 'p2p_6', artifactId: 'artifact_17', sellerName: 'Ejderha_Avcisi', priceAda: 2800, createdAt: Date.now() - 86400000 }
+      ];
+    }
+    return this.state.p2pMarketListings;
+  }
+
+  createP2PArtifactListing(artifactId, priceAda) {
+    const price = Math.floor(Number(priceAda));
+    if (isNaN(price) || price < 10) {
+      return { success: false, message: 'Minimum satış fiyatı 10 $ADASTRA olmalıdır!' };
+    }
+    const art = (this.state.collectionArtifacts || []).find(a => a.id === artifactId);
+    if (!art || !art.discovered) {
+      return { success: false, message: 'Sahip olmadığınız veya henüz keşfetmediğiniz bir eseri satışa çıkaramazsınız!' };
+    }
+    const cfg = GAME_CONFIG.COLLECTION_ARTIFACTS.find(c => c.id === artifactId);
+    const listing = {
+      id: `p2p_${Date.now()}`,
+      artifactId,
+      sellerName: this.state.profileName || 'AlphAvax Gezgini',
+      isUserListing: true,
+      priceAda: price,
+      createdAt: Date.now()
+    };
+
+    const listings = this.getP2PArtifactListings();
+    listings.unshift(listing);
+    this.saveState();
+
+    return { success: true, message: `🚀 ${cfg ? cfg.icon : '👑'} ${cfg ? cfg.name : artifactId} eseri ${price.toLocaleString()} $ADASTRA fiyatla pazara ilan verildi!`, listing };
+  }
+
+  buyP2PArtifactListing(listingId) {
+    const listings = this.getP2PArtifactListings();
+    const idx = listings.findIndex(l => l.id === listingId);
+    if (idx === -1) return { success: false, message: 'İlan bulunamadı veya daha önce satıldı!' };
+
+    const listing = listings[idx];
+    if (this.state.adAstraBalance < listing.priceAda) {
+      return { success: false, message: `Yetersiz Bakiye! (${listing.priceAda.toLocaleString()} $ADASTRA gerekli)` };
+    }
+
+    this.state.adAstraBalance -= listing.priceAda;
+    globalPool.recordTokenSpend(listing.priceAda);
+
+    // Keşfedildi olarak işaretle
+    const art = (this.state.collectionArtifacts || []).find(a => a.id === listing.artifactId);
+    if (art) {
+      art.discovered = true;
+      art.discoveredAt = Date.now();
+    }
+
+    const cfg = GAME_CONFIG.COLLECTION_ARTIFACTS.find(c => c.id === listing.artifactId);
+
+    // İlanı pazardan kaldır
+    listings.splice(idx, 1);
+    sound.playLevelUp();
+    this.saveState();
+
+    return { success: true, message: `🎉 ${cfg ? cfg.icon : '👑'} ${cfg ? cfg.name : listing.artifactId} eseri ${listing.priceAda.toLocaleString()} $ADASTRA ödenerek pazardan satın alındı ve albümüne eklendi!` };
+  }
+
+  cancelP2PArtifactListing(listingId) {
+    const listings = this.getP2PArtifactListings();
+    const idx = listings.findIndex(l => l.id === listingId);
+    if (idx === -1) return { success: false, message: 'İlan bulunamadı!' };
+
+    listings.splice(idx, 1);
+    this.saveState();
+    return { success: true, message: 'İlan başarıyla pazardan kaldırıldı.' };
+  }
+
+  // Asker Birimlerine Zindan XP'si Ekleme ve Seviye Atlattırma
+  addSoldierXp(soldierIdx, xpAmount) {
+    const s = (this.state.soldierUnits || [])[soldierIdx];
+    if (!s) return { leveledUp: false };
+
+    s.xp = (s.xp || 0) + xpAmount;
+    let leveledUp = false;
+    let newLevel = s.level || 1;
+
+    // Gerekli XP Formülü: Level * 100
+    while (s.xp >= (s.level * 100)) {
+      s.xp -= (s.level * 100);
+      s.level += 1;
+      s.baseAtk = (s.baseAtk || 20) + 5;
+      s.maxHp = (s.maxHp || 100) + 15;
+      s.hp = s.maxHp;
+      leveledUp = true;
+      newLevel = s.level;
+    }
+
+    this.saveState();
+    return { leveledUp, newLevel, soldierName: s.name };
+  }
+
+  // =========================================================================
+  // 🧪 GELİŞTİRİCİ & HİLE (DEV CHEAT) TEST FONKSİYONLARI
+  // =========================================================================
+  cheatAddResources(wood = 0, iron = 0, wheat = 0, fragments = 0, adAstra = 0, boxes = 0, keys = 0) {
+    const inv = this.state.inventory;
+    inv.wood = (inv.wood || 0) + wood;
+    inv.iron = (inv.iron || 0) + iron;
+    inv.wheat = (inv.wheat || 0) + wheat;
+    inv.fragments = (inv.fragments || 0) + fragments;
+    this.state.adAstraBalance += adAstra;
+    this.state.lockedBoxes = (this.state.lockedBoxes || 0) + boxes;
+    this.state.arenaKeys = (this.state.arenaKeys || 0) + keys;
+    this.saveState();
+    return { success: true, message: '⚡ Test Kaynakları Hesaba Eklendi!' };
+  }
+
+  cheatRefillStamina() {
+    this.state.stamina = this.getMaxStamina();
+    this.saveState();
+    return { success: true, message: '⚡ Stamina %100 Dolduruldu!' };
+  }
+
+  cheatUnlockAllArtifacts() {
+    (this.state.collectionArtifacts || []).forEach(a => {
+      a.discovered = true;
+      a.discoveredAt = Date.now();
+    });
+    this.saveState();
+    return { success: true, message: '👑 Tüm 18 Koleksiyon Eseri Açıldı!' };
+  }
+
+  cheatSetDungeonProgress(level) {
+    this.state.dungeonProgress = Math.max(1, Math.min(18, level));
+    this.saveState();
+    return { success: true, message: `💀 Zindan İlerlemesi Seviye ${level} Olarak Ayarlandı!` };
+  }
+
+  cheatLevelUpPlayer() {
+    this.state.level = (this.state.level || 1) + 1;
+    this.state.currentXp = 0;
+    this.state.stamina = this.getMaxStamina();
+    this.saveState();
+    return { success: true, message: `👑 Gezgin Seviye ${this.state.level}'e Yükseltildi!` };
+  }
+
+  cheatMaxEquipAllSoldiers() {
+    const soldiers = this.state.soldierUnits || [];
+    const slots = ['weapon', 'helmet', 'armor', 'legs', 'boots'];
+    for (let i = 0; i < soldiers.length; i++) {
+      if (!soldiers[i].equipment) soldiers[i].equipment = {};
+      for (const slot of slots) {
+        const recipe = GAME_CONFIG.EQUIPMENT_RECIPES[slot];
+        soldiers[i].equipment[slot] = {
+          id: `${recipe.id}_cheat_${i}`,
+          slot: recipe.slot,
+          name: recipe.name,
+          icon: recipe.icon,
+          level: 10,
+          baseAtk: recipe.baseAtk,
+          baseHp: recipe.baseHp,
+          atkBonus: Math.round(recipe.baseAtk * (1 + 9 * 0.35)),
+          hpBonus: Math.round(recipe.baseHp * (1 + 9 * 0.35)),
+          durability: 13,
+          maxDurability: 13,
+          craftedAt: Date.now()
+        };
+      }
+      soldiers[i].hp = soldiers[i].maxHp || 100;
+    }
+    this.saveState();
+    return { success: true, message: '⚔️ Tüm Askerlere Lv.10 Master Zırh ve Silah Donatıldı!' };
+  }
+
+  cheatFinishAllExpeditions() {
+    const active = this.state.activeExpeditions;
+    for (const key of Object.keys(active)) {
+      if (active[key]) {
+        active[key].elapsedSeconds = active[key].durationSeconds || 1080;
+        active[key].isCompleted = true;
+      }
+    }
+    this.saveState();
+    return { success: true, message: '⚡ Tüm Seferler Anında Tamamlandı!' };
   }
 
   // =========================================================================
