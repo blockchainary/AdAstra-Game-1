@@ -1,7 +1,7 @@
 // Zindan denge kalibrasyonu — beklenen ilerleme profiline karşı 18 seviye
-import { GAME_CONFIG } from './adastra/js/config.js';
-import { createUnit, simulateBattle } from './adastra/js/combat.js';
-import { buildRun, getWeeklyModifier, getDungeonEntry } from './adastra/js/bestiary.js';
+import { GAME_CONFIG } from './js/config.js';
+import { createUnit, simulateBattle } from './js/combat.js';
+import { buildRun, getWeeklyModifier, getDungeonEntry } from './js/bestiary.js';
 
 const COMP = ['guardian', 'ranger', 'paladin', 'mage'];
 

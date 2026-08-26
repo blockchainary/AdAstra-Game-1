@@ -1182,7 +1182,7 @@ function openTownZoneModal(zoneId, zoneName) {
     `;
   }
 
-  // 2.5 DEMİRCİ & TAMİRHANE (ŞEHİR MERKEZİNDEKİ EV) - Silah/Zırh Dövme & Tamirhane Sekmeleri
+  // 2.5 DEMİRCİ & TAMİRHANE (ŞEHİR MERKEZİNDEKİ EV) - Silah/Zırh Dövme, Yükseltme & Tamirhane Sekmeleri
   else if (zoneId === 'blacksmith') {
     const pickaxeTool = state.tools.pickaxe || { durability: 0 };
     const axeTool = state.tools.axe || { durability: 0 };
@@ -1191,16 +1191,24 @@ function openTownZoneModal(zoneId, zoneName) {
     const axeCost = gameState.calculateRepairCost('axe');
     const sickleCost = gameState.calculateRepairCost('sickle');
 
+    const activeTab = (mineActiveTab === 'repair' || mineActiveTab === 'upgrade') ? mineActiveTab : 'craft';
+
     const tabsHtml = `
       <div class="phase2-tab-row">
-        <button class="phase2-tab-btn mine-tab-btn ${mineActiveTab === 'blacksmith' ? 'active' : ''}" data-tab="blacksmith">⚒️ Demirci (Silah & Zırh Döv)</button>
-        <button class="phase2-tab-btn mine-tab-btn ${mineActiveTab === 'repair' ? 'active' : ''}" data-tab="repair">🔧 Tamirhane</button>
+        <button class="phase2-tab-btn mine-tab-btn ${activeTab === 'craft' ? 'active' : ''}" data-tab="craft">⚒️ Silah & Zırh Döv (Üretim)</button>
+        <button class="phase2-tab-btn mine-tab-btn ${activeTab === 'upgrade' ? 'active' : ''}" data-tab="upgrade">✨ Teçhizat Yükselt (Seviye)</button>
+        <button class="phase2-tab-btn mine-tab-btn ${activeTab === 'repair' ? 'active' : ''}" data-tab="repair">🔧 Tamirhane</button>
       </div>
     `;
 
     let contentHtml = '';
+    const equipConfig = GAME_CONFIG.EQUIPMENT_RECIPES;
+    const currentEquip = state.equipment || {};
+    const totalStats = gameState.getEquipmentBonusStats();
+    const slots = ['weapon', 'helmet', 'armor', 'legs', 'boots'];
+    const slotNames = { weapon: 'Silah', helmet: 'Miğfer', armor: 'Gövde Zırhı', legs: 'Pantolon', boots: 'Ayakkabı' };
 
-    if (mineActiveTab === 'repair') {
+    if (activeTab === 'repair') {
       // 🔧 TAMİRHANE
       const forgedSlots = Object.keys(state.equipment || {}).filter(slot => state.equipment[slot] && state.equipment[slot].level > 0);
       const equipmentRepairCards = forgedSlots.map(slot => {
@@ -1239,7 +1247,7 @@ function openTownZoneModal(zoneId, zoneName) {
         <div style="font-weight: 800; font-size: 0.9rem; color: #f59e0b; margin: 12px 0 6px 2px;">🛡️ Askeri Teçhizat Onarımı</div>
         ${forgedSlots.length > 0 ? equipmentRepairCards : `
           <div class="clean-card" style="text-align: center; color: #94a3b8; font-size: 0.85rem;">
-            Henüz dövülmüş bir silah veya zırhın yok. ⚒️ Demirci sekmesinden yeni eşyalar dövebilirsin.
+            Henüz dövülmüş bir silah veya zırhın yok. ⚒️ Silah & Zırh Döv sekmesinden yeni eşyalar dövebilirsin.
           </div>
         `}
 
@@ -1286,22 +1294,16 @@ function openTownZoneModal(zoneId, zoneName) {
           </div>
         </div>
       `;
-    } else {
-      // ⚒️ DEMİRCİ: 5 PARÇA SİLAH & ZIRH DÖVME
-      const equipConfig = GAME_CONFIG.EQUIPMENT_RECIPES;
-      const currentEquip = state.equipment || {};
-      const totalStats = gameState.getEquipmentBonusStats();
-      const slots = ['weapon', 'helmet', 'armor', 'legs', 'boots'];
-      const slotNames = { weapon: 'Silah', helmet: 'Miğfer', armor: 'Gövde Zırhı', legs: 'Pantolon', boots: 'Ayakkabı' };
-
+    } else if (activeTab === 'upgrade') {
+      // ✨ TEÇHİZAT YÜKSELTME SEKMESİ
       contentHtml = `
-        <div class="clean-card" style="border-color: #f59e0b; background: #1c140c;">
+        <div class="clean-card" style="border-color: #a855f7; background: #1a0f2e;">
           <div class="card-title-row">
-            <div class="card-title">⚒️ Krallık Demircisi - Silah & Zırh Dövme</div>
-            <span class="card-badge" style="color: #4ade80;">⚔️ +${totalStats.totalAtk} ATK | ❤️ +${totalStats.totalHp} HP</span>
+            <div class="card-title">✨ Krallık Demircisi - Teçhizat Seviye Yükseltme</div>
+            <span class="card-badge" style="color: #c084fc;">Mevcut Güç: ⚔️ +${totalStats.totalAtk} ATK | ❤️ +${totalStats.totalHp} HP</span>
           </div>
           <div class="clean-desc">
-            Demirci ocağında 5 parça teçhizat dövebilir ve seviyelerini yükseltebilirsin. Yeni silah ve zırh döverken veya seviye atlatırken <strong>Demir, Odun, Parça (Fragment) ve ADA</strong> kullanılır.
+            Dövülmüş silah ve zırhlarının seviyesini yükselterek orduna kalıcı stat bonusları kazandır. Yükseltmeler için <strong>Demir, Odun, Parça (Fragment) ve ADA</strong> kullanılır.
           </div>
         </div>
 
@@ -1317,16 +1319,7 @@ function openTownZoneModal(zoneId, zoneName) {
             let canAfford = false;
             let costHtml = '';
 
-            if (!isForged) {
-              // Dövme (Craft) Maliyeti
-              const craftCost = recipe.cost;
-              canAfford = (state.inventory.iron || 0) >= craftCost.iron &&
-                          (state.inventory.wood || 0) >= craftCost.wood &&
-                          (state.inventory.fragments || 0) >= craftCost.fragments &&
-                          state.adAstraBalance >= craftCost.adAstra;
-              costHtml = `${craftCost.iron}⛏️ • ${craftCost.wood}🌲 • ${craftCost.fragments}🧩 • ${craftCost.adAstra}🟣`;
-            } else if (!isMaxLvl) {
-              // Yükseltme (Upgrade) Maliyeti
+            if (isForged && !isMaxLvl) {
               const upCost = gameState.calculateEquipmentUpgradeCost(slot);
               if (upCost) {
                 canAfford = (state.inventory.iron || 0) >= upCost.ironCost &&
@@ -1351,30 +1344,105 @@ function openTownZoneModal(zoneId, zoneName) {
                     </div>
                   ` : `
                     <div style="color: #94a3b8; font-size: 0.78rem;">
+                      Önce Döv Sekmesinden Üret
+                    </div>
+                  `}
+                </div>
+
+                <div class="equip-cost-box">
+                  ${!isForged ? '<span style="color: #94a3b8; font-size: 0.75rem;">Henüz Dövülmedi</span>' : (
+                    isMaxLvl ? '<span style="color: #facc15; font-weight: 800;">MAKSİMUM SEVİYE</span>' : `
+                      <div style="font-size: 0.75rem; color: #cbd5e1; line-height: 1.3;">
+                        ${costHtml}
+                      </div>
+                    `
+                  )}
+                </div>
+
+                ${!isForged ? `
+                  <button class="btn-clean btn-clean-sm btn-clean-outline mine-tab-btn" data-tab="craft" style="font-size: 0.75rem;">
+                    ⚒️ Döv Sekmesine Git
+                  </button>
+                ` : (
+                  isMaxLvl ? '' : `
+                    <button class="btn-clean btn-clean-sm btn-upgrade-equipment" data-slot="${slot}" ${canAfford ? '' : 'disabled'}>
+                      ✨ Yükselt (Lv.${nextLvl})
+                    </button>
+                  `
+                )}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    } else {
+      // ⚒️ DEMİRCİ: SİLAH & ZIRH DÖVME (YENİ ÜRETİM)
+      contentHtml = `
+        <div class="clean-card" style="border-color: #f59e0b; background: #1c140c;">
+          <div class="card-title-row">
+            <div class="card-title">⚒️ Krallık Demircisi - Yeni Silah & Zırh Dövme</div>
+            <span class="card-badge" style="color: #4ade80;">⚔️ +${totalStats.totalAtk} ATK | ❤️ +${totalStats.totalHp} HP</span>
+          </div>
+          <div class="clean-desc">
+            Demirci ocağında ordun için 5 parça teçhizat döv. Dövülen eşyalar tüm askerlerinin gücünü artırır ve 'Yükselt' sekmesinden seviye atlatılabilir.
+          </div>
+        </div>
+
+        <div class="equip-grid">
+          ${slots.map(slot => {
+            const recipe = equipConfig[slot];
+            const item = currentEquip[slot];
+            const currentLvl = item ? item.level : 0;
+            const isForged = currentLvl > 0;
+            
+            let canAfford = false;
+            let costHtml = '';
+
+            if (!isForged) {
+              const craftCost = recipe.cost;
+              canAfford = (state.inventory.iron || 0) >= craftCost.iron &&
+                          (state.inventory.wood || 0) >= craftCost.wood &&
+                          (state.inventory.fragments || 0) >= craftCost.fragments &&
+                          state.adAstraBalance >= craftCost.adAstra;
+              costHtml = `${craftCost.iron}⛏️ • ${craftCost.wood}🌲 • ${craftCost.fragments}🧩 • ${craftCost.adAstra}🟣`;
+            }
+
+            return `
+              <div class="equip-card ${isForged ? 'forged' : ''}">
+                <div class="equip-icon">${recipe.icon}</div>
+                <div class="equip-name">${slotNames[slot]}</div>
+                <div class="equip-level">${isForged ? `✅ Dövüldü (Lv.${currentLvl})` : 'Dövülmedi'}</div>
+
+                <div class="equip-stats">
+                  ${isForged ? `
+                    <div style="color: #4ade80; font-size: 0.8rem; font-weight: 700;">
+                      ${item.atkBonus > 0 ? `+${item.atkBonus} ATK` : ''} 
+                      ${item.hpBonus > 0 ? `+${item.hpBonus} HP` : ''}
+                    </div>
+                  ` : `
+                    <div style="color: #94a3b8; font-size: 0.78rem;">
                       ${recipe.baseAtk > 0 ? `+${recipe.baseAtk} ATK ` : ''}${recipe.baseHp > 0 ? `+${recipe.baseHp} HP` : ''}
                     </div>
                   `}
                 </div>
 
                 <div class="equip-cost-box">
-                  ${isMaxLvl ? '<span style="color: #facc15; font-weight: 800;">MAKSİMUM SEVİYE</span>' : `
+                  ${isForged ? '<span style="color: #4ade80; font-weight: 800;">✅ DÖVÜLDÜ</span>' : `
                     <div style="font-size: 0.75rem; color: #cbd5e1; line-height: 1.3;">
                       ${costHtml}
                     </div>
                   `}
                 </div>
 
-                ${isMaxLvl ? '' : (
-                  isForged ? `
-                    <button class="btn-clean btn-clean-sm btn-upgrade-equipment" data-slot="${slot}" ${canAfford ? '' : 'disabled'}>
-                      ✨ Yükselt (Lv.${nextLvl})
-                    </button>
-                  ` : `
-                    <button class="btn-clean btn-clean-sm btn-craft-equipment" data-slot="${slot}" ${canAfford ? '' : 'disabled'}>
-                      🔨 Döv (Lv.1)
-                    </button>
-                  `
-                )}
+                ${isForged ? `
+                  <button class="btn-clean btn-clean-sm btn-clean-outline mine-tab-btn" data-tab="upgrade" style="font-size: 0.75rem;">
+                    ✨ Yükselt Sekmesine Git
+                  </button>
+                ` : `
+                  <button class="btn-clean btn-clean-sm btn-craft-equipment" data-slot="${slot}" ${canAfford ? '' : 'disabled'}>
+                    🔨 Döv (Lv.1)
+                  </button>
+                `}
               </div>
             `;
           }).join('')}
@@ -2140,9 +2208,16 @@ function openBattlefieldModal() {
         <div style="font-size: 0.82rem; color: #cbd5e1;">
           🔮 <strong>Tahmini Pazar Günü Kazancı:</strong> <span style="color: #fde047; font-weight: 800;">~${power.estimatedAda.toLocaleString()} $ADASTRA</span>
         </div>
-        <button id="btn-stake-army-boss" class="btn-clean ${isStaked ? 'btn-clean-outline' : 'btn-clean-gold'}" style="width: auto; padding: 8px 18px;" ${!hasSoldiers ? 'disabled' : ''}>
-          ${isStaked ? '🔄 Kilitli Orduyu Güncelle' : '🛡️ Tüm Ordumu Kilitle (Pazar 18:00 İçin)'}
-        </button>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          ${isStaked ? `
+            <button id="btn-emergency-unstake-boss" class="btn-clean btn-clean-red" style="width: auto; padding: 8px 14px; font-size: 0.8rem;" title="Pazar gününden önce erken çekilme cezası (%18)">
+              🔓 %18 Ceza ile Erken Çek (${Math.max(1, Math.round(power.estimatedAda * 0.18)).toLocaleString()} ADA)
+            </button>
+          ` : ''}
+          <button id="btn-stake-army-boss" class="btn-clean ${isStaked ? 'btn-clean-outline' : 'btn-clean-gold'}" style="width: auto; padding: 8px 18px;" ${!hasSoldiers ? 'disabled' : ''}>
+            ${isStaked ? '🔄 Kilitli Orduyu Güncelle' : '🛡️ Tüm Ordumu Kilitle (Pazar 18:00 İçin)'}
+          </button>
+        </div>
       </div>
     </div>
 
@@ -2174,8 +2249,8 @@ function openBattlefieldModal() {
         <div style="font-size: 1.8rem; font-weight: 900; color: #fde047; margin: 4px 0;">
           🟣 ${claimable.toLocaleString()} <span style="font-size: 1rem; color: #c084fc;">$ADASTRA</span>
         </div>
-        <button id="btn-claim-world-boss-reward" class="btn-clean ${claimable > 0 ? 'btn-clean-gold' : 'btn-clean-outline'}" style="font-size: 1.05rem; padding: 12px 24px; font-weight: 800; margin-top: 6px; box-shadow: ${claimable > 0 ? '0 0 20px rgba(234,179,8,0.4)' : 'none'};" ${claimable <= 0 ? 'disabled' : ''}>
-          ${claimable > 0 ? `🎁 Hak Edilen ${claimable.toLocaleString()} ADA Ödülünü Topla (Claim)` : '⏳ Pazar 18:00 Savaşı Bekleniyor (Ödül Yok)'}
+        <button id="btn-claim-world-boss-reward" class="btn-clean ${claimable > 0 || isStaked ? 'btn-clean-gold' : 'btn-clean-outline'}" style="font-size: 1.05rem; padding: 12px 24px; font-weight: 800; margin-top: 6px; box-shadow: ${claimable > 0 ? '0 0 20px rgba(234,179,8,0.4)' : 'none'};" ${claimable <= 0 && !isStaked ? 'disabled' : ''}>
+          ${claimable > 0 ? `🎁 Hak Edilen ${claimable.toLocaleString()} ADA Ödülünü & Ordunu Topla (Claim)` : isStaked ? '⏳ Pazar 18:00 Savaşı Bekleniyor (Ordu Kilitli)' : '⏳ Kilitli Ordu veya Ödül Yok'}
         </button>
       </div>
 
@@ -2313,6 +2388,7 @@ function openColosseumModal() {
     `;
   } else {
     // ⚔️ 1v1 GLADYATÖR DÜELLOSU
+    const isArmyStaked = gameState.isArmyStakedInWorldBoss();
     const champ = soldiers[selectedColosseumChampionIdx] || soldiers[0];
     const stats = champ ? gameState.getSoldierFullStats(selectedColosseumChampionIdx) : null;
     const isWounded = champ && (champ.hp || champ.maxHp || 100) < (champ.maxHp || 100);
@@ -2328,7 +2404,18 @@ function openColosseumModal() {
         </div>
       </div>
 
-      ${hasSoldiers ? `
+      ${isArmyStaked ? `
+        <div class="clean-card" style="background: #1c0a0a; border: 1px solid #ef4444; padding: 20px; text-align: center;">
+          <div style="font-size: 2rem; margin-bottom: 6px;">🔒</div>
+          <div style="font-weight: 800; font-size: 1rem; color: #f87171;">Ordun World Boss Savaşına Kilitlendi!</div>
+          <div style="font-size: 0.82rem; color: #cbd5e1; margin-top: 6px; max-width: 380px; margin-left: auto; margin-right: auto; line-height: 1.4;">
+            Askerlerin Pazar 18:00 TSİ World Boss savaşı için kilit altındadır. Kolezyumda dövüşebilmek için Savaş Alanından (%18 ceza ile) ordunu erken çekmeli veya Pazar 18:00 sonrası ödülünle birlikte ordunu toplamalısın.
+          </div>
+          <button class="btn-clean btn-clean-gold" id="btn-goto-battlefield-colosseum" style="margin-top: 12px; width: auto; padding: 8px 18px;">
+            🌋 Savaş Alanı & World Boss'a Git
+          </button>
+        </div>
+      ` : hasSoldiers ? `
         <!-- Şampiyon Seçim Kartı -->
         <div class="clean-card" style="background: #140e08; border-color: #ca8a04;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -2384,6 +2471,11 @@ function openColosseumModal() {
 
   dom.modalBody.innerHTML = `${tabsHtml}${contentHtml}`;
   displayModal();
+
+  const battlefieldColBtn = document.getElementById('btn-goto-battlefield-colosseum');
+  if (battlefieldColBtn) {
+    battlefieldColBtn.addEventListener('click', openBattlefieldModal);
+  }
 
   // Şampiyon Seçimi Değişince
   const champSelect = document.getElementById('colosseum-champion-select');
@@ -3106,6 +3198,8 @@ function openPreBattleModal(monster) {
     </div>
   `;
 
+  const isArmyStaked = gameState.isArmyStakedInWorldBoss();
+
   const armySelectHtml = totalSoldiers === 0 ? `
     <div class="prebattle-army-panel" style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:24px 16px;">
       <div style="font-size:2.2rem; margin-bottom:6px;">⚠️</div>
@@ -3115,6 +3209,17 @@ function openPreBattleModal(monster) {
       </div>
       <button class="btn-clean btn-clean-gold" id="btn-goto-barracks-prebattle" style="margin-top:14px; width:auto; padding:8px 18px;">
         ⚔️ Kışlaya Git & Asker Eğit
+      </button>
+    </div>
+  ` : isArmyStaked ? `
+    <div class="prebattle-army-panel" style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:24px 16px; border:1px solid #ef4444; background:#1c0a0a;">
+      <div style="font-size:2.2rem; margin-bottom:6px;">🔒</div>
+      <div style="font-weight:800; font-size:1rem; color:#f87171;">Ordun World Boss Savaşına Kilitlendi!</div>
+      <div style="font-size:0.8rem; color:#cbd5e1; margin-top:6px; max-width:280px; line-height:1.4;">
+        Askerlerin Pazar 18:00 TSİ World Boss savaşı için kilit altındadır ve başka hiçbir alanda kullanılamaz. Savaş Alanından (%18 ceza ile) erken çekebilir veya Pazar 18:00 sonrası ödülünle birlikte ordunu toplayabilirsin.
+      </div>
+      <button class="btn-clean btn-clean-gold" id="btn-goto-battlefield-prebattle" style="margin-top:14px; width:auto; padding:8px 18px;">
+        🌋 Savaş Alanı & World Boss'a Git
       </button>
     </div>
   ` : `
@@ -3157,11 +3262,16 @@ function openPreBattleModal(monster) {
       <button class="btn-clean btn-clean-outline" id="btn-cancel-prebattle" style="width:auto; padding:10px 20px;">
         🏳️ Vazgeç
       </button>
-      <button class="btn-clean btn-clean-green" id="btn-start-tactical-battle" style="width:auto; padding:10px 28px; font-weight:800; font-size:0.95rem;" ${totalSoldiers === 0 ? 'disabled' : ''}>
-        ⚔️ SAVAŞA BAŞLA
+      <button class="btn-clean btn-clean-green" id="btn-start-tactical-battle" style="width:auto; padding:10px 28px; font-weight:800; font-size:0.95rem;" ${totalSoldiers === 0 || isArmyStaked ? 'disabled' : ''}>
+        ${isArmyStaked ? '🔒 ORDU KİLİTLİ' : '⚔️ SAVAŞA BAŞLA'}
       </button>
     </div>
   `;
+
+  const battlefieldPreBtn = document.getElementById('btn-goto-battlefield-prebattle');
+  if (battlefieldPreBtn) {
+    battlefieldPreBtn.addEventListener('click', openBattlefieldModal);
+  }
 
   const barracksBtn = document.getElementById('btn-goto-barracks-prebattle');
   if (barracksBtn) {
@@ -3196,6 +3306,10 @@ function openPreBattleModal(monster) {
   const startBtn = document.getElementById('btn-start-tactical-battle');
   if (startBtn) {
     startBtn.addEventListener('click', () => {
+      if (gameState.isArmyStakedInWorldBoss()) {
+        showToast('🔒 Ordun World Boss savaşına kilitlidir! Zindanda savaşamazsın.', 'error');
+        return;
+      }
       if (preBattleSelectedSoldiers.length === 0) {
         showToast('En az 1 asker seçmelisin!', 'error');
         return;
@@ -4444,6 +4558,19 @@ function initAppEvents() {
       } else {
         showToast(res.message, 'error');
       }
+      return;
+    }
+
+    // World Boss: %18 Ceza ile Erken Çekilme (Emergency Unstake)
+    if (e.target.closest('#btn-emergency-unstake-boss')) {
+      const res = gameState.emergencyUnstakeWorldBossArmy();
+      if (res.success) {
+        showToast(res.message, 'success');
+        openBattlefieldModal();
+      } else {
+        showToast(res.message, 'error');
+      }
+      renderTopBar();
       return;
     }
 

@@ -2031,6 +2031,10 @@ export class GameStateManager {
   }
 
   executeColosseum1v1Match(championIndex = 0) {
+    if (this.isArmyStakedInWorldBoss()) {
+      return { success: false, message: '🔒 Ordun World Boss savaşına kilitlendiği için Kolezyum arenasına çıkamaz! Önce Savaş Alanından ordunun kilidini açmalısın.' };
+    }
+
     const soldiers = this.state.soldierUnits || [];
     const champion = soldiers[championIndex];
     if (!champion) {
@@ -2325,11 +2329,17 @@ export class GameStateManager {
     };
   }
 
+  isArmyStakedInWorldBoss() {
+    return !!(this.state.worldBoss && this.state.worldBoss.userStaked);
+  }
+
   // Kullanıcının World Boss ekranına düşen ADA ödülünü cüzdanına çekmesi (Claim)
   claimWorldBossReward() {
     const boss = this.getWorldBossInfo();
     const claimable = boss.claimableRewardAda || 0;
-    if (claimable <= 0) {
+    const soldiersCount = boss.userStakedSoldiersCount || 0;
+
+    if (claimable <= 0 && !boss.userStaked) {
       return { success: false, message: 'Toplanacak World Boss ödülü bulunmuyor!' };
     }
 
@@ -2337,14 +2347,74 @@ export class GameStateManager {
     boss.totalClaimedAda = (boss.totalClaimedAda || 0) + claimable;
     boss.claimableRewardAda = 0;
 
+    // Savaştan sonra ordu serbest bırakılır
+    boss.stakedArmyCount = Math.max(0, (boss.stakedArmyCount || 0) - soldiersCount);
+    boss.totalStakedAtk = Math.max(0, (boss.totalStakedAtk || 0) - (boss.userStakedAtk || 0));
+    boss.totalStakedHp = Math.max(0, (boss.totalStakedHp || 0) - (boss.userStakedHp || 0));
+    boss.userStaked = false;
+    boss.userStakedSoldiersCount = 0;
+    boss.userStakedAtk = 0;
+    boss.userStakedHp = 0;
+
     sound.playLevelUp();
     this.saveState();
 
     return {
       success: true,
       claimedAda: claimable,
+      unlockedSoldiersCount: soldiersCount,
       newBalance: this.state.adAstraBalance,
-      message: `🎁 ${claimable.toLocaleString()} $ADASTRA World Boss ödülü başarıyla cüzdanına aktarıldı!`
+      message: claimable > 0
+        ? `🎁 ${claimable.toLocaleString()} $ADASTRA World Boss ödülü cüzdanına aktarıldı ve ordun serbest bırakıldı!`
+        : `🛡️ ${soldiersCount} kişilik ordun serbest bırakıldı!`
+    };
+  }
+
+  // Erken Çekilme (Emergency Unstake):
+  // Pazar günü etkinlik tamamlanmadan önce ordu çekilirse, ordunun vereceği hasar üzerinden
+  // kazanacağı anlık tahmini ADA miktarının %18'i ceza olarak ödenir ve ordu serbest bırakılır.
+  emergencyUnstakeWorldBossArmy() {
+    const boss = this.getWorldBossInfo();
+    if (!boss.userStaked) {
+      return { success: false, message: 'Kilitlenmiş bir ordunuz bulunmuyor!' };
+    }
+
+    const power = this.calculateUserWorldBossPower();
+    const estimatedAda = power.estimatedAda || 0;
+    // Anlık tahmini ADA miktarının %18'i ceza olarak hesaplanır:
+    const penaltyAda = Math.max(1, Math.round(estimatedAda * 0.18));
+
+    if (this.state.adAstraBalance < penaltyAda) {
+      return {
+        success: false,
+        penaltyRequired: penaltyAda,
+        message: `❌ Yetersiz bakiye! Ordunu erken çekmek için tahmini kazancının (%18) cezası olan ${penaltyAda.toLocaleString()} $ADASTRA gerekiyor (Mevcut Bakiye: ${this.state.adAstraBalance.toLocaleString()} ADA).`
+      };
+    }
+
+    // Cezayı tahsil et (%22 kalıcı yakım + %78 hazineye giriş)
+    this.state.adAstraBalance -= penaltyAda;
+    globalPool.recordTokenSpend(penaltyAda);
+
+    const soldiersCount = boss.userStakedSoldiersCount || 0;
+    boss.stakedArmyCount = Math.max(0, (boss.stakedArmyCount || 0) - soldiersCount);
+    boss.totalStakedAtk = Math.max(0, (boss.totalStakedAtk || 0) - (boss.userStakedAtk || 0));
+    boss.totalStakedHp = Math.max(0, (boss.totalStakedHp || 0) - (boss.userStakedHp || 0));
+    boss.userStaked = false;
+    boss.userStakedSoldiersCount = 0;
+    boss.userStakedAtk = 0;
+    boss.userStakedHp = 0;
+    boss.claimableRewardAda = 0;
+
+    sound.playPickaxe();
+    this.saveState();
+
+    return {
+      success: true,
+      penaltyPaid: penaltyAda,
+      unlockedSoldiersCount: soldiersCount,
+      newBalance: this.state.adAstraBalance,
+      message: `🔓 %18 Ceza (${penaltyAda.toLocaleString()} $ADASTRA) ödendi. ${soldiersCount} kişilik ordunun kilidi başarıyla açıldı!`
     };
   }
 
