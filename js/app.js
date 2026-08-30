@@ -1209,24 +1209,69 @@ function openTownZoneModal(zoneId, zoneName) {
     const slotNames = { weapon: 'Silah', helmet: 'Miğfer', armor: 'Gövde Zırhı', legs: 'Pantolon', boots: 'Ayakkabı' };
 
     if (activeTab === 'repair') {
-      // 🔧 TAMİRHANE
-      const forgedSlots = Object.keys(state.equipment || {}).filter(slot => state.equipment[slot] && state.equipment[slot].level > 0);
-      const equipmentRepairCards = forgedSlots.map(slot => {
-        const item = state.equipment[slot];
-        const durability = item.durability ?? 100;
-        const repCost = gameState.calculateEquipmentRepairCost(slot);
-        const slotTr = { weapon: 'Silah', helmet: 'Miğfer', armor: 'Gövde Zırhı', legs: 'Pantolon', boots: 'Ayakkabı' }[slot] || slot;
+      // 🔧 TAMİRHANE: Hem Krallık Envanterindeki hem de Askerlerin Üzerindeki Teçhizatları Listele
+      const allEquipList = [];
+
+      // 1. Krallık Envanterindeki Eşyalar
+      slots.forEach(slot => {
+        const item = state.equipment ? state.equipment[slot] : null;
+        if (item && item.level > 0) {
+          const maxDur = item.maxDurability || 13;
+          const curDur = item.durability != null ? item.durability : maxDur;
+          const repCost = gameState.calculateEquipmentRepairCost(slot, null);
+          const slotTr = slotNames[slot] || slot;
+          allEquipList.push({
+            slot,
+            soldierIndex: null,
+            ownerName: 'Krallık Envanteri',
+            item,
+            curDur,
+            maxDur,
+            slotTr,
+            repCost
+          });
+        }
+      });
+
+      // 2. Askerlerin Üzerindeki Eşyalar
+      (state.soldierUnits || []).forEach((sol, sIdx) => {
+        slots.forEach(slot => {
+          const item = sol.equipment ? sol.equipment[slot] : null;
+          if (item && item.level > 0) {
+            const maxDur = item.maxDurability || 13;
+            const curDur = item.durability != null ? item.durability : maxDur;
+            const repCost = gameState.calculateEquipmentRepairCost(slot, sIdx);
+            const slotTr = slotNames[slot] || slot;
+            allEquipList.push({
+              slot,
+              soldierIndex: sIdx,
+              ownerName: sol.name,
+              item,
+              curDur,
+              maxDur,
+              slotTr,
+              repCost
+            });
+          }
+        });
+      });
+
+      const equipmentRepairCards = allEquipList.map(entry => {
+        const { slot, soldierIndex, ownerName, item, curDur, maxDur, slotTr, repCost } = entry;
+        const durPct = Math.round((curDur / maxDur) * 100);
+        const durColor = curDur <= 3 ? '#ef4444' : curDur <= 7 ? '#f97316' : '#22c55e';
+        const isDamaged = curDur < maxDur;
 
         return `
           <div class="clean-card" style="margin-bottom: 8px;">
             <div class="card-title-row">
-              <div class="card-title">${item.icon} ${item.name} (${slotTr} Lv.${item.level})</div>
-              <span class="card-badge" style="color: ${durability <= 25 ? '#ef4444' : '#22c55e'};">%${durability}</span>
+              <div class="card-title">${item.icon} ${item.name} (${slotTr} Lv.${item.level}) <span style="font-size:0.75rem; color:#94a3b8; font-weight:normal;">[${ownerName}]</span></div>
+              <span class="card-badge" style="color: ${durColor}; border-color: ${durColor};">🛡️ ${curDur}/${maxDur} (%${durPct})</span>
             </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
-              <span style="font-size: 0.82rem; color: #cbd5e1;">Maliyet: ${repCost.ironCost}⛏️ + ${repCost.fragCost}🧩 + ${repCost.adaCost}ADA</span>
-              <button class="btn-clean btn-clean-outline btn-equip-repair" data-slot="${slot}" style="width: auto; padding: 6px 14px;" ${durability >= 100 ? 'disabled' : ''}>
-                ${durability >= 100 ? '✅ Sağlam' : `Onar (${repCost.ironCost}⛏️ + ${repCost.fragCost}🧩)`}
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; flex-wrap: wrap; gap: 6px;">
+              <span style="font-size: 0.82rem; color: #cbd5e1;">Maliyet: ${repCost.ironCost}⛏️ + ${repCost.woodCost}🌲${repCost.fragCost > 0 ? ` + ${repCost.fragCost}🧩` : ''}${repCost.adaCost > 0 ? ` + ${repCost.adaCost}ADA` : ''}</span>
+              <button class="btn-clean btn-clean-outline btn-equip-repair" data-slot="${slot}" data-soldier-idx="${soldierIndex !== null ? soldierIndex : ''}" style="width: auto; padding: 6px 14px;" ${!isDamaged ? 'disabled' : ''}>
+                ${!isDamaged ? '✅ Sağlam' : `Onar (${repCost.ironCost}⛏️ + ${repCost.woodCost}🌲)`}
               </button>
             </div>
           </div>
@@ -1244,8 +1289,8 @@ function openTownZoneModal(zoneId, zoneName) {
           </div>
         </div>
 
-        <div style="font-weight: 800; font-size: 0.9rem; color: #f59e0b; margin: 12px 0 6px 2px;">🛡️ Askeri Teçhizat Onarımı</div>
-        ${forgedSlots.length > 0 ? equipmentRepairCards : `
+        <div style="font-weight: 800; font-size: 0.9rem; color: #f59e0b; margin: 12px 0 6px 2px;">🛡️ Askeri Teçhizat Onarımı (${allEquipList.length} Parça)</div>
+        ${allEquipList.length > 0 ? equipmentRepairCards : `
           <div class="clean-card" style="text-align: center; color: #94a3b8; font-size: 0.85rem;">
             Henüz dövülmüş bir silah veya zırhın yok. ⚒️ Silah & Zırh Döv sekmesinden yeni eşyalar dövebilirsin.
           </div>
@@ -2031,16 +2076,29 @@ function renderBarracksHtml() {
         if (equippedItem) {
           const eqLevel = equippedItem.level || 1;
           const eqRarity = eqLevel >= 5 ? 'rarity-legendary' : eqLevel >= 3 ? 'rarity-epic' : eqLevel >= 2 ? 'rarity-rare' : '';
+          const maxDur = equippedItem.maxDurability || 13;
+          const curDur = equippedItem.durability != null ? equippedItem.durability : maxDur;
+          const durPct = Math.round((curDur / maxDur) * 100);
+          const durColor = curDur <= 3 ? '#ef4444' : curDur <= 7 ? '#f97316' : '#4ade80';
+          const repCost = gameState.calculateEquipmentRepairCost(slot, actualSelectedIndex);
+
           return `
             <div class="soldier-slot-item equipped ${eqRarity}">
               <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div style="font-weight: 800; font-size: 0.9rem; color: #fff;">${equippedItem.icon} ${equippedItem.name}</div>
-                <span class="card-badge" style="color: #4ade80;">13/13</span>
+                <span class="card-badge" style="color: ${durColor}; border-color: ${durColor};">🛡️ ${curDur}/${maxDur} (%${durPct})</span>
               </div>
-              <div style="font-size: 0.75rem; color: #fde047;">${slotNames[slot]} • Seviye ${equippedItem.level || 1} (+${equippedItem.atkBonus || 0} ATK, +${equippedItem.hpBonus || 0} HP)</div>
-              <button class="btn-clean btn-clean-red btn-soldier-unequip-slot" data-soldier-idx="${actualSelectedIndex}" data-slot="${slot}" style="padding: 6px; font-size: 0.75rem;">
-                ✕ ÇIKAR (Karakter Envanterine Aktar)
-              </button>
+              <div style="font-size: 0.75rem; color: #fde047; margin: 3px 0;">${slotNames[slot]} • Seviye ${equippedItem.level || 1} (+${equippedItem.atkBonus || 0} ATK, +${equippedItem.hpBonus || 0} HP)</div>
+              <div style="display: flex; gap: 6px; justify-content: flex-end; align-items: center; margin-top: 6px; flex-wrap: wrap;">
+                ${curDur < maxDur ? `
+                  <button class="btn-clean btn-clean-gold btn-soldier-repair-slot" data-soldier-idx="${actualSelectedIndex}" data-slot="${slot}" style="padding: 5px 10px; font-size: 0.75rem; width: auto;">
+                    🔧 Onar (${repCost.ironCost}⛏️ + ${repCost.woodCost}🌲)
+                  </button>
+                ` : ''}
+                <button class="btn-clean btn-clean-red btn-soldier-unequip-slot" data-soldier-idx="${actualSelectedIndex}" data-slot="${slot}" style="padding: 5px 10px; font-size: 0.75rem; width: auto;">
+                  ✕ ÇIKAR
+                </button>
+              </div>
             </div>
           `;
         } else {
@@ -3200,6 +3258,26 @@ function openPreBattleModal(monster) {
 
   const isArmyStaked = gameState.isArmyStakedInWorldBoss();
 
+  const activeWeaponsList = [];
+  preBattleSelectedSoldiers.forEach(idx => {
+    const sol = soldiers[idx];
+    const w = sol?.equipment?.weapon || state.equipment?.weapon;
+    if (w) {
+      const maxD = w.maxDurability || 13;
+      const curD = w.durability != null ? w.durability : maxD;
+      activeWeaponsList.push(`${sol?.name || '#' + (idx + 1)}: ${w.icon} ${w.name} (${curD}/${maxD})`);
+    }
+  });
+  const activeWeaponsPreviewHtml = activeWeaponsList.length > 0 ? `
+    <div style="font-size:0.68rem; color:#fde047; margin-top:4px;">
+      🗡️ Kuşanılmış Silahlar: ${activeWeaponsList.join(' • ')}
+    </div>
+  ` : `
+    <div style="font-size:0.68rem; color:#94a3b8; margin-top:4px;">
+      ℹ️ Kuşanılmış silah yok (Temel ordu gücüyle savaşılacak).
+    </div>
+  `;
+
   const armySelectHtml = totalSoldiers === 0 ? `
     <div class="prebattle-army-panel" style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:24px 16px;">
       <div style="font-size:2.2rem; margin-bottom:6px;">⚠️</div>
@@ -3231,8 +3309,9 @@ function openPreBattleModal(monster) {
       <div class="prebattle-weapon-toggle ${preBattleProtectWeapons ? 'active' : ''}" id="btn-toggle-weapon-protection">
         <span>${preBattleProtectWeapons ? '🛡️' : '⚔️'}</span>
         <div>
-          <div style="font-weight:700;">Silah Dayanıklılığı Koruması: ${preBattleProtectWeapons ? 'AÇIK' : 'KAPALI'}</div>
-          <div style="font-size:0.72rem; opacity:0.8;">${preBattleProtectWeapons ? 'Silahlar aşınmaz, ancak silah ATK bonusu savaşta kullanılmaz.' : 'Tam güçle savaşılır, silahların dayanıklılığı -1 aşınır.'}</div>
+          <div style="font-weight:700;">Silah Dayanıklılığı Koruması: ${preBattleProtectWeapons ? 'AÇIK (Aşınmaz)' : 'KAPALI (Silahlar Kullanılır)'}</div>
+          <div style="font-size:0.72rem; opacity:0.85;">${preBattleProtectWeapons ? 'Silahlar aşınmaz, ancak silah ATK bonusu savaşta kullanılmaz.' : 'Tam güçle savaşılır, kullanılan silahların dayanıklılığı -1 aşınır.'}</div>
+          ${activeWeaponsPreviewHtml}
         </div>
       </div>
 
@@ -3333,8 +3412,9 @@ function executeMonsterBattle(monster, selectedIndices, protectWeapons) {
       const stats = gameState.getSoldierFullStats(idx) || { totalAtk: 20, totalMaxHp: 100 };
       const sol = soldiers[idx];
       let atk = stats.totalAtk;
-      if (protectWeapons && sol.equipment?.weapon) {
-        atk -= (sol.equipment.weapon.atkBonus || 0);
+      const w = sol.equipment?.weapon || state.equipment?.weapon;
+      if (protectWeapons && w && (w.durability === undefined || w.durability > 0)) {
+        atk -= (w.atkBonus || 0);
       }
       return {
         idx,
@@ -3414,12 +3494,26 @@ function executeMonsterBattle(monster, selectedIndices, protectWeapons) {
       const isVictory = eCurHp <= 0;
 
       const dmgFraction = Math.min(1, (playerTotalHp - pCurHp) / Math.max(1, playerTotalHp));
+      const weaponsWorn = [];
       selectedIndices.forEach(idx => {
         if (soldiers[idx]) {
           const loss = Math.floor((soldiers[idx].hp || 100) * dmgFraction);
           soldiers[idx].hp = Math.max(1, (soldiers[idx].hp || 100) - loss);
-          if (!protectWeapons && soldiers[idx].equipment?.weapon) {
-            soldiers[idx].equipment.weapon.durability = Math.max(0, (soldiers[idx].equipment.weapon.durability || 100) - 1);
+
+          if (!protectWeapons) {
+            if (soldiers[idx].equipment?.weapon) {
+              const w = soldiers[idx].equipment.weapon;
+              const maxD = w.maxDurability || 13;
+              const curD = w.durability != null ? w.durability : maxD;
+              w.durability = Math.max(0, curD - 1);
+              weaponsWorn.push(`${soldiers[idx].name} silahı (${w.durability}/${maxD})`);
+            } else if (state.equipment?.weapon) {
+              const w = state.equipment.weapon;
+              const maxD = w.maxDurability || 13;
+              const curD = w.durability != null ? w.durability : maxD;
+              w.durability = Math.max(0, curD - 1);
+              weaponsWorn.push(`Krallık Kılıcı (${w.durability}/${maxD})`);
+            }
           }
         }
       });
@@ -3441,7 +3535,12 @@ function executeMonsterBattle(monster, selectedIndices, protectWeapons) {
         state.dungeonProgress = Math.max(state.dungeonProgress || 1, monster.level + 1);
 
         const lvlMsg = levelUpNotice.length > 0 ? ` • 🎉 ${levelUpNotice.join(', ')}` : '';
-        addNotification('🏆', `${monster.name} yenildi! +${adaReward} ADA kazandın. Savaşa katılan askerlerin +${monster.rewardXp} Asker XP kazandı.${lvlMsg}`);
+        const wearMsg = weaponsWorn.length > 0 ? ` • ⚔️ Silah Aşınması: ${weaponsWorn.join(', ')}` : '';
+        addNotification('🏆', `${monster.name} yenildi! +${adaReward} ADA kazandın. Savaşa katılan askerlerin +${monster.rewardXp} Asker XP kazandı.${lvlMsg}${wearMsg}`);
+
+        if (weaponsWorn.length > 0) {
+          showToast(`⚔️ Silahların dayanıklılığı -1 azaldı: ${weaponsWorn.join(', ')}`, 'info');
+        }
 
         if (logEl) {
           logEl.innerHTML = `
@@ -3450,6 +3549,13 @@ function executeMonsterBattle(monster, selectedIndices, protectWeapons) {
             </div>
             <div style="text-align:center; color:#fde047; margin-top:4px;">
               +${adaReward} $ADASTRA • Savaşa katılan askerlerine +${monster.rewardXp} Asker XP! ${lvlMsg}
+            </div>
+            <div style="text-align:center; font-size:0.8rem; margin-top:6px; color:${protectWeapons ? '#38bdf8' : weaponsWorn.length > 0 ? '#fca5a5' : '#94a3b8'};">
+              ${protectWeapons 
+                ? '🛡️ Silah koruması devrede olduğu için silahlar aşınmadı.' 
+                : weaponsWorn.length > 0 
+                  ? `⚔️ Savaşta kullanılan silahların dayanıklılığı -1 azaldı: <strong>${weaponsWorn.join(', ')}</strong>` 
+                  : '⚔️ Savaşta silah aşınması gerçekleşmedi.'}
             </div>
           `;
         }
@@ -4614,12 +4720,27 @@ function initAppEvents() {
       return;
     }
 
-    // Ekipman Onarımı (18 Kişilik Ordu)
-    const repairEquipBtn = e.target.closest('.btn-repair-equipment');
-    if (repairEquipBtn) {
-      const soldierIndex = parseInt(repairEquipBtn.dataset.soldierIndex, 10);
-      const slot = repairEquipBtn.dataset.slot;
-      const res = gameState.repairEquipmentItem(soldierIndex, slot);
+    // Ekipman Onarımı (Asker Slotu & Krallık Tamirhanesi)
+    const equipRepairBtn = e.target.closest('.btn-equip-repair');
+    if (equipRepairBtn) {
+      const slot = equipRepairBtn.dataset.slot;
+      const sIdx = equipRepairBtn.dataset.soldierIdx !== '' && equipRepairBtn.dataset.soldierIdx !== undefined ? parseInt(equipRepairBtn.dataset.soldierIdx, 10) : null;
+      const res = gameState.repairEquipment(slot, sIdx);
+      if (res.success) {
+        showToast(res.message, 'success');
+        openTownZoneModal('blacksmith', '⚒️ KRALLIK DEMİRCİSİ & TAMİRHANE');
+      } else {
+        showToast(res.message, 'error');
+      }
+      renderTopBar();
+      return;
+    }
+
+    const soldierRepairBtn = e.target.closest('.btn-soldier-repair-slot') || e.target.closest('.btn-repair-equipment');
+    if (soldierRepairBtn) {
+      const sIdx = parseInt(soldierRepairBtn.dataset.soldierIdx || soldierRepairBtn.dataset.soldierIndex, 10);
+      const slot = soldierRepairBtn.dataset.slot;
+      const res = gameState.repairEquipment(slot, sIdx);
       if (res.success) {
         showToast(res.message, 'success');
         openBarracksModal();

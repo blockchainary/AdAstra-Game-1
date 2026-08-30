@@ -180,9 +180,10 @@ export class GameStateManager {
 
   getSoldierSetBonus(soldierIndex) {
     const soldier = (this.state.soldierUnits || [])[soldierIndex];
-    if (!soldier || !soldier.equipment) return null;
+    if (!soldier) return null;
+    const eq = soldier.equipment || {};
     const count = ['weapon', 'helmet', 'armor', 'legs', 'boots'].filter(slot => {
-      const item = soldier.equipment[slot];
+      const item = eq[slot] || (this.state.equipment ? this.state.equipment[slot] : null);
       return item && (item.durability === undefined || item.durability > 0);
     }).length;
 
@@ -201,7 +202,7 @@ export class GameStateManager {
     const eq = soldier.equipment || {};
 
     ['weapon', 'helmet', 'armor', 'legs', 'boots'].forEach(slot => {
-      const item = eq[slot];
+      const item = eq[slot] || (this.state.equipment ? this.state.equipment[slot] : null);
       if (item && (item.durability === undefined || item.durability > 0)) {
         bonusAtk += (item.atkBonus || 0);
         bonusHp += (item.hpBonus || 0);
@@ -1251,49 +1252,94 @@ export class GameStateManager {
   }
 
   // =========================================================================
-  // 8. SOLDIER SYSTEM - EQUIPMENT REPAIR (18 Kişilik soldierUnits Ordusu)
+  // 8. TEÇHİZAT ONARIM VE DAYANIKLILIK YÖNETİMİ
   // =========================================================================
-  repairEquipmentItem(soldierIndex, slot) {
-    const soldier = (this.state.soldierUnits || [])[soldierIndex];
-    if (!soldier) return { success: false, message: 'Asker bulunamadı!' };
 
-    const item = soldier.equipment ? soldier.equipment[slot] : null;
-    if (!item) return { success: false, message: 'Bu yuvada kuşanılmış bir ekipman bulunamadı!' };
+  calculateEquipmentRepairCost(slotKey, soldierIndex = null) {
+    let item = null;
+    if (soldierIndex !== null && soldierIndex !== undefined && soldierIndex !== '') {
+      const soldier = (this.state.soldierUnits || [])[soldierIndex];
+      item = soldier?.equipment ? soldier.equipment[slotKey] : null;
+    } else {
+      item = this.state.equipment ? this.state.equipment[slotKey] : null;
+    }
+    if (!item) return { missingDurability: 0, ironCost: 0, woodCost: 0, fragCost: 0, adaCost: 0, isRepaired: true };
 
     const maxDur = item.maxDurability || 13;
-    if ((item.repairsLeft !== undefined ? item.repairsLeft : GAME_CONFIG.MAX_EQUIPMENT_REPAIRS) <= 0) {
-      return { success: false, message: `⚠️ ${item.name} tamir hakkı tükendi! Kırılacak!` };
+    const curDur = item.durability != null ? item.durability : maxDur;
+    const missing = Math.max(0, maxDur - curDur);
+    if (missing <= 0) return { missingDurability: 0, ironCost: 0, woodCost: 0, fragCost: 0, adaCost: 0, isRepaired: true };
+
+    const lvl = item.level || 1;
+    const ironCost = Math.max(2, Math.ceil(missing * 2 * lvl));
+    const woodCost = Math.max(1, Math.ceil(missing * 1.5 * lvl));
+    const fragCost = lvl >= 5 ? Math.ceil(missing * 0.5) : 0;
+    const adaCost = Math.max(1, Math.ceil(missing * 1 * lvl));
+
+    return {
+      missingDurability: missing,
+      ironCost,
+      woodCost,
+      fragCost,
+      adaCost,
+      isRepaired: false,
+      itemName: item.name,
+      level: lvl
+    };
+  }
+
+  repairEquipment(slotKey, soldierIndex = null) {
+    let item = null;
+    let soldier = null;
+    if (soldierIndex !== null && soldierIndex !== undefined && soldierIndex !== '') {
+      soldier = (this.state.soldierUnits || [])[soldierIndex];
+      item = soldier?.equipment ? soldier.equipment[slotKey] : null;
+    } else {
+      item = this.state.equipment ? this.state.equipment[slotKey] : null;
     }
 
-    const missingDurability = maxDur - (item.durability || 0);
-    if (missingDurability <= 0) {
+    if (!item) return { success: false, message: 'Onarılacak ekipman bulunamadı!' };
+
+    const cost = this.calculateEquipmentRepairCost(slotKey, soldierIndex);
+    if (cost.missingDurability <= 0) {
       return { success: false, message: `${item.name} zaten tamamen sağlam!` };
     }
 
-    const ironCost = Math.ceil(missingDurability);
-    const woodCost = Math.ceil(missingDurability * 0.5);
-
     const inv = this.state.inventory;
-    if ((inv.iron || 0) < ironCost) {
-      return { success: false, message: `Yetersiz Demir! (${ironCost} Demir gerekli)` };
+    if ((inv.iron || 0) < cost.ironCost) {
+      return { success: false, message: `Yetersiz Demir! (${cost.ironCost} Demir gerekli)` };
     }
-    if ((inv.wood || 0) < woodCost) {
-      return { success: false, message: `Yetersiz Odun! (${woodCost} Odun gerekli)` };
+    if ((inv.wood || 0) < cost.woodCost) {
+      return { success: false, message: `Yetersiz Odun! (${cost.woodCost} Odun gerekli)` };
+    }
+    if ((inv.fragments || 0) < cost.fragCost) {
+      return { success: false, message: `Yetersiz Parça! (${cost.fragCost} Parça gerekli)` };
+    }
+    if ((this.state.adAstraBalance || 0) < cost.adaCost) {
+      return { success: false, message: `Yetersiz $ADASTRA! (${cost.adaCost} ADA gerekli)` };
     }
 
-    inv.iron -= ironCost;
-    inv.wood -= woodCost;
+    inv.iron -= cost.ironCost;
+    inv.wood -= cost.woodCost;
+    if (cost.fragCost > 0) inv.fragments = (inv.fragments || 0) - cost.fragCost;
+    this.state.adAstraBalance -= cost.adaCost;
+    globalPool.recordTokenSpend(cost.adaCost);
+
+    const maxDur = item.maxDurability || 13;
     item.durability = maxDur;
-    item.repairsLeft = (item.repairsLeft !== undefined ? item.repairsLeft : GAME_CONFIG.MAX_EQUIPMENT_REPAIRS) - 1;
 
     sound.playRepair();
     this.saveState();
 
+    const ownerText = soldier ? `${soldier.name} üzerindeki ` : '';
     return {
       success: true,
-      message: `🔨 ${item.name} onarıldı! (Kalan tamir hakkı: ${item.repairsLeft}/${GAME_CONFIG.MAX_EQUIPMENT_REPAIRS})`,
-      repairsLeft: item.repairsLeft
+      message: `🔨 ${ownerText}${item.name} başarıyla tamir edildi! (${maxDur}/${maxDur} Dayanıklılık)`
     };
+  }
+
+  repairEquipmentItem(soldierIndex, slot) {
+    return this.repairEquipment(slot, soldierIndex);
   }
 
   // =========================================================================
