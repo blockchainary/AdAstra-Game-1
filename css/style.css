@@ -3892,3 +3892,63 @@ body:not(.in-dungeon) .top-nav-menu {
   cursor: not-allowed;
   filter: grayscale(0.8);
 }
+
+/* =========================================================================
+   12. SAVAŞ EFEKTLERİ: SHAKE, SLASH & FLOAT DAMAGE NUMBERS
+   ========================================================================= */
+.combat-slash-effect {
+  position: absolute;
+  width: 120px;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, #fff, #fde047, #ef4444, transparent);
+  box-shadow: 0 0 15px #fde047, 0 0 25px #ef4444;
+  transform: rotate(-35deg);
+  pointer-events: none;
+  z-index: 1000;
+  animation: slashAnim 0.35s ease-out forwards;
+}
+
+@keyframes slashAnim {
+  0% { opacity: 0; transform: scaleX(0.2) rotate(-35deg); }
+  50% { opacity: 1; transform: scaleX(1.4) rotate(-35deg); }
+  100% { opacity: 0; transform: scaleX(1.8) translateY(20px) rotate(-35deg); }
+}
+
+.combat-shake {
+  animation: combatShakeAnim 0.3s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+@keyframes combatShakeAnim {
+  10%, 90% { transform: translate3d(-2px, 0, 0); }
+  20%, 80% { transform: translate3d(4px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+  40%, 60% { transform: translate3d(6px, 0, 0); }
+}
+
+.floating-dmg-num {
+  position: absolute;
+  font-family: var(--font-game);
+  font-weight: 900;
+  font-size: 1.4rem;
+  pointer-events: none;
+  z-index: 1001;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.9), 0 0 12px currentColor;
+  animation: floatDmgAnim 0.8s ease-out forwards;
+}
+
+.floating-dmg-num.crit {
+  font-size: 1.9rem;
+  color: #facc15;
+  text-shadow: 0 0 16px #eab308, 0 0 24px #ca8a04;
+}
+
+.floating-dmg-num.normal {
+  color: #f87171;
+}
+
+@keyframes floatDmgAnim {
+  0% { opacity: 0; transform: translateY(0) scale(0.6); }
+  20% { opacity: 1; transform: translateY(-15px) scale(1.3); }
+  80% { opacity: 0.9; transform: translateY(-35px) scale(1); }
+  100% { opacity: 0; transform: translateY(-50px) scale(0.8); }
+}

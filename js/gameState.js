@@ -756,6 +756,52 @@ export class GameStateManager {
     };
   }
 
+  // ✨ 60+ YAŞ ÖZEL: TEK TIKLA TÜM KASABADAN MAHSUL & VERGİ TOPLA (SWEEP HARVEST)
+  claimAllHarvests() {
+    const nodes = ['wheat', 'wood', 'iron'];
+    let totalHarvested = 0;
+    let totalXp = 0;
+    const collectedDetails = [];
+
+    for (const nodeId of nodes) {
+      const exp = this.state.activeExpeditions[nodeId];
+      if (exp) {
+        if (exp.isCompleted) {
+          const res = this.claimExpedition(nodeId);
+          if (res && res.success) {
+            totalHarvested += (res.amount || 0);
+            totalXp += (res.xpGained || 0);
+            collectedDetails.push(`${res.amount} ${res.resourceName || nodeId}`);
+          }
+        } else {
+          const res = this.claimPartialExpedition(nodeId);
+          if (res && res.success) {
+            totalHarvested += (res.amount || 0);
+            totalXp += (res.xpGained || 0);
+            const nodeConfig = GAME_CONFIG.GLOBAL_RESOURCE_CAPS[nodeId];
+            collectedDetails.push(`${res.amount} ${nodeConfig ? nodeConfig.name : nodeId}`);
+          }
+        }
+      }
+    }
+
+    if (totalHarvested > 0) {
+      sound.playLevelUp();
+      this.saveState();
+      return {
+        success: true,
+        totalHarvested,
+        totalXp,
+        message: `✨ Bütün Kasabadan Mahsuller Toplandı: +${collectedDetails.join(', ')} (+${totalXp} XP)`
+      };
+    }
+
+    return {
+      success: false,
+      message: 'Toplanacak hazır bir mahsul veya biriken kaynak bulunamadı. Önce tarlalara ve madenlere işçi gönderin!'
+    };
+  }
+
   // Sefer/zindan kazanımlarından gelen XP'yi karaktere ekler.
   // NOT: Seviye atlama otomatik değildir; oyuncu "levelUp()" ile ayrı bir eylem olarak yükselir.
   addXp(amount) {
@@ -1094,9 +1140,9 @@ export class GameStateManager {
       return { success: false, message: `Yetersiz AdAstra! (${cost.adAstra} $ADASTRA gerekli)` };
     }
 
-    inv.fragments -= cost.fragments;
-    inv.iron -= cost.iron;
-    inv.wood -= cost.wood;
+    inv.fragments = (inv.fragments || 0) - cost.fragments;
+    inv.iron = (inv.iron || 0) - cost.iron;
+    inv.wood = (inv.wood || 0) - cost.wood;
     this.state.adAstraBalance -= cost.adAstra;
     globalPool.recordTokenSpend(cost.adAstra);
 
@@ -1471,8 +1517,8 @@ export class GameStateManager {
     }
 
     inv.fragments = (inv.fragments || 0) - tier.fragments;
-    inv.iron -= tier.iron;
-    inv.wood -= tier.wood;
+    inv.iron = (inv.iron || 0) - tier.iron;
+    inv.wood = (inv.wood || 0) - tier.wood;
     this.state.adAstraBalance -= tier.adAstra;
     globalPool.recordTokenSpend(tier.adAstra);
 

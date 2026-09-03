@@ -2429,7 +2429,7 @@ function openColosseumModal() {
   const leaderboard = gameState.getColosseumLeaderboard();
   const cStats = state.colosseumStats || { wins: 0, losses: 0, score: 0, rank: 11 };
 
-  dom.modalTitle.innerHTML = `<span>🏟️</span> <span>BÜYÜK KOLEZYUM: 1v1 PVP & HAFTALIK LİG</span>`;
+  dom.modalTitle.innerHTML = `<span>🏟️</span> <span>BÜYÜK GLADYATÖR KOLEZYUMU: 1v1 PVP & HAFTALIK LİG</span>`;
 
   const tabsHtml = `
     <div class="phase2-tab-row">
@@ -3520,11 +3520,48 @@ function executeMonsterBattle(monster, selectedIndices, protectWeapons) {
     round++;
     sound.playPickaxe();
 
-    const pDmg = Math.floor(playerTotalAtk * (0.85 + Math.random() * 0.3));
+    const isCrit = Math.random() < 0.25;
+    const critMult = isCrit ? 1.75 : 1.0;
+    const pDmg = Math.floor(playerTotalAtk * (0.85 + Math.random() * 0.3) * critMult);
     const eDmg = Math.floor(monster.atk * (0.85 + Math.random() * 0.3));
 
     eCurHp = Math.max(0, eCurHp - pDmg);
     pCurHp = Math.max(0, pCurHp - eDmg);
+
+    // Görsel Vuruş Efektleri: Screen Shake & Floating Damage
+    const enemySquadEl = document.querySelector('.enemy-squad');
+    const playerSquadEl = document.querySelector('.player-squad');
+    const battlefieldEl = document.querySelector('.arena-battlefield');
+
+    if (enemySquadEl && battlefieldEl) {
+      // Düşmana Darbe Titremesi
+      enemySquadEl.classList.remove('combat-shake');
+      void enemySquadEl.offsetWidth; // Reflow trigger
+      enemySquadEl.classList.add('combat-shake');
+
+      // Kılıç Kesme Efekti (Slash)
+      const slash = document.createElement('div');
+      slash.className = 'combat-slash-effect';
+      slash.style.left = `${enemySquadEl.offsetLeft + enemySquadEl.offsetWidth / 2 - 60}px`;
+      slash.style.top = `${enemySquadEl.offsetTop + enemySquadEl.offsetHeight / 2 - 10}px`;
+      battlefieldEl.appendChild(slash);
+      setTimeout(() => slash.remove(), 400);
+
+      // Uçuşan Hasar Sayısı (Floating Damage Number)
+      const dmgNum = document.createElement('div');
+      dmgNum.className = `floating-dmg-num ${isCrit ? 'crit' : 'normal'}`;
+      dmgNum.innerHTML = isCrit ? `💥 KRİTİK! -${pDmg}` : `⚔️ -${pDmg}`;
+      dmgNum.style.left = `${enemySquadEl.offsetLeft + 20 + Math.random() * 40}px`;
+      dmgNum.style.top = `${enemySquadEl.offsetTop + 10}px`;
+      battlefieldEl.appendChild(dmgNum);
+      setTimeout(() => dmgNum.remove(), 800);
+    }
+
+    if (playerSquadEl && battlefieldEl && eDmg > 0) {
+      playerSquadEl.classList.remove('combat-shake');
+      void playerSquadEl.offsetWidth;
+      playerSquadEl.classList.add('combat-shake');
+    }
 
     if (eHpFill) eHpFill.style.width = `${Math.round((eCurHp / monster.hp) * 100)}%`;
     if (pHpFill) pHpFill.style.width = `${Math.round((pCurHp / playerTotalHp) * 100)}%`;
@@ -3532,7 +3569,7 @@ function executeMonsterBattle(monster, selectedIndices, protectWeapons) {
     if (pHpText) pHpText.innerText = `${pCurHp} / ${playerTotalHp} HP`;
 
     if (logEl) {
-      logEl.innerHTML = `<div>⚔️ Tur ${round}: Ordun ${pDmg} hasar vurdu! ${monster.name} ${eDmg} karşı hasar verdi!</div>`;
+      logEl.innerHTML = `<div>⚔️ Tur ${round}: Ordun ${isCrit ? '💥 <strong>KRİTİK</strong> ' : ''}${pDmg} hasar vurdu! ${monster.name} ${eDmg} karşı hasar verdi!</div>`;
     }
 
     if (eCurHp <= 0 || pCurHp <= 0) {
@@ -3841,6 +3878,20 @@ function initAppEvents() {
   if (btnEconomy) btnEconomy.addEventListener('click', () => openEconomyDashboardModal('overview'));
 
   // ÜST ŞERİT MENÜ BUTONLARI (TOP NAV STRIP BUTTONS)
+  const btnTopSweep = document.getElementById('btn-top-sweep-harvest');
+  if (btnTopSweep) {
+    btnTopSweep.addEventListener('click', () => {
+      const res = gameState.claimAllHarvests();
+      if (res.success) {
+        showToast(res.message, 'success');
+        sound.playHarvest();
+        renderTopBar();
+      } else {
+        showToast(res.message, 'info');
+      }
+    });
+  }
+
   const btnNavDash = document.getElementById('btn-nav-dashboard');
   if (btnNavDash) btnNavDash.addEventListener('click', openDashboardModal);
 
