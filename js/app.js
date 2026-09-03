@@ -1210,26 +1210,26 @@ function openTownZoneModal(zoneId, zoneName) {
 
     html = `
       <!-- Üst Özet Barı & Hızlı Toplu Eylemler -->
-      <div class="clean-card" style="border-color: #ca8a04; background: linear-gradient(135deg, rgba(30,16,6,0.95) 0%, rgba(18,9,3,0.95) 100%); margin-bottom: 4px; padding: 12px 18px;">
+      <div class="clean-card" style="margin-bottom: 8px;">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
           <div>
-            <div style="font-size: 1.15rem; font-weight: 900; color: #fde047; display: flex; align-items: center; gap: 8px;">
-              <span>⚒️ KRALLIK DEMİRCİSİ & MERKEZİ CEPHANELİK (ARMORY HUB)</span>
-              <span class="card-badge" style="color: #4ade80;">Toplam ${armoryList.length} Teçhizat</span>
+            <div style="font-size: 1.05rem; font-weight: 800; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+              <span>⚒️ Krallık Demircisi & Cephanelik</span>
+              <span class="card-badge" style="color: #38bdf8;">${armoryList.length} Teçhizat</span>
             </div>
-            <div style="font-size: 0.8rem; color: #cbd5e1; margin-top: 2px;">
-              İstediğin kadar silah ve zırh döv, depoda biriktir, askerlerine dağıt ve tek tıkla seviye yükselt!
+            <div style="font-size: 0.78rem; color: #94a3b8; margin-top: 2px;">
+              Silah ve zırh döv, depoda biriktir, askerlere dağıt ve tek tıkla seviye atlat.
             </div>
           </div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button class="btn-clean btn-clean-sm btn-armory-repair-all" style="background: linear-gradient(180deg, #0284c7 0%, #0369a1 100%); border-color: #38bdf8; font-size: 0.78rem;" ${damagedArmoryItems.length === 0 ? 'disabled' : ''}>
-              🔨 Tüm Ordu Teçhizatını Onar (${damagedArmoryItems.length} Hasarlı)
+            <button class="btn-clean btn-clean-sm btn-armory-repair-all" style="width: auto; background: #0284c7; border-color: #38bdf8; font-size: 0.78rem; padding: 7px 12px;" ${damagedArmoryItems.length === 0 ? 'disabled' : ''}>
+              🔨 Tümünü Onar (${damagedArmoryItems.length})
             </button>
-            <button class="btn-clean btn-clean-sm btn-smart-auto-equip" style="background: linear-gradient(180deg, #16a34a 0%, #15803d 100%); border-color: #4ade80; font-size: 0.78rem;">
-              ⚡ Otomatik En İyileri Dağıt
+            <button class="btn-clean btn-clean-sm btn-smart-auto-equip" style="width: auto; background: #16a34a; border-color: #4ade80; font-size: 0.78rem; padding: 7px 12px;">
+              ⚡ En İyileri Dağıt
             </button>
-            <button class="btn-clean btn-clean-sm btn-smart-unequip-all" style="background: linear-gradient(180deg, #475569 0%, #334155 100%); border-color: #94a3b8; font-size: 0.78rem;">
-              🔄 Tümünü Sök Depoya Aktar
+            <button class="btn-clean btn-clean-sm btn-smart-unequip-all" style="width: auto; background: #334155; border-color: #64748b; font-size: 0.78rem; padding: 7px 12px;">
+              🔄 Depoya Topla
             </button>
           </div>
         </div>
