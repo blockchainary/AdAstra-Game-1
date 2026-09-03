@@ -200,7 +200,27 @@ function renderTopBar() {
     dom.sidebarBoxBadge.classList.toggle('hidden', boxCount <= 0);
   }
 
+  // 🧙‍♂️ Akıllı Kral Danışmanı Canlı Güncellemesi
+  updateRoyalAdvisorUI();
+
   renderRealmSidebar(state, maxStamina, staminaInt);
+}
+
+// Akıllı Kral Danışmanı DOM Güncellemesi
+function updateRoyalAdvisorUI() {
+  const advisor = gameState.getRoyalAdvisorAdvice();
+  const avatarEl = document.getElementById('advisor-avatar');
+  const titleEl = document.getElementById('advisor-title');
+  const textEl = document.getElementById('advisor-text');
+  const actBtn = document.getElementById('btn-advisor-action');
+
+  if (avatarEl) avatarEl.innerText = advisor.icon || '🧙‍♂️';
+  if (titleEl) titleEl.innerText = advisor.title || 'Kralın Danışmanı';
+  if (textEl) textEl.innerHTML = advisor.advice || '';
+  if (actBtn) {
+    actBtn.innerHTML = `<span>${advisor.actionLabel || '✨ İncele'}</span>`;
+    actBtn.dataset.action = advisor.action || '';
+  }
 }
 
 // =========================================================================
@@ -251,13 +271,41 @@ function renderRealmSidebar(state, maxStamina, staminaInt) {
     dom.sidebarAvaxBalance.innerText = (state.avaxBalance || 250).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
-  const fragmentRate = gameState.getFragmentDropRate(state.level);
-  const boxRate = gameState.getBoxDropRate(state.level);
-  if (dom.sidebarFragmentRate) {
-    dom.sidebarFragmentRate.innerText = `${(fragmentRate * 100).toFixed(2)}%`;
-  }
-  if (dom.sidebarBoxRate) {
-    dom.sidebarBoxRate.innerText = `${(boxRate * 100).toFixed(4)}%`;
+  // 1.5 ⭐ Günün 3 Görevi Render
+  const dailyQuestsEl = document.getElementById('sidebar-daily-quests-list');
+  if (dailyQuestsEl) {
+    const quests = gameState.getDailyQuests();
+    dailyQuestsEl.innerHTML = quests.map(q => {
+      const isDone = q.completed;
+      const isClaimed = q.claimed;
+
+      return `
+        <div style="background: rgba(0,0,0,0.35); border: 1px solid ${isDone ? '#ca8a04' : 'rgba(255,255,255,0.08)'}; border-radius: 8px; padding: 6px 8px; display: flex; justify-content: space-between; align-items: center; gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+            <span style="font-size: 1.1rem;">${q.icon}</span>
+            <div style="min-width: 0;">
+              <div style="font-weight: 800; font-size: 0.75rem; color: ${isDone ? '#facc15' : '#fff'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                ${q.title}
+              </div>
+              <div style="font-size: 0.65rem; color: #94a3b8;">
+                +${q.rewardAda} ADA • +${q.rewardXp} XP
+              </div>
+            </div>
+          </div>
+          <div>
+            ${isClaimed ? `
+              <span style="font-size: 0.65rem; color: #4ade80; font-weight: 800; background: rgba(34,197,94,0.15); padding: 2px 6px; border-radius: 4px;">✅ ALINDI</span>
+            ` : isDone ? `
+              <button class="btn-claim-daily-quest" data-qid="${q.id}" style="background: #16a34a; border: 1px solid #4ade80; color: #fff; font-size: 0.68rem; font-weight: 800; padding: 3px 8px; border-radius: 6px; cursor: pointer;">
+                🎁 AL
+              </button>
+            ` : `
+              <span style="font-size: 0.65rem; color: #94a3b8; font-weight: 700; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px;">${q.current}/${q.target}</span>
+            `}
+          </div>
+        </div>
+      `;
+    }).join('');
   }
 
   // 2. Aktif Seferler
@@ -3616,6 +3664,7 @@ function executeMonsterBattle(monster, selectedIndices, protectWeapons) {
         });
 
         state.dungeonProgress = Math.max(state.dungeonProgress || 1, monster.level + 1);
+        gameState.recordDailyQuestProgress('dungeon');
 
         const lvlMsg = levelUpNotice.length > 0 ? ` • 🎉 ${levelUpNotice.join(', ')}` : '';
         const wearMsg = weaponsWorn.length > 0 ? ` • ⚔️ Silah Aşınması: ${weaponsWorn.join(', ')}` : '';
@@ -3892,6 +3941,31 @@ function initAppEvents() {
     });
   }
 
+  // 🧙‍♂️ Akıllı Kral Danışmanı Aksiyon Butonu
+  const btnAdvisorAct = document.getElementById('btn-advisor-action');
+  if (btnAdvisorAct) {
+    btnAdvisorAct.addEventListener('click', () => {
+      const act = btnAdvisorAct.dataset.action;
+      if (act === 'sweep_harvest') {
+        const res = gameState.claimAllHarvests();
+        showToast(res.message, res.success ? 'success' : 'info');
+        if (res.success) sound.playHarvest();
+        renderTopBar();
+      } else if (act === 'open_barracks') {
+        openBarracksModal();
+      } else if (act === 'open_blacksmith') {
+        mineActiveTab = 'blacksmith';
+        openTownZoneModal('blacksmith', '⚒️ KRALLIK DEMİRCİSİ & TAMİRHANE');
+      } else if (act === 'open_dashboard') {
+        openDashboardModal();
+      } else if (act === 'open_dungeon') {
+        enterDungeonScene();
+      } else {
+        openDashboardModal();
+      }
+    });
+  }
+
   const btnNavDash = document.getElementById('btn-nav-dashboard');
   if (btnNavDash) btnNavDash.addEventListener('click', openDashboardModal);
 
@@ -3997,6 +4071,21 @@ function initAppEvents() {
   if (dom.sideBtnColosseum) dom.sideBtnColosseum.addEventListener('click', openColosseumModal);
   if (dom.sideBtnCollection) dom.sideBtnCollection.addEventListener('click', () => openCollectionModal('koleksiyon'));
   if (dom.sideBtnBoxes) dom.sideBtnBoxes.addEventListener('click', () => openCollectionModal('kutular'));
+
+  // Günün Görevleri Ödül Alma Butonu (.btn-claim-daily-quest)
+  document.addEventListener('click', (e) => {
+    const claimQuestBtn = e.target.closest('.btn-claim-daily-quest');
+    if (claimQuestBtn) {
+      const qid = claimQuestBtn.dataset.qid;
+      const res = gameState.claimDailyQuest(qid);
+      if (res.success) {
+        showToast(res.message, 'success');
+        renderTopBar();
+      } else {
+        showToast(res.message, 'info');
+      }
+    }
+  });
 
   // Sefer kartlarına tıklayınca ilgili kaynağın modalını aç
   document.querySelectorAll('.sidebar-exp-card').forEach(card => {

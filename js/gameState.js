@@ -787,6 +787,7 @@ export class GameStateManager {
 
     if (totalHarvested > 0) {
       sound.playLevelUp();
+      this.recordDailyQuestProgress('harvest');
       this.saveState();
       return {
         success: true,
@@ -799,6 +800,73 @@ export class GameStateManager {
     return {
       success: false,
       message: 'Toplanacak hazır bir mahsul veya biriken kaynak bulunamadı. Önce tarlalara ve madenlere işçi gönderin!'
+    };
+  }
+
+  // 🧙‍♂️ KRAL DANIŞMANI (BİR CÜMLELİK REHBERLİK & TAVSİYE)
+  getRoyalAdvisorAdvice() {
+    const inv = this.state.inventory || {};
+    const soldiers = this.state.soldierUnits || [];
+    const exp = this.state.activeExpeditions || {};
+    const dProg = this.state.dungeonProgress || 1;
+
+    // 1. Hazır bekleyen sefer mahsulü varsa
+    let readyExpCount = 0;
+    for (const node of ['wheat', 'wood', 'iron']) {
+      if (exp[node] && exp[node].isCompleted) readyExpCount++;
+    }
+    if (readyExpCount > 0) {
+      return {
+        icon: '🌾',
+        title: 'Mahsuller Hazır!',
+        advice: `Tarlada ve madenlerde ${readyExpCount} işçin seferden döndü! Yukarıdaki **"TÜM MAHSULÜ TOPLA"** butonuna basarak ambarları doldurabilirsin.`,
+        action: 'sweep_harvest',
+        actionLabel: '✨ Topla'
+      };
+    }
+
+    // 2. Yaralı asker varsa ve buğday yeterliyse
+    const injuredSoldier = soldiers.find(s => (s.hp || 100) < (s.maxHp || 100));
+    if (injuredSoldier && (inv.wheat || 0) >= 10) {
+      return {
+        icon: '❤️',
+        title: 'Askerler Dinlenmek İstiyor',
+        advice: `Orduda yaralı askerlerin var. Kışlaya gidip **"Tek Dokunuşla Ordumu Hazırla"** ile onları doyurabilirsin!`,
+        action: 'open_barracks',
+        actionLabel: '⚔️ Kışlaya Git'
+      };
+    }
+
+    // 3. İşçiler boştaysa
+    const idleNodes = ['wheat', 'wood', 'iron'].filter(n => !exp[n]);
+    if (idleNodes.length > 0) {
+      return {
+        icon: '⛏️',
+        title: 'İşçiler Boşta Bekliyor',
+        advice: `Madenler ve tarlalar şu an boşta duruyor. Çiftliğe veya Madene tıklayıp işçilerini sefere göndererek hammadde toplat!`,
+        action: 'open_dashboard',
+        actionLabel: '🏰 Krallık Merkezi'
+      };
+    }
+
+    // 4. Demirci için yeterli hammadde varsa ve eşyalar boşsa
+    if ((inv.iron || 0) >= 60 && (inv.wood || 0) >= 40) {
+      return {
+        icon: '🔥',
+        title: 'Demirci Ocağı Yanıyor',
+        advice: `Ambarında yeterli demir ve odun var. Demircide yeni bir kılıç veya zırh döverek askerlerini zırhlandırabilirsin!`,
+        action: 'open_blacksmith',
+        actionLabel: '⚒️ Demirciye Git'
+      };
+    }
+
+    // 5. Zindan için tavsiye
+    return {
+      icon: '💀',
+      title: 'Zindan Seni Bekliyor',
+      advice: `Ordun hazır durumda! Zindan ${dProg}. Kat Muhafızını yenerek hazineleri krallığına kazandırabilirsin.`,
+      action: 'open_dungeon',
+      actionLabel: '🗺️ Zindana İn'
     };
   }
 
@@ -1171,6 +1239,7 @@ export class GameStateManager {
     }
 
     sound.playRepair();
+    this.recordDailyQuestProgress('craft');
     this.saveState();
 
     return { 
@@ -2421,6 +2490,70 @@ export class GameStateManager {
       this.state.dailyCounters = { date: today, arenaMatches: 0, dungeonRuns: 0 };
     }
     return this.state.dailyCounters;
+  }
+
+  // ⭐ GÜNÜN GÖREVLERİ (3 BASİT YILDIZLI GÖREV & DOYURUCU ANLIK ÖDÜL)
+  getDailyQuests() {
+    const today = new Date().toISOString().slice(0, 10);
+    if (!this.state.dailyQuests || this.state.dailyQuests.date !== today) {
+      this.state.dailyQuests = {
+        date: today,
+        quests: [
+          { id: 'quest_harvest', title: 'Tarladan Mahsul Topla', desc: 'Kasabadan herhangi bir mahsul topla', icon: '🌾', current: 0, target: 1, rewardAda: 150, rewardXp: 50, completed: false, claimed: false },
+          { id: 'quest_craft', title: 'Demirci Ocağını Yak', desc: 'Demircide 1 adet silah veya zırh döv', icon: '⚒️', current: 0, target: 1, rewardAda: 250, rewardXp: 100, completed: false, claimed: false },
+          { id: 'quest_dungeon', title: 'Zindana Cesaret Göster', desc: 'Zindanda 1 canavarla savaş', icon: '💀', current: 0, target: 1, rewardAda: 500, rewardXp: 200, completed: false, claimed: false }
+        ]
+      };
+    }
+    return this.state.dailyQuests.quests;
+  }
+
+  recordDailyQuestProgress(actionType) {
+    const quests = this.getDailyQuests();
+    let updated = false;
+
+    for (const q of quests) {
+      if (!q.completed) {
+        if (actionType === 'harvest' && q.id === 'quest_harvest') {
+          q.current = Math.min(q.target, q.current + 1);
+          if (q.current >= q.target) q.completed = true;
+          updated = true;
+        } else if (actionType === 'craft' && q.id === 'quest_craft') {
+          q.current = Math.min(q.target, q.current + 1);
+          if (q.current >= q.target) q.completed = true;
+          updated = true;
+        } else if (actionType === 'dungeon' && q.id === 'quest_dungeon') {
+          q.current = Math.min(q.target, q.current + 1);
+          if (q.current >= q.target) q.completed = true;
+          updated = true;
+        }
+      }
+    }
+
+    if (updated) {
+      this.saveState();
+    }
+  }
+
+  claimDailyQuest(questId) {
+    const quests = this.getDailyQuests();
+    const q = quests.find(item => item.id === questId);
+    if (!q) return { success: false, message: 'Görev bulunamadı.' };
+    if (!q.completed) return { success: false, message: 'Bu görev henüz tamamlanmadı.' };
+    if (q.claimed) return { success: false, message: 'Bu görevin ödülü zaten alındı.' };
+
+    q.claimed = true;
+    this.state.adAstraBalance += q.rewardAda;
+    this.addXp(q.rewardXp);
+    sound.playLevelUp();
+    this.saveState();
+
+    return {
+      success: true,
+      rewardAda: q.rewardAda,
+      rewardXp: q.rewardXp,
+      message: `🎉 Görev Ödülü Alındı: +${q.rewardAda} $ADASTRA & +${q.rewardXp} XP!`
+    };
   }
 
   executeColosseum1v1Match(championIndex = 0) {
