@@ -630,26 +630,40 @@ body.modal-open .realm-tooltip {
 }
 
 .rpg-modal-close {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #94a3b8;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  background: #dc2626;
+  border: 1.5px solid #f87171;
+  color: #ffffff;
+  padding: 8px 18px;
+  height: 42px;
+  border-radius: 10px;
   font-family: var(--font-game);
-  font-weight: 700;
-  font-size: 1rem;
+  font-weight: 900;
+  font-size: 0.95rem;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
   transition: all 0.15s ease;
+  user-select: none;
+  box-shadow: 0 4px 10px rgba(220, 38, 38, 0.4);
+}
+
+.rpg-modal-close .modal-close-text {
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
+  font-weight: 800;
 }
 
 .rpg-modal-close:hover {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: #ef4444;
-  color: #f87171;
+  background: #ef4444;
+  border-color: #fca5a5;
+  color: #fff;
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.6);
+  transform: translateY(-2px);
+}
+
+.rpg-modal-close:active {
+  transform: translateY(1px);
 }
 
 .rpg-modal-body {
