@@ -1182,7 +1182,7 @@ function openTownZoneModal(zoneId, zoneName) {
     `;
   }
 
-  // 2.5 DEMİRCİ & TAMİRHANE (ŞEHİR MERKEZİNDEKİ EV) - Silah/Zırh Dövme, Yükseltme & Tamirhane Sekmeleri
+  // 2.5 DEMİRCİ & TAMİRHANE (ŞEHİR MERKEZİNDEKİ EV) - Geniş Ekran 3 Sütunlu Entegre Cephanelik, Dövme ve Donatım Merkezi
   else if (zoneId === 'blacksmith') {
     const pickaxeTool = state.tools.pickaxe || { durability: 0 };
     const axeTool = state.tools.axe || { durability: 0 };
@@ -1191,311 +1191,309 @@ function openTownZoneModal(zoneId, zoneName) {
     const axeCost = gameState.calculateRepairCost('axe');
     const sickleCost = gameState.calculateRepairCost('sickle');
 
-    const activeTab = (mineActiveTab === 'repair' || mineActiveTab === 'upgrade') ? mineActiveTab : 'craft';
-
-    const tabsHtml = `
-      <div class="phase2-tab-row">
-        <button class="phase2-tab-btn mine-tab-btn ${activeTab === 'craft' ? 'active' : ''}" data-tab="craft">⚒️ Silah & Zırh Döv (Üretim)</button>
-        <button class="phase2-tab-btn mine-tab-btn ${activeTab === 'upgrade' ? 'active' : ''}" data-tab="upgrade">✨ Teçhizat Yükselt (Seviye)</button>
-        <button class="phase2-tab-btn mine-tab-btn ${activeTab === 'repair' ? 'active' : ''}" data-tab="repair">🔧 Tamirhane</button>
-      </div>
-    `;
-
-    let contentHtml = '';
     const equipConfig = GAME_CONFIG.EQUIPMENT_RECIPES;
     const currentEquip = state.equipment || {};
-    const totalStats = gameState.getEquipmentBonusStats();
     const slots = ['weapon', 'helmet', 'armor', 'legs', 'boots'];
     const slotNames = { weapon: 'Silah', helmet: 'Miğfer', armor: 'Gövde Zırhı', legs: 'Pantolon', boots: 'Ayakkabı' };
 
-    if (activeTab === 'repair') {
-      // 🔧 TAMİRHANE: Hem Krallık Envanterindeki hem de Askerlerin Üzerindeki Teçhizatları Listele
-      const allEquipList = [];
+    const armoryList = gameState.getAllArmoryEquipmentList();
+    const soldiers = state.soldierUnits || [];
 
-      // 1. Krallık Envanterindeki Eşyalar
-      slots.forEach(slot => {
-        const item = state.equipment ? state.equipment[slot] : null;
-        if (item && item.level > 0) {
-          const maxDur = item.maxDurability || 13;
-          const curDur = item.durability != null ? item.durability : maxDur;
-          const repCost = gameState.calculateEquipmentRepairCost(slot, null);
-          const slotTr = slotNames[slot] || slot;
-          allEquipList.push({
-            slot,
-            soldierIndex: null,
-            ownerName: 'Krallık Envanteri',
-            item,
-            curDur,
-            maxDur,
-            slotTr,
-            repCost
-          });
-        }
-      });
+    // Seçili asker indeksi (varsayılan: 0)
+    let curSoldierIdx = window.blacksmithSelectedSoldierIndex != null ? window.blacksmithSelectedSoldierIndex : 0;
+    if (curSoldierIdx >= soldiers.length && soldiers.length > 0) curSoldierIdx = 0;
+    window.blacksmithSelectedSoldierIndex = curSoldierIdx;
+    const currentSelectedSoldier = soldiers[curSoldierIdx] || null;
 
-      // 2. Askerlerin Üzerindeki Eşyalar
-      (state.soldierUnits || []).forEach((sol, sIdx) => {
-        slots.forEach(slot => {
-          const item = sol.equipment ? sol.equipment[slot] : null;
-          if (item && item.level > 0) {
-            const maxDur = item.maxDurability || 13;
-            const curDur = item.durability != null ? item.durability : maxDur;
-            const repCost = gameState.calculateEquipmentRepairCost(slot, sIdx);
-            const slotTr = slotNames[slot] || slot;
-            allEquipList.push({
-              slot,
-              soldierIndex: sIdx,
-              ownerName: sol.name,
-              item,
-              curDur,
-              maxDur,
-              slotTr,
-              repCost
-            });
-          }
-        });
-      });
+    // Hasarlı eşya sayısı kontrolü
+    const damagedArmoryItems = armoryList.filter(e => (e.item.durability || 13) < (e.item.maxDurability || 13));
 
-      const equipmentRepairCards = allEquipList.map(entry => {
-        const { slot, soldierIndex, ownerName, item, curDur, maxDur, slotTr, repCost } = entry;
-        const durPct = Math.round((curDur / maxDur) * 100);
-        const durColor = curDur <= 3 ? '#ef4444' : curDur <= 7 ? '#f97316' : '#22c55e';
-        const isDamaged = curDur < maxDur;
-
-        return `
-          <div class="clean-card" style="margin-bottom: 8px;">
-            <div class="card-title-row">
-              <div class="card-title">${item.icon} ${item.name} (${slotTr} Lv.${item.level}) <span style="font-size:0.75rem; color:#94a3b8; font-weight:normal;">[${ownerName}]</span></div>
-              <span class="card-badge" style="color: ${durColor}; border-color: ${durColor};">🛡️ ${curDur}/${maxDur} (%${durPct})</span>
+    html = `
+      <!-- Üst Özet Barı & Hızlı Toplu Eylemler -->
+      <div class="clean-card" style="border-color: #ca8a04; background: linear-gradient(135deg, rgba(30,16,6,0.95) 0%, rgba(18,9,3,0.95) 100%); margin-bottom: 4px; padding: 12px 18px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <div style="font-size: 1.15rem; font-weight: 900; color: #fde047; display: flex; align-items: center; gap: 8px;">
+              <span>⚒️ KRALLIK DEMİRCİSİ & MERKEZİ CEPHANELİK (ARMORY HUB)</span>
+              <span class="card-badge" style="color: #4ade80;">Toplam ${armoryList.length} Teçhizat</span>
             </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; flex-wrap: wrap; gap: 6px;">
-              <span style="font-size: 0.82rem; color: #cbd5e1;">Maliyet: ${repCost.ironCost}⛏️ + ${repCost.woodCost}🌲${repCost.fragCost > 0 ? ` + ${repCost.fragCost}🧩` : ''}${repCost.adaCost > 0 ? ` + ${repCost.adaCost}ADA` : ''}</span>
-              <button class="btn-clean btn-clean-outline btn-equip-repair" data-slot="${slot}" data-soldier-idx="${soldierIndex !== null ? soldierIndex : ''}" style="width: auto; padding: 6px 14px;" ${!isDamaged ? 'disabled' : ''}>
-                ${!isDamaged ? '✅ Sağlam' : `Onar (${repCost.ironCost}⛏️ + ${repCost.woodCost}🌲)`}
+            <div style="font-size: 0.8rem; color: #cbd5e1; margin-top: 2px;">
+              İstediğin kadar silah ve zırh döv, depoda biriktir, askerlerine dağıt ve tek tıkla seviye yükselt!
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn-clean btn-clean-sm btn-armory-repair-all" style="background: linear-gradient(180deg, #0284c7 0%, #0369a1 100%); border-color: #38bdf8; font-size: 0.78rem;" ${damagedArmoryItems.length === 0 ? 'disabled' : ''}>
+              🔨 Tüm Ordu Teçhizatını Onar (${damagedArmoryItems.length} Hasarlı)
+            </button>
+            <button class="btn-clean btn-clean-sm btn-smart-auto-equip" style="background: linear-gradient(180deg, #16a34a 0%, #15803d 100%); border-color: #4ade80; font-size: 0.78rem;">
+              ⚡ Otomatik En İyileri Dağıt
+            </button>
+            <button class="btn-clean btn-clean-sm btn-smart-unequip-all" style="background: linear-gradient(180deg, #475569 0%, #334155 100%); border-color: #94a3b8; font-size: 0.78rem;">
+              🔄 Tümünü Sök Depoya Aktar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3 Sütunlu Ana Kumanda Paneli -->
+      <div class="blacksmith-hub-layout">
+
+        <!-- 1. SÜTUN: DÖVME OCAĞI (SINIRSIZ YENİ ÜRETİM) -->
+        <div class="blacksmith-column">
+          <div class="blacksmith-column-title">
+            <span>🔥 DÖVME OCAĞI (CRAFT)</span>
+            <span style="font-size: 0.75rem; color: #f59e0b;">5 Ana Parça</span>
+          </div>
+          <div style="font-size: 0.76rem; color: #94a3b8; line-height: 1.3;">
+            Burada dilediğin kadar yeni silah/zırh dövebilirsin. Üretilen eşyalar anında Cephanelik Deposu'na aktarılır.
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+            ${slots.map(slot => {
+              const recipe = equipConfig[slot];
+              const cost = recipe.cost;
+              const canAfford = (state.inventory.iron || 0) >= cost.iron &&
+                                (state.inventory.wood || 0) >= cost.wood &&
+                                (state.inventory.fragments || 0) >= cost.fragments &&
+                                state.adAstraBalance >= cost.adAstra;
+
+              return `
+                <div style="background: rgba(0,0,0,0.45); border: 1.5px solid #451a03; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-weight: 800; font-size: 0.88rem; color: #fde047; display: flex; align-items: center; gap: 6px;">
+                      <span>${recipe.icon}</span> <span>${slotNames[slot]}</span>
+                    </div>
+                    <span style="font-size: 0.74rem; font-weight: 700; color: #4ade80;">
+                      ${recipe.baseAtk > 0 ? `+${recipe.baseAtk} ATK ` : ''}${recipe.baseHp > 0 ? `+${recipe.baseHp} HP` : ''}
+                    </span>
+                  </div>
+
+                  <div style="font-size: 0.72rem; color: #94a3b8; line-height: 1.2;">
+                    ${cost.iron}⛏️ • ${cost.wood}🌲 • ${cost.fragments}🧩 • ${cost.adAstra}🟣
+                  </div>
+
+                  <button class="btn-clean btn-clean-sm btn-craft-equipment" data-slot="${slot}" style="padding: 5px 8px; font-size: 0.78rem;" ${canAfford ? '' : 'disabled'}>
+                    🔨 Yeni Döv (Lv.1)
+                  </button>
+                </div>
+              `;
+            }).join('')}
+          </div>
+
+          <!-- Alet Bakımı Küçük Kartları -->
+          <div style="margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
+            <div style="font-weight: 800; font-size: 0.8rem; color: #38bdf8; margin-bottom: 6px;">⛏️ İşçi Aletleri Bakımı</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;">
+              <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="pickaxe" style="font-size: 0.7rem; padding: 4px;" ${pickaxeTool.durability >= 100 ? 'disabled' : ''}>
+                ⛏️ Kazma %${pickaxeTool.durability}
+              </button>
+              <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="axe" style="font-size: 0.7rem; padding: 4px;" ${axeTool.durability >= 100 ? 'disabled' : ''}>
+                🪓 Balta %${axeTool.durability}
+              </button>
+              <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="sickle" style="font-size: 0.7rem; padding: 4px;" ${sickleTool.durability >= 100 ? 'disabled' : ''}>
+                🌾 Orak %${sickleTool.durability}
               </button>
             </div>
           </div>
-        `;
-      }).join('');
+        </div>
 
-      contentHtml = `
-        <div class="clean-card" style="border-color: #38bdf8; background: #0f172a;">
-          <div class="card-title-row">
-            <div class="card-title">🔧 Krallık Tamirhanesi</div>
-            <span class="card-badge" style="color: #38bdf8;">Tüm Ekipmanlar</span>
+        <!-- 2. SÜTUN: TÜM CEPHANELİK VE EŞYA LİSTESİ (YÜKSELT & ONAR) -->
+        <div class="blacksmith-column">
+          <div class="blacksmith-column-title">
+            <span>🎒 KRALLIK CEPHANELİĞİ & YÜKSELTME</span>
+            <span style="font-size: 0.75rem; color: #c084fc;">${armoryList.length} Eşya</span>
           </div>
-          <div class="clean-desc">
-            Savaşlarda ve seferlerde yıpranan silah, zırh ve işçi aletlerini onararak güçlerini koru.
+          <div style="font-size: 0.76rem; color: #94a3b8; line-height: 1.3;">
+            Tüm silah ve zırhlarını tek tek incele, dilediğini seviye atlat (Lv.1 - 10) veya tek tıkla seçili askere aktar.
+          </div>
+
+          <div class="armory-full-list" style="margin-top: 4px;">
+            ${armoryList.length === 0 ? `
+              <div style="text-align: center; color: #94a3b8; padding: 30px 10px; font-size: 0.85rem;">
+                Henüz dövülmüş bir teçhizatın yok. Sol taraftaki <strong>Dövme Ocağı</strong>'ndan ordun için silah ve zırh dövebilirsin!
+              </div>
+            ` : armoryList.map((entry, idx) => {
+              const { source, slotKey, slotName, soldierIndex, soldierName, locationLabel, item, armoryIndex } = entry;
+              const isMaxLvl = (item.level || 1) >= (GAME_CONFIG.EQUIPMENT_MAX_LEVEL || 10);
+              const nextLvl = (item.level || 1) + 1;
+              const maxDur = item.maxDurability || 13;
+              const curDur = item.durability != null ? item.durability : maxDur;
+              const isDamaged = curDur < maxDur;
+
+              const upCost = !isMaxLvl ? (GAME_CONFIG.EQUIPMENT_UPGRADE_TIERS[nextLvl] || { iron: nextLvl*30, wood: nextLvl*20, fragments: nextLvl*5, adAstra: nextLvl*100 }) : null;
+              const canAffordUp = upCost ? (
+                (state.inventory.iron || 0) >= upCost.iron &&
+                (state.inventory.wood || 0) >= upCost.wood &&
+                (state.inventory.fragments || 0) >= upCost.fragments &&
+                state.adAstraBalance >= upCost.adAstra
+              ) : false;
+
+              const isEquipped = source === 'soldier';
+
+              return `
+                <div class="armory-depot-card ${isEquipped ? 'is-equipped' : 'is-idle'}">
+                  <div class="armory-item-header">
+                    <div class="armory-item-title">
+                      <span style="font-size: 1.2rem;">${item.icon}</span>
+                      <span>${item.name}</span>
+                      <span class="card-badge" style="color: #facc15; padding: 1px 6px; font-size: 0.72rem;">Lv.${item.level || 1}</span>
+                    </div>
+                    <span class="armory-loc-badge ${isEquipped ? 'equipped' : 'idle'}">
+                      ${locationLabel}
+                    </span>
+                  </div>
+
+                  <div class="armory-stats-preview">
+                    <span style="color: #4ade80; font-weight: 700;">
+                      ${item.atkBonus > 0 ? `+${item.atkBonus} ATK ` : ''}${item.hpBonus > 0 ? `+${item.hpBonus} HP` : ''}
+                    </span>
+                    <span style="color: ${curDur <= 4 ? '#ef4444' : curDur <= 8 ? '#f97316' : '#22c55e'}; font-weight: 700;">
+                      🛡️ ${curDur}/${maxDur} Dayanıklılık
+                    </span>
+                  </div>
+
+                  <!-- Eylemler: Yükselt, Onar, Askere Ver / Sök -->
+                  <div class="armory-actions-row">
+                    ${!isMaxLvl ? `
+                      <button class="btn-armory-act btn-armory-upgrade btn-armory-direct-upgrade" 
+                        data-source="${source}" 
+                        data-slot="${slotKey}" 
+                        data-armory-idx="${armoryIndex !== undefined ? armoryIndex : ''}" 
+                        data-soldier-idx="${soldierIndex !== null ? soldierIndex : ''}" 
+                        data-item-id="${item.id}"
+                        ${canAffordUp ? '' : 'disabled'}
+                        title="Gereken: ${upCost.iron}⛏️ ${upCost.wood}🌲 ${upCost.fragments}🧩 ${upCost.adAstra}🟣">
+                        ✨ Lv.${nextLvl} Yükselt (${upCost.iron}⛏️ + ${upCost.adAstra}🟣)
+                      </button>
+                    ` : `
+                      <span style="color: #facc15; font-size: 0.75rem; font-weight: 800; align-self: center; padding: 4px;">🏆 MAKSİMUM SEVİYE</span>
+                    `}
+
+                    ${isDamaged ? `
+                      <button class="btn-armory-act btn-armory-repair btn-equip-repair" 
+                        data-slot="${slotKey}" 
+                        data-soldier-idx="${soldierIndex !== null ? soldierIndex : ''}">
+                        🔧 Onar (13/13)
+                      </button>
+                    ` : ''}
+
+                    ${currentSelectedSoldier && source !== 'soldier' ? `
+                      <button class="btn-armory-act btn-armory-equip-to-sol btn-armory-direct-equip" 
+                        data-source="${source}" 
+                        data-slot="${slotKey}" 
+                        data-armory-idx="${armoryIndex !== undefined ? armoryIndex : ''}"
+                        data-soldier-idx="${curSoldierIdx}">
+                        🛡️ ${currentSelectedSoldier.name}'e Ver
+                      </button>
+                    ` : (source === 'soldier' ? `
+                      <button class="btn-armory-act btn-unequip-soldier-slot" 
+                        data-soldier-idx="${soldierIndex}" 
+                        data-slot="${slotKey}" 
+                        style="background: #334155; color: #cbd5e1; border-color: #64748b;">
+                        🔄 Çıkar
+                      </button>
+                    ` : '')}
+                  </div>
+                </div>
+              `;
+            }).join('')}
           </div>
         </div>
 
-        <div style="font-weight: 800; font-size: 0.9rem; color: #f59e0b; margin: 12px 0 6px 2px;">🛡️ Askeri Teçhizat Onarımı (${allEquipList.length} Parça)</div>
-        ${allEquipList.length > 0 ? equipmentRepairCards : `
-          <div class="clean-card" style="text-align: center; color: #94a3b8; font-size: 0.85rem;">
-            Henüz dövülmüş bir silah veya zırhın yok. ⚒️ Silah & Zırh Döv sekmesinden yeni eşyalar dövebilirsin.
+        <!-- 3. SÜTUN: HIZLI ASKER DONATIM & KADRO YÖNETİMİ -->
+        <div class="blacksmith-column">
+          <div class="blacksmith-column-title">
+            <span>🛡️ SEÇİLİ ASKER & KADRO</span>
+            <span style="font-size: 0.75rem; color: #38bdf8;">${soldiers.length}/18 Asker</span>
           </div>
-        `}
 
-        <div style="font-weight: 800; font-size: 0.9rem; color: #38bdf8; margin: 14px 0 6px 2px;">🔨 İşçi Aletleri Bakımı</div>
-        <!-- Kazma -->
-        <div class="clean-card">
-          <div class="card-title-row">
-            <div class="card-title">⛏️ Kazma Bakımı</div>
-            <span class="card-badge" style="color: ${pickaxeTool.durability <= 25 ? '#ef4444' : '#22c55e'};">%${pickaxeTool.durability}</span>
+          <!-- Asker Seçim Listesi (Mini Roster) -->
+          <div style="font-size: 0.76rem; color: #94a3b8;">
+            Aşağıdan askere tıkla; orta sütundaki silahları doğrudan bu askere kuşandır:
           </div>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
-            <span style="font-size: 0.82rem; color: #cbd5e1;">Maliyet: ${pickCost.resourceCost} Demir + ${pickCost.adAstraCost} ADA</span>
-            <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="pickaxe" style="width: auto; padding: 6px 14px;" ${pickaxeTool.durability >= 100 ? 'disabled' : ''}>
-              ${pickaxeTool.durability >= 100 ? '✅ Sağlam' : `Onar (${pickCost.resourceCost}⛏️ + ${pickCost.adAstraCost}ADA)`}
-            </button>
-          </div>
-        </div>
 
-        <!-- Balta -->
-        <div class="clean-card">
-          <div class="card-title-row">
-            <div class="card-title">🪓 Balta Bakımı</div>
-            <span class="card-badge" style="color: ${axeTool.durability <= 25 ? '#ef4444' : '#22c55e'};">%${axeTool.durability}</span>
+          <div style="display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto; background: rgba(0,0,0,0.3); padding: 6px; border-radius: 8px;">
+            ${soldiers.length === 0 ? `
+              <div style="color: #94a3b8; font-size: 0.75rem; text-align: center; padding: 10px;">
+                Henüz askerin yok. Kışla'dan asker satın alabilirsin!
+              </div>
+            ` : soldiers.map((sol, sIdx) => {
+              const isSel = sIdx === curSoldierIdx;
+              const eqCount = slots.filter(s => sol.equipment && sol.equipment[s]).length;
+              return `
+                <div class="armory-soldier-mini ${isSel ? 'selected' : ''} btn-select-blacksmith-soldier" data-soldier-idx="${sIdx}">
+                  <span style="font-size: 1.2rem;">${sol.icon || '🛡️'}</span>
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="font-weight: 800; font-size: 0.8rem; color: ${isSel ? '#fde047' : '#fff'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                      ${sol.name}
+                    </div>
+                    <div style="font-size: 0.7rem; color: #94a3b8;">
+                      Lv.${sol.level || 1} • ${eqCount}/5 Yuva Dolu
+                    </div>
+                  </div>
+                  <div class="armory-slots-mini">
+                    ${slots.map(s => `<span class="armory-slot-dot ${sol.equipment && sol.equipment[s] ? 'filled' : ''}"></span>`).join('')}
+                  </div>
+                </div>
+              `;
+            }).join('')}
           </div>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
-            <span style="font-size: 0.82rem; color: #cbd5e1;">Maliyet: ${axeCost.resourceCost} Odun + ${axeCost.adAstraCost} ADA</span>
-            <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="axe" style="width: auto; padding: 6px 14px;" ${axeTool.durability >= 100 ? 'disabled' : ''}>
-              ${axeTool.durability >= 100 ? '✅ Sağlam' : `Onar (${axeCost.resourceCost}🌲 + ${axeCost.adAstraCost}ADA)`}
-            </button>
-          </div>
-        </div>
 
-        <!-- Orak -->
-        <div class="clean-card">
-          <div class="card-title-row">
-            <div class="card-title">🌾 Orak Bakımı</div>
-            <span class="card-badge" style="color: ${sickleTool.durability <= 25 ? '#ef4444' : '#22c55e'};">%${sickleTool.durability}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
-            <span style="font-size: 0.82rem; color: #cbd5e1;">Maliyet: ${sickleCost.resourceCost} Buğday + ${sickleCost.adAstraCost} ADA</span>
-            <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="sickle" style="width: auto; padding: 6px 14px;" ${sickleTool.durability >= 100 ? 'disabled' : ''}>
-              ${sickleTool.durability >= 100 ? '✅ Sağlam' : `Onar (${sickleCost.resourceCost}🌾 + ${sickleCost.adAstraCost}ADA)`}
-            </button>
-          </div>
-        </div>
-      `;
-    } else if (activeTab === 'upgrade') {
-      // ✨ TEÇHİZAT YÜKSELTME SEKMESİ
-      contentHtml = `
-        <div class="clean-card" style="border-color: #a855f7; background: #1a0f2e;">
-          <div class="card-title-row">
-            <div class="card-title">✨ Krallık Demircisi - Teçhizat Seviye Yükseltme</div>
-            <span class="card-badge" style="color: #c084fc;">Mevcut Güç: ⚔️ +${totalStats.totalAtk} ATK | ❤️ +${totalStats.totalHp} HP</span>
-          </div>
-          <div class="clean-desc">
-            Dövülmüş silah ve zırhlarının seviyesini yükselterek orduna kalıcı stat bonusları kazandır. Yükseltmeler için <strong>Demir, Odun, Parça (Fragment) ve ADA</strong> kullanılır.
-          </div>
-        </div>
-
-        <div class="equip-grid">
-          ${slots.map(slot => {
-            const recipe = equipConfig[slot];
-            const item = currentEquip[slot];
-            const currentLvl = item ? item.level : 0;
-            const isForged = currentLvl > 0;
-            const nextLvl = currentLvl + 1;
-            const isMaxLvl = currentLvl >= 10;
-            
-            let canAfford = false;
-            let costHtml = '';
-
-            if (isForged && !isMaxLvl) {
-              const upCost = gameState.calculateEquipmentUpgradeCost(slot);
-              if (upCost) {
-                canAfford = (state.inventory.iron || 0) >= upCost.ironCost &&
-                            (state.inventory.wood || 0) >= upCost.woodCost &&
-                            (state.inventory.fragments || 0) >= upCost.fragmentCost &&
-                            state.adAstraBalance >= upCost.adAstraCost;
-                costHtml = `${upCost.ironCost}⛏️ • ${upCost.woodCost}🌲 • ${upCost.fragmentCost}🧩 • ${upCost.adAstraCost}🟣`;
-              }
-            }
-
+          <!-- Seçili Askerin Detay Kartı ve 5 Yuvası -->
+          ${currentSelectedSoldier ? (() => {
+            const solStats = gameState.getSoldierFullStats(curSoldierIdx) || { totalAtk: 20, totalMaxHp: 100 };
             return `
-              <div class="equip-card ${isForged ? 'forged' : ''}">
-                <div class="equip-icon">${recipe.icon}</div>
-                <div class="equip-name">${slotNames[slot]}</div>
-                <div class="equip-level">${isForged ? `Seviye ${currentLvl}` : 'Dövülmedi'}</div>
-
-                <div class="equip-stats">
-                  ${isForged ? `
-                    <div style="color: #4ade80; font-size: 0.8rem; font-weight: 700;">
-                      ${item.atkBonus > 0 ? `+${item.atkBonus} ATK` : ''} 
-                      ${item.hpBonus > 0 ? `+${item.hpBonus} HP` : ''}
-                    </div>
-                  ` : `
-                    <div style="color: #94a3b8; font-size: 0.78rem;">
-                      Önce Döv Sekmesinden Üret
-                    </div>
-                  `}
+              <div style="background: rgba(0,0,0,0.5); border: 1.5px solid #ca8a04; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <div style="font-weight: 900; font-size: 0.92rem; color: #fff; display: flex; align-items: center; gap: 6px;">
+                    <span>${currentSelectedSoldier.icon || '🛡️'}</span>
+                    <span>${currentSelectedSoldier.name}</span>
+                  </div>
+                  <div style="display: flex; gap: 6px;">
+                    <span class="card-badge" style="color: #ef4444; font-size: 0.72rem; padding: 2px 6px;">⚔️ ${solStats.totalAtk} ATK</span>
+                    <span class="card-badge" style="color: #22c55e; font-size: 0.72rem; padding: 2px 6px;">❤️ ${solStats.totalMaxHp} HP</span>
+                  </div>
                 </div>
 
-                <div class="equip-cost-box">
-                  ${!isForged ? '<span style="color: #94a3b8; font-size: 0.75rem;">Henüz Dövülmedi</span>' : (
-                    isMaxLvl ? '<span style="color: #facc15; font-weight: 800;">MAKSİMUM SEVİYE</span>' : `
-                      <div style="font-size: 0.75rem; color: #cbd5e1; line-height: 1.3;">
-                        ${costHtml}
+                <!-- 5 Yuva -->
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  ${slots.map(slot => {
+                    const equippedItem = currentSelectedSoldier.equipment ? currentSelectedSoldier.equipment[slot] : null;
+                    return `
+                      <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 6px 10px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                          <span style="font-size: 1rem;">${equippedItem ? equippedItem.icon : (equipConfig[slot] ? equipConfig[slot].icon : '🛡️')}</span>
+                          <div>
+                            <div style="font-size: 0.78rem; font-weight: 700; color: ${equippedItem ? '#fde047' : '#64748b'};">
+                              ${equippedItem ? `${equippedItem.name} (Lv.${equippedItem.level})` : `Boş ${slotNames[slot]}`}
+                            </div>
+                            ${equippedItem ? `
+                              <div style="font-size: 0.68rem; color: #94a3b8;">
+                                ⚔️+${equippedItem.atkBonus || 0} ❤️+${equippedItem.hpBonus || 0} • 🛡️${equippedItem.durability || 13}/13
+                              </div>
+                            ` : ''}
+                          </div>
+                        </div>
+
+                        ${equippedItem ? `
+                          <button class="btn-clean btn-clean-sm btn-unequip-soldier-slot" data-soldier-idx="${curSoldierIdx}" data-slot="${slot}" style="font-size: 0.7rem; padding: 3px 8px; width: auto; background: #334155;">
+                            Sök
+                          </button>
+                        ` : `
+                          <span style="font-size: 0.7rem; color: #64748b;">Boşta</span>
+                        `}
                       </div>
-                    `
-                  )}
+                    `;
+                  }).join('')}
                 </div>
-
-                ${!isForged ? `
-                  <button class="btn-clean btn-clean-sm btn-clean-outline mine-tab-btn" data-tab="craft" style="font-size: 0.75rem;">
-                    ⚒️ Döv Sekmesine Git
-                  </button>
-                ` : (
-                  isMaxLvl ? '' : `
-                    <button class="btn-clean btn-clean-sm btn-upgrade-equipment" data-slot="${slot}" ${canAfford ? '' : 'disabled'}>
-                      ✨ Yükselt (Lv.${nextLvl})
-                    </button>
-                  `
-                )}
               </div>
             `;
-          }).join('')}
-        </div>
-      `;
-    } else {
-      // ⚒️ DEMİRCİ: SİLAH & ZIRH DÖVME (YENİ ÜRETİM)
-      contentHtml = `
-        <div class="clean-card" style="border-color: #f59e0b; background: #1c140c;">
-          <div class="card-title-row">
-            <div class="card-title">⚒️ Krallık Demircisi - Yeni Silah & Zırh Dövme</div>
-            <span class="card-badge" style="color: #4ade80;">⚔️ +${totalStats.totalAtk} ATK | ❤️ +${totalStats.totalHp} HP</span>
-          </div>
-          <div class="clean-desc">
-            Demirci ocağında ordun için 5 parça teçhizat döv. Dövülen eşyalar tüm askerlerinin gücünü artırır ve 'Yükselt' sekmesinden seviye atlatılabilir.
-          </div>
+          })() : ''}
+
         </div>
 
-        <div class="equip-grid">
-          ${slots.map(slot => {
-            const recipe = equipConfig[slot];
-            const item = currentEquip[slot];
-            const currentLvl = item ? item.level : 0;
-            const isForged = currentLvl > 0;
-            
-            let canAfford = false;
-            let costHtml = '';
-
-            if (!isForged) {
-              const craftCost = recipe.cost;
-              canAfford = (state.inventory.iron || 0) >= craftCost.iron &&
-                          (state.inventory.wood || 0) >= craftCost.wood &&
-                          (state.inventory.fragments || 0) >= craftCost.fragments &&
-                          state.adAstraBalance >= craftCost.adAstra;
-              costHtml = `${craftCost.iron}⛏️ • ${craftCost.wood}🌲 • ${craftCost.fragments}🧩 • ${craftCost.adAstra}🟣`;
-            }
-
-            return `
-              <div class="equip-card ${isForged ? 'forged' : ''}">
-                <div class="equip-icon">${recipe.icon}</div>
-                <div class="equip-name">${slotNames[slot]}</div>
-                <div class="equip-level">${isForged ? `✅ Dövüldü (Lv.${currentLvl})` : 'Dövülmedi'}</div>
-
-                <div class="equip-stats">
-                  ${isForged ? `
-                    <div style="color: #4ade80; font-size: 0.8rem; font-weight: 700;">
-                      ${item.atkBonus > 0 ? `+${item.atkBonus} ATK` : ''} 
-                      ${item.hpBonus > 0 ? `+${item.hpBonus} HP` : ''}
-                    </div>
-                  ` : `
-                    <div style="color: #94a3b8; font-size: 0.78rem;">
-                      ${recipe.baseAtk > 0 ? `+${recipe.baseAtk} ATK ` : ''}${recipe.baseHp > 0 ? `+${recipe.baseHp} HP` : ''}
-                    </div>
-                  `}
-                </div>
-
-                <div class="equip-cost-box">
-                  ${isForged ? '<span style="color: #4ade80; font-weight: 800;">✅ DÖVÜLDÜ</span>' : `
-                    <div style="font-size: 0.75rem; color: #cbd5e1; line-height: 1.3;">
-                      ${costHtml}
-                    </div>
-                  `}
-                </div>
-
-                ${isForged ? `
-                  <button class="btn-clean btn-clean-sm btn-clean-outline mine-tab-btn" data-tab="upgrade" style="font-size: 0.75rem;">
-                    ✨ Yükselt Sekmesine Git
-                  </button>
-                ` : `
-                  <button class="btn-clean btn-clean-sm btn-craft-equipment" data-slot="${slot}" ${canAfford ? '' : 'disabled'}>
-                    🔨 Döv (Lv.1)
-                  </button>
-                `}
-              </div>
-            `;
-          }).join('')}
-        </div>
-      `;
-    }
-
-    html = `${tabsHtml}${contentHtml}`;
+      </div>
+    `;
   }
 
   // 3. ÇİFTLİK (WHEAT)
@@ -2146,7 +2144,16 @@ function renderBarracksHtml() {
 
       const equipmentSlotsHtml = slots.map(slot => {
         const equippedItem = (selectedSoldier.equipment || {})[slot];
-        const inventoryItem = (state.equipment || {})[slot];
+        // Önce krallık ana yuvası, yoksa cephanelikteki boşta duran bu slota ait eşyayı bul
+        let inventoryItem = (state.equipment || {})[slot];
+        let armoryIdx = null;
+        if (!inventoryItem && Array.isArray(state.armoryInventory)) {
+          const armoryMatchIdx = state.armoryInventory.findIndex(e => e && e.slot === slot);
+          if (armoryMatchIdx !== -1) {
+            inventoryItem = state.armoryInventory[armoryMatchIdx];
+            armoryIdx = armoryMatchIdx;
+          }
+        }
 
         if (equippedItem) {
           const eqLevel = equippedItem.level || 1;
@@ -2195,8 +2202,12 @@ function renderBarracksHtml() {
                 <span style="font-size: 0.72rem; color: #64748b; font-weight: 700;">BOŞ</span>
               </div>
               ${inventoryItem ? `
-                <button class="btn-clean btn-clean-green btn-soldier-equip-slot" data-soldier-idx="${actualSelectedIndex}" data-slot="${slot}" style="padding: 7px; font-size: 0.78rem; margin-top: 6px;">
-                  ➕ ${inventoryItem.icon} ${inventoryItem.name} Kuşan
+                <button class="btn-clean btn-clean-green ${armoryIdx !== null ? 'btn-armory-direct-equip' : 'btn-soldier-equip-slot'}" 
+                  data-soldier-idx="${actualSelectedIndex}" 
+                  data-slot="${slot}"
+                  ${armoryIdx !== null ? `data-source="armory" data-armory-idx="${armoryIdx}"` : ''}
+                  style="padding: 7px; font-size: 0.78rem; margin-top: 6px;">
+                  ➕ ${inventoryItem.icon} ${inventoryItem.name} (Lv.${inventoryItem.level || 1}) Kuşan
                 </button>
               ` : `
                 <div style="font-size: 0.72rem; color: #64748b; text-align: center; padding: 6px; background: rgba(0,0,0,0.25); border-radius: 6px; margin-top: 4px;">
@@ -4643,6 +4654,94 @@ function initAppEvents() {
       if (res.success) {
         showToast(res.message, 'success');
         sound.playLevelUp();
+        openTownZoneModal('blacksmith', '⚒️ KRALLIK DEMİRCİSİ & TAMİRHANE');
+      } else {
+        showToast(res.message, 'error');
+      }
+      renderTopBar();
+      return;
+    }
+
+    // Cephanelik: Asker Seçimi (Demirci Hub Sütun 3)
+    const selectSolBtn = e.target.closest('.btn-select-blacksmith-soldier');
+    if (selectSolBtn) {
+      window.blacksmithSelectedSoldierIndex = parseInt(selectSolBtn.dataset.soldierIdx, 10);
+      openTownZoneModal('blacksmith', '⚒️ KRALLIK DEMİRCİSİ & TAMİRHANE');
+      return;
+    }
+
+    // Cephanelik: Herhangi Bir Eşyayı Doğrudan Yükselt (Lv+1)
+    const armoryUpBtn = e.target.closest('.btn-armory-direct-upgrade');
+    if (armoryUpBtn) {
+      const source = armoryUpBtn.dataset.source;
+      const slotKey = armoryUpBtn.dataset.slot;
+      const armoryIndex = armoryUpBtn.dataset.armoryIdx !== '' && armoryUpBtn.dataset.armoryIdx !== undefined ? parseInt(armoryUpBtn.dataset.armoryIdx, 10) : null;
+      const soldierIndex = armoryUpBtn.dataset.soldierIdx !== '' && armoryUpBtn.dataset.soldierIdx !== undefined ? parseInt(armoryUpBtn.dataset.soldierIdx, 10) : null;
+      const itemId = armoryUpBtn.dataset.itemId;
+
+      const res = gameState.upgradeAnyEquipment({ source, slotKey, armoryIndex, soldierIndex, itemId });
+      if (res.success) {
+        showToast(res.message, 'success');
+        sound.playLevelUp();
+        openTownZoneModal('blacksmith', '⚒️ KRALLIK DEMİRCİSİ & TAMİRHANE');
+      } else {
+        showToast(res.message, 'error');
+      }
+      renderTopBar();
+      return;
+    }
+
+    // Cephanelik: Eşyayı Doğrudan Seçili Askere Kuşandır
+    const armoryEquipBtn = e.target.closest('.btn-armory-direct-equip');
+    if (armoryEquipBtn) {
+      const source = armoryEquipBtn.dataset.source;
+      const slotKey = armoryEquipBtn.dataset.slot;
+      const armoryIndex = armoryEquipBtn.dataset.armoryIdx !== '' && armoryEquipBtn.dataset.armoryIdx !== undefined ? parseInt(armoryEquipBtn.dataset.armoryIdx, 10) : null;
+      const soldierIndex = parseInt(armoryEquipBtn.dataset.soldierIdx, 10);
+
+      const res = gameState.equipSoldierFromDepot(soldierIndex, { source, slotKey, armoryIndex });
+      if (res.success) {
+        showToast(res.message, 'success');
+        sound.playRepair();
+        if (dom.modalTitle && dom.modalTitle.innerText.includes('KISLA')) {
+          openBarracksModal();
+        } else {
+          openTownZoneModal('blacksmith', '⚒️ KRALLIK DEMİRCİSİ & TAMİRHANE');
+        }
+      } else {
+        showToast(res.message, 'error');
+      }
+      renderTopBar();
+      return;
+    }
+
+    // Cephanelik: Eşyayı Askerden Çıkar & Depoya Aktar
+    const unequipSlotBtn = e.target.closest('.btn-unequip-soldier-slot');
+    if (unequipSlotBtn) {
+      const soldierIndex = parseInt(unequipSlotBtn.dataset.soldierIdx, 10);
+      const slotKey = unequipSlotBtn.dataset.slot;
+      const res = gameState.unequipSoldierToArmory(soldierIndex, slotKey);
+      if (res.success) {
+        showToast(res.message, 'success');
+        sound.playRepair();
+        if (dom.modalTitle && dom.modalTitle.innerText.includes('KISLA')) {
+          openBarracksModal();
+        } else {
+          openTownZoneModal('blacksmith', '⚒️ KRALLIK DEMİRCİSİ & TAMİRHANE');
+        }
+      } else {
+        showToast(res.message, 'error');
+      }
+      renderTopBar();
+      return;
+    }
+
+    // Cephanelik: Tek Tıkla Tüm Krallık & Ordu Teçhizatını Onar
+    if (e.target.closest('.btn-armory-repair-all')) {
+      const res = gameState.repairAllEquipmentInKingdom();
+      if (res.success) {
+        showToast(res.message, 'success');
+        sound.playPickaxe();
         openTownZoneModal('blacksmith', '⚒️ KRALLIK DEMİRCİSİ & TAMİRHANE');
       } else {
         showToast(res.message, 'error');

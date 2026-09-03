@@ -43,6 +43,7 @@ export class GameStateManager {
         boots: null,
         ...(parsed.equipment || {})
       },
+      armoryInventory: Array.isArray(parsed.armoryInventory) ? parsed.armoryInventory : [],
       collectionArtifacts: this.mergeCollectionArtifacts(parsed.collectionArtifacts),
       soldierUnits: this.mergeSoldierUnits(parsed.soldierUnits)
     };
@@ -362,17 +363,19 @@ export class GameStateManager {
     }
 
     const item = soldier.equipment[slotKey];
-    if (!this.state.equipment) this.state.equipment = {};
-    if (this.state.equipment[slotKey]) {
-      return { success: false, message: 'Karakter envanterindeki bu yuva dolu! Önce oradaki eşyayı yönetmelisin.' };
-    }
-
-    this.state.equipment[slotKey] = item;
     soldier.equipment[slotKey] = null;
+
+    if (!this.state.equipment) this.state.equipment = {};
+    if (!this.state.equipment[slotKey]) {
+      this.state.equipment[slotKey] = item;
+    } else {
+      if (!Array.isArray(this.state.armoryInventory)) this.state.armoryInventory = [];
+      this.state.armoryInventory.push(item);
+    }
 
     sound.playRepair();
     this.saveState();
-    return { success: true, message: `🛡️ ${item.name} kuşanmadan çıkarıldı ve genel envantere aktarıldı!` };
+    return { success: true, message: `🛡️ ${item.name} kuşanmadan çıkarıldı ve depoya aktarıldı!` };
   }
 
   saveState() {
@@ -1064,7 +1067,7 @@ export class GameStateManager {
     return { totalAtk, totalHp };
   }
 
-  // 1. Ekipman İlk Kez Dövme (Craft)
+  // 1. Ekipman Dövme (Craft) - Sınırsız Dövme: Boşsa doğrudan kuşanılır, doluysa Cephanelik Deposu'na eklenir
   craftEquipment(slotKey) {
     const recipe = GAME_CONFIG.EQUIPMENT_RECIPES[slotKey];
     if (!recipe) return { success: false, message: 'Geçersiz ekipman parçası!' };
@@ -1072,8 +1075,8 @@ export class GameStateManager {
     if (!this.state.equipment) {
       this.state.equipment = { weapon: null, helmet: null, armor: null, legs: null, boots: null };
     }
-    if (this.state.equipment[slotKey]) {
-      return { success: false, message: `Bu yuvada zaten ${this.state.equipment[slotKey].name} kuşanılmış durumda!` };
+    if (!Array.isArray(this.state.armoryInventory)) {
+      this.state.armoryInventory = [];
     }
 
     const inv = this.state.inventory;
@@ -1098,7 +1101,7 @@ export class GameStateManager {
     globalPool.recordTokenSpend(cost.adAstra);
 
     const item = {
-      id: `${recipe.id}_${Date.now()}`,
+      id: `${recipe.id}_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       slot: recipe.slot,
       name: recipe.name,
       icon: recipe.icon,
@@ -1112,11 +1115,23 @@ export class GameStateManager {
       craftedAt: Date.now()
     };
 
-    this.state.equipment[slotKey] = item;
+    let destination = '';
+    if (!this.state.equipment[slotKey]) {
+      this.state.equipment[slotKey] = item;
+      destination = 've krallık ana yuvasına kuşandırıldı';
+    } else {
+      this.state.armoryInventory.push(item);
+      destination = 've Cephanelik Deposu\'na eklendi (İstediğin askere giydirebilirsin)';
+    }
+
     sound.playRepair();
     this.saveState();
 
-    return { success: true, message: `${recipe.icon} ${recipe.name} başarıyla dövüldü ve kuşandırıldı! (13/13 Dayanıklılık)`, item };
+    return { 
+      success: true, 
+      message: `⚒️ ${recipe.icon} ${recipe.name} başarıyla dövüldü ${destination}! (13/13 Dayanıklılık)`, 
+      item 
+    };
   }
 
   // 2. Ekipman Tekrar Dövme / Onarım Maliyeti (Reforge Cost)
@@ -1340,6 +1355,256 @@ export class GameStateManager {
 
   repairEquipmentItem(soldierIndex, slot) {
     return this.repairEquipment(slot, soldierIndex);
+  }
+
+  // =========================================================================
+  // 5.5. GENİŞLETİLMİŞ CEPHANELİK (ARMORY) VE BÜTÜNLEŞİK EŞYA YÖNETİMİ
+  // =========================================================================
+
+  // Krallıktaki tüm teçhizatları (Krallık Ana Yuvaları, Cephanelik Deposu, 18 Asker Üzerindekiler) tek bir listede toplar
+  getAllArmoryEquipmentList() {
+    const list = [];
+    const slots = ['weapon', 'helmet', 'armor', 'legs', 'boots'];
+    const slotNames = { weapon: 'Silah', helmet: 'Miğfer', armor: 'Gövde Zırhı', legs: 'Pantolon', boots: 'Ayakkabı' };
+
+    // 1. Krallık Ana Yuvalarındaki Eşyalar
+    slots.forEach(slot => {
+      const item = this.state.equipment ? this.state.equipment[slot] : null;
+      if (item && item.level > 0) {
+        list.push({
+          source: 'kingdom',
+          slotKey: slot,
+          slotName: slotNames[slot] || slot,
+          soldierIndex: null,
+          soldierName: null,
+          locationLabel: 'Krallık Ana Yuvası',
+          item
+        });
+      }
+    });
+
+    // 2. Cephanelik Deposundaki Boşta Duran Eşyalar
+    (this.state.armoryInventory || []).forEach((item, armoryIdx) => {
+      if (item && item.level > 0) {
+        list.push({
+          source: 'armory',
+          armoryIndex: armoryIdx,
+          slotKey: item.slot,
+          slotName: slotNames[item.slot] || item.slot,
+          soldierIndex: null,
+          soldierName: null,
+          locationLabel: 'Cephanelik Deposu (Boşta)',
+          item
+        });
+      }
+    });
+
+    // 3. Askerlerin Üzerindeki Eşyalar
+    (this.state.soldierUnits || []).forEach((sol, sIdx) => {
+      slots.forEach(slot => {
+        const item = sol.equipment ? sol.equipment[slot] : null;
+        if (item && item.level > 0) {
+          list.push({
+            source: 'soldier',
+            slotKey: slot,
+            slotName: slotNames[slot] || slot,
+            soldierIndex: sIdx,
+            soldierName: sol.name,
+            locationLabel: `${sol.name} Üzerinde`,
+            item
+          });
+        }
+      });
+    });
+
+    return list;
+  }
+
+  // Herhangi bir yerdeki eşyayı (Krallık, Cephanelik veya Asker Üzerindeki) tek tıkla seviye atlatır
+  upgradeAnyEquipment({ source, slotKey, armoryIndex = null, soldierIndex = null, itemId = null }) {
+    let item = null;
+    if (source === 'kingdom') {
+      item = this.state.equipment ? this.state.equipment[slotKey] : null;
+    } else if (source === 'armory') {
+      if (armoryIndex !== null && armoryIndex !== undefined && this.state.armoryInventory) {
+        item = this.state.armoryInventory[armoryIndex];
+      }
+    } else if (source === 'soldier') {
+      const soldier = (this.state.soldierUnits || [])[soldierIndex];
+      item = soldier?.equipment ? soldier.equipment[slotKey] : null;
+    }
+
+    if (!item && itemId) {
+      // ID bazlı fallback arama
+      const all = this.getAllArmoryEquipmentList();
+      const match = all.find(e => e.item && e.item.id === itemId);
+      if (match) item = match.item;
+    }
+
+    if (!item) return { success: false, message: 'Yükseltilecek ekipman bulunamadı!' };
+
+    const currentLvl = item.level || 1;
+    if (currentLvl >= (GAME_CONFIG.EQUIPMENT_MAX_LEVEL || 10)) {
+      return { success: false, message: 'Bu ekipman zaten maksimum seviyede (Lv.10 Master)!' };
+    }
+
+    const nextLvl = currentLvl + 1;
+    const tier = GAME_CONFIG.EQUIPMENT_UPGRADE_TIERS[nextLvl] || {
+      iron: nextLvl * 30,
+      wood: nextLvl * 20,
+      fragments: nextLvl * 5,
+      adAstra: nextLvl * 100
+    };
+
+    const inv = this.state.inventory;
+    if ((inv.fragments || 0) < tier.fragments) {
+      return { success: false, message: `Yetersiz Parça! (${tier.fragments} Parça gerekli)` };
+    }
+    if ((inv.iron || 0) < tier.iron) {
+      return { success: false, message: `Yetersiz Demir! (${tier.iron} Demir gerekli)` };
+    }
+    if ((inv.wood || 0) < tier.wood) {
+      return { success: false, message: `Yetersiz Odun! (${tier.wood} Odun gerekli)` };
+    }
+    if (this.state.adAstraBalance < tier.adAstra) {
+      return { success: false, message: `Yetersiz AdAstra! (${tier.adAstra} $ADASTRA gerekli)` };
+    }
+
+    inv.fragments = (inv.fragments || 0) - tier.fragments;
+    inv.iron -= tier.iron;
+    inv.wood -= tier.wood;
+    this.state.adAstraBalance -= tier.adAstra;
+    globalPool.recordTokenSpend(tier.adAstra);
+
+    item.level = nextLvl;
+    item.atkBonus = Math.round((item.baseAtk || 20) * (1 + (nextLvl - 1) * 0.35));
+    item.hpBonus = Math.round((item.baseHp || 30) * (1 + (nextLvl - 1) * 0.35));
+    item.durability = item.maxDurability || 13;
+
+    sound.playLevelUp();
+    this.saveState();
+
+    return {
+      success: true,
+      message: `✨ ${item.icon} ${item.name} Seviye ${item.level}'e yükseltildi! (+${item.atkBonus} Saldırı, +${item.hpBonus} Can, 13/13 Dayanıklılık)`
+    };
+  }
+
+  // Cephanelikteki veya Krallıktaki eşyayı seçilen askere kuşandırır
+  equipSoldierFromDepot(soldierIndex, { source, slotKey, armoryIndex }) {
+    const soldier = (this.state.soldierUnits || [])[soldierIndex];
+    if (!soldier) return { success: false, message: 'Asker bulunamadı.' };
+    if (!soldier.equipment) soldier.equipment = {};
+
+    let itemToEquip = null;
+
+    if (source === 'armory' && this.state.armoryInventory) {
+      if (armoryIndex >= 0 && armoryIndex < this.state.armoryInventory.length) {
+        itemToEquip = this.state.armoryInventory.splice(armoryIndex, 1)[0];
+      }
+    } else if (source === 'kingdom' && this.state.equipment) {
+      itemToEquip = this.state.equipment[slotKey];
+      delete this.state.equipment[slotKey];
+    }
+
+    if (!itemToEquip) {
+      return { success: false, message: 'Kuşanılacak eşya bulunamadı!' };
+    }
+
+    const targetSlot = itemToEquip.slot || slotKey;
+    const oldItem = soldier.equipment[targetSlot];
+
+    soldier.equipment[targetSlot] = itemToEquip;
+
+    // Eskiden takılı olan eşyayı cephanelik deposuna güvenle aktar
+    if (oldItem) {
+      if (!Array.isArray(this.state.armoryInventory)) this.state.armoryInventory = [];
+      this.state.armoryInventory.push(oldItem);
+    }
+
+    sound.playRepair();
+    this.saveState();
+
+    return {
+      success: true,
+      message: `🛡️ ${soldier.name} üzerine ${itemToEquip.name} kuşandırıldı!${oldItem ? ` (Eski ${oldItem.name} Cephaneliğe aktarıldı)` : ''}`
+    };
+  }
+
+  // Askerin üzerindeki eşyayı Cephanelik Deposuna çıkarır
+  unequipSoldierToArmory(soldierIndex, slotKey) {
+    const soldier = (this.state.soldierUnits || [])[soldierIndex];
+    if (!soldier || !soldier.equipment || !soldier.equipment[slotKey]) {
+      return { success: false, message: 'Çıkarılacak ekipman yok.' };
+    }
+
+    const item = soldier.equipment[slotKey];
+    soldier.equipment[slotKey] = null;
+
+    if (!Array.isArray(this.state.armoryInventory)) this.state.armoryInventory = [];
+    this.state.armoryInventory.push(item);
+
+    sound.playRepair();
+    this.saveState();
+
+    return {
+      success: true,
+      message: `🔄 ${item.name} kuşanmadan çıkarıldı ve Cephanelik Deposu'na eklendi!`
+    };
+  }
+
+  // Tek tıkla krallıktaki, cephanelikteki ve tüm askerlerin üzerindeki hasarlı teçhizatları onarır
+  repairAllEquipmentInKingdom() {
+    const all = this.getAllArmoryEquipmentList();
+    let totalIron = 0, totalWood = 0, totalFrag = 0, totalAda = 0, repairedCount = 0;
+
+    all.forEach(entry => {
+      const maxDur = entry.item.maxDurability || 13;
+      const curDur = entry.item.durability != null ? entry.item.durability : maxDur;
+      const missing = Math.max(0, maxDur - curDur);
+      if (missing > 0) {
+        const lvl = entry.item.level || 1;
+        const ironCost = Math.max(2, Math.ceil(missing * 2 * lvl));
+        const woodCost = Math.max(1, Math.ceil(missing * 1.5 * lvl));
+        const fragCost = lvl >= 5 ? Math.ceil(missing * 0.5) : 0;
+        const adaCost = Math.max(1, Math.ceil(missing * 1 * lvl));
+
+        totalIron += ironCost;
+        totalWood += woodCost;
+        totalFrag += fragCost;
+        totalAda += adaCost;
+        repairedCount++;
+      }
+    });
+
+    if (repairedCount === 0) {
+      return { success: false, message: 'Tüm silah ve zırhlar zaten 13/13 maksimum dayanıklılıkta!' };
+    }
+
+    const inv = this.state.inventory;
+    if ((inv.iron || 0) < totalIron) return { success: false, message: `Yetersiz Demir! (${totalIron} Demir gerekli)` };
+    if ((inv.wood || 0) < totalWood) return { success: false, message: `Yetersiz Odun! (${totalWood} Odun gerekli)` };
+    if ((inv.fragments || 0) < totalFrag) return { success: false, message: `Yetersiz Parça! (${totalFrag} Parça gerekli)` };
+    if ((this.state.adAstraBalance || 0) < totalAda) return { success: false, message: `Yetersiz $ADASTRA! (${totalAda} ADA gerekli)` };
+
+    inv.iron -= totalIron;
+    inv.wood -= totalWood;
+    if (totalFrag > 0) inv.fragments -= totalFrag;
+    this.state.adAstraBalance -= totalAda;
+    globalPool.recordTokenSpend(totalAda);
+
+    all.forEach(entry => {
+      const maxDur = entry.item.maxDurability || 13;
+      entry.item.durability = maxDur;
+    });
+
+    sound.playRepair();
+    this.saveState();
+
+    return {
+      success: true,
+      message: `🔨 Krallıktaki ${repairedCount} parça teçhizat tek seferde onarıldı! (-${totalIron} Demir, -${totalWood} Odun, -${totalAda} ADA)`
+    };
   }
 
   // =========================================================================
@@ -1938,18 +2203,42 @@ export class GameStateManager {
   // =========================================================================
   autoEquipBest() {
     const soldiers = this.state.soldierUnits || [];
-    const equipped = 0;
     const slots = ['weapon', 'helmet', 'armor', 'legs', 'boots'];
     let totalEquipped = 0;
+
+    if (!Array.isArray(this.state.armoryInventory)) this.state.armoryInventory = [];
 
     for (let i = 0; i < soldiers.length; i++) {
       for (const slot of slots) {
         if (!soldiers[i].equipment) soldiers[i].equipment = {};
         if (!soldiers[i].equipment[slot]) {
-          const playerEquip = this.state.equipment ? this.state.equipment[slot] : null;
-          if (playerEquip) {
-            soldiers[i].equipment[slot] = { ...playerEquip };
-            delete this.state.equipment[slot];
+          // Krallık ana yuvası ve Cephanelik deposundaki tüm adayları topla ve en yüksek seviyeliyi seç
+          const candidates = [];
+          if (this.state.equipment && this.state.equipment[slot]) {
+            candidates.push({ item: this.state.equipment[slot], source: 'kingdom' });
+          }
+          this.state.armoryInventory.forEach((armItem, aIdx) => {
+            if (armItem && armItem.slot === slot) {
+              candidates.push({ item: armItem, source: 'armory', armoryIndex: aIdx });
+            }
+          });
+
+          // En yüksek seviyeli ve dayanıklılığı tam/yüksek olanı seç
+          candidates.sort((a, b) => ((b.item.level || 1) - (a.item.level || 1)) || ((b.item.durability || 0) - (a.item.durability || 0)));
+
+          let itemToEquip = null;
+          if (candidates.length > 0) {
+            const chosen = candidates[0];
+            itemToEquip = chosen.item;
+            if (chosen.source === 'kingdom') {
+              delete this.state.equipment[slot];
+            } else {
+              this.state.armoryInventory.splice(chosen.armoryIndex, 1);
+            }
+          }
+
+          if (itemToEquip) {
+            soldiers[i].equipment[slot] = itemToEquip;
             totalEquipped++;
           }
         }
@@ -1959,7 +2248,13 @@ export class GameStateManager {
       sound.playRepair();
       this.saveState();
     }
-    return { success: totalEquipped > 0, equipped: totalEquipped, message: totalEquipped > 0 ? `⚔️ ${totalEquipped} eşya otomatik olarak en iyi askerlere dağıtıldı!` : 'Dağıtılacak boş eşya veya yuva yok.' };
+    return { 
+      success: totalEquipped > 0, 
+      equipped: totalEquipped, 
+      message: totalEquipped > 0 
+        ? `⚔️ ${totalEquipped} parça teçhizat otomatik olarak orduna dağıtıldı!` 
+        : 'Dağıtılacak boşta teçhizat veya boş asker yuvası bulunamadı.' 
+    };
   }
 
   unequipAllSoldiers() {
@@ -1967,15 +2262,15 @@ export class GameStateManager {
     const slots = ['weapon', 'helmet', 'armor', 'legs', 'boots'];
     let totalUnequipped = 0;
 
-    if (!this.state.equipment) this.state.equipment = {};
+    if (!Array.isArray(this.state.armoryInventory)) this.state.armoryInventory = [];
+
     for (let i = 0; i < soldiers.length; i++) {
       for (const slot of slots) {
         if (soldiers[i].equipment && soldiers[i].equipment[slot]) {
-          if (!this.state.equipment[slot]) {
-            this.state.equipment[slot] = soldiers[i].equipment[slot];
-            soldiers[i].equipment[slot] = null;
-            totalUnequipped++;
-          }
+          const item = soldiers[i].equipment[slot];
+          soldiers[i].equipment[slot] = null;
+          this.state.armoryInventory.push(item);
+          totalUnequipped++;
         }
       }
     }
@@ -1983,7 +2278,13 @@ export class GameStateManager {
       sound.playRepair();
       this.saveState();
     }
-    return { success: totalUnequipped > 0, unequipped: totalUnequipped, message: totalUnequipped > 0 ? `🔄 ${totalUnequipped} eşya askerlerden sökülüp envantere aktarıldı!` : 'Sökülecek eşya yok.' };
+    return { 
+      success: totalUnequipped > 0, 
+      unequipped: totalUnequipped, 
+      message: totalUnequipped > 0 
+        ? `🔄 ${totalUnequipped} parça eşya askerlerden sökülüp Cephanelik Deposu'na aktarıldı!` 
+        : 'Sökülecek eşya bulunamadı.' 
+    };
   }
 
   // =========================================================================
