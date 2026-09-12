@@ -21,3 +21,7 @@ Bu kural, projede yapılan HER güncelleme, özellik ekleme ve hata düzeltme i�
 
 5. **Canlıya Teslim & Raporlama (Delivery & Review):**
    - Sadece testleri %100 başarıyla geçen, 0 hata veren ve doğrulanmış sürümler kullanıcıya sunulur.
+
+6. **Sürüm ve Güncelleme Günlüğü Takibi (Version & Changelog Tracking):**
+   - Yapılan her güncelleme, özellik ve hata düzeltmesi, `js/config.js` içindeki `GAME_CONFIG.CHANGELOG` dizinine yeni versiyon adı altında (örn. `v1.07`, `v1.08`...) tarih, başlık ve maddeleriyle eksiksiz eklenir.
+   - `index.html` üst barındaki sürüm rozeti ve modal başlıkları her yeni sürümle senkronize edilir.
