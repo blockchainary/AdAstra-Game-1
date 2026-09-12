@@ -2733,8 +2733,12 @@ function initCarnivalWheelCanvas() {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
-  window.carnivalWheelRotation = window.carnivalWheelRotation || 0;
-  drawCarnivalWheel(ctx, window.carnivalWheelRotation);
+  // Çarkı temel oryantasyonda (0 açısında) 1 kez çiziyoruz
+  drawCarnivalWheel(ctx, 0);
+
+  // Mevcut rotasyonu GPU CSS transformu ile uygula
+  window.carnivalWheelCurrentDeg = window.carnivalWheelCurrentDeg || 0;
+  canvas.style.transform = `rotate(${window.carnivalWheelCurrentDeg}deg)`;
 }
 
 function spinCarnivalWheelAnimated(payMethod) {
@@ -2752,10 +2756,9 @@ function spinCarnivalWheelAnimated(payMethod) {
     return;
   }
 
-  const ctx = canvas ? canvas.getContext('2d') : null;
   const rewards = GAME_CONFIG.CARNIVAL?.WHEEL_REWARDS || [];
   const numSlices = rewards.length;
-  if (!canvas || !ctx || numSlices === 0) {
+  if (!canvas || numSlices === 0) {
     // Failsafe: Canvas yoksa doğrudan sonucu göster
     showToast(`🎉 Çarktan Kazandın: ${res.rewardSummaryText}`, 'success');
     if (resBox) {
@@ -2775,24 +2778,24 @@ function spinCarnivalWheelAnimated(payMethod) {
   let winIndex = rewards.findIndex(r => r.id === res.reward?.id);
   if (winIndex === -1) winIndex = 0;
 
-  // Açı Hesaplaması (İbre 12 o'clock = 1.5 * Math.PI)
-  const arc = (2 * Math.PI) / numSlices;
-  const sliceMid = (winIndex + 0.5) * arc;
-  let targetAngleMod = (1.5 * Math.PI - sliceMid) % (2 * Math.PI);
-  if (targetAngleMod < 0) targetAngleMod += 2 * Math.PI;
+  // Açı Hesaplaması (İbre 12 o'clock = 270 derece)
+  // Dilim i'nin orta açısı saat yönünde (i + 0.5) * (360 / numSlices)
+  const arcDeg = 360 / numSlices;
+  const sliceMidDeg = (winIndex + 0.5) * arcDeg;
+  let targetDegMod = (270 - sliceMidDeg) % 360;
+  if (targetDegMod < 0) targetDegMod += 360;
 
-  const currentAngle = window.carnivalWheelRotation || 0;
-  let curMod = currentAngle % (2 * Math.PI);
-  if (curMod < 0) curMod += 2 * Math.PI;
+  const startDeg = window.carnivalWheelCurrentDeg || 0;
+  let curMod = startDeg % 360;
+  if (curMod < 0) curMod += 360;
 
-  let delta = targetAngleMod - curMod;
-  if (delta < 0) delta += 2 * Math.PI;
+  let deltaDeg = targetDegMod - curMod;
+  if (deltaDeg < 0) deltaDeg += 360;
 
-  // 5 tam tur + hedef açı + dilim içi güvenli rastgele varyasyon
-  const jitter = (Math.random() - 0.5) * (arc * 0.4);
-  const totalSpinAngle = (5 * 2 * Math.PI) + delta + jitter;
-  const startAngle = currentAngle;
-  const finalAngle = startAngle + totalSpinAngle;
+  // 6 tam tur + hedef açı + dilim içi güvenli rastgele varyasyon
+  const jitterDeg = (Math.random() - 0.5) * (arcDeg * 0.35);
+  const totalSpinDeg = (6 * 360) + deltaDeg + jitterDeg;
+  const finalDeg = startDeg + totalSpinDeg;
 
   window.carnivalWheelIsSpinning = true;
   if (statusEl) statusEl.innerHTML = '🎡 <span style="color:#f472b6;">Çark dönüyor... Şans seninle olsun!</span>';
@@ -2805,36 +2808,44 @@ function spinCarnivalWheelAnimated(payMethod) {
     b.style.cursor = 'not-allowed';
   });
 
-  const duration = 4500; // 4.5 saniye akıcı dönüş
+  const duration = 4500; // 4.5 saniye ultra-akıcı GPU dönüş
   const startTime = performance.now();
-  let lastPegIndex = -1;
+  let prevDeg = startDeg;
 
   function animate(now) {
+    // Modal kapanmışsa döngüyü kes
+    if (!document.getElementById('carnival-wheel-canvas')) {
+      window.carnivalWheelIsSpinning = false;
+      return;
+    }
+
     const elapsed = now - startTime;
     const progress = Math.min(1, elapsed / duration);
-    // easeOutQuart
+    // easeOutQuart: Başta dinamik, sonra kademeli ve son derece pürüzsüz yavaşlama
     const ease = 1 - Math.pow(1 - progress, 4);
 
-    const curRotation = startAngle + totalSpinAngle * ease;
-    window.carnivalWheelRotation = curRotation;
-    drawCarnivalWheel(ctx, curRotation);
+    const curDeg = startDeg + totalSpinDeg * ease;
+    window.carnivalWheelCurrentDeg = curDeg;
 
-    // İbrenin pimlere çarpma (wobble) animasyonu
-    const currentPeg = Math.floor((curRotation / arc) % numSlices);
-    if (currentPeg !== lastPegIndex) {
-      lastPegIndex = currentPeg;
-      if (pointer) {
-        pointer.classList.add('wobble');
-        setTimeout(() => { if (pointer) pointer.classList.remove('wobble'); }, 60);
-      }
+    // 🚀 %100 GPU Compositor Dönüşü (Canvas yeniden çizilmez, 60/120 FPS sıfır kasma)
+    canvas.style.transform = `rotate(${curDeg.toFixed(2)}deg)`;
+
+    // İbrenin gerçekçi fiziksel salınımı (DOM reflow ve setTimeout YOK)
+    const speed = curDeg - prevDeg;
+    prevDeg = curDeg;
+    if (pointer) {
+      const pegPhase = (curDeg % arcDeg) / arcDeg;
+      const deflection = Math.sin(pegPhase * Math.PI) * Math.min(15, Math.max(0, speed * 1.5));
+      pointer.style.transform = `translateX(-50%) rotate(${-deflection.toFixed(1)}deg)`;
     }
 
     if (progress < 1) {
       window.carnivalWheelAnimFrame = requestAnimationFrame(animate);
     } else {
       // Çark durdu!
-      window.carnivalWheelRotation = finalAngle;
-      drawCarnivalWheel(ctx, finalAngle);
+      window.carnivalWheelCurrentDeg = finalDeg;
+      canvas.style.transform = `rotate(${finalDeg.toFixed(2)}deg)`;
+      if (pointer) pointer.style.transform = 'translateX(-50%) rotate(0deg)';
       window.carnivalWheelIsSpinning = false;
 
       // Butonları tekrar aktif et
