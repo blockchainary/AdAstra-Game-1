@@ -2424,13 +2424,17 @@ export class GameStateManager {
   }
 
   // 🍦 VANILLA HESAP SIFIRLAMA:
-  // Oyun ekonomisini (DEX AMM havuzları, Hazine rezervleri, Küresel çıkarma limitleri) ASLA SIFIRLAMAZ!
-  // Yalnızca oyuncunun kişisel hesabını (Lv.1, 0 XP, 100 Stamina, 250 ADA, 0 Asker, %100 Alet,
-  // 1. Kat Zindan, 0 Aktif Sefer) başlangıç profiline döndürür.
+  // Oyuncunun kişisel hesabını başlangıç profiline döndürür ve
+  // haftalık kaynak çıkartma limitlerini de tam kapasiteye (%100) sıfırlar!
+  // AMM DEX pazar havuzlarını ve fiyatlarını korur.
   vanillaReset() {
     if (typeof localStorage !== 'undefined') {
-      // SADECE oyuncu hesabının kaydını sil (Piyasa, AMM ve ekonomi ayarlarını koru)
+      // SADECE oyuncu hesabının kaydını sil
       localStorage.removeItem(this.storageKey);
+    }
+    // Kullanıcı kuralı: Vanilla sıfırlamada haftalık kaynak çıkartma limitleri de sıfırlansın!
+    if (typeof globalPool !== 'undefined' && globalPool && globalPool.resetEpoch) {
+      globalPool.resetEpoch();
     }
     this.state = {
       name: 'AlphAvax Gezgini',

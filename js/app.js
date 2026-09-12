@@ -5740,11 +5740,11 @@ function initDevPanelEvents() {
 
       case 'vanilla-reset': {
         const confirmReset = window.confirm(
-          '🍦 EMİN MİSİN?\n\nBu işlem TÜM kişisel hesap ilerlemeni (seviye, XP, ordu, kaynaklar, envanter, teçhizat, zindan ilerlemesi ve aktif seferler) sıfırlayarak hesabını başlangıç profiline (Lv.1, 100 Stamina, 250 ADA) döndürecek.\n\n🛡️ Not: Oyun ekonomisi, AMM pazar havuzları ve hazine ayarları KORUNACAKTIR.\n\nDevam etmek istiyor musun?'
+          '🍦 EMİN MİSİN?\n\nBu işlem TÜM kişisel hesap ilerlemeni (seviye, XP, ordu, kaynaklar, envanter, teçhizat, zindan ilerlemesi ve aktif seferler) sıfırlayarak hesabını başlangıç profiline (Lv.1, 100 Stamina, 250 ADA) döndürecek.\n\n🌾 Haftalık kaynak çıkarma limitleri de %100 kapasiteye sıfırlanacaktır.\n🛡️ Not: AMM pazar havuzları ve fiyatları KORUNACAKTIR.\n\nDevam etmek istiyor musun?'
         );
         if (!confirmReset) break;
         gameState.vanillaReset();
-        showToast('🍦 Hesabın başlangıç profiline sıfırlandı (Ekonomi ayarları korundu)! Sayfa yenileniyor...', 'success');
+        showToast('🍦 Hesap ve haftalık kaynak limitleri sıfırlandı (AMM pazar havuzları korundu)! Sayfa yenileniyor...', 'success');
         sound.playLevelUp();
         renderTopBar();
         setTimeout(() => location.reload(), 900);

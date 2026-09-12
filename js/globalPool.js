@@ -22,24 +22,31 @@ export class GlobalResourceManager {
     this.state = this.loadState();
   }
 
-  // Her Pazartesi saat 18:00 (Türkiye Saati / UTC+3 = 15:00 UTC) reset zamanını hesaplar
-  getNextMonday1800TRT(fromTimestamp = Date.now()) {
-    const now = new Date(fromTimestamp);
-    const targetUtcHour = 15; // 18:00 TRT = 15:00 UTC
-    const currentDay = now.getUTCDay(); // 0 = Pazar, 1 = Pazartesi...
-    const currentHour = now.getUTCHours();
-    const currentMin = now.getUTCMinutes();
+  // Pazar'ı Pazartesiye bağlayan gece 00:01 (Türkiye Saati / UTC+3 = Pazar 21:01 UTC) reset zamanını hesaplar
+  getNextWeeklyResetTRT(fromTimestamp = Date.now()) {
+    const TRT_OFFSET_MS = 3 * 60 * 60 * 1000;
+    const trtNow = new Date(fromTimestamp + TRT_OFFSET_MS);
 
-    let daysUntilMonday = (1 - currentDay + 7) % 7;
-    // Eğer bugün Pazartesi ise ve 15:00 UTC (18:00 TRT) geçtiyse bir sonraki haftanın Pazartesi gününe ata
-    if (daysUntilMonday === 0 && (currentHour > targetUtcHour || (currentHour === targetUtcHour && currentMin >= 0))) {
+    const trtDay = trtNow.getUTCDay(); // 0 = Pazar, 1 = Pazartesi...
+    const trtHour = trtNow.getUTCHours();
+    const trtMin = trtNow.getUTCMinutes();
+
+    let daysUntilMonday = (1 - trtDay + 7) % 7;
+    // Eğer bugün Pazartesi ise ve 00:01 TRT geçtiyse sonraki haftanın Pazartesisine (7 gün sonraya) ata
+    if (daysUntilMonday === 0 && (trtHour > 0 || (trtHour === 0 && trtMin >= 1))) {
       daysUntilMonday = 7;
     }
 
-    const nextMonday = new Date(now);
-    nextMonday.setUTCDate(now.getUTCDate() + daysUntilMonday);
-    nextMonday.setUTCHours(targetUtcHour, 0, 0, 0);
-    return nextMonday.getTime();
+    const targetTrt = new Date(trtNow);
+    targetTrt.setUTCDate(trtNow.getUTCDate() + daysUntilMonday);
+    targetTrt.setUTCHours(0, 1, 0, 0); // 00:01:00.000 TRT
+
+    return targetTrt.getTime() - TRT_OFFSET_MS;
+  }
+
+  // Geriye dönük uyumluluk
+  getNextMonday1800TRT(fromTimestamp = Date.now()) {
+    return this.getNextWeeklyResetTRT(fromTimestamp);
   }
 
   loadState() {
@@ -87,7 +94,7 @@ export class GlobalResourceManager {
     const state = {
       epochId: prevState ? (prevState.epochId || 1) + 1 : 1,
       epochStartTime: Date.now(),
-      epochEndTime: this.getNextMonday1800TRT(),
+      epochEndTime: this.getNextWeeklyResetTRT(),
       resources: pool,
       
       // 🪙 10 MİLYAR MAKRO TOKENOMİK VE MUHASEBE
@@ -338,6 +345,7 @@ export class GlobalResourceManager {
 
   resetEpoch() {
     this.state = this.createNewEpoch();
+    this.saveState();
     return this.state;
   }
 }
