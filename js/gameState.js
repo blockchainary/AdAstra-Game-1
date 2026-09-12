@@ -3,6 +3,7 @@ import { GAME_CONFIG } from './config.js';
 import { globalPool } from './globalPool.js';
 import { sound } from './audio.js';
 import { ammMarket } from './ammMarket.js';
+import { treasury } from './treasury.js';
 
 export class GameStateManager {
   constructor() {
@@ -491,7 +492,7 @@ export class GameStateManager {
       return { success: false, message: 'Stamina zaten tamamen dolu!' };
     }
 
-    const wheatPerStamina = (GAME_CONFIG.BASE_PRODUCTION.wheat || 15) * (GAME_CONFIG.WHEAT_REFILL_RATIO || 0.21); // 3.15 Buğday / 1 Stamina
+    const wheatPerStamina = GAME_CONFIG.WHEAT_PER_STAMINA || 3.15; // 3.15 Buğday / 1 Stamina
     const actualGain = Math.min(staminaToGain, maxStam - curStam);
     const requiredWheat = Math.ceil(actualGain * wheatPerStamina);
 
@@ -526,7 +527,7 @@ export class GameStateManager {
       return { success: false, message: 'Yetersiz Buğday! Depoda hiç buğday yok.' };
     }
 
-    const wheatPerStamina = (GAME_CONFIG.BASE_PRODUCTION.wheat || 15) * (GAME_CONFIG.WHEAT_REFILL_RATIO || 0.21); // 3.15 Buğday / 1 Stamina
+    const wheatPerStamina = GAME_CONFIG.WHEAT_PER_STAMINA || 3.15; // 3.15 Buğday / 1 Stamina
     const exactWheatNeeded = Math.ceil(neededStamina * wheatPerStamina);
     const wheatToUse = Math.min(availableWheat, exactWheatNeeded);
 
@@ -1043,8 +1044,10 @@ export class GameStateManager {
   }
 
   getNextLevelRequirement() {
-    const nextLvl = this.state.level + 1;
-    const curLvl = this.state.level;
+    const maxLvl = GAME_CONFIG.MAX_PLAYER_LEVEL || 81;
+    const curLvl = this.state.level || 1;
+    const isMaxLevel = curLvl >= maxLvl;
+    const nextLvl = isMaxLevel ? maxLvl : curLvl + 1;
     const xp = Math.max(60, this.getCumulativeXpForLevel(nextLvl) - this.getCumulativeXpForLevel(curLvl));
 
     // Sefer Matematiği (Tüm seferlere eşit gönderilerek XP'nin dolması için gereken sefer sayısı):
@@ -1112,11 +1115,17 @@ export class GameStateManager {
       nextFragRateFormatted: this.formatDropChance(nextFragRate),
       curBoxRateFormatted: this.formatDropChance(curBoxRate),
       nextBoxRateFormatted: this.formatDropChance(nextBoxRate),
-      durationHours: this.getExpeditionDurationHours(nextLvl)
+      durationHours: this.getExpeditionDurationHours(nextLvl),
+      isMaxLevel
     };
   }
 
   levelUp() {
+    const maxLvl = GAME_CONFIG.MAX_PLAYER_LEVEL || 81;
+    if ((this.state.level || 1) >= maxLvl) {
+      return { success: false, message: `🏆 Tebrikler! Maksimum seviyeye (Lv.${maxLvl}) zaten ulaştın!` };
+    }
+
     const req = this.getNextLevelRequirement();
     const inv = this.state.inventory;
 
@@ -2154,7 +2163,11 @@ export class GameStateManager {
     const bossMultiplier = isMajorBoss ? (GAME_CONFIG.BOSS_DROP_MULTIPLIER || 2.0) : 1.0;
 
     const xpGained = Math.floor(40 * lvl * (isMajorBoss ? 3.0 : 1));
-    const adAstraGained = Math.floor(15 * lvl * (isMajorBoss ? 3.0 : 1));
+    const targetAdAstra = Math.floor(15 * lvl * (isMajorBoss ? 3.0 : 1));
+    const draw = (typeof treasury !== 'undefined' && treasury && treasury.withdraw)
+      ? treasury.withdraw('dungeon', targetAdAstra)
+      : { granted: targetAdAstra };
+    const adAstraGained = Math.max(1, Math.round(draw.granted != null ? draw.granted : targetAdAstra));
     this.state.currentXp += xpGained;
     this.state.adAstraBalance += adAstraGained;
 
@@ -2499,7 +2512,8 @@ export class GameStateManager {
       activeExpeditions: {},
       dungeonProgress: 1,
       collectionArtifacts: this.mergeCollectionArtifacts([]),
-      soldierUnits: []
+      soldierUnits: [],
+      armoryInventory: []
     };
     this.saveState();
   }
@@ -2812,7 +2826,10 @@ export class GameStateManager {
             if (chosen.source === 'kingdom') {
               delete this.state.equipment[slot];
             } else {
-              this.state.armoryInventory.splice(chosen.armoryIndex, 1);
+              const armIdx = this.state.armoryInventory.indexOf(chosen.item);
+              if (armIdx !== -1) {
+                this.state.armoryInventory.splice(armIdx, 1);
+              }
             }
           }
 

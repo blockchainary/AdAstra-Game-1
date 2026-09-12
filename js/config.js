@@ -12,6 +12,7 @@ export const GAME_CONFIG = {
   STAMINA_NATURAL_REGEN_INTERVAL: 150,
   STAMINA_INSTANT_REFILL_ADASTRA_COST: 50,
   WHEAT_REFILL_RATIO: 0.21,           // 1 Stamina = Dk başı buğday (15) * %21 = 3.15 Buğday
+  WHEAT_PER_STAMINA: 3.15,            // 1 Stamina doldurmak için gereken buğday miktarı (Fix 3.15)
 
   // %22 Yakım — v2: sink kapsamı genişletildiği için oran yükseltildi.
   // Artık asker alımı, AMM ücreti, iyileştirme ve tamir de muhasebeleşiyor (F-06).

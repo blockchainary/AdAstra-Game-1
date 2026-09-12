@@ -93,6 +93,8 @@ function isAnyModalOpen() {
   return isRpg || isDev || document.body.classList.contains('modal-open');
 }
 
+let currentBattleInterval = null;
+
 function displayModal() {
   if (dom.rpgModal) {
     dom.rpgModal.classList.add('active');
@@ -101,6 +103,10 @@ function displayModal() {
 }
 
 function closeModal() {
+  if (currentBattleInterval) {
+    clearInterval(currentBattleInterval);
+    currentBattleInterval = null;
+  }
   if (dom.rpgModal) {
     dom.rpgModal.classList.remove('active');
   }
@@ -930,9 +936,15 @@ function openInventoryModal() {
         </div>
       </div>
 
-      <button id="btn-modal-levelup" class="btn-clean btn-clean-green" style="margin-top: 4px;">
-        SEVİYE ${state.level + 1}'E YÜKSELT
-      </button>
+      ${req.isMaxLevel ? `
+        <button id="btn-modal-levelup" class="btn-clean" style="margin-top: 4px; background: #334155; border-color: #64748b; color: #94a3b8; cursor: not-allowed;" disabled>
+          🏆 MAKSİMUM SEVİYEYE (LV.81) ULAŞILDI
+        </button>
+      ` : `
+        <button id="btn-modal-levelup" class="btn-clean btn-clean-green" style="margin-top: 4px;">
+          SEVİYE ${state.level + 1}'E YÜKSELT
+        </button>
+      `}
     </div>
 
     <!-- Stamina Yönetimi & Buğday ile Doldurma -->
@@ -1022,176 +1034,6 @@ function openInventoryModal() {
   displayModal();
 }
 
-// =========================================================================
-// 3. PREMIUM CANAVAR SAVAŞ MODALI (KİLİTLİ KAT SİSTEMİYLE ENTEGRE)
-// =========================================================================
-function openMonsterBattleModal(monster) {
-  const army = gameState.state.army || { infantry: 0, archer: 0, knight: 0 };
-  const totalSoldiers = (army.infantry || 0) + (army.archer || 0) + (army.knight || 0);
-
-  if (totalSoldiers <= 0) {
-    showToast('Önce kışladan veya kolezyumdan asker kiralamalısın!', 'error');
-    return;
-  }
-
-  sound.playPickaxe();
-  dom.modalTitle.innerHTML = `<span>⚔️</span> <span>[SEVİYE ${monster.level}] ${monster.name.toUpperCase()}</span>`;
-
-  let playerHp = totalSoldiers * 130 + 100;
-  let maxPlayerHp = playerHp;
-  let monsterHp = monster.hp;
-  let maxMonsterHp = monster.hp;
-
-  dom.modalBody.innerHTML = `
-    <!-- Savaş Alanı Kartı -->
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-      
-      <!-- Oyuncu Ordusu -->
-      <div class="clean-card" style="border-color: #38bdf8; padding: 12px;">
-        <div style="font-family: var(--font-game); font-size: 1rem; color: #38bdf8; font-weight: 800; margin-bottom: 4px;">
-          🛡️ AlphAvax Ordusu
-        </div>
-        <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.4;">
-          ${army.infantry}x Muhafız • ${army.archer}x Okçu • ${army.knight}x Paladin
-        </div>
-        <div style="margin-top: 8px; font-weight: 800; font-size: 0.85rem; color: #4ade80;" id="battle-player-hp">
-          ❤️ Can: ${playerHp} / ${maxPlayerHp}
-        </div>
-      </div>
-
-      <!-- Canavar -->
-      <div class="clean-card" style="border-color: ${monster.isBoss ? '#ef4444' : '#f59e0b'}; padding: 12px;">
-        <div style="font-family: var(--font-game); font-size: 1rem; color: ${monster.isBoss ? '#ef4444' : '#fde047'}; font-weight: 800; margin-bottom: 4px;">
-          ${monster.icon} ${monster.name}
-        </div>
-        <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.4;">
-          Saldırı Gücü: ${monster.atk} ATK
-        </div>
-        <div style="margin-top: 8px; font-weight: 800; font-size: 0.85rem; color: #ef4444;" id="battle-monster-hp">
-          ❤️ Can: ${monsterHp} / ${maxMonsterHp}
-        </div>
-      </div>
-
-    </div>
-
-    <!-- Zafer Ödülü -->
-    <div class="clean-card" style="padding: 10px 14px; background: #161009;">
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <span style="font-size: 0.85rem; font-weight: 700; color: #cbd5e1;">🎁 Zafer Ganimeti:</span>
-        <strong style="font-family: var(--font-game); font-size: 0.95rem; color: #fde047;">
-          +${monster.rewardAdAstra} ADA • +${monster.rewardXp} XP ${monster.level === 18 ? '• 💎 Ejderha Kristali' : (monster.isBoss ? '• 💠 Nadir Ganimet' : '')}
-        </strong>
-      </div>
-    </div>
-
-    <!-- Canlı Savaş Logu -->
-    <div id="battle-live-log" class="clean-card" style="font-family: var(--font-body); font-size: 0.88rem; color: #cbd5e1; text-align: center; padding: 14px; min-height: 55px; display: flex; align-items: center; justify-content: center; background: #120c06;">
-      ⚔️ Ordun savaşa hazır. Saldırı emrini ver!
-    </div>
-
-    <button id="btn-start-dungeon-fight" class="btn-clean btn-clean-green" style="font-size: 1.05rem; padding: 14px;">
-      ⚔️ SALDIRIYA GEÇ
-    </button>
-  `;
-
-  displayModal();
-
-  const startFightBtn = document.getElementById('btn-start-dungeon-fight');
-  const liveLog = document.getElementById('battle-live-log');
-  const playerHpEl = document.getElementById('battle-player-hp');
-  const monsterHpEl = document.getElementById('battle-monster-hp');
-
-  startFightBtn.addEventListener('click', () => {
-    startFightBtn.disabled = true;
-    startFightBtn.innerText = '⚔️ Çarpışma Sürüyor...';
-    liveLog.innerHTML = '⚡ Orduların kılıçları ve büyüleri çarpışıyor...';
-
-    let round = 0;
-    const fightInterval = setInterval(() => {
-      round++;
-      sound.playPickaxe();
-
-      const pDmg = (army.infantry * 25) + (army.archer * 48) + (army.knight * 90) + 35;
-      monsterHp = Math.max(0, monsterHp - pDmg);
-
-      const mDmg = monster.atk + Math.floor(Math.random() * 20);
-      playerHp = Math.max(0, playerHp - mDmg);
-
-      playerHpEl.innerText = `❤️ Can: ${playerHp} / ${maxPlayerHp}`;
-      monsterHpEl.innerText = `❤️ Can: ${monsterHp} / ${maxMonsterHp}`;
-
-      liveLog.innerHTML = `💥 ${monster.name} üzerine <strong>-${pDmg} hasar</strong> vuruldu! (Düşman vuruşu: -${mDmg})`;
-
-      if (monsterHp <= 0 || playerHp <= 0 || round >= 5) {
-        clearInterval(fightInterval);
-        const isVictory = (monsterHp <= 0 && playerHp > 0) || (round >= 5 && playerHp > monsterHp);
-
-        if (isVictory) {
-          sound.playLevelUp();
-
-          // Zindan Ganimeti: XP, $ADASTRA, şansa bağlı Parça/Kilitli Sandık/Eser düşümü
-          const dropRes = gameState.addDungeonXpAndDrops(monster.level, !!monster.isBoss);
-
-          // Check if final boss (Level 18) is defeated
-          if (monster.level === 18) {
-            // Epic cycle reset
-            gameState.state.dungeonProgress = 1;
-            gameState.saveState();
-
-            // Show epic celebration popup
-            window.dispatchEvent(new CustomEvent('toast-notify', {
-              detail: {
-                message: '🏆 ZİNDAN DÖNGÜSÜ TAMAMLANDI! Zindan sıfırlandı ve 1. Kat 1. Seviyeden yeniden başladı!',
-                type: 'success'
-              }
-            }));
-
-            let dropsHtml = '';
-            if (dropRes.fragmentsGained > 0) dropsHtml += `<div>🧩 +${dropRes.fragmentsGained} Teçhizat Parçaları</div>`;
-            if (dropRes.boxGained > 0) dropsHtml += `<div>📦 +${dropRes.boxGained} Pandora Kutusu</div>`;
-            if (dropRes.artifactDiscovered) dropsHtml += `<div>${dropRes.artifactDiscovered.icon} Yeni Eser Keşfedildi: ${dropRes.artifactDiscovered.name}!</div>`;
-            if (dropRes.isBoss) dropsHtml += `<div>🔑 +1 Arena Anahtarı</div>`;
-
-            liveLog.innerHTML = `
-              <div style="color: #4ade80; font-weight: 800; font-size: 1rem;">
-                🏆🏆🏆 EFSANEVI ZAFER! ${monster.name} YILDIRILDI! 🏆🏆🏆<br>
-                <span style="color: #fde047; font-size: 0.9rem;">+${dropRes.adAstraGained} $ADASTRA • +${dropRes.xpGained} XP Hazinene Eklendi!</span>
-                <div style="margin-top: 8px; font-size: 0.9rem; color: #c084fc; font-weight: 700;">⚡ ZİNDAN DÖNGÜSÜ TAMAMLANDI!</div>
-                <div style="margin-top: 4px; font-size: 0.85rem; color: #a78bfa;">1. Kat 1. Seviyeden Yeniden Başla!</div>
-                ${dropsHtml ? `<div style="margin-top: 6px; font-size: 0.85rem; color: #c084fc; display: flex; flex-direction: column; gap: 2px;">${dropsHtml}</div>` : ''}
-              </div>
-            `;
-          } else {
-            // Bir sonraki seviyenin kilidini aç
-            window.dispatchEvent(new CustomEvent('monster-defeated', { detail: { level: monster.level } }));
-
-            let dropsHtml = '';
-            if (dropRes.fragmentsGained > 0) dropsHtml += `<div>🧩 +${dropRes.fragmentsGained} Teçhizat Parçaları</div>`;
-            if (dropRes.boxGained > 0) dropsHtml += `<div>📦 +${dropRes.boxGained} Pandora Kutusu</div>`;
-            if (dropRes.artifactDiscovered) dropsHtml += `<div>${dropRes.artifactDiscovered.icon} Yeni Eser Keşfedildi: ${dropRes.artifactDiscovered.name}!</div>`;
-            if (dropRes.isBoss) dropsHtml += `<div>🔑 +1 Arena Anahtarı</div>`;
-
-            liveLog.innerHTML = `
-              <div style="color: #4ade80; font-weight: 800; font-size: 1rem;">
-                🏆 ZAFER! ${monster.name} yok edildi!<br>
-                <span style="color: #fde047; font-size: 0.9rem;">+${dropRes.adAstraGained} $ADASTRA • +${dropRes.xpGained} XP Hazinene Eklendi!</span>
-                ${dropsHtml ? `<div style="margin-top: 6px; font-size: 0.85rem; color: #c084fc; display: flex; flex-direction: column; gap: 2px;">${dropsHtml}</div>` : ''}
-              </div>
-            `;
-          }
-
-          startFightBtn.innerText = 'KAPAT VE DEVAM ET';
-          startFightBtn.disabled = false;
-          startFightBtn.onclick = () => { closeModal(); renderTopBar(); };
-        } else {
-          liveLog.innerHTML = `<div style="color: #ef4444; font-weight: 800;">💀 BOZGUN! Ordun ağır darbe alıp geri çekildi.</div>`;
-          startFightBtn.innerText = 'GERİ ÇEKİL';
-          startFightBtn.disabled = false;
-          startFightBtn.onclick = () => closeModal();
-        }
-      }
-    }, 600);
-  });
 }
 
 function renderExpeditionActiveBox(nodeId) {
@@ -3146,7 +2988,7 @@ function openDashboardModal() {
   dom.modalTitle.innerHTML = `<span>🏰</span> <span>KRALLIK DASHBOARD & 1-CLICK MERKEZİ</span>`;
 
   const missingStamina = Math.max(0, summary.maxStamina - Math.floor(summary.stamina));
-  const wheatPerStamina = (GAME_CONFIG.BASE_PRODUCTION.wheat || 15) * (GAME_CONFIG.WHEAT_REFILL_RATIO || 0.21);
+  const wheatPerStamina = GAME_CONFIG.WHEAT_PER_STAMINA || 3.15;
   const wheatNeededForFull = Math.ceil(missingStamina * wheatPerStamina);
   const userWheat = Math.floor(Number(gameState.state.inventory.wheat) || 0);
   const isStaminaFull = summary.stamina >= summary.maxStamina;
@@ -3756,7 +3598,12 @@ function executeMonsterBattle(monster, selectedIndices, protectWeapons) {
   const logEl = document.getElementById('dungeon-combat-log');
 
   let round = 0;
+  if (currentBattleInterval) {
+    clearInterval(currentBattleInterval);
+    currentBattleInterval = null;
+  }
   const battleInt = setInterval(() => {
+    currentBattleInterval = battleInt;
     round++;
     sound.playPickaxe();
 
@@ -3814,6 +3661,7 @@ function executeMonsterBattle(monster, selectedIndices, protectWeapons) {
 
     if (eCurHp <= 0 || pCurHp <= 0) {
       clearInterval(battleInt);
+      currentBattleInterval = null;
       const isVictory = eCurHp <= 0;
 
       const dmgFraction = Math.min(1, (playerTotalHp - pCurHp) / Math.max(1, playerTotalHp));
