@@ -1977,7 +1977,7 @@ function openTownZoneModal(zoneId, zoneName) {
           </label>
           <label style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: #cbd5e1; cursor: pointer;">
             <input type="radio" name="bot_silo_opt" value="sell" ${!isSiloAutoUpgrade ? 'checked' : ''} />
-            <span><strong>Yer Açmak İçin %50 Sat:</strong> Siloda yer açmak için depolanan kaynakların yarısını marketten satar.</span>
+            <span><strong>Akıllı Satış (Döngü Kazancı + %5 Marj):</strong> Markette satış baskısı yaratmamak için ambarı boşaltmaz; yalnızca bir sonraki sefer döngüsünde kazanılacak miktar kadar (+%5 güvenlik payı ile) AMM pazarında satarak yer açar.</span>
           </label>
         </div>
 
@@ -6508,7 +6508,7 @@ function initAppEvents() {
     if (e.target && e.target.name === 'bot_silo_opt') {
       const autoUpgrade = e.target.value === 'upgrade';
       gameState.setBotSiloOption(autoUpgrade);
-      showToast(autoUpgrade ? '🤖 Bot: Silo dolunca otomatik yükseltme modu seçildi.' : '🤖 Bot: Silo dolunca %50 pazarda satış modu seçildi.', 'info');
+      showToast(autoUpgrade ? '🤖 Bot: Silo dolunca otomatik yükseltme modu seçildi.' : '🤖 Bot: Silo dolunca Akıllı Satış modu (Döngü Kazancı + %5 Güvenlik Marjı) seçildi.', 'info');
       return;
     }
   });
