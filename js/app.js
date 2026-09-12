@@ -881,6 +881,13 @@ function openInventoryModal() {
   const pickaxe = state.tools.pickaxe || { durability: 4320 };
   const sickle = state.tools.sickle || { durability: 4320 };
 
+  const scrollHeal = state.inventory.scroll_heal || 0;
+  const scrollStamina = state.inventory.scroll_stamina || 0;
+  const scrollRepair = state.inventory.scroll_repair || 0;
+  const wheelShards = state.wheelTicketShards || 0;
+  const lotteryTickets = state.lotteryTickets || 0;
+  const arenaKeys = state.arenaKeys || 0;
+
   dom.modalBody.innerHTML = `
     <!-- Karakter Seviye Atlama Kartı -->
     <div class="clean-card" style="border-color: #facc15; background: #1c140c;">
@@ -974,6 +981,83 @@ function openInventoryModal() {
         <div class="inv-slot"><div class="inv-icon">⛏️</div><div class="inv-qty">${(Number(iron) || 0).toFixed(2)}</div><div class="inv-name">Demir</div></div>
         <div class="inv-slot"><div class="inv-icon">🌾</div><div class="inv-qty">${(Number(wheat) || 0).toFixed(2)}</div><div class="inv-name">Buğday</div></div>
         <div class="inv-slot"><div class="inv-icon">🧩</div><div class="inv-qty">${(Number(state.inventory.fragments) || 0).toFixed(2)}</div><div class="inv-name">Teçhizat Parçaları</div></div>
+      </div>
+    </div>
+
+    <!-- 📜 Büyülü Parşömenler & Kadim Eşyalar (Scrolls) -->
+    <div class="clean-card" style="border-color: #a855f7; background: #160c22;">
+      <div class="card-title-row">
+        <div class="card-title" style="color: #d8b4fe;">📜 Büyülü Parşömenler & Kadim Eşyalar</div>
+        <span class="card-badge" style="color: #c084fc; border-color: #a855f7;">Çark & AMM DEX Envanteri</span>
+      </div>
+      <div class="clean-desc">
+        Karnaval Şans Çarkı'ndan veya AMM DEX Pazarından edindiğin kadim parşömenleri buradan görebilir ve doğrudan kullanabilirsin.
+      </div>
+      
+      <div class="inventory-scrolls-grid">
+        <!-- İyileştirme Parşömeni -->
+        <div class="inventory-scroll-card">
+          <div class="inventory-scroll-header">
+            <div class="inventory-scroll-title">
+              <span style="font-size: 1.3rem;">📜</span>
+              <span>Ordu İyileştirme</span>
+            </div>
+            <span class="inventory-scroll-count">${scrollHeal} Adet</span>
+          </div>
+          <div class="inventory-scroll-desc">
+            AdAstra Şampiyonuna anında <strong>+10 HP Can</strong> kazandırır.
+          </div>
+          <button class="btn-clean btn-clean-purple inventory-scroll-btn btn-use-scroll" data-scroll="scroll_heal" ${scrollHeal <= 0 ? 'disabled' : ''}>
+            ${scrollHeal > 0 ? '✨ Parşömeni Kullan (+10 HP)' : 'Tükendi'}
+          </button>
+        </div>
+
+        <!-- Stamina Parşömeni -->
+        <div class="inventory-scroll-card">
+          <div class="inventory-scroll-header">
+            <div class="inventory-scroll-title">
+              <span style="font-size: 1.3rem;">⚡</span>
+              <span>Stamina Fulleme</span>
+            </div>
+            <span class="inventory-scroll-count">${scrollStamina} Adet</span>
+          </div>
+          <div class="inventory-scroll-desc">
+            Dayanıklılığını (Stamina) anında <strong>%100 Full</strong> yapar.
+          </div>
+          <button class="btn-clean btn-clean-gold inventory-scroll-btn btn-use-scroll" data-scroll="scroll_stamina" ${scrollStamina <= 0 ? 'disabled' : ''}>
+            ${scrollStamina > 0 ? '⚡ Parşömeni Kullan (Full ⚡)' : 'Tükendi'}
+          </button>
+        </div>
+
+        <!-- Alet Onarım Parşömeni -->
+        <div class="inventory-scroll-card">
+          <div class="inventory-scroll-header">
+            <div class="inventory-scroll-title">
+              <span style="font-size: 1.3rem;">🔨</span>
+              <span>%10 Alet Onarımı</span>
+            </div>
+            <span class="inventory-scroll-count">${scrollRepair} Adet</span>
+          </div>
+          <div class="inventory-scroll-desc">
+            Tüm aletlerine (Balta, Kazma, Orak) anında <strong>+432 dk (%10)</strong> dayanıklılık ekler.
+          </div>
+          <button class="btn-clean btn-clean-outline inventory-scroll-btn btn-use-scroll" data-scroll="scroll_repair" ${scrollRepair <= 0 ? 'disabled' : ''}>
+            ${scrollRepair > 0 ? '🔨 Parşömeni Kullan (+%10 Tamir)' : 'Tükendi'}
+          </button>
+        </div>
+      </div>
+
+      <!-- Ek Özel Eşyalar & Biletler -->
+      <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(168, 85, 247, 0.3); display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.82rem;">
+        <div style="background: rgba(0,0,0,0.4); padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); color: #cbd5e1;">
+          🎟️ Piyango/Çark Bileti: <strong style="color: #f472b6;">${lotteryTickets} Adet</strong>
+        </div>
+        <div style="background: rgba(0,0,0,0.4); padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); color: #cbd5e1;">
+          🎟️ Çark Amorti Parçası: <strong style="color: #fde047;">${wheelShards}/10</strong>
+        </div>
+        <div style="background: rgba(0,0,0,0.4); padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); color: #cbd5e1;">
+          🔑 Pandora Anahtarı: <strong style="color: #38bdf8;">${arenaKeys} Adet</strong>
+        </div>
       </div>
     </div>
 
@@ -2422,6 +2506,308 @@ function renderBarracksHtml() {
 // 4.4B KRALLIK KARNAVALI & ŞANS ÇARKI (14 ÖDÜL) & HAFTALIK PİYANGO
 // =========================================================================
 window.carnivalActiveTab = 'wheel';
+window.carnivalWheelRotation = 0;
+window.carnivalWheelIsSpinning = false;
+
+const WHEEL_COLORS = [
+  '#7c3aed', '#059669', '#d97706', '#dc2626', '#2563eb', 
+  '#db2777', '#0891b2', '#4f46e5', '#ca8a04', '#16a34a',
+  '#9333ea', '#e11d48', '#0284c7', '#ea580c', '#10b981',
+  '#8b5cf6', '#f59e0b', '#06b6d4'
+];
+
+const WHEEL_SHORT_LABELS = {
+  'frag_1': '1 Parça',
+  'frag_10': '10 Parça',
+  'raw_1000_wood': '1K Odun',
+  'raw_1000_iron': '1K Demir',
+  'raw_1000_wheat': '1K Buğday',
+  'raw_50_wood': '50 Odun',
+  'raw_50_iron': '50 Demir',
+  'raw_50_wheat': '50 Buğday',
+  'free_bot_24h': '24s Bot',
+  'ada_200': '200 ADA',
+  'ada_1000': '1K ADA 👑',
+  'scroll_heal': 'Can Parş.',
+  'ada_50': '50 ADA',
+  'box_key': 'Kutu Anahtarı',
+  'scroll_stamina': 'Stamina P.',
+  'scroll_repair': 'Tamir P.',
+  'wheel_ticket_shard': 'Bilet Parça',
+  'coin_analysis_code': 'Coin Analiz'
+};
+
+function drawCarnivalWheel(ctx, angle) {
+  if (!ctx || !ctx.canvas) return;
+  const canvas = ctx.canvas;
+  const width = canvas.width;
+  const height = canvas.height;
+  const cx = width / 2;
+  const cy = height / 2;
+  const radius = cx - 12;
+
+  ctx.clearRect(0, 0, width, height);
+
+  const rewards = GAME_CONFIG.CARNIVAL?.WHEEL_REWARDS || [];
+  const numSlices = rewards.length;
+  if (numSlices === 0) return;
+  const arc = (2 * Math.PI) / numSlices;
+
+  // 1. Dış Halka & Arka Plan
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius + 8, 0, 2 * Math.PI);
+  ctx.fillStyle = '#1c1328';
+  ctx.fill();
+  ctx.lineWidth = 7;
+  const outerGrad = ctx.createRadialGradient(cx, cy, radius, cx, cy, radius + 8);
+  outerGrad.addColorStop(0, '#f59e0b');
+  outerGrad.addColorStop(0.5, '#fef08a');
+  outerGrad.addColorStop(1, '#b45309');
+  ctx.strokeStyle = outerGrad;
+  ctx.stroke();
+  ctx.restore();
+
+  // 2. Dilimleri Çiz
+  for (let i = 0; i < numSlices; i++) {
+    const startAngle = angle + i * arc;
+    const endAngle = startAngle + arc;
+    const r = rewards[i];
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, radius, startAngle, endAngle);
+    ctx.closePath();
+
+    ctx.fillStyle = WHEEL_COLORS[i % WHEEL_COLORS.length];
+    ctx.fill();
+
+    // Dilim İç Gölgelendirme (Radial Gradient)
+    const sliceGrad = ctx.createRadialGradient(cx, cy, 10, cx, cy, radius);
+    sliceGrad.addColorStop(0, 'rgba(0,0,0,0.5)');
+    sliceGrad.addColorStop(0.5, 'rgba(0,0,0,0.15)');
+    sliceGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = sliceGrad;
+    ctx.fill();
+
+    // Dilim Altın Ayracı
+    ctx.strokeStyle = 'rgba(254, 240, 138, 0.45)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.restore();
+
+    // Dilim Metin ve Simgesi
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(startAngle + arc / 2);
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+
+    // İkon
+    ctx.font = '16px "Segoe UI Emoji", sans-serif';
+    ctx.fillText(r.icon || '🎁', radius - 12, 0);
+
+    // Kısa İsim
+    const label = WHEEL_SHORT_LABELS[r.id] || (r.name ? r.name.substring(0, 10) : '');
+    ctx.font = 'bold 9.5px "Outfit", "Segoe UI", sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = 'rgba(0,0,0,0.9)';
+    ctx.shadowBlur = 3;
+    ctx.fillText(label, radius - 34, 0);
+
+    ctx.restore();
+  }
+
+  // 3. Dış Pimler (Bulbs/Pegs)
+  for (let i = 0; i < numSlices; i++) {
+    const pegAngle = angle + i * arc;
+    const px = cx + Math.cos(pegAngle) * (radius + 2);
+    const py = cy + Math.sin(pegAngle) * (radius + 2);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(px, py, 3.5, 0, 2 * Math.PI);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#eab308';
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // 4. Merkez Göbek (Central Hub Badge)
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, 32, 0, 2 * Math.PI);
+  const hubGrad = ctx.createRadialGradient(cx, cy, 5, cx, cy, 32);
+  hubGrad.addColorStop(0, '#fef08a');
+  hubGrad.addColorStop(0.7, '#eab308');
+  hubGrad.addColorStop(1, '#78350f');
+  ctx.fillStyle = hubGrad;
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#fde047';
+  ctx.stroke();
+
+  // Göbek İç Daire
+  ctx.beginPath();
+  ctx.arc(cx, cy, 22, 0, 2 * Math.PI);
+  ctx.fillStyle = '#3b0764';
+  ctx.fill();
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = '#c084fc';
+  ctx.stroke();
+
+  // Göbek İkonu
+  ctx.font = '16px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('👑', cx, cy);
+  ctx.restore();
+}
+
+function initCarnivalWheelCanvas() {
+  const canvas = document.getElementById('carnival-wheel-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  window.carnivalWheelRotation = window.carnivalWheelRotation || 0;
+  drawCarnivalWheel(ctx, window.carnivalWheelRotation);
+}
+
+function spinCarnivalWheelAnimated(payMethod) {
+  if (window.carnivalWheelIsSpinning) return;
+
+  const canvas = document.getElementById('carnival-wheel-canvas');
+  const pointer = document.getElementById('carnival-wheel-pointer');
+  const statusEl = document.getElementById('carnival-wheel-status-text');
+  const resBox = document.getElementById('carnival-wheel-result');
+
+  // Önce gameState çağrısı ile kaynak kontrolü ve ödül tespiti yapılır
+  const res = gameState.spinCarnivalWheel(payMethod);
+  if (!res.success) {
+    showToast(res.message, 'error');
+    return;
+  }
+
+  const ctx = canvas ? canvas.getContext('2d') : null;
+  const rewards = GAME_CONFIG.CARNIVAL?.WHEEL_REWARDS || [];
+  const numSlices = rewards.length;
+  if (!canvas || !ctx || numSlices === 0) {
+    // Failsafe: Canvas yoksa doğrudan sonucu göster
+    showToast(`🎉 Çarktan Kazandın: ${res.rewardSummaryText}`, 'success');
+    if (resBox) {
+      resBox.innerHTML = `
+        <div class="clean-card" style="border:2px solid #ec4899; background:linear-gradient(135deg, rgba(236,72,153,0.3), rgba(168,85,247,0.3)); text-align:center; padding:16px; margin-top:10px;">
+          <div style="font-size:2.5rem;">${res.reward?.icon || '🎁'}</div>
+          <div style="font-size:1.15rem; font-weight:900; color:#fff; margin-top:4px;">🎉 TEBRİKLER KAZANDINIZ!</div>
+          <div style="font-size:1.05rem; font-weight:800; color:#fde047; margin-top:4px;">${res.rewardSummaryText}</div>
+        </div>
+      `;
+    }
+    renderTopBar();
+    return;
+  }
+
+  // Kazanan dilim indeksi
+  let winIndex = rewards.findIndex(r => r.id === res.reward?.id);
+  if (winIndex === -1) winIndex = 0;
+
+  // Açı Hesaplaması (İbre 12 o'clock = 1.5 * Math.PI)
+  const arc = (2 * Math.PI) / numSlices;
+  const sliceMid = (winIndex + 0.5) * arc;
+  let targetAngleMod = (1.5 * Math.PI - sliceMid) % (2 * Math.PI);
+  if (targetAngleMod < 0) targetAngleMod += 2 * Math.PI;
+
+  const currentAngle = window.carnivalWheelRotation || 0;
+  let curMod = currentAngle % (2 * Math.PI);
+  if (curMod < 0) curMod += 2 * Math.PI;
+
+  let delta = targetAngleMod - curMod;
+  if (delta < 0) delta += 2 * Math.PI;
+
+  // 5 tam tur + hedef açı + dilim içi güvenli rastgele varyasyon
+  const jitter = (Math.random() - 0.5) * (arc * 0.4);
+  const totalSpinAngle = (5 * 2 * Math.PI) + delta + jitter;
+  const startAngle = currentAngle;
+  const finalAngle = startAngle + totalSpinAngle;
+
+  window.carnivalWheelIsSpinning = true;
+  if (statusEl) statusEl.innerHTML = '🎡 <span style="color:#f472b6;">Çark dönüyor... Şans seninle olsun!</span>';
+  if (resBox) resBox.innerHTML = '';
+
+  // Çevirme butonlarını devre dışı bırak
+  document.querySelectorAll('.btn-spin-wheel').forEach(b => {
+    b.disabled = true;
+    b.style.opacity = '0.5';
+    b.style.cursor = 'not-allowed';
+  });
+
+  const duration = 4500; // 4.5 saniye akıcı dönüş
+  const startTime = performance.now();
+  let lastPegIndex = -1;
+
+  function animate(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(1, elapsed / duration);
+    // easeOutQuart
+    const ease = 1 - Math.pow(1 - progress, 4);
+
+    const curRotation = startAngle + totalSpinAngle * ease;
+    window.carnivalWheelRotation = curRotation;
+    drawCarnivalWheel(ctx, curRotation);
+
+    // İbrenin pimlere çarpma (wobble) animasyonu
+    const currentPeg = Math.floor((curRotation / arc) % numSlices);
+    if (currentPeg !== lastPegIndex) {
+      lastPegIndex = currentPeg;
+      if (pointer) {
+        pointer.classList.add('wobble');
+        setTimeout(() => { if (pointer) pointer.classList.remove('wobble'); }, 60);
+      }
+    }
+
+    if (progress < 1) {
+      window.carnivalWheelAnimFrame = requestAnimationFrame(animate);
+    } else {
+      // Çark durdu!
+      window.carnivalWheelRotation = finalAngle;
+      drawCarnivalWheel(ctx, finalAngle);
+      window.carnivalWheelIsSpinning = false;
+
+      // Butonları tekrar aktif et
+      document.querySelectorAll('.btn-spin-wheel').forEach(b => {
+        b.disabled = false;
+        b.style.opacity = '1';
+        b.style.cursor = 'pointer';
+      });
+
+      // Kazanan ödül görseli & kutlama
+      showToast(`🎉 Çarktan Kazandın: ${res.rewardSummaryText}`, 'success');
+      sound.playLevelUp();
+
+      if (statusEl) {
+        statusEl.innerHTML = `🏆 <span style="color:#4ade80; font-size:0.92rem;">Harika! Kazandın: <strong>${res.rewardSummaryText}</strong></span>`;
+      }
+
+      if (resBox) {
+        resBox.innerHTML = `
+          <div class="clean-card" style="border:2px solid #ec4899; background:linear-gradient(135deg, rgba(236,72,153,0.35), rgba(168,85,247,0.35)); text-align:center; padding:16px; margin-top:10px; animation: pulse 1s infinite alternate;">
+            <div style="font-size:3rem; filter: drop-shadow(0 0 12px #fde047);">${res.reward?.icon || '🎁'}</div>
+            <div style="font-size:1.25rem; font-weight:900; color:#fff; margin-top:4px;">🎉 TEBRİKLER KAZANDINIZ!</div>
+            <div style="font-size:1.1rem; font-weight:800; color:#fde047; margin-top:4px;">${res.rewardSummaryText}</div>
+          </div>
+        `;
+      }
+
+      renderTopBar();
+    }
+  }
+
+  window.carnivalWheelAnimFrame = requestAnimationFrame(animate);
+}
 
 function renderCarnivalHtml(activeTab = 'wheel') {
   window.carnivalActiveTab = activeTab;
@@ -2477,21 +2863,40 @@ function renderCarnivalHtml(activeTab = 'wheel') {
           </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 8px;">
-          ${wheelRewards.map((r, i) => `
-            <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 8px; text-align:center;">
-              <div style="font-size: 1.6rem; margin-bottom: 2px;">${r.icon}</div>
-              <div style="font-size: 0.78rem; font-weight: 800; color: #fff; line-height: 1.2;">${r.name}</div>
-              <div style="font-size: 0.68rem; color: #facc15; margin-top: 3px;">Ağırlık: %${((r.weight / 1000) * 100).toFixed(1)}</div>
+        <!-- 🎡 Gerçek Dönen Şans Çarkı Sahnesi -->
+        <div class="carnival-wheel-stage">
+          <div class="carnival-wheel-wrapper">
+            <!-- İbre (Pointer/Needle) -->
+            <div id="carnival-wheel-pointer" class="carnival-wheel-pointer">
+              <svg viewBox="0 0 32 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M16 38L4 8C3 6 4.5 4 6.5 4H25.5C27.5 4 29 6 28 8L16 38Z" fill="url(#ptr-grad)" stroke="#fef08a" stroke-width="2"/>
+                <circle cx="16" cy="10" r="4" fill="#ffffff" stroke="#ca8a04" stroke-width="1.5"/>
+                <defs>
+                  <linearGradient id="ptr-grad" x1="16" y1="4" x2="16" y2="38" gradientUnits="userSpaceOnUse">
+                    <stop stop-color="#fde047"/>
+                    <stop offset="0.6" stop-color="#eab308"/>
+                    <stop offset="1" stop-color="#b45309"/>
+                  </linearGradient>
+                </defs>
+              </svg>
             </div>
-          `).join('')}
+            <!-- Canvas Çark -->
+            <canvas id="carnival-wheel-canvas" width="350" height="350"></canvas>
+          </div>
+          
+          <div id="carnival-wheel-status-text" style="font-size:0.85rem; color:#fde047; font-weight:800; margin-top:6px; min-height:20px;">
+            ✨ Şansını dene! Aşağıdan ödeme yöntemini seçip çarkı çevir.
+          </div>
         </div>
 
-        <div class="clean-card" style="border-color: #f59e0b; background: rgba(20,14,8,0.85); padding:16px;">
-          <div style="font-weight: 800; font-size: 0.95rem; color: #fde047; margin-bottom: 10px; text-align:center;">
+        <div id="carnival-wheel-result"></div>
+
+        <!-- Çevirme Butonları -->
+        <div class="clean-card" style="border-color: #f59e0b; background: rgba(20,14,8,0.85); padding:14px;">
+          <div style="font-weight: 800; font-size: 0.95rem; color: #fde047; margin-bottom: 8px; text-align:center;">
             🎲 Ödeme Yöntemini Seç ve Çarkı Çevir:
           </div>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px;">
             <button class="btn-clean btn-spin-wheel" data-pay="ada" style="background:#7c3aed; border-color:#a78bfa; font-weight:800; padding:10px;">
               🟣 100 ADA İle Çevir
             </button>
@@ -2510,7 +2915,22 @@ function renderCarnivalHtml(activeTab = 'wheel') {
           </div>
         </div>
 
-        <div id="carnival-wheel-result"></div>
+        <!-- 18 Ödül Listesi / Detaylı İnceleme Bölümü -->
+        <div class="clean-card" style="border-color: rgba(255,255,255,0.1); background: rgba(10,10,18,0.6); padding:12px;">
+          <div style="font-size:0.85rem; font-weight:800; color:#cbd5e1; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+            <span>📋 Çarktaki 18 Dilim Ödül Tablosu:</span>
+            <span style="font-size:0.75rem; color:#facc15;">RTP ~%78</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px;">
+            ${wheelRewards.map((r, i) => `
+              <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 6px 8px; text-align:center;">
+                <div style="font-size: 1.2rem;">${r.icon}</div>
+                <div style="font-size: 0.74rem; font-weight: 800; color: #fff; line-height: 1.2; margin-top:2px;">${r.name}</div>
+                <div style="font-size: 0.65rem; color: #facc15; margin-top: 2px;">Şans: %${((r.weight / 1000) * 100).toFixed(1)}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
 
         ${redeemCodes.length > 0 ? `
           <div class="clean-card" style="border-left: 4px solid #ca8a04;">
@@ -2598,6 +3018,9 @@ function openCarnivalModal(activeTab = 'wheel') {
   dom.modalTitle.innerHTML = `<span>🎪</span> <span>KRALLIK KARNAVALI, ŞANS ÇARKI & PİYANGO</span>`;
   dom.modalBody.innerHTML = renderCarnivalHtml(activeTab);
   displayModal();
+  if (activeTab === 'wheel') {
+    setTimeout(() => initCarnivalWheelCanvas(), 50);
+  }
 }
 
 function openChangelogModal() {
@@ -4909,6 +5332,22 @@ function initAppEvents() {
       return;
     }
 
+    // Envanter: Parşömen Kullan (.btn-use-scroll)
+    const useScrollBtn = e.target.closest('.btn-use-scroll');
+    if (useScrollBtn) {
+      const scrollKey = useScrollBtn.dataset.scroll;
+      const res = gameState.useScroll(scrollKey);
+      if (res.success) {
+        showToast(res.message, 'success');
+        sound.playLevelUp();
+        openInventoryModal();
+      } else {
+        showToast(res.message, 'error');
+      }
+      renderTopBar();
+      return;
+    }
+
     // 🧪 GELİŞTİRİCİ & TEST CHEAT BUTONLARI
     const testBtn = e.target.closest('.btn-test-action');
     if (testBtn) {
@@ -5461,24 +5900,7 @@ function initAppEvents() {
     const spinWheelBtn = e.target.closest('.btn-spin-wheel');
     if (spinWheelBtn) {
       const payMethod = spinWheelBtn.dataset.pay;
-      const res = gameState.spinCarnivalWheel(payMethod);
-      const resBox = dom.modalBody.querySelector('#carnival-wheel-result');
-      if (res.success) {
-        showToast(`🎉 Çarktan Kazandın: ${res.rewardSummaryText}`, 'success');
-        sound.playLevelUp();
-        if (resBox) {
-          resBox.innerHTML = `
-            <div class="clean-card" style="border:2px solid #ec4899; background:linear-gradient(135deg, rgba(236,72,153,0.3), rgba(168,85,247,0.3)); text-align:center; padding:16px; margin-top:10px;">
-              <div style="font-size:2.5rem;">${res.reward?.icon || '🎁'}</div>
-              <div style="font-size:1.15rem; font-weight:900; color:#fff; margin-top:4px;">🎉 TEBRİKLER KAZANDINIZ!</div>
-              <div style="font-size:1.05rem; font-weight:800; color:#fde047; margin-top:4px;">${res.rewardSummaryText}</div>
-            </div>
-          `;
-        }
-      } else {
-        showToast(res.message, 'error');
-      }
-      renderTopBar();
+      spinCarnivalWheelAnimated(payMethod);
       return;
     }
 

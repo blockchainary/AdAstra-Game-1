@@ -2359,6 +2359,82 @@ export class GameStateManager {
     };
   }
 
+  useScroll(scrollType, targetId = null) {
+    if (!this.state.inventory) this.state.inventory = {};
+    const inv = this.state.inventory;
+    const count = inv[scrollType] || 0;
+    if (count <= 0) {
+      return { success: false, message: 'Envanterinde bu parşömenden hiç bulunmuyor!' };
+    }
+
+    if (scrollType === 'scroll_heal') {
+      const soldiers = this.state.soldiers || [];
+      if (soldiers.length === 0) {
+        return { success: false, message: 'İyileştirilecek bir askerin bulunmuyor!' };
+      }
+      let target = null;
+      if (targetId) {
+        target = soldiers.find(s => s.id === targetId);
+      }
+      if (!target) {
+        target = soldiers.find(s => (s.hp || 0) < (s.maxHp || 100));
+      }
+      if (!target) {
+        return { success: false, message: 'Ordudaki tüm AdAstra Şampiyonlarının canı zaten tam dolu!' };
+      }
+      const healAmount = 10;
+      target.hp = Math.min(target.maxHp || 100, (target.hp || 0) + healAmount);
+      inv.scroll_heal -= 1;
+      this.saveState();
+      return {
+        success: true,
+        message: `📜 Ordu İyileştirme Parşömeni kullanıldı! ${target.name} +10 Can kazandı (${target.hp}/${target.maxHp} HP).`
+      };
+    }
+
+    if (scrollType === 'scroll_stamina') {
+      const maxStamina = this.getMaxStamina();
+      if ((this.state.stamina || 0) >= maxStamina) {
+        return { success: false, message: 'Dayanıklılığın (Stamina) zaten tamamen dolu!' };
+      }
+      this.state.stamina = maxStamina;
+      inv.scroll_stamina -= 1;
+      this.saveState();
+      return {
+        success: true,
+        message: `⚡ Stamina Fulleme Parşömeni kullanıldı! Dayanıklılığın tamamen fulendi (${maxStamina}/${maxStamina} ⚡).`
+      };
+    }
+
+    if (scrollType === 'scroll_repair') {
+      if (!this.state.tools) this.state.tools = this.mergeTools(null);
+      const tools = this.state.tools;
+      const axe = tools.axe || (tools.axe = { durability: 4320 });
+      const pick = tools.pickaxe || (tools.pickaxe = { durability: 4320 });
+      const sickle = tools.sickle || (tools.sickle = { durability: 4320 });
+
+      const missingAxe = 4320 - (axe.durability || 0);
+      const missingPick = 4320 - (pick.durability || 0);
+      const missingSickle = 4320 - (sickle.durability || 0);
+
+      if (missingAxe <= 0 && missingPick <= 0 && missingSickle <= 0) {
+        return { success: false, message: 'Tüm aletlerin (Balta, Kazma, Orak) zaten %100 sağlam durumda!' };
+      }
+
+      axe.durability = Math.min(4320, (axe.durability || 0) + 432);
+      pick.durability = Math.min(4320, (pick.durability || 0) + 432);
+      sickle.durability = Math.min(4320, (sickle.durability || 0) + 432);
+      inv.scroll_repair -= 1;
+      this.saveState();
+      return {
+        success: true,
+        message: `🔨 %10 Alet Onarım Parşömeni kullanıldı! Tüm aletlerine +%10 (432 dk) dayanıklılık eklendi.`
+      };
+    }
+
+    return { success: false, message: 'Bilinmeyen parşömen türü!' };
+  }
+
   buyLotteryTickets(ticketCount = 1) {
     const count = Math.max(1, parseInt(ticketCount) || 1);
     const cost = count * (GAME_CONFIG.CARNIVAL?.LOTTERY?.TICKET_COST_ADA || 100);

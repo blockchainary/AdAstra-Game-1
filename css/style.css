@@ -4122,3 +4122,135 @@ body:not(.in-dungeon) .top-nav-menu {
 body.in-dungeon .royal-advisor-bar {
   display: none !important;
 }
+
+/* 🎡 KRALLIK KARNAVALI - GERÇEK DÖNEN ŞANS ÇARKI */
+.carnival-wheel-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 6px auto 14px auto;
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+}
+
+.carnival-wheel-wrapper {
+  position: relative;
+  width: 360px;
+  height: 360px;
+  max-width: 88vw;
+  max-height: 88vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  padding: 10px 0;
+}
+
+#carnival-wheel-canvas {
+  width: 350px;
+  height: 350px;
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 50%;
+  box-shadow: 0 0 25px rgba(236, 72, 153, 0.45), 0 0 55px rgba(124, 58, 237, 0.35), inset 0 0 15px rgba(0, 0, 0, 0.8);
+  display: block;
+}
+
+.carnival-wheel-pointer {
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  height: 44px;
+  z-index: 20;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.9)) drop-shadow(0 0 10px #facc15);
+  transform-origin: 50% 15%;
+  transition: transform 0.08s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.carnival-wheel-pointer.wobble {
+  transform: translateX(-50%) rotate(-20deg) scale(1.05);
+}
+
+.carnival-wheel-pointer svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* 📜 ENVANTER PARŞÖMENLER KARTI */
+.inventory-scrolls-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.inventory-scroll-card {
+  background: linear-gradient(135deg, rgba(26, 15, 38, 0.95), rgba(15, 10, 25, 0.95));
+  border: 1.5px solid rgba(168, 85, 247, 0.35);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  transition: all 0.2s ease;
+}
+
+.inventory-scroll-card:hover {
+  border-color: #c084fc;
+  box-shadow: 0 6px 16px rgba(168, 85, 247, 0.25);
+  transform: translateY(-2px);
+}
+
+.inventory-scroll-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.inventory-scroll-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: #f3e8ff;
+}
+
+.inventory-scroll-count {
+  font-size: 0.85rem;
+  font-weight: 900;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(168, 85, 247, 0.25);
+  border: 1px solid #c084fc;
+  color: #fde047;
+}
+
+.inventory-scroll-desc {
+  font-size: 0.78rem;
+  color: #cbd5e1;
+  line-height: 1.35;
+}
+
+.inventory-scroll-btn {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+

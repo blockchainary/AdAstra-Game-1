@@ -207,6 +207,8 @@ console.log('✅ Krallık Karnavalı Şans Çarkı mekaniği %100 doğrulandı.'
 // 7. KRALLIK KARNAVALI: HAFTALIK PİYANGO & 2X GÜVENLİK KURALI
 // ══════════════════════════════════════════════════════════════════════════
 console.log('\n[7/7] Krallık Karnavalı: Haftalık Piyango ve 2x Kuralı Test Ediliyor...');
+gs.state.lotteryTickets = 0;
+gs.state.lotteryPool = GAME_CONFIG.CARNIVAL.LOTTERY.SEED_POOL_ADA;
 const ticketBuyRes = gs.buyLotteryTickets(5);
 assert(ticketBuyRes.success, '5 adet piyango bileti satın alınabilmeli');
 assert.equal(gs.state.lotteryTickets, 5, 'Kullanıcının 5 bileti olmalı');

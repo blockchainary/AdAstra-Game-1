@@ -7,7 +7,7 @@
     "dev": "vite --port 5173",
     "build": "vite build",
     "preview": "vite preview --port 5173",
-    "test": "node tests/test_weekly_reset_and_vanilla.mjs && node tests/test_amm_live_upgrade_cost_bot.mjs && node tests/test_weapon_durability_dungeon.mjs && node tests/test_unlimited_craft_armory.mjs && node tests/test_live_drop_rates_and_levelup_display.mjs && node tests/test_audit_fixes.mjs && node tests/test_new_mechanics_v106.mjs"
+    "test": "node tests/test_weekly_reset_and_vanilla.mjs && node tests/test_amm_live_upgrade_cost_bot.mjs && node tests/test_weapon_durability_dungeon.mjs && node tests/test_unlimited_craft_armory.mjs && node tests/test_live_drop_rates_and_levelup_display.mjs && node tests/test_audit_fixes.mjs && node tests/test_new_mechanics_v106.mjs && node tests/test_carnival_wheel_and_scrolls.mjs"
   },
   "devDependencies": {
     "playwright": "^1.62.1",
