@@ -40,6 +40,10 @@ const dom = {
   btnDockMap: document.getElementById('btn-dock-map'),
   btnAudioToggle: document.getElementById('btn-audio-toggle'),
   btnDungeonReturnTown: document.getElementById('btn-dungeon-return-town'),
+  dungeonHudFragVal: document.getElementById('dungeon-hud-frag-val'),
+  dungeonHudBoxVal: document.getElementById('dungeon-hud-box-val'),
+  dungeonBadgeFrag: document.getElementById('dungeon-badge-frag'),
+  dungeonBadgeBox: document.getElementById('dungeon-badge-box'),
 
   // Sağ Menü Paneli (Realm Sidebar)
   sidebarCharacterCard: document.getElementById('sidebar-character-card'),
@@ -204,6 +208,11 @@ function renderTopBar() {
   updateRoyalAdvisorUI();
 
   renderRealmSidebar(state, maxStamina, staminaInt);
+
+  // Zindandayken Canlı Ganimet Rozetlerini Güncel Tut
+  if (document.body.classList.contains('in-dungeon')) {
+    updateDungeonLiveDropRatesUI();
+  }
 }
 
 // Akıllı Kral Danışmanı DOM Güncellemesi
@@ -305,6 +314,58 @@ function renderRealmSidebar(state, maxStamina, staminaInt) {
   }
 }
 
+// =========================================================================
+// ZİNDAN CANLI GANİMET (TEÇHİZAT PARÇASI & PANDORA KUTUSU) ORANLARI HUD'I
+// =========================================================================
+let currentActiveDungeonFloor = 1;
+
+function updateDungeonLiveDropRatesUI(activeFloor) {
+  if (typeof activeFloor === 'number' && activeFloor >= 1 && activeFloor <= 6) {
+    currentActiveDungeonFloor = activeFloor;
+  } else {
+    const activeTab = document.querySelector('.floor-tab.active');
+    if (activeTab && activeTab.dataset.floor) {
+      currentActiveDungeonFloor = parseInt(activeTab.dataset.floor, 10) || 1;
+    }
+  }
+
+  const fragValEl = dom.dungeonHudFragVal || document.getElementById('dungeon-hud-frag-val');
+  const boxValEl = dom.dungeonHudBoxVal || document.getElementById('dungeon-hud-box-val');
+  const fragBadgeEl = dom.dungeonBadgeFrag || document.getElementById('dungeon-badge-frag');
+  const boxBadgeEl = dom.dungeonBadgeBox || document.getElementById('dungeon-badge-box');
+
+  if (!fragValEl || !boxValEl) return;
+
+  const curLvl = gameState.state.level || 1;
+  const isBossFloor = (currentActiveDungeonFloor === 3 || currentActiveDungeonFloor === 6);
+  const bossMultiplier = isBossFloor ? 2.0 : 1.0;
+
+  const baseFragRate = gameState.getFragmentDropRate(curLvl);
+  const baseBoxRate = gameState.getBoxDropRate(curLvl);
+
+  const effectiveFragRate = baseFragRate * bossMultiplier;
+  const effectiveBoxRate = baseBoxRate * bossMultiplier;
+
+  const fragFormatted = gameState.formatDropChance(effectiveFragRate);
+  const boxFormatted = gameState.formatDropChance(effectiveBoxRate);
+
+  fragValEl.textContent = isBossFloor ? `${fragFormatted} 🔥 2x` : fragFormatted;
+  boxValEl.textContent = isBossFloor ? `${boxFormatted} 🔥 2x` : boxFormatted;
+
+  if (fragBadgeEl) {
+    fragBadgeEl.classList.toggle('boss-active', isBossFloor);
+    fragBadgeEl.title = isBossFloor
+      ? `Boss Katı Şansı (+%100 Artış!): %${(baseFragRate * 100).toFixed(3)} ➜ %${(effectiveFragRate * 100).toFixed(3)}`
+      : `Zindan Parça Düşürme Şansı: ${fragFormatted} (Lv.${curLvl})`;
+  }
+  if (boxBadgeEl) {
+    boxBadgeEl.classList.toggle('boss-active', isBossFloor);
+    boxBadgeEl.title = isBossFloor
+      ? `Boss Katı Şansı (+%100 Artış!): %${(baseBoxRate * 100).toFixed(5)} ➜ %${(effectiveBoxRate * 100).toFixed(5)}`
+      : `Zindan Pandora Kutusu Düşürme Şansı: ${boxFormatted} (Lv.${curLvl})`;
+  }
+}
+
 // Zindan Mağarasına Geçiş (Sağ Menü Kısayolu & Kolezyum Modalı Ortak Kullanır)
 function enterDungeonScene() {
   closeModal();
@@ -320,6 +381,9 @@ function enterDungeonScene() {
     const floorBar = document.getElementById('dungeon-floor-bar');
     if (topNavMenu) topNavMenu.classList.add('hidden');
     if (floorBar) floorBar.classList.remove('hidden');
+
+    // Canlı ganimet oranlarını güncelle
+    updateDungeonLiveDropRatesUI(currentActiveDungeonFloor || 1);
   }
 }
 
@@ -819,8 +883,25 @@ function openInventoryModal() {
         <div class="card-badge" style="color: #fde047;">Sefer Süresi: ${currentDuration} Saat</div>
       </div>
       
-      <div class="clean-desc">
-        Seviye atladığında sefer süren <strong>${req.durationHours} Saate</strong> ve Maksimum Staminan <strong>${gameState.getMaxStamina(state.level + 1)} ⚡'ya</strong> çıkar!
+      <!-- Anlık Hesap Zindan Ganimet Oranları Rozetleri -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 10px 0;">
+        <div style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 8px; padding: 7px 10px; display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-size: 0.8rem; color: #93c5fd; font-weight: 700; display: flex; align-items: center; gap: 4px;">
+            <span>🧩</span> Teçhizat Parçası Şansı:
+          </span>
+          <span style="font-size: 0.88rem; color: #38bdf8; font-weight: 800;">${req.curFragRateFormatted}</span>
+        </div>
+        <div style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(192, 132, 252, 0.4); border-radius: 8px; padding: 7px 10px; display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-size: 0.8rem; color: #e9d5ff; font-weight: 700; display: flex; align-items: center; gap: 4px;">
+            <span>📦</span> Pandora Kutusu Şansı:
+          </span>
+          <span style="font-size: 0.88rem; color: #c084fc; font-weight: 800;">${req.curBoxRateFormatted}</span>
+        </div>
+      </div>
+
+      <div class="clean-desc" style="line-height: 1.5; margin-bottom: 10px;">
+        Seviye atladığında sefer süren <strong>${req.durationHours} Saate</strong> ve Maksimum Staminan <strong>${gameState.getMaxStamina(state.level + 1)} ⚡'ya</strong> çıkar!<br>
+        Zindan ganimet şansın: 🧩 Teçhizat Parçası <strong>${req.curFragRateFormatted} ➜ <span style="color: #4ade80;">${req.nextFragRateFormatted}</span></strong>, 📦 Pandora Kutusu <strong>${req.curBoxRateFormatted} ➜ <span style="color: #c084fc;">${req.nextBoxRateFormatted}</span></strong> seviyesine yükselir!
       </div>
 
       <!-- İlerleme & Gereksinimler -->
@@ -4257,8 +4338,15 @@ function initAppEvents() {
       const floor = parseInt(tab.dataset.floor, 10);
       document.querySelectorAll('.floor-tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
+      updateDungeonLiveDropRatesUI(floor);
       window.dispatchEvent(new CustomEvent('switch-dungeon-floor', { detail: { floor } }));
     });
+  });
+
+  window.addEventListener('switch-dungeon-floor', (e) => {
+    if (e.detail && typeof e.detail.floor === 'number') {
+      updateDungeonLiveDropRatesUI(e.detail.floor);
+    }
   });
 
   window.addEventListener('open-town-modal', (e) => {

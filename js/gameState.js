@@ -458,6 +458,19 @@ export class GameStateManager {
     return (GAME_CONFIG.BOX_DROP_MIN || 0.000018) + (clampedLevel - 1) * (range / 80);
   }
 
+  formatDropChance(rate) {
+    const pct = rate * 100;
+    if (pct >= 1) return `%${pct.toFixed(2)}`;
+    if (pct >= 0.01) {
+      const str3 = pct.toFixed(3);
+      if (str3.endsWith('0')) return `%${pct.toFixed(2)}`;
+      return `%${str3}`;
+    }
+    const str4 = pct.toFixed(4);
+    if (str4.endsWith('0')) return `%${pct.toFixed(3)}`;
+    return `%${str4}`;
+  }
+
   // Doğal Stamina Yenilenmesi (Maksimum Stamina Sınırına Göre)
   regenerateStamina(deltaSeconds) {
     const maxStamina = this.getMaxStamina();
@@ -1073,6 +1086,11 @@ export class GameStateManager {
       ammBreakdown = { wood: Math.round(wood * 2.5), iron: Math.round(iron * 4.0), wheat: Math.round(wheat * 0.9) };
     }
 
+    const curFragRate = this.getFragmentDropRate(curLvl);
+    const nextFragRate = this.getFragmentDropRate(nextLvl);
+    const curBoxRate = this.getBoxDropRate(curLvl);
+    const nextBoxRate = this.getBoxDropRate(nextLvl);
+
     return {
       level: nextLvl,
       xp,
@@ -1086,6 +1104,14 @@ export class GameStateManager {
       wheat,
       adAstra,
       ammBreakdown,
+      curFragRate,
+      nextFragRate,
+      curBoxRate,
+      nextBoxRate,
+      curFragRateFormatted: this.formatDropChance(curFragRate),
+      nextFragRateFormatted: this.formatDropChance(nextFragRate),
+      curBoxRateFormatted: this.formatDropChance(curBoxRate),
+      nextBoxRateFormatted: this.formatDropChance(nextBoxRate),
       durationHours: this.getExpeditionDurationHours(nextLvl)
     };
   }

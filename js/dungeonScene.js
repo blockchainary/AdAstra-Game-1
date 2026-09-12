@@ -244,6 +244,7 @@ export class DungeonScene extends Phaser.Scene {
         tab.classList.remove('active');
       }
     });
+    window.dispatchEvent(new CustomEvent('switch-dungeon-floor', { detail: { floor: this.currentPage } }));
   }
 
   buildPage(pageIndex) {
