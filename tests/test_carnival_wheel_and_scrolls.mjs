@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { GameStateManager } from '../js/gameState.js';
 import { GAME_CONFIG } from '../js/config.js';
+import { ammMarket } from '../js/ammMarket.js';
 
 // Mock localStorage for node environment
 globalThis.localStorage = {
@@ -89,4 +90,72 @@ assert.equal(gs.state.inventory.scroll_repair, 1, 'Parşömen sayısı korunmal�
 
 console.log('✅ %10 Alet Onarım Parşömeni mekaniği %100 doğrulandı.');
 
-console.log('\n🎉 TÜM ŞANS ÇARKI VE PARŞÖMEN TESTLERİ %100 BAŞARIYLA TAMAMLANDI! 🎉\n');
+// Test 5: Karnaval Çarkında Demir, Odun ve Buğdayların Anında Yakılması & Sistemden Silinmesi
+console.log('\n[5/6] Karnaval Çarkında Demir, Odun ve Buğdayların Yakılması Test Ediliyor...');
+gs.state.inventory.wood = 5000;
+gs.state.inventory.iron = 5000;
+gs.state.inventory.wheat = 5000;
+
+const initialWoodReserve = ammMarket.pools.wood?.resourceReserve || 0;
+const initialIronReserve = ammMarket.pools.iron?.resourceReserve || 0;
+const initialWheatReserve = ammMarket.pools.wheat?.resourceReserve || 0;
+
+const woodPrice = ammMarket.getPrice('wood') || 1.0;
+const expectedWoodCost = Math.ceil(100 / woodPrice);
+
+const spinWoodRes = gs.spinCarnivalWheel('wood');
+assert(spinWoodRes.success, 'Odun ile çark çevirme başarılı olmalı');
+assert(spinWoodRes.burnedInfo, 'burnedInfo dönmeli');
+assert.equal(spinWoodRes.burnedInfo.resource, 'wood');
+assert.equal(spinWoodRes.burnedInfo.amount, expectedWoodCost);
+assert.equal(gs.state.inventory.wood, 5000 - expectedWoodCost, 'Envanterden odun tam düşmeli');
+assert.equal(ammMarket.pools.wood.resourceReserve, initialWoodReserve, 'AMM havuz rezervine ASLA odun eklenmemeli, yanmalı');
+assert.equal(gs.state.burnedResources.wood, expectedWoodCost, 'burnedResources.wood kaydedilmeli');
+
+// Demir ile çevir
+const ironPrice = ammMarket.getPrice('iron') || 1.0;
+const expectedIronCost = Math.ceil(100 / ironPrice);
+const spinIronRes = gs.spinCarnivalWheel('iron');
+assert(spinIronRes.success, 'Demir ile çark çevirme başarılı olmalı');
+assert.equal(gs.state.inventory.iron, 5000 - expectedIronCost, 'Envanterden demir tam düşmeli');
+assert.equal(ammMarket.pools.iron.resourceReserve, initialIronReserve, 'AMM havuz rezervine ASLA demir eklenmemeli, yanmalı');
+assert.equal(gs.state.burnedResources.iron, expectedIronCost, 'burnedResources.iron kaydedilmeli');
+
+// Buğday ile çevir
+const wheatPrice = ammMarket.getPrice('wheat') || 1.0;
+const expectedWheatCost = Math.ceil(100 / wheatPrice);
+const spinWheatRes = gs.spinCarnivalWheel('wheat');
+assert(spinWheatRes.success, 'Buğday ile çark çevirme başarılı olmalı');
+assert.equal(gs.state.inventory.wheat, 5000 - expectedWheatCost, 'Envanterden buğday tam düşmeli');
+assert.equal(ammMarket.pools.wheat.resourceReserve, initialWheatReserve, 'AMM havuz rezervine ASLA buğday eklenmemeli, yanmalı');
+assert.equal(gs.state.burnedResources.wheat, expectedWheatCost, 'burnedResources.wheat kaydedilmeli');
+
+console.log('✅ Karnaval çarkında harcanan odun, demir ve buğdayların anında yakılarak yok edildiği %100 doğrulandı.');
+
+// Test 6: Krallık Hazinesi & Havuz Dağılımı ve Ödül Bakiyeleri Özeti
+console.log('\n[6/6] Krallık Hazinesi & Havuz Dağılımı ve Canlı Ödüller Test Ediliyor...');
+const ecoSummary = gs.getEconomyAndPoolsSummary();
+assert(ecoSummary, 'Hazine ve havuz özeti oluşturulmalı');
+assert.equal(ecoSummary.burnRatePct, 22, 'Kalıcı yakım oranı %22 olmalı');
+assert.equal(ecoSummary.allocations.dungeon, 0.25, 'Zindan havuz payı %25 olmalı');
+assert.equal(ecoSummary.allocations.arena, 0.15, 'Kolezyum havuz payı %15 olmalı');
+assert.equal(ecoSummary.allocations.worldBoss, 0.15, 'World Boss havuz payı %15 olmalı');
+assert.equal(ecoSummary.allocations.ammBuyback, 0.13, 'AMM buyback havuz payı %13 olmalı');
+assert.equal(ecoSummary.allocations.carnival, 0.10, 'Karnaval havuz payı %10 olmalı');
+assert(ecoSummary.pools.length === 5, '5 ana hazine havuzu listelenmeli');
+
+ecoSummary.pools.forEach(p => {
+  assert(p.balance >= 0, `${p.name} bakiyesi pozitif olmalı`);
+  assert(p.sharePct > 0, `${p.name} dağıtım payı bulunmalı`);
+  assert(p.actionType, `${p.name} aksiyon butonu tanımlı olmalı`);
+});
+
+assert(ecoSummary.lottery.lotteryPool >= 1000000, 'Piyango kasası 1.000.000+ ADA olmalı');
+assert.equal(ecoSummary.lottery.winnerShare, Math.round(ecoSummary.lottery.lotteryPool * 0.18), 'Piyango kazanan payı %18 olmalı');
+assert(ecoSummary.burnedResources.wood >= expectedWoodCost, 'Yakılan odun özette görünmeli');
+assert(ecoSummary.burnedResources.iron >= expectedIronCost, 'Yakılan demir özette görünmeli');
+assert(ecoSummary.burnedResources.wheat >= expectedWheatCost, 'Yakılan buğday özette görünmeli');
+
+console.log('✅ Hazine gelir dağılımı, havuz ödül bakiyeleri ve piyango telemetrisi %100 doğrulandı.');
+
+console.log('\n🎉 TÜM ŞANS ÇARKI, YAKIM VE HAVUZ DAĞILIMI TESTLERİ %100 BAŞARIYLA TAMAMLANDI! 🎉\n');

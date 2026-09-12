@@ -55,7 +55,8 @@ export class GameStateManager {
       wheelTicketShards: parsed.wheelTicketShards || 0,
       botSiloAutoUpgrade: parsed.botSiloAutoUpgrade !== undefined ? parsed.botSiloAutoUpgrade : true,
       botActiveUntil: parsed.botActiveUntil || 0,
-      redeemCodes: Array.isArray(parsed.redeemCodes) ? parsed.redeemCodes : []
+      redeemCodes: Array.isArray(parsed.redeemCodes) ? parsed.redeemCodes : [],
+      burnedResources: parsed.burnedResources || { wood: 0, iron: 0, wheat: 0 }
     };
   }
 
@@ -2288,6 +2289,8 @@ export class GameStateManager {
     const costAda = GAME_CONFIG.CARNIVAL?.WHEEL_COST_ADA || 100;
     const inv = this.state.inventory;
 
+    let burnedInfo = null;
+
     if (paymentMethod === 'ada') {
       if (this.state.adAstraBalance < costAda) {
         return { success: false, message: `Yetersiz $ADASTRA! Çark çevirmek için ${costAda} ADA gereklidir.` };
@@ -2306,7 +2309,15 @@ export class GameStateManager {
         return { success: false, message: `Yetersiz ${paymentMethod.toUpperCase()}! 100 ADA değerinde hammadde için ${requiredAmount} adet gereklidir.` };
       }
       inv[paymentMethod] -= requiredAmount;
-      if (ammMarket.pools[paymentMethod]) ammMarket.pools[paymentMethod].resourceReserve += requiredAmount;
+      // 🔥 HAMMADDE ANINDA YAKILIR VE SİSTEMDEN SİLİNİR (AMM havuzuna aktarılmaz, kalıcı yakım)
+      if (!this.state.burnedResources) {
+        this.state.burnedResources = { wood: 0, iron: 0, wheat: 0 };
+      }
+      this.state.burnedResources[paymentMethod] = (this.state.burnedResources[paymentMethod] || 0) + requiredAmount;
+      burnedInfo = { resource: paymentMethod, amount: requiredAmount };
+
+      // Hazine defteri ve tokenomics muhasebesi: 100 ADA eşdeğeri harcama kaydı (%22 Kalıcı Yakım, %78 Hazine Havuzları)
+      globalPool.recordTokenSpend(costAda);
     } else {
       return { success: false, message: 'Geçersiz ödeme yöntemi!' };
     }
@@ -2361,7 +2372,10 @@ export class GameStateManager {
       success: true,
       reward: selectedReward,
       rewardSummaryText,
-      message: `🎉 Tebrikler! Çarktan kazandın: ${rewardSummaryText}`
+      burnedInfo,
+      message: burnedInfo
+        ? `🔥 ${burnedInfo.amount} ${burnedInfo.resource.toUpperCase()} anında yakıldı ve sistemden silindi! Çarktan kazandın: ${rewardSummaryText}`
+        : `🎉 Tebrikler! Çarktan kazandın: ${rewardSummaryText}`
     };
   }
 
@@ -2965,6 +2979,137 @@ export class GameStateManager {
       woodPct: Math.min(100, Math.round(((inv.wood || 0) / (whCap.wood || 1080)) * 100)),
       ironPct: Math.min(100, Math.round(((inv.iron || 0) / (whCap.iron || 720)) * 100)),
       wheatPct: Math.min(100, Math.round(((inv.wheat || 0) / (whCap.wheat || 900)) * 100)),
+    };
+  }
+
+  // =========================================================================
+  // 🏛️ KRALLIK HAZİNESİ, TOKENOMİCS VE TÜM HAVUZLARIN DETAYLI ÖZETİ
+  // =========================================================================
+  getEconomyAndPoolsSummary() {
+    const summary = treasury.getSummary();
+    const state = this.state;
+    const boss = this.getWorldBossInfo();
+
+    const alloc = GAME_CONFIG.TREASURY_ALLOCATION || {
+      dungeon: 0.25,
+      arena: 0.15,
+      worldBoss: 0.15,
+      ammBuyback: 0.13,
+      carnival: 0.10
+    };
+
+    const burnRate = GAME_CONFIG.TOKEN_BURN_RATE || 0.22;
+    const lotteryPool = state.lotteryPool != null ? state.lotteryPool : 1000000;
+    const amortiPool = state.lotteryAmortiPool || 0;
+    const lotteryWinnerShare = Math.round(lotteryPool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.WEEKLY_WINNER_SHARE || 0.18));
+    const lotteryAmortiShare = Math.round(lotteryPool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.AMORTI_SHARE || 0.02));
+    const lotteryRolloverShare = Math.round(lotteryPool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.ROLLOVER_SHARE || 0.80));
+
+    const burnedResources = state.burnedResources || { wood: 0, iron: 0, wheat: 0 };
+    const lifetimeBurnedAda = Math.round((treasury.state?.lifetimeBurned || 0) + (globalPool.state?.totalBurned || 0));
+
+    const pools = [
+      {
+        id: 'dungeon',
+        name: 'Zindan Ganimet Kasası',
+        icon: '🏰',
+        color: '#06b6d4',
+        sharePct: Math.round((alloc.dungeon || 0.25) * 100),
+        balance: Math.round(treasury.getPool('dungeon')),
+        target: GAME_CONFIG.TREASURY_TARGET_RESERVE?.dungeon || 180000,
+        health: treasury.getPoolHealth('dungeon'),
+        inflow: Math.round(treasury.state?.inflow?.dungeon || 0),
+        outflow: Math.round(treasury.state?.outflow?.dungeon || 0),
+        description: '6 Katlı ve 18 Seviyeli kadim zindan canavarlarını ve kat bosslarını yenen gezginlere zafer ganimeti olarak dağıtılır.',
+        howToEarn: 'Zindana gir, canavarları katlet ve kat bosslarını devir.',
+        actionType: 'dungeon',
+        actionText: '💀 Zindana Git'
+      },
+      {
+        id: 'arena',
+        name: 'Kolezyum Gladyatör Havuzu',
+        icon: '🏟️',
+        color: '#f59e0b',
+        sharePct: Math.round((alloc.arena || 0.15) * 100),
+        balance: Math.round(treasury.getPool('arena')),
+        target: GAME_CONFIG.TREASURY_TARGET_RESERVE?.arena || 120000,
+        health: treasury.getPoolHealth('arena'),
+        inflow: Math.round(treasury.state?.inflow?.arena || 0),
+        outflow: Math.round(treasury.state?.outflow?.arena || 0),
+        description: 'Arena anahtarı kullanan şampiyonların 1v1 düelloları ve haftalık sıralama ödülleri bu fondan çekilir.',
+        howToEarn: 'Arena anahtarı kuşan, Kolezyuma çık ve şampiyonları devir.',
+        actionType: 'colosseum',
+        actionText: '🏟️ Kolezyuma Git'
+      },
+      {
+        id: 'worldBoss',
+        name: 'Dünya Bossu (World Boss) Akın Havuzu',
+        icon: '🌋',
+        color: '#ef4444',
+        sharePct: Math.round((alloc.worldBoss || 0.15) * 100),
+        balance: Math.round(treasury.getPool('worldBoss')),
+        target: GAME_CONFIG.TREASURY_TARGET_RESERVE?.worldBoss || 110000,
+        health: treasury.getPoolHealth('worldBoss'),
+        inflow: Math.round(treasury.state?.inflow?.worldBoss || 0),
+        outflow: Math.round(treasury.state?.outflow?.worldBoss || 0),
+        description: 'Her Pazar 18:00 TSİ otomatik savaşında kilitlenen orduların Kadim Kıyamet Behemothuna verdiği hasar oranında dağıtılır.',
+        howToEarn: 'Ordunu kışladan savaşa kilitle, Pazar 18:00 hasar payını kap.',
+        actionType: 'boss',
+        actionText: '🌋 Boss Karargahı'
+      },
+      {
+        id: 'ammBuyback',
+        name: 'AMM Likidite Destek & Buyback',
+        icon: '🤖',
+        color: '#38bdf8',
+        sharePct: Math.round((alloc.ammBuyback || 0.13) * 100),
+        balance: Math.round(treasury.getPool('ammBuyback')),
+        target: GAME_CONFIG.TREASURY_TARGET_RESERVE?.ammBuyback || 90000,
+        health: treasury.getPoolHealth('ammBuyback'),
+        inflow: Math.round(treasury.state?.inflow?.ammBuyback || 0),
+        outflow: Math.round(treasury.state?.outflow?.ammBuyback || 0),
+        description: 'Piyasa dalgalanmalarında DEX fiyat tabanını korumak, arz fazlası tokenları geri alıp yakmak ve likiditeyi desteklemek için kullanılır.',
+        howToEarn: 'AMM Pazarında işlem yapıldığında otomatik devreye girer.',
+        actionType: 'market',
+        actionText: '🏪 Markete Git'
+      },
+      {
+        id: 'carnival',
+        name: 'Krallık Karnavalı & Şans Kasası',
+        icon: '🎪',
+        color: '#ec4899',
+        sharePct: Math.round((alloc.carnival || 0.10) * 100),
+        balance: Math.round(treasury.getPool('carnival')),
+        target: GAME_CONFIG.TREASURY_TARGET_RESERVE?.carnival || 60000,
+        health: treasury.getPoolHealth('carnival'),
+        inflow: Math.round(treasury.state?.inflow?.carnival || 0),
+        outflow: Math.round(treasury.state?.outflow?.carnival || 0),
+        description: '14 ödüllü Şans Çarkındaki 50 ADA, 150 ADA ve 500 ADA gibi doğrudan token ödüllerinin emisyon kasasıdır.',
+        howToEarn: 'Karnavalda 100 ADA, hammadde veya biletle şans çarkını çevir.',
+        actionType: 'carnival_wheel',
+        actionText: '🎡 Şans Çarkı'
+      }
+    ];
+
+    const totalPoolsBalance = pools.reduce((acc, p) => acc + p.balance, 0) + lotteryPool;
+
+    return {
+      burnRatePct: Math.round(burnRate * 100),
+      allocations: alloc,
+      pools,
+      totalPoolsBalance,
+      lifetimeBurnedAda,
+      burnedResources,
+      lottery: {
+        lotteryPool,
+        amortiPool,
+        winnerShare: lotteryWinnerShare,
+        amortiShare: lotteryAmortiShare,
+        rolloverShare: lotteryRolloverShare
+      },
+      solvencyPct: Math.round((summary.solvency || 1) * 100),
+      totalDeposited: Math.round(treasury.state?.lifetimeDeposited || 0),
+      totalWithdrawn: Math.round(treasury.state?.lifetimeWithdrawn || 0)
     };
   }
 
