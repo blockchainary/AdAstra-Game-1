@@ -695,24 +695,24 @@ export const GAME_CONFIG = {
     WHEEL_COST_ADA: 100, // 100 ADA veya dengi hammadde veya 1 Piyango Bileti
     // 14 Potansiyel Ödül (Kasa Asla Kaybetmez - RTP ~%78, Kasa Kârı %22)
     WHEEL_REWARDS: [
-      { id: 'frag_1',        name: '1 Teçhizat Parçası',              icon: '🧩', type: 'resource', key: 'fragments', amount: 1,    valAda: 45,   weight: 120 },
-      { id: 'frag_10',       name: '10 Teçhizat Parçası',             icon: '🧩', type: 'resource', key: 'fragments', amount: 10,   valAda: 450,  weight: 18 },
-      { id: 'raw_1000_wood', name: '1.000 ADA Değerinde Odun',        icon: '🌲', type: 'amm_raw',  key: 'wood',      adaVal: 1000, valAda: 1000, weight: 3 },
-      { id: 'raw_1000_iron', name: '1.000 ADA Değerinde Demir',       icon: '⛏️', type: 'amm_raw',  key: 'iron',      adaVal: 1000, valAda: 1000, weight: 3 },
-      { id: 'raw_1000_wheat',name: '1.000 ADA Değerinde Buğday',      icon: '🌾', type: 'amm_raw',  key: 'wheat',     adaVal: 1000, valAda: 1000, weight: 2 },
-      { id: 'raw_50_wood',   name: 'Amorti: 50 ADA Değerinde Odun',   icon: '🌲', type: 'amm_raw',  key: 'wood',      adaVal: 50,   valAda: 50,   weight: 40 },
-      { id: 'raw_50_iron',   name: 'Amorti: 50 ADA Değerinde Demir',  icon: '⛏️', type: 'amm_raw',  key: 'iron',      adaVal: 50,   valAda: 50,   weight: 40 },
-      { id: 'raw_50_wheat',  name: 'Amorti: 50 ADA Değerinde Buğday', icon: '🌾', type: 'amm_raw',  key: 'wheat',     adaVal: 50,   valAda: 50,   weight: 40 },
-      { id: 'free_bot_24h',  name: '24 Saatlik Otomasyon Botu (Ücretsiz)', icon: '🤖', type: 'bot_free', hours: 24,                  valAda: 200,  weight: 30 },
-      { id: 'ada_200',       name: '200 $ADASTRA Nakit Ödül',         icon: '🟣', type: 'ada',      amount: 200,                    valAda: 200,  weight: 30 },
-      { id: 'ada_1000',      name: '🏆 1.000 $ADASTRA BÜYÜK İKRAMİYE',icon: '👑', type: 'ada',      amount: 1000,                   valAda: 1000, weight: 5 },
-      { id: 'scroll_heal',   name: 'Ordu İyileştirme Parşömeni (+10 HP)', icon: '📜', type: 'scroll', key: 'scroll_heal', amount: 1, valAda: 30, weight: 150 },
-      { id: 'ada_50',        name: '50 $ADASTRA Ödül',                icon: '🟣', type: 'ada',      amount: 50,                     valAda: 50,   weight: 100 },
-      { id: 'box_key',       name: '1 Pandora Kutusu Anahtarı',       icon: '🔑', type: 'key',      amount: 1,                      valAda: 350,  weight: 24 },
-      { id: 'scroll_stamina',name: '100 Stamina Doldurma Parşömeni', icon: '⚡', type: 'scroll', key: 'scroll_stamina', amount: 1, valAda: 60, weight: 100 },
-      { id: 'scroll_repair', name: '%10 Alet Onarım Parşömeni',       icon: '🔨', type: 'scroll', key: 'scroll_repair', amount: 1, valAda: 50, weight: 120 },
-      { id: 'wheel_ticket_shard', name: 'Amorti Çark Bileti (10 Adet = 1 Çevirme)', icon: '🎟️', type: 'ticket_shard', amount: 1,  valAda: 10, weight: 155 },
-      { id: 'coin_analysis_code', name: 'AlphAvax Vercel App Özel Coin Analiz Bileti', icon: '🎫', type: 'analysis_code', amount: 1, valAda: 0, weight: 20 }
+      { id: 'frag_1',        name: '1 Teçhizat Parçası',              icon: '🧩', type: 'resource', key: 'fragments', amount: 1,    valAda: 45,   weight: 60 },
+      { id: 'frag_10',       name: '10 Teçhizat Parçası',             icon: '🧩', type: 'resource', key: 'fragments', amount: 10,   valAda: 450,  weight: 20 },
+      { id: 'raw_1000_wood', name: '1.000 ADA Değerinde Odun',        icon: '🌲', type: 'amm_raw',  key: 'wood',      adaVal: 1000, valAda: 1000, weight: 15 },
+      { id: 'raw_1000_iron', name: '1.000 ADA Değerinde Demir',       icon: '⛏️', type: 'amm_raw',  key: 'iron',      adaVal: 1000, valAda: 1000, weight: 15 },
+      { id: 'raw_1000_wheat',name: '1.000 ADA Değerinde Buğday',      icon: '🌾', type: 'amm_raw',  key: 'wheat',     adaVal: 1000, valAda: 1000, weight: 15 },
+      { id: 'raw_50_wood',   name: 'Amorti: 50 ADA Değerinde Odun',   icon: '🌲', type: 'amm_raw',  key: 'wood',      adaVal: 50,   valAda: 50,   weight: 1000 },
+      { id: 'raw_50_iron',   name: 'Amorti: 50 ADA Değerinde Demir',  icon: '⛏️', type: 'amm_raw',  key: 'iron',      adaVal: 50,   valAda: 50,   weight: 1000 },
+      { id: 'raw_50_wheat',  name: 'Amorti: 50 ADA Değerinde Buğday', icon: '🌾', type: 'amm_raw',  key: 'wheat',     adaVal: 50,   valAda: 50,   weight: 1000 },
+      { id: 'free_bot_24h',  name: '24 Saatlik Otomasyon Botu (Ücretsiz)', icon: '🤖', type: 'bot_free', hours: 24,                  valAda: 200,  weight: 60 },
+      { id: 'ada_200',       name: '200 $ADASTRA Nakit Ödül',         icon: '🟣', type: 'ada',      amount: 200,                    valAda: 200,  weight: 350 },
+      { id: 'ada_1000',      name: '🏆 1.000 $ADASTRA BÜYÜK İKRAMİYE',icon: '👑', type: 'ada',      amount: 1000,                   valAda: 1000, weight: 10 },
+      { id: 'scroll_heal',   name: 'Ordu İyileştirme Parşömeni (+10 HP)', icon: '📜', type: 'scroll', key: 'scroll_heal', amount: 1, valAda: 30, weight: 1200 },
+      { id: 'ada_50',        name: '50 $ADASTRA Ödül',                icon: '🟣', type: 'ada',      amount: 50,                     valAda: 50,   weight: 1500 },
+      { id: 'box_key',       name: '1 Pandora Kutusu Anahtarı',       icon: '🔑', type: 'key',      amount: 1,                      valAda: 350,  weight: 8 },
+      { id: 'scroll_stamina',name: '100 Stamina Doldurma Parşömeni', icon: '⚡', type: 'scroll', key: 'scroll_stamina', amount: 1, valAda: 60, weight: 70 },
+      { id: 'scroll_repair', name: '%10 Alet Onarım Parşömeni',       icon: '🔨', type: 'scroll', key: 'scroll_repair', amount: 1, valAda: 50, weight: 1200 },
+      { id: 'wheel_ticket_shard', name: 'Amorti Çark Bileti (10 Adet = 1 Çevirme)', icon: '🎟️', type: 'ticket_shard', amount: 1,  valAda: 10, weight: 2427 },
+      { id: 'coin_analysis_code', name: 'AlphAvax Vercel App Özel Coin Analiz Bileti', icon: '🎫', type: 'analysis_code', amount: 1, valAda: 0, weight: 50 }
     ],
     // Haftalık Piyango Sistemi
     LOTTERY: {
@@ -790,6 +790,19 @@ export const GAME_CONFIG = {
         'Stamina Parşömeni Dengesi: Parşömen staminayı sınırsız fullemek yerine doğrudan +100 Stamina Doldurma mekaniğine uyarlandı ve tüm arayüzlerde güncellendi.',
         'GPU Donanım Hızlandırmalı Şans Çarkı: Çark çevrilirken yaşanan kasma ve takılmalar giderildi; saniyede 60 kez CPU canvas çizimi yerine GPU kompozitör dönüşü ve fiziksel ibre salınımıyla 60/120 FPS pürüzsüz akıcılık sağlandı.',
         'Karnaval Çarkı İlk Açılış & Merkez Arması: Çark ekranı ilk açıldığında oluşan siyah ekran sorunu anında senkron çizimle çözüldü; çarkın merkezine sabit şık altın "🎪 AdAstra" arması eklendi.'
+      ]
+    },
+    {
+      version: 'v1.08',
+      title: 'Karnaval Şans Çarkı Ödül Oranları Kalibrasyonu',
+      date: 'Eylül 2026',
+      changes: [
+        'Karnaval Şans Çarkı ödül dağılımı ve ağırlıkları istenen matematiksel sınırlara göre 10.000 taban ağırlıkla yeniden kalibre edildi.',
+        '24 Saatlik Otomasyon Botu çıkma oranı %0.60 seviyesine (%1\'in altına) çekildi.',
+        'Teçhizat Parçaları (1x ve 10x Parça) toplam çıkma oranı %0.80 seviyesine (%1\'in altına) ayarlandı.',
+        '100 Stamina Doldurma Parşömeni çıkma oranı %0.70 seviyesine (%1\'in altına) çekildi.',
+        'Pandora Kutusu Anahtarı çıkma oranı %0.08 seviyesine (%0.1\'in altına) çekilerek nadir hazine statüsü pekiştirildi.',
+        'AlphAvax Vercel App Özel Coin Analiz Kodu çıkma oranı %0.50 seviyesine (%1\'in altına) kalibre edildi.'
       ]
     }
   ],
