@@ -2517,15 +2517,17 @@ export class GameStateManager {
 
     if (scrollType === 'scroll_stamina') {
       const maxStamina = this.getMaxStamina();
-      if ((this.state.stamina || 0) >= maxStamina) {
+      const curStam = this.state.stamina || 0;
+      if (curStam >= maxStamina) {
         return { success: false, message: 'Dayanıklılığın (Stamina) zaten tamamen dolu!' };
       }
-      this.state.stamina = maxStamina;
+      const actualGain = Math.min(100, maxStamina - curStam);
+      this.state.stamina = Math.min(maxStamina, curStam + 100);
       inv.scroll_stamina -= 1;
       this.saveState();
       return {
         success: true,
-        message: `⚡ Stamina Fulleme Parşömeni kullanıldı! Dayanıklılığın tamamen fulendi (${maxStamina}/${maxStamina} ⚡).`
+        message: `⚡ 100 Stamina Parşömeni kullanıldı! +${Math.round(actualGain)} Dayanıklılık dolduruldu (${Math.floor(this.state.stamina)}/${maxStamina} ⚡).`
       };
     }
 

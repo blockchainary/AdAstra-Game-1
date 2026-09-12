@@ -63,7 +63,7 @@ function buildDefaultPools() {
     boxes:          derivePool('boxes',          { name: 'Pandora Kutusu', icon: '📦' }),
     keys:           derivePool('keys',           { name: 'Arena Anahtarı', icon: '🔑' }),
     scroll_heal:    derivePool('scroll_heal',    { name: 'Ordu İyileştirme Parşömeni', icon: '📜' }),
-    scroll_stamina: derivePool('scroll_stamina', { name: 'Stamina Fulleme Parşömeni', icon: '⚡' }),
+    scroll_stamina: derivePool('scroll_stamina', { name: '100 Stamina Doldurma Parşömeni', icon: '⚡' }),
     scroll_repair:  derivePool('scroll_repair',  { name: 'Alet Onarım Parşömeni', icon: '🔨' })
   };
 }

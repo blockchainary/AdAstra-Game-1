@@ -971,8 +971,8 @@ function openInventoryModal() {
           ⚡ Tek Tıkla Tam Doldur (${Math.ceil(Math.max(0, maxStamina - Math.floor(state.stamina)) * 3.15)} Buğday)
         </button>
         ${scrollStamina > 0 ? `
-          <button class="btn-clean btn-clean-purple btn-use-scroll" data-scroll="scroll_stamina" style="flex: 1; min-width: 180px; font-size: 0.85rem; padding: 10px; font-weight: 800;" ${state.stamina >= maxStamina ? 'disabled' : ''} title="Stamina Fulleme Parşömeni Kullan">
-            📜 Parşömen Kullan (${scrollStamina} Adet • Full ⚡)
+          <button class="btn-clean btn-clean-purple btn-use-scroll" data-scroll="scroll_stamina" style="flex: 1; min-width: 180px; font-size: 0.85rem; padding: 10px; font-weight: 800;" ${state.stamina >= maxStamina ? 'disabled' : ''} title="100 Stamina Doldurma Parşömeni Kullan">
+            📜 Parşömen Kullan (${scrollStamina} Adet • +100 ⚡)
           </button>
         ` : ''}
       </div>
@@ -1022,15 +1022,15 @@ function openInventoryModal() {
           <div class="inventory-scroll-header">
             <div class="inventory-scroll-title">
               <span style="font-size: 1.3rem;">⚡</span>
-              <span>Stamina Fulleme</span>
+              <span>100 Stamina Doldurma</span>
             </div>
             <span class="inventory-scroll-count">${scrollStamina} Adet</span>
           </div>
           <div class="inventory-scroll-desc">
-            Dayanıklılığını (Stamina) anında <strong>%100 Full</strong> yapar.
+            Dayanıklılığına (Stamina) anında <strong>+100 Stamina</strong> ekler.
           </div>
           <button class="btn-clean btn-clean-gold inventory-scroll-btn btn-use-scroll" data-scroll="scroll_stamina" ${scrollStamina <= 0 ? 'disabled' : ''}>
-            ${scrollStamina > 0 ? '⚡ Parşömeni Kullan (Full ⚡)' : 'Tükendi'}
+            ${scrollStamina > 0 ? '⚡ Parşömeni Kullan (+100 ⚡)' : 'Tükendi'}
           </button>
         </div>
 
@@ -1237,8 +1237,8 @@ function openTownZoneModal(zoneId, zoneName) {
             ${currentDuration} Saatlik Odun Görevine Gönder (-25 ⚡)
           </button>
           ${state.stamina < 25 && (state.inventory.scroll_stamina || 0) > 0 ? `
-            <button class="btn-clean btn-clean-purple btn-use-scroll" data-scroll="scroll_stamina" style="margin-top: 6px; width: 100%; font-weight: 800;" title="Stamina Fulleme Parşömeni Kullan">
-              ⚡ Yetersiz Stamina! Parşömen Kullan (${state.inventory.scroll_stamina} Adet • Full ⚡)
+            <button class="btn-clean btn-clean-purple btn-use-scroll" data-scroll="scroll_stamina" style="margin-top: 6px; width: 100%; font-weight: 800;" title="100 Stamina Doldurma Parşömeni Kullan">
+              ⚡ Yetersiz Stamina! Parşömen Kullan (${state.inventory.scroll_stamina} Adet • +100 ⚡)
             </button>
           ` : ''}
         `}
@@ -1301,8 +1301,8 @@ function openTownZoneModal(zoneId, zoneName) {
             ${currentDuration} Saatlik Maden Görevine Gönder (-25 ⚡)
           </button>
           ${state.stamina < 25 && (state.inventory.scroll_stamina || 0) > 0 ? `
-            <button class="btn-clean btn-clean-purple btn-use-scroll" data-scroll="scroll_stamina" style="margin-top: 6px; width: 100%; font-weight: 800;" title="Stamina Fulleme Parşömeni Kullan">
-              ⚡ Yetersiz Stamina! Parşömen Kullan (${state.inventory.scroll_stamina} Adet • Full ⚡)
+            <button class="btn-clean btn-clean-purple btn-use-scroll" data-scroll="scroll_stamina" style="margin-top: 6px; width: 100%; font-weight: 800;" title="100 Stamina Doldurma Parşömeni Kullan">
+              ⚡ Yetersiz Stamina! Parşömen Kullan (${state.inventory.scroll_stamina} Adet • +100 ⚡)
             </button>
           ` : ''}
         `}
@@ -1724,8 +1724,8 @@ function openTownZoneModal(zoneId, zoneName) {
             ${currentDuration} Saatlik Hasat Görevine Gönder (-25 ⚡)
           </button>
           ${state.stamina < 25 && (state.inventory.scroll_stamina || 0) > 0 ? `
-            <button class="btn-clean btn-clean-purple btn-use-scroll" data-scroll="scroll_stamina" style="margin-top: 6px; width: 100%; font-weight: 800;" title="Stamina Fulleme Parşömeni Kullan">
-              ⚡ Yetersiz Stamina! Parşömen Kullan (${state.inventory.scroll_stamina} Adet • Full ⚡)
+            <button class="btn-clean btn-clean-purple btn-use-scroll" data-scroll="scroll_stamina" style="margin-top: 6px; width: 100%; font-weight: 800;" title="100 Stamina Doldurma Parşömeni Kullan">
+              ⚡ Yetersiz Stamina! Parşömen Kullan (${state.inventory.scroll_stamina} Adet • +100 ⚡)
             </button>
           ` : ''}
         `}
@@ -2591,7 +2591,7 @@ const WHEEL_SHORT_LABELS = {
   'scroll_heal': 'Can Parş.',
   'ada_50': '50 ADA',
   'box_key': 'Kutu Anahtarı',
-  'scroll_stamina': 'Stamina P.',
+  'scroll_stamina': '100 Stamina P.',
   'scroll_repair': 'Tamir P.',
   'wheel_ticket_shard': 'Bilet Parça',
   'coin_analysis_code': 'Coin Analiz'
@@ -4072,8 +4072,8 @@ function openDashboardModal() {
           <span>⚡</span> <span>Tüm Staminayı Doldur (${isStaminaFull ? 'Dolu' : `${wheatNeededForFull} 🌾`})</span>
         </button>
         ${scrollStamina > 0 ? `
-          <button class="btn-1click btn-use-scroll" data-scroll="scroll_stamina" ${isStaminaFull ? 'disabled' : ''} style="background: linear-gradient(135deg, rgba(88,28,135,0.4), rgba(59,7,100,0.6)); border-color: #a855f7; color: #f3e8ff;" title="Stamina Fulleme Parşömeni Kullanarak Enerjiyi %100 Yap">
-            <span>📜</span> <span>Parşömenle Staminayı Fulle (${scrollStamina})</span>
+          <button class="btn-1click btn-use-scroll" data-scroll="scroll_stamina" ${isStaminaFull ? 'disabled' : ''} style="background: linear-gradient(135deg, rgba(88,28,135,0.4), rgba(59,7,100,0.6)); border-color: #a855f7; color: #f3e8ff;" title="100 Stamina Doldurma Parşömeni Kullanarak Enerjiye +100 Ekle">
+            <span>📜</span> <span>Parşömenle +100 Stamina Doldur (${scrollStamina})</span>
           </button>
         ` : ''}
         <button class="btn-1click btn-1click-repair-tools" ${repairCosts.count === 0 ? 'disabled' : ''} title="Tüm aşınmış aletleri tamir et">

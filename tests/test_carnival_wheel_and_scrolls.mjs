@@ -50,20 +50,28 @@ assert(!fullHpRes.success, 'Can doluyken parşömen harcanmamalı');
 assert.equal(gs.state.inventory.scroll_heal, 1, 'Parşömen sayısı değişmemeli');
 console.log('✅ Ordu İyileştirme Parşömeni (+10 HP) mekaniği %100 doğrulandı.');
 
-// Test 3: Stamina Fulleme Parşömeni (scroll_stamina)
-console.log('\n[3/4] Stamina Fulleme Parşömeni (scroll_stamina) Test Ediliyor...');
-const maxStamina = gs.getMaxStamina();
-gs.state.stamina = 15;
-gs.state.inventory.scroll_stamina = 1;
+// Test 3: 100 Stamina Doldurma Parşömeni (scroll_stamina)
+console.log('\n[3/4] 100 Stamina Doldurma Parşömeni (scroll_stamina) Test Ediliyor...');
+gs.state.level = 10;
+const maxStamina = gs.getMaxStamina(); // 325
+gs.state.stamina = 50;
+gs.state.inventory.scroll_stamina = 2;
 
 const staminaRes = gs.useScroll('scroll_stamina');
 assert(staminaRes.success, 'scroll_stamina başarılı olmalı');
-assert.equal(gs.state.stamina, maxStamina, 'Stamina doğrudan maksimuma ulaşmalı');
-assert.equal(gs.state.inventory.scroll_stamina, 0, 'Parşömen tüketilmeli');
+assert.equal(gs.state.stamina, 150, 'Stamina 50 den tam +100 artarak 150 olmalı');
+assert.equal(gs.state.inventory.scroll_stamina, 1, 'Parşömen 1 eksilmeli');
+
+// Sınıra yakınken test: 300 iken +100 uygulanınca maxStamina (325) ile sınırlanmalı
+gs.state.stamina = 300;
+const capRes = gs.useScroll('scroll_stamina');
+assert(capRes.success, 'scroll_stamina sınıra yakınken de başarılı olmalı');
+assert.equal(gs.state.stamina, maxStamina, 'Stamina maksimum (325) ile sınırlanmalı');
+assert.equal(gs.state.inventory.scroll_stamina, 0, 'Parşömen 0 olmalı');
 
 const fullStaminaRes = gs.useScroll('scroll_stamina');
 assert(!fullStaminaRes.success, 'Stamina doluyken veya parşömen yokken reddedilmeli');
-console.log('✅ Stamina Fulleme Parşömeni mekaniği %100 doğrulandı.');
+console.log('✅ 100 Stamina Doldurma Parşömeni mekaniği %100 doğrulandı.');
 
 // Test 4: %10 Alet Onarım Parşömeni (scroll_repair)
 console.log('\n[4/4] %10 Alet Onarım Parşömeni (scroll_repair) Test Ediliyor...');
@@ -100,36 +108,54 @@ const initialWoodReserve = ammMarket.pools.wood?.resourceReserve || 0;
 const initialIronReserve = ammMarket.pools.iron?.resourceReserve || 0;
 const initialWheatReserve = ammMarket.pools.wheat?.resourceReserve || 0;
 
+// Odun ile çevir
+const preWood = gs.state.inventory.wood;
 const woodPrice = ammMarket.getPrice('wood') || 1.0;
 const expectedWoodCost = Math.ceil(100 / woodPrice);
-
 const spinWoodRes = gs.spinCarnivalWheel('wood');
 assert(spinWoodRes.success, 'Odun ile çark çevirme başarılı olmalı');
 assert(spinWoodRes.burnedInfo, 'burnedInfo dönmeli');
 assert.equal(spinWoodRes.burnedInfo.resource, 'wood');
 assert.equal(spinWoodRes.burnedInfo.amount, expectedWoodCost);
-const wonWood = (spinWoodRes.slice?.type === 'resource' && spinWoodRes.slice?.resource === 'wood') ? spinWoodRes.slice.amount : 0;
-assert.equal(gs.state.inventory.wood, 5000 - expectedWoodCost + wonWood, 'Envanterden odun tam düşmeli');
+let wonWood = 0;
+if (spinWoodRes.slice?.type === 'resource' && spinWoodRes.slice?.key === 'wood') {
+  wonWood = spinWoodRes.slice.amount;
+} else if (spinWoodRes.slice?.type === 'amm_raw' && spinWoodRes.slice?.key === 'wood') {
+  wonWood = Math.round(spinWoodRes.slice.adaVal / (ammMarket.getPrice('wood') || 1.0));
+}
+assert.equal(gs.state.inventory.wood, preWood - expectedWoodCost + wonWood, 'Envanterden odun tam düşmeli');
 assert.equal(ammMarket.pools.wood.resourceReserve, initialWoodReserve, 'AMM havuz rezervine ASLA odun eklenmemeli, yanmalı');
 assert.equal(gs.state.burnedResources.wood, expectedWoodCost, 'burnedResources.wood kaydedilmeli');
 
 // Demir ile çevir
+const preIron = gs.state.inventory.iron;
 const ironPrice = ammMarket.getPrice('iron') || 1.0;
 const expectedIronCost = Math.ceil(100 / ironPrice);
 const spinIronRes = gs.spinCarnivalWheel('iron');
 assert(spinIronRes.success, 'Demir ile çark çevirme başarılı olmalı');
-const wonIron = (spinIronRes.slice?.type === 'resource' && spinIronRes.slice?.resource === 'iron') ? spinIronRes.slice.amount : 0;
-assert.equal(gs.state.inventory.iron, 5000 - expectedIronCost + wonIron, 'Envanterden demir tam düşmeli');
+let wonIron = 0;
+if (spinIronRes.slice?.type === 'resource' && spinIronRes.slice?.key === 'iron') {
+  wonIron = spinIronRes.slice.amount;
+} else if (spinIronRes.slice?.type === 'amm_raw' && spinIronRes.slice?.key === 'iron') {
+  wonIron = Math.round(spinIronRes.slice.adaVal / (ammMarket.getPrice('iron') || 1.0));
+}
+assert.equal(gs.state.inventory.iron, preIron - expectedIronCost + wonIron, 'Envanterden demir tam düşmeli');
 assert.equal(ammMarket.pools.iron.resourceReserve, initialIronReserve, 'AMM havuz rezervine ASLA demir eklenmemeli, yanmalı');
 assert.equal(gs.state.burnedResources.iron, expectedIronCost, 'burnedResources.iron kaydedilmeli');
 
 // Buğday ile çevir
+const preWheat = gs.state.inventory.wheat;
 const wheatPrice = ammMarket.getPrice('wheat') || 1.0;
 const expectedWheatCost = Math.ceil(100 / wheatPrice);
 const spinWheatRes = gs.spinCarnivalWheel('wheat');
 assert(spinWheatRes.success, 'Buğday ile çark çevirme başarılı olmalı');
-const wonWheat = (spinWheatRes.slice?.type === 'resource' && spinWheatRes.slice?.resource === 'wheat') ? spinWheatRes.slice.amount : 0;
-assert.equal(gs.state.inventory.wheat, 5000 - expectedWheatCost + wonWheat, 'Envanterden buğday tam düşmeli');
+let wonWheat = 0;
+if (spinWheatRes.slice?.type === 'resource' && spinWheatRes.slice?.key === 'wheat') {
+  wonWheat = spinWheatRes.slice.amount;
+} else if (spinWheatRes.slice?.type === 'amm_raw' && spinWheatRes.slice?.key === 'wheat') {
+  wonWheat = Math.round(spinWheatRes.slice.adaVal / (ammMarket.getPrice('wheat') || 1.0));
+}
+assert.equal(gs.state.inventory.wheat, preWheat - expectedWheatCost + wonWheat, 'Envanterden buğday tam düşmeli');
 assert.equal(ammMarket.pools.wheat.resourceReserve, initialWheatReserve, 'AMM havuz rezervine ASLA buğday eklenmemeli, yanmalı');
 assert.equal(gs.state.burnedResources.wheat, expectedWheatCost, 'burnedResources.wheat kaydedilmeli');
 

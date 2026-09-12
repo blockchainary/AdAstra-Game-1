@@ -709,7 +709,7 @@ export const GAME_CONFIG = {
       { id: 'scroll_heal',   name: 'Ordu İyileştirme Parşömeni (+10 HP)', icon: '📜', type: 'scroll', key: 'scroll_heal', amount: 1, valAda: 30, weight: 150 },
       { id: 'ada_50',        name: '50 $ADASTRA Ödül',                icon: '🟣', type: 'ada',      amount: 50,                     valAda: 50,   weight: 100 },
       { id: 'box_key',       name: '1 Pandora Kutusu Anahtarı',       icon: '🔑', type: 'key',      amount: 1,                      valAda: 350,  weight: 24 },
-      { id: 'scroll_stamina',name: 'Stamina Fulleme Parşömeni',       icon: '⚡', type: 'scroll', key: 'scroll_stamina', amount: 1, valAda: 60, weight: 100 },
+      { id: 'scroll_stamina',name: '100 Stamina Doldurma Parşömeni', icon: '⚡', type: 'scroll', key: 'scroll_stamina', amount: 1, valAda: 60, weight: 100 },
       { id: 'scroll_repair', name: '%10 Alet Onarım Parşömeni',       icon: '🔨', type: 'scroll', key: 'scroll_repair', amount: 1, valAda: 50, weight: 120 },
       { id: 'wheel_ticket_shard', name: 'Amorti Çark Bileti (10 Adet = 1 Çevirme)', icon: '🎟️', type: 'ticket_shard', amount: 1,  valAda: 10, weight: 155 },
       { id: 'coin_analysis_code', name: 'AlphAvax Vercel App Özel Coin Analiz Bileti', icon: '🎫', type: 'analysis_code', amount: 1, valAda: 0, weight: 20 }
