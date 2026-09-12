@@ -2097,6 +2097,12 @@ function openTownZoneModal(zoneId, zoneName) {
 
   dom.modalBody.innerHTML = html;
   displayModal();
+
+  if (zoneId === 'carnival' && (window.carnivalActiveTab || 'wheel') === 'wheel') {
+    initCarnivalWheelCanvas();
+    requestAnimationFrame(() => initCarnivalWheelCanvas());
+    setTimeout(() => initCarnivalWheelCanvas(), 60);
+  }
 }
 
 // =========================================================================
@@ -2597,9 +2603,12 @@ const WHEEL_SHORT_LABELS = {
   'coin_analysis_code': 'Coin Analiz'
 };
 
-function drawCarnivalWheel(ctx, angle) {
+function drawCarnivalWheel(ctx, angle = 0) {
   if (!ctx || !ctx.canvas) return;
+  angle = Number(angle) || 0;
   const canvas = ctx.canvas;
+  if (!canvas.width || canvas.width === 0) canvas.width = 460;
+  if (!canvas.height || canvas.height === 0) canvas.height = 460;
   const width = canvas.width;
   const height = canvas.height;
   const cx = width / 2;
@@ -2730,10 +2739,12 @@ function drawCarnivalWheel(ctx, angle) {
 function initCarnivalWheelCanvas() {
   const canvas = document.getElementById('carnival-wheel-canvas');
   if (!canvas) return;
+  if (!canvas.width || canvas.width === 0) canvas.width = 460;
+  if (!canvas.height || canvas.height === 0) canvas.height = 460;
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
-  // Çarkı temel oryantasyonda (0 açısında) 1 kez çiziyoruz
+  // Çarkı temel oryantasyonda (0 açısında) anında çiziyoruz
   drawCarnivalWheel(ctx, 0);
 
   // Mevcut rotasyonu GPU CSS transformu ile uygula
@@ -3343,7 +3354,9 @@ function openCarnivalModal(activeTab = 'wheel') {
   dom.modalBody.innerHTML = renderCarnivalHtml(activeTab);
   displayModal();
   if (activeTab === 'wheel') {
-    setTimeout(() => initCarnivalWheelCanvas(), 50);
+    initCarnivalWheelCanvas();
+    requestAnimationFrame(() => initCarnivalWheelCanvas());
+    setTimeout(() => initCarnivalWheelCanvas(), 60);
   }
 }
 
