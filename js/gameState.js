@@ -1042,9 +1042,13 @@ export class GameStateManager {
     const cycles = Math.max(1, Math.ceil(xp / Math.max(1, xpPerCycle)));
 
     // Bu sefer döngülerinde kazanılan toplam hammadde:
-    const totalWood = cycles * durMin * 18;
-    const totalIron = cycles * durMin * 12;
-    const totalWheat = cycles * durMin * 15;
+    const rateWood = (GAME_CONFIG.BASE_PRODUCTION && GAME_CONFIG.BASE_PRODUCTION.wood) || 18;
+    const rateIron = (GAME_CONFIG.BASE_PRODUCTION && GAME_CONFIG.BASE_PRODUCTION.iron) || 12;
+    const rateWheat = (GAME_CONFIG.BASE_PRODUCTION && GAME_CONFIG.BASE_PRODUCTION.wheat) || 30;
+
+    const totalWood = cycles * durMin * rateWood;
+    const totalIron = cycles * durMin * rateIron;
+    const totalWheat = cycles * durMin * rateWheat;
 
     // Seviye yükseltme maliyeti: Kazanılan kaynakların tam yarısı (%50):
     const wood = Math.round(totalWood / 2);

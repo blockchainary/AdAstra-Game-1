@@ -1526,7 +1526,8 @@ function openTownZoneModal(zoneId, zoneName) {
     const activeExp = state.activeExpeditions.wheat;
     const isSpeedActive = gameState.isBuffActive('speed_wheat');
     const currentDurationMin = gameState.getExpeditionDurationMinutes();
-    const estYield = Math.floor(15 * currentDurationMin * (isSpeedActive ? 1.5 : 1));
+    const wheatRatePm = (GAME_CONFIG.BASE_PRODUCTION && GAME_CONFIG.BASE_PRODUCTION.wheat) || 30;
+    const estYield = Math.floor(wheatRatePm * currentDurationMin * (isSpeedActive ? 1.5 : 1));
 
     html = `
       <div class="clean-card">
@@ -1536,7 +1537,7 @@ function openTownZoneModal(zoneId, zoneName) {
         </div>
         
         <div style="font-size: 0.84rem; color: #94a3b8; margin: 4px 0 10px 0; line-height: 1.4;">
-          ⚡ <strong>Fix Üretim:</strong> 15 Buğday / dakika (900 Buğday/saat) • Her seviyede sabittir.<br>
+          ⚡ <strong>Fix Üretim:</strong> ${wheatRatePm} Buğday / dakika (${wheatRatePm * 60} Buğday/saat) • Her seviyede sabittir.<br>
           📦 <strong>Beklenen Sefer Kazancı:</strong> ~${estYield} Buğday | 🌾 <strong>Aşınma:</strong> -${currentDurationMin} dk
         </div>
 

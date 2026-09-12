@@ -26,7 +26,7 @@ export const GAME_CONFIG = {
   BASE_PRODUCTION: {
     wood: 18,  // 18 Odun / dakika (1.080 Odun / saat) - Fix
     iron: 12,  // 12 Demir / dakika (720 Demir / saat) - Fix
-    wheat: 15  // 15 Buğday / dakika (900 Buğday / saat) - Fix
+    wheat: 30  // 30 Buğday / dakika (1.800 Buğday / saat) - Fix (Haftalık 490k kota ve ordu tüketimiyle uyumlu)
   },
   TAVERN_BOOSTS: {
     short: {
@@ -92,8 +92,8 @@ export const GAME_CONFIG = {
       icon: '🌾',
       color: '#facc15',
       totalCap: 490000, // Haftalık Çıkarım Limiti
-      ratePerMinute: 15,
-      baseYieldPerHour: 900,
+      ratePerMinute: 30,
+      baseYieldPerHour: 1800,
       requiredTool: 'sickle'
     }
   },
