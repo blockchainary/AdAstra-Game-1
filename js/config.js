@@ -779,6 +779,18 @@ export const GAME_CONFIG = {
         'AMM Swap ücreti %1.00 yapıldı; 3 yeni Parşömen likidite havuzu açıldı.',
         '1-Click "Tüm Seferleri Topla" butonu artık bitmemiş seferlerdeki biriken kaynakları da anında topluyor.'
       ]
+    },
+    {
+      version: 'v1.07',
+      title: 'Akıllı Silo Botu, Evrensel Parşömenler & Akıcı Şans Çarkı',
+      date: 'Eylül 2026',
+      changes: [
+        '24s Otomasyon Botu Akıllı Silo Satışı: Piyasaya satış baskısı yapmamak için silodaki malların yarısı yerine, tam bir sonraki döngüde üretilecek miktar + %5 güvenlik marjı kadar minimal satış mekanizması getirildi.',
+        'Evrensel Parşömen Entegrasyonu: Krallık Dashboard (1-Click), Envanter, Kışla Toplu Doyurma & Bireysel Asker Paneli, Zindan Savaş Öncesi Ekranı ve Orman/Maden/Tarla Sefer pencerelerine parşömen varsa anında kullanım ("Parşömen Kullan") seçenekleri eklendi.',
+        'Stamina Parşömeni Dengesi: Parşömen staminayı sınırsız fullemek yerine doğrudan +100 Stamina Doldurma mekaniğine uyarlandı ve tüm arayüzlerde güncellendi.',
+        'GPU Donanım Hızlandırmalı Şans Çarkı: Çark çevrilirken yaşanan kasma ve takılmalar giderildi; saniyede 60 kez CPU canvas çizimi yerine GPU kompozitör dönüşü ve fiziksel ibre salınımıyla 60/120 FPS pürüzsüz akıcılık sağlandı.',
+        'Karnaval Çarkı İlk Açılış & Merkez Arması: Çark ekranı ilk açıldığında oluşan siyah ekran sorunu anında senkron çizimle çözüldü; çarkın merkezine sabit şık altın "🎪 AdAstra" arması eklendi.'
+      ]
     }
   ],
 

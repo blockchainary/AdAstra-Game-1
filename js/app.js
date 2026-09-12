@@ -3366,7 +3366,7 @@ function openChangelogModal() {
   dom.modalBody.innerHTML = `
     <div style="display: flex; flex-direction: column; gap: 12px;">
       <div class="clean-card" style="border-left: 4px solid #38bdf8; background: #0c1929;">
-        <div style="font-size: 1.05rem; font-weight: 800; color: #fff;">📜 Krallık Güncelleme Günlüğü (v1.00 — v1.06)</div>
+        <div style="font-size: 1.05rem; font-weight: 800; color: #fff;">📜 Krallık Güncelleme Günlüğü (v1.00 — ${logs[logs.length - 1]?.version || 'v1.07'})</div>
         <div style="font-size: 0.85rem; color: #94a3b8; margin-top:2px;">
           AdAstra krallığının ilk gününden bugüne kadar devreye alınan tüm sistem mekanikleri, tokenomics kuralları ve sürüm notları.
         </div>
