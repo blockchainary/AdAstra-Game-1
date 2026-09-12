@@ -1952,19 +1952,19 @@ function openTownZoneModal(zoneId, zoneName) {
           <div style="font-weight:800; font-size:0.86rem; color:#fde047; margin-bottom:6px;">📊 24 Saatlik Ekonomik Hesaplama & Saf Kâr Dağılımı:</div>
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; font-size:0.8rem; color:#cbd5e1;">
             <div>🌾 24s Brüt Üretim AMM Değeri:</div>
-            <div style="text-align:right; font-weight:700; color:#4ade80;">+${botCalc.dailyGrossValAda.toLocaleString()} ADA</div>
+            <div style="text-align:right; font-weight:700; color:#4ade80;">+${(botCalc?.dailyGrossValAda || botCalc?.grossRevenueAda || 0).toLocaleString()} ADA</div>
 
             <div>⚡ 24s Stamina Buğday Bedeli:</div>
-            <div style="text-align:right; font-weight:700; color:#f87171;">-${botCalc.dailyStaminaCostAda.toLocaleString()} ADA (${botCalc.dailyWheatNeededForStamina} 🌾)</div>
+            <div style="text-align:right; font-weight:700; color:#f87171;">-${(botCalc?.dailyStaminaCostAda || botCalc?.staminaWheatCostAda || 0).toLocaleString()} ADA (${botCalc?.dailyWheatNeededForStamina || 0} 🌾)</div>
 
             <div>🔨 24s Alet Tamir Masrafı:</div>
-            <div style="text-align:right; font-weight:700; color:#f87171;">-${botCalc.dailyToolRepairAda.toLocaleString()} ADA</div>
+            <div style="text-align:right; font-weight:700; color:#f87171;">-${(botCalc?.dailyToolRepairAda || botCalc?.toolRepairCostAda || 0).toLocaleString()} ADA</div>
 
             <div style="border-top:1px solid rgba(255,255,255,0.1); padding-top:4px; font-weight:800; color:#fff;">💰 24s Net Saf Kâr:</div>
-            <div style="border-top:1px solid rgba(255,255,255,0.1); padding-top:4px; text-align:right; font-weight:800; color:#38bdf8;">+${botCalc.dailyNetProfitAda.toLocaleString()} ADA</div>
+            <div style="border-top:1px solid rgba(255,255,255,0.1); padding-top:4px; text-align:right; font-weight:800; color:#38bdf8;">+${(botCalc?.dailyNetProfitAda || botCalc?.netProfitAda || 0).toLocaleString()} ADA</div>
 
             <div style="font-weight:900; color:#ca8a04;">🤝 Bot Satış Bedeli (%50 Kâr Payı):</div>
-            <div style="text-align:right; font-weight:900; color:#facc15; font-size:0.95rem;">${botCalc.dailyBotCostAda.toLocaleString()} $ADASTRA</div>
+            <div style="text-align:right; font-weight:900; color:#facc15; font-size:0.95rem;">${(botCalc?.dailyBotCostAda || botCalc?.botCostAda || 0).toLocaleString()} $ADASTRA</div>
           </div>
         </div>
 
@@ -1986,7 +1986,7 @@ function openTownZoneModal(zoneId, zoneName) {
             ℹ️ 24 saat dolduğunda hesabınızda yeterli ADA varsa bot anlık market fiyatından otomatik bir 24 saat daha yenilenir; yetersizse durur.
           </div>
           <button id="btn-buy-taverna-bot" class="btn-clean" style="width: auto; background: linear-gradient(135deg, #ca8a04, #eab308); color: #000; font-weight: 900; padding: 10px 20px; box-shadow: 0 4px 14px rgba(234,179,8,0.3);">
-            ${isBotActive ? `⚡ Süreyi 24 Saat Uzat (${botCalc.dailyBotCostAda.toLocaleString()} ADA)` : `🤖 24 Saatlik Botu Başlat (${botCalc.dailyBotCostAda.toLocaleString()} ADA)`}
+            ${isBotActive ? `⚡ Süreyi 24 Saat Uzat (${(botCalc?.dailyBotCostAda || botCalc?.botCostAda || 0).toLocaleString()} ADA)` : `🤖 24 Saatlik Botu Başlat (${(botCalc?.dailyBotCostAda || botCalc?.botCostAda || 0).toLocaleString()} ADA)`}
           </button>
         </div>
       </div>

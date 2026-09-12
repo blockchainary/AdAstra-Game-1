@@ -2230,7 +2230,13 @@ export class GameStateManager {
       staminaWheatCostAda: Math.round(staminaCostPerMinAda * 1440),
       toolRepairCostAda: Math.round(toolCostPerMinAda * 1440),
       netProfitAda: Math.round(netProfit24h),
-      botCostAda
+      botCostAda,
+      dailyGrossValAda: Math.round(grossValuePerMin * 1440),
+      dailyStaminaCostAda: Math.round(staminaCostPerMinAda * 1440),
+      dailyWheatNeededForStamina: Math.round(wheatPerMinForStamina * 1440),
+      dailyToolRepairAda: Math.round(toolCostPerMinAda * 1440),
+      dailyNetProfitAda: Math.round(netProfit24h),
+      dailyBotCostAda: botCostAda
     };
   }
 
