@@ -261,20 +261,28 @@ export class GameStateManager {
     const soldier = (this.state.soldierUnits || [])[soldierIndex];
     if (!soldier) return null;
 
-    const cfg = GAME_CONFIG.SOLDIER_PASSIVE_HEAL;
+    const passiveCfg = GAME_CONFIG.SOLDIER_PASSIVE_HEAL || {};
+    const fastCfg = GAME_CONFIG.SOLDIER_FAST_HEAL || {};
     const maxHp = soldier.maxHp || 100;
     const hp = Math.min(maxHp, Math.max(0, soldier.hp != null ? soldier.hp : maxHp));
     const missingHp = Math.max(0, maxHp - hp);
-    const wheatRate = (GAME_CONFIG.SOLDIER_FAST_HEAL && GAME_CONFIG.SOLDIER_FAST_HEAL.wheatPerHp != null)
-      ? GAME_CONFIG.SOLDIER_FAST_HEAL.wheatPerHp
-      : 0.30;
-    const adaRate = (GAME_CONFIG.SOLDIER_FAST_HEAL && GAME_CONFIG.SOLDIER_FAST_HEAL.adAstraPerHp != null)
-      ? GAME_CONFIG.SOLDIER_FAST_HEAL.adAstraPerHp
-      : 0.10;
-    const wheatNeeded = Math.round(missingHp * wheatRate * 100) / 100;
-    const adaCost = Math.round(missingHp * adaRate * 100) / 100;
-    const secondsRemaining = missingHp > 0 ? Math.ceil((missingHp / maxHp) * cfg.FULL_HEAL_SECONDS) : 0;
+
+    // 18 Saatlik Otomatik Pasif İyileşme Oranları (1 HP = 0.30 Buğday + 0.10 ADA)
+    const passiveWheatRate = passiveCfg.wheatPerHp != null ? passiveCfg.wheatPerHp : 0.30;
+    const passiveAdaRate = passiveCfg.adaPerHp != null ? passiveCfg.adaPerHp : 0.10;
+    const passiveWheatNeeded = Math.round(missingHp * passiveWheatRate * 100) / 100;
+    const passiveAdaCost = Math.round(missingHp * passiveAdaRate * 100) / 100;
+
+    // Hızlı Doldurma Oranları (18 Saatlik Formülün 100 Katı: 1 HP = 30 Buğday + 10 ADA)
+    const fastWheatRate = fastCfg.wheatPerHp != null ? fastCfg.wheatPerHp : 30.0;
+    const fastAdaRate = fastCfg.adAstraPerHp != null ? fastCfg.adAstraPerHp : 10.0;
+    const wheatNeeded = Math.round(missingHp * fastWheatRate * 100) / 100;
+    const adaCost = Math.round(missingHp * fastAdaRate * 100) / 100;
+
+    const fullHealSec = passiveCfg.FULL_HEAL_SECONDS || 64800;
+    const secondsRemaining = missingHp > 0 ? Math.ceil((missingHp / maxHp) * fullHealSec) : 0;
     const wheatInStock = Math.floor(this.state.inventory.wheat || 0);
+    const adaInBalance = Math.floor(this.state.adAstraBalance || 0);
 
     return {
       hp: Math.floor(hp),
@@ -282,22 +290,35 @@ export class GameStateManager {
       missingHp: Math.ceil(missingHp),
       hpPct: Math.floor((hp / maxHp) * 100),
       isFull: missingHp <= 0,
-      isPaused: missingHp > 0 && wheatInStock <= 0,
+      isPaused: missingHp > 0 && (wheatInStock <= 0 || adaInBalance <= 0),
+      // 18 Saatlik Otomatik Pasif İyileşme
+      passiveWheatRate,
+      passiveAdaRate,
+      passiveWheatNeeded,
+      passiveAdaCost,
+      // Hızlı Doyurma (100x)
+      fastWheatRate,
+      fastAdaRate,
       wheatNeeded,
       wheatCost: wheatNeeded,
       adaCost,
       adAstraCost: adaCost,
       secondsRemaining,
-      wheatInStock
+      wheatInStock,
+      adaInBalance
     };
   }
 
-  // Oyun döngüsünün her tikinde (gerçek zaman veya fastForward) 18 askeri deltaSeconds kadar pasif olarak iyileştirir.
-  // KESİNLİKLE ADA harcamaz, sadece depodaki Buğdayı orantılı olarak düşer. Buğday biterse ilgili asker için sessizce durur.
+  // 18 Saatlik Otomatik Pasif Asker İyileşmesi:
+  // Her 1 HP için: 18 saat boyunca toplam 0.30 Buğday + 0.10 ADA tüketerek kendi kendine yavaş yavaş dolar.
   processSoldierPassiveHealing(deltaSeconds) {
     if (!deltaSeconds || deltaSeconds <= 0) return { wheatRanOut: false };
 
-    const cfg = GAME_CONFIG.SOLDIER_PASSIVE_HEAL;
+    const cfg = GAME_CONFIG.SOLDIER_PASSIVE_HEAL || {};
+    const fullHealSec = cfg.FULL_HEAL_SECONDS || 64800; // 18 Saat
+    const wheatPerHp = cfg.wheatPerHp != null ? cfg.wheatPerHp : 0.30;
+    const adaPerHp = cfg.adaPerHp != null ? cfg.adaPerHp : 0.10;
+
     const units = this.state.soldierUnits || [];
     let changed = false;
     let wheatRanOut = false;
@@ -308,24 +329,35 @@ export class GameStateManager {
       if (currentHp >= maxHp) return;
 
       const missingHp = maxHp - currentHp;
-      const hpPerSecond = maxHp / cfg.FULL_HEAL_SECONDS;
+      const hpPerSecond = maxHp / fullHealSec;
       let hpGain = Math.min(missingHp, hpPerSecond * deltaSeconds);
-      let wheatCost = hpGain * cfg.WHEAT_PER_HP;
+      let wheatCost = hpGain * wheatPerHp;
+      let adaCost = hpGain * adaPerHp;
 
       const availableWheat = this.state.inventory.wheat || 0;
-      if (availableWheat <= 0) {
+      const availableAda = this.state.adAstraBalance || 0;
+
+      if (availableWheat <= 0 || availableAda <= 0) {
         wheatRanOut = true;
         return;
       }
 
       if (wheatCost > availableWheat) {
-        hpGain = availableWheat / cfg.WHEAT_PER_HP;
+        hpGain = availableWheat / wheatPerHp;
         wheatCost = availableWheat;
+        adaCost = hpGain * adaPerHp;
         wheatRanOut = true;
+      }
+
+      if (adaCost > availableAda) {
+        hpGain = availableAda / adaPerHp;
+        adaCost = availableAda;
+        wheatCost = hpGain * wheatPerHp;
       }
 
       if (hpGain > 0) {
         this.state.inventory.wheat = Math.max(0, Math.round((availableWheat - wheatCost) * 100) / 100);
+        this.state.adAstraBalance = Math.max(0, Math.round((availableAda - adaCost) * 100) / 100);
         soldier.hp = Math.min(maxHp, Math.round((currentHp + hpGain) * 100) / 100);
         changed = true;
       }

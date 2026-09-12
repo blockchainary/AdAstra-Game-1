@@ -202,11 +202,23 @@ export const GAME_CONFIG = {
   SOLDIER_HEAL_TICK_MINUTES: 18,
   SOLDIER_HEAL_HP_PER_TICK: 1.667,
 
-  // Hızlı Asker Doyurma Kuralı:
-  // Her 1 HP için: 1 dakikada üretilen buğdayın %1'i (30 * 0.01 = 0.30 Buğday) + 0.1 ADA
+  // 18 Saatlik Otomatik Asker Doyurma (Pasif İyileşme) Kuralı:
+  // 18 saat (1080 dk / 64800 sn) içinde asker kendi kendini otomatik iyileştirirken:
+  // Her 1 HP için: 1 dakikada üretilen buğdayın %1'i (30 * 0.01 = 0.30 Buğday) + 0.10 ADA
+  SOLDIER_PASSIVE_HEAL: {
+    FULL_HEAL_SECONDS: 64800,     // 0 HP'den %100 cana kadar tam iyileşme süresi (18 saat)
+    wheatPerHp: 0.30,             // 18 saatte 1 HP başına 0.30 Buğday
+    WHEAT_PER_HP: 0.30,           // Geriye dönük uyumluluk
+    adaPerHp: 0.10,               // 18 saatte 1 HP başına 0.10 ADA
+    ADA_PER_HP: 0.10
+  },
+
+  // Hızlı Asker Doyurma (Instant / Fast Heal) Kuralı:
+  // 18 saatlik otomatik formülün tam 100 katı:
+  // Her 1 HP için: 30 Buğday (0.30 * 100) + 10 ADA (0.10 * 100)
   SOLDIER_FAST_HEAL: {
-    wheatPerHp: 0.30,  // 30 buğday/dk * %1 = 0.30 Buğday
-    adAstraPerHp: 0.10 // 0.1 ADA
+    wheatPerHp: 30.0,             // 18 saatlik formülün 100 katı (30 Buğday / HP)
+    adAstraPerHp: 10.0            // 18 saatlik formülün 100 katı (10 ADA / HP)
   },
 
   // =========================================================================
@@ -224,13 +236,6 @@ export const GAME_CONFIG = {
     upgradeResourceMultiplier: 1.18, // %18 kaynak artışı
     upgradeFragmentMultiplier: 2.0,  // Parça 2 katına çıkar
     zeroDurabilityRestoreRatio: 0.10 // Sıfırlanınca %10 üretim maliyeti
-  },
-  // 🌾 ORDU: OTOMATİK BUĞDAY İLE PASİF İYİLEŞME & ANINDA İYİLEŞTİRME
-  // =========================================================================
-  SOLDIER_PASSIVE_HEAL: {
-    FULL_HEAL_SECONDS: 64800,     // 0 HP'den %100 cana kadar tam iyileşme süresi (18 saat)
-    WHEAT_PER_HP: 0.5,            // Eksik HP başına gereken Buğday (100 HP tam can = 50 Buğday, askerin Max HP'sine göre orantılı)
-    INSTANT_HEAL_ADA_PER_HP: 1.5  // '⚡ Anında Doyur & İyileştir' ile eksik HP başına ekstra $ADASTRA bedeli
   },
 
   // =========================================================================
@@ -765,7 +770,7 @@ export const GAME_CONFIG = {
       title: 'Büyük Krallık Reformu & Karnaval',
       date: 'Eylül 2026',
       changes: [
-        'Tek tip elit asker: "AdAstra Şampiyonu" (Lv.1: 100 HP, 25 ATK) tanımlandı.',
+        'Tek tip elit asker: "AdAstra Şampiyonu" (Lv.1: 100 HP, 25 ATK); 18 saatlik otomatik pasif doyurma (1 HP = 0.30 Buğday + 0.10 ADA) ve 100 katı anında hızlı doyurma (1 HP = 30 Buğday + 10 ADA).',
         'Zindanda Persistent Canavar Canı (kaybedilen savaşta canavarın canı yenilenmez).',
         'Krallık Demircisi "Çantam" kategorik filtreleri, seviye sıralaması ve toplu yükseltme/onarım.',
         'Yeni Teçhizat Craft & Upgrade matematiği (ATK 18 dk, HP 21 dk üretim + AMM ADA + Parça; 13 Dayanıklılık).',

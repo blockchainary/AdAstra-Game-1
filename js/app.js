@@ -2390,15 +2390,15 @@ function renderBarracksHtml() {
 
             <div class="soldier-heal-status-row">
               <span style="color: ${heal.isFull ? '#4ade80' : '#f97316'};">
-                ${heal.isFull ? '✅ Tamamen İyileşti' : `⏳ Tam Can İçin Kalan: ${hh}s ${mm}dk`}
+                ${heal.isFull ? '✅ Tamamen İyileşti' : `⏳ Otomatik Tam Can (18 Saat): ${hh}s ${mm}dk`}
               </span>
-              <span style="color: #94a3b8;">🌾 Gereken Buğday: ${heal.wheatNeeded} Buğday (Depoda: ${heal.wheatInStock})</span>
+              <span style="color: #94a3b8;">🌾 18s Pasif Maliyet: ${heal.passiveWheatNeeded} 🌾 + ${heal.passiveAdaCost} 🟣 ADA</span>
             </div>
 
-            ${heal.isPaused ? `<div class="soldier-heal-badge-warning-full">⚠️ Depoda Yetersiz Buğday! İyileşme Durdu</div>` : ''}
+            ${heal.isPaused ? `<div class="soldier-heal-badge-warning-full">⚠️ Depoda Yetersiz Buğday veya $ADASTRA! Otomatik İyileşme Durdu</div>` : ''}
 
             <button class="btn-clean btn-clean-purple btn-soldier-instant-heal" data-soldier-idx="${actualSelectedIndex}" style="margin-top: 8px;" ${heal.isFull ? 'disabled' : ''}>
-              ${heal.isFull ? '✅ Zaten Tam Can' : `⚡ Hızlı Doyur (${heal.wheatNeeded} 🌾 + ${heal.adaCost} 🟣 ADA)`}
+              ${heal.isFull ? '✅ Zaten Tam Can' : `⚡ Anında Hızlı Doyur (100x: ${heal.wheatNeeded} 🌾 + ${heal.adaCost} 🟣 ADA)`}
             </button>
           </div>`;
           })()}
