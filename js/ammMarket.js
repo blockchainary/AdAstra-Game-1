@@ -52,8 +52,8 @@ function buildDefaultPools() {
     wood:      derivePool('wood',      { name: 'Odun', icon: '🌲' }),
     iron:      derivePool('iron',      { name: 'Demir', icon: '⛏️' }),
     wheat:     derivePool('wheat',     { name: 'Buğday', icon: '🌾' }),
-    fragments: derivePool('fragments', { name: 'Parça', icon: '🧩' }),
-    boxes:     derivePool('boxes',     { name: 'Kilitli Sandık', icon: '📦' }),
+    fragments: derivePool('fragments', { name: 'Teçhizat Parçaları', icon: '🧩' }),
+    boxes:     derivePool('boxes',     { name: 'Pandora Kutusu', icon: '📦' }),
     keys:      derivePool('keys',      { name: 'Arena Anahtarı', icon: '🔑' })
   };
 }
@@ -144,6 +144,36 @@ export class AMMMarketEngine {
     if (!pool || adAstraAmount <= 0) return 0;
     const net = adAstraAmount / (1 + GAME_CONFIG.AMM_FEE_RATE);
     return (pool.resourceReserve * net) / (pool.adAstraReserve + net);
+  }
+
+  // İstenen kaynak paketinin (odun, demir, buğday vb.) AMM DEX pazarındaki anlık toplam $ADASTRA değeri
+  calculateResourcesAdAstraValue(resources = {}) {
+    let totalAda = 0;
+    const breakdown = {};
+    for (const [key, amount] of Object.entries(resources)) {
+      const numAmount = Math.max(0, Number(amount) || 0);
+      if (numAmount <= 0) {
+        breakdown[key] = 0;
+        continue;
+      }
+      let adaVal = 0;
+      if (this.pools && this.pools[key] && this.pools[key].resourceReserve > 0) {
+        adaVal = this.getEstimatedAdAstraForSell(key, numAmount);
+        if (!adaVal || isNaN(adaVal) || adaVal <= 0) {
+          adaVal = numAmount * (this.getPrice(key) || 1.0);
+        }
+      } else {
+        const corridor = this.getCorridor ? this.getCorridor(key) : null;
+        const fallbackPrice = corridor ? corridor.defaultPriceAda : 1.0;
+        adaVal = numAmount * fallbackPrice;
+      }
+      breakdown[key] = Math.round(adaVal * 100) / 100;
+      totalAda += adaVal;
+    }
+    return {
+      totalAda: Math.max(1, Math.round(totalAda)),
+      breakdown
+    };
   }
 
   // İşlem sonrası fiyat ne olur? (koridor kontrolü için)

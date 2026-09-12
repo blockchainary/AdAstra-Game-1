@@ -153,32 +153,37 @@ function baseStats(level) {
   const entry = getDungeonEntry(level);
   const role = roleOf(entry);
   const sq = expectedSquad(level);
-  const rounds = SCALE.TARGET_ROUNDS[role];
-  const loss = SCALE.TARGET_HP_LOSS[role];
+  let rounds = SCALE.TARGET_ROUNDS[role];
+  let loss = SCALE.TARGET_HP_LOSS[role];
+
+  // Kat 3 (Lv.9 Kadim Taş Golyat) ve Kat 6 (Lv.18 Kıyamet Ejderhası IGNIS) çok daha zorlu boss statları:
+  let bossMultiplier = 1.0;
+  if (entry.isBoss) {
+    rounds = level === 18 ? 14.0 : 10.5;
+    loss = level === 18 ? 0.95 : 0.88;
+    bossMultiplier = level === 18 ? 2.6 : 1.85;
+  }
 
   // Canavarın canı: ordunun `rounds` tur boyunca vurabileceği toplam hasar
-  const hp = sq.totalAtk * rounds * SCALE.HP_CALIBRATION;
+  const hp = sq.totalAtk * rounds * SCALE.HP_CALIBRATION * bossMultiplier;
   // Canavarın vuruşu: ordunun aynı sürede hedeflenen oranda can kaybetmesi
   const atkPerRound = (sq.totalHp * loss) / rounds;
   // Tur başına aksiyon sayısına bölünür (boss birden çok kez vurur)
   const actions = actionsFor(entry, sq.count);
-  // Yetenek yükü bölünür: yarma yeteneği olan canavar daha düşük temel
-  // saldırıya sahiptir, çünkü yeteneği o farkı zaten kapatıyor.
-  const atk = (atkPerRound / actions) * SCALE.ATK_CALIBRATION / abilityLoadFactor(entry);
+  const atk = (atkPerRound / actions) * SCALE.ATK_CALIBRATION * (entry.isBoss ? 1.6 : 1.0) / abilityLoadFactor(entry);
 
   return {
     hp: Math.max(60, Math.round(hp)),
     atk: Math.max(8, Math.round(atk)),
-    armor: Math.round(SCALE.ARMOR_BASE + level * SCALE.ARMOR_PER_LEVEL),
+    armor: Math.round((SCALE.ARMOR_BASE + level * SCALE.ARMOR_PER_LEVEL) * (entry.isBoss ? 1.5 : 1.0)),
     speed: Math.round(SCALE.SPEED_BASE + level * SCALE.SPEED_PER_LEVEL)
   };
 }
 
 // Boss'un tur başına aksiyon sayısı, karşısındaki ordunun büyüklüğüne bağlıdır.
-// 18 kişilik orduya karşı tek hamle yapan boss savaş değil, sayı sayma olur.
 function actionsFor(entry, squadSize) {
   const crowd = Math.max(1, squadSize);
-  if (entry.isBoss) return Math.max(2, Math.min(4, Math.round(crowd / 5)));
+  if (entry.isBoss) return Math.max(3, Math.min(5, Math.round(crowd / 4)));
   if (entry.isFloorGuard) return Math.max(1, Math.min(3, Math.round(crowd / 7)));
   return Math.max(1, Math.min(2, Math.round(crowd / 9)));
 }

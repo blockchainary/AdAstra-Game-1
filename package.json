@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --port 5173",
     "build": "vite build",
-    "preview": "vite preview --port 5173"
+    "preview": "vite preview --port 5173",
+    "test": "node tests/test_amm_live_upgrade_cost_bot.mjs && node tests/test_weapon_durability_dungeon.mjs && node tests/test_unlimited_craft_armory.mjs"
   },
   "devDependencies": {
     "playwright": "^1.62.1",

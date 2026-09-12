@@ -11,25 +11,22 @@ export const GAME_CONFIG = {
   STAMINA_COST_PER_LEVEL: 8,
   STAMINA_NATURAL_REGEN_INTERVAL: 150,
   STAMINA_INSTANT_REFILL_ADASTRA_COST: 50,
+  WHEAT_REFILL_RATIO: 0.21,           // 1 Stamina = Dk başı buğday (15) * %21 = 3.15 Buğday
 
   // %22 Yakım — v2: sink kapsamı genişletildiği için oran yükseltildi.
   // Artık asker alımı, AMM ücreti, iyileştirme ve tamir de muhasebeleşiyor (F-06).
   TOKEN_BURN_RATE: 0.22,
   TOKEN_REWARD_POOL_RATE: 0.78,
-  TOOL_REPAIR_RESOURCE_RATIO: 0.18,
 
   // =========================================================================
-  // 📈 MATEMATİKSEL EKONOMİ VE ÜRETİM MODELİ
+  // 📈 MATEMATİKSEL EKONOMİ VE FİX ÜRETİM MODELİ
+  // Seviye arttıkça dakika başına üretim hızı ARTMAZ, sabittir.
+  // Seviye arttıkça sadece sefer süresi uzar (Lv 1: 18 dk -> Lv 81: 72 saat).
   // =========================================================================
   BASE_PRODUCTION: {
-    wood: 18,
-    iron: 12,
-    wheat: 15
-  },
-  GROWTH_FACTORS: {
-    wood: 1.078,
-    iron: 1.082,
-    wheat: 1.080
+    wood: 18,  // 18 Odun / dakika (1.080 Odun / saat) - Fix
+    iron: 12,  // 12 Demir / dakika (720 Demir / saat) - Fix
+    wheat: 15  // 15 Buğday / dakika (900 Buğday / saat) - Fix
   },
   TAVERN_BOOSTS: {
     short: {
@@ -67,7 +64,7 @@ export const GAME_CONFIG = {
   EXPEDITION_MIN_DURATION_MINUTES: 18,     // Seviye 1: 18 Dakika (0.3 Saat)
   EXPEDITION_MAX_DURATION_MINUTES: 4320,   // Seviye 81: 72 Saat (4320 Dakika)
 
-  // Kaynak Alanları (Haftalık Limitler)
+  // Kaynak Alanları (Haftalık Limitler & Fix Üretim Hızları)
   GLOBAL_RESOURCE_CAPS: {
     wood: {
       id: 'wood',
@@ -75,7 +72,8 @@ export const GAME_CONFIG = {
       icon: '🌲',
       color: '#4ade80',
       totalCap: 180000, // Haftalık Çıkarım Limiti
-      baseYieldPerHour: 30,
+      ratePerMinute: 18,
+      baseYieldPerHour: 1080,
       requiredTool: 'axe'
     },
     iron: {
@@ -84,7 +82,8 @@ export const GAME_CONFIG = {
       icon: '⛏️',
       color: '#94a3b8',
       totalCap: 130000, // Haftalık Çıkarım Limiti
-      baseYieldPerHour: 25,
+      ratePerMinute: 12,
+      baseYieldPerHour: 720,
       requiredTool: 'pickaxe'
     },
     wheat: {
@@ -93,39 +92,42 @@ export const GAME_CONFIG = {
       icon: '🌾',
       color: '#facc15',
       totalCap: 490000, // Haftalık Çıkarım Limiti
-      baseYieldPerHour: 50,
+      ratePerMinute: 15,
+      baseYieldPerHour: 900,
       requiredTool: 'sickle'
     }
   },
   
-  // Aletler & Tamir Maliyetleri (Odun + Demir + Buğday + AdAstra)
+  // Aletler & Tamir Maliyetleri (72 saat = 4320 dakika dayanıklılık; dakika başına 1 durability kaybı)
+  // Onarım Kuralı: Dk başı Odun ve Demir üretiminin %25'i / 3 alet + 1 ADA
+  // Balta, Kazma ve Orak için dk başı: 1.5 Odun, 1.0 Demir, 0 Buğday, 1.0 ADA
   TOOLS: {
     axe: {
       id: 'axe',
       name: 'Acemi Baltası',
       icon: '🪓',
-      maxDurability: 100,
-      durabilityLossPerExpedition: 25,
+      maxDurability: 4320, // 72 saat = 4320 dakika
+      durabilityLossPerMinute: 1,
       producedResource: 'wood',
-      fullRepairCost: { wood: 20, iron: 15, wheat: 0, adAstra: 15 }
+      repairCostPerMinute: { wood: 1.5, iron: 1.0, wheat: 0, adAstra: 1.0 }
     },
     pickaxe: {
       id: 'pickaxe',
       name: 'Bronz Kazma',
       icon: '⛏️',
-      maxDurability: 100,
-      durabilityLossPerExpedition: 25,
+      maxDurability: 4320,
+      durabilityLossPerMinute: 1,
       producedResource: 'iron',
-      fullRepairCost: { wood: 10, iron: 25, wheat: 0, adAstra: 15 }
+      repairCostPerMinute: { wood: 1.5, iron: 1.0, wheat: 0, adAstra: 1.0 }
     },
     sickle: {
       id: 'sickle',
       name: 'Demir Orak',
       icon: '🌾',
-      maxDurability: 100,
-      durabilityLossPerExpedition: 25,
+      maxDurability: 4320,
+      durabilityLossPerMinute: 1,
       producedResource: 'wheat',
-      fullRepairCost: { wood: 0, iron: 10, wheat: 5, adAstra: 15 }
+      repairCostPerMinute: { wood: 1.5, iron: 1.0, wheat: 0, adAstra: 1.0 }
     }
   },
 
@@ -183,21 +185,19 @@ export const GAME_CONFIG = {
   // =========================================================================
   // SOLDIER & MILITARY SYSTEM (SOLDIERS)
   // =========================================================================
-  // v2: Sabit 18.000 ADA yerine ARTAN MALİYET EĞRİSİ (F-08 / F-13).
-  // cost(n) = 400 · n^1.85 → 1. asker 400, 6. asker 11.006, 18. asker 84.007 ADA.
-  // Amaç: F2P ilk 48 saatte orduya kavuşsun, 18 kişilik tam kadro uzun vadeli
-  // bir ADA sink'i olsun. Toplam: 573.288 ADA (v1: 324.000 sabit).
-  SOLDIER_PRICE: 400,                 // geriye dönük uyumluluk: 1. askerin fiyatı
-  SOLDIER_COST_BASE: 400,
-  SOLDIER_COST_EXPONENT: 1.85,
-  MAX_SOLDIERS: 18,
+  // 1 asker satın almanın maliyeti 180.000 $ADASTRA (180 bin ADA).
+  // Sınırsız ordu ve her asker alımı sabit 180.000 ADA olarak belirlendi.
+  SOLDIER_PRICE: 180000,              // 1 askerin fiyatı: 180.000 ADA
+  SOLDIER_COST_BASE: 180000,
+  SOLDIER_COST_EXPONENT: 0,           // Sabit 180.000 ADA
+  MAX_SOLDIERS: Infinity,             // Sınırsız ordu ve asker alımı
   SOLDIER_MAX_HP: 100,
   SOLDIER_HEAL_DURATION_MINUTES: 1080,
   SOLDIER_HEAL_TICK_MINUTES: 18,
   SOLDIER_HEAL_HP_PER_TICK: 1.667,
 
   // =========================================================================
-  // 🌾 18 KİŞİLİK ORDU: OTOMATİK BUĞDAY İLE PASİF İYİLEŞME & ANINDA İYİLEŞTİRME
+  // 🌾 ORDU: OTOMATİK BUĞDAY İLE PASİF İYİLEŞME & ANINDA İYİLEŞTİRME
   // =========================================================================
   SOLDIER_PASSIVE_HEAL: {
     FULL_HEAL_SECONDS: 64800,     // 0 HP'den %100 cana kadar tam iyileşme süresi (18 saat)
@@ -206,23 +206,30 @@ export const GAME_CONFIG = {
   },
 
   // =========================================================================
-  // WAREHOUSE STORAGE & UPGRADES
+  // =========================================================================
+  // SİLO / DEPO KAPASİTE & YÜKSELTMELERİ (İSTİFÇİLİK ÖNLEME MODELİ)
+  // Maksimum Seviye: 18
+  // Başlangıç (Lv 1): 1080 Odun, 720 Demir, 900 Buğday
+  // Maksimum (Lv 18): Haftalık havuz tavanının %50'si (90k Odun, 65k Demir, 245k Buğday)
+  // Yükseltme Şartı: Tüm depolar %80 dolu olmak zorunda
+  // Yükseltme Maliyeti: Mevcut kapasitenin yarısı (%50) + Anlık DEX Pazar ADA karşılığı
   // =========================================================================
   WAREHOUSE: {
-    baseLevels: 5,
-    capacities: {
-      1: { iron: 500, wood: 500, wheat: 500 },
-      2: { iron: 1000, wood: 1000, wheat: 1000 },
-      3: { iron: 2000, wood: 2000, wheat: 2000 },
-      4: { iron: 3500, wood: 3500, wheat: 3500 },
-      5: { iron: 5000, wood: 5000, wheat: 5000 }
+    baseLevels: 18,
+    initialCapacities: {
+      wood: 1080,
+      iron: 720,
+      wheat: 900,
+      fragments: 100
     },
-    upgradeCosts: {
-      2: { wood: 100, wheat: 150, iron: 120, adAstra: 300 },
-      3: { wood: 250, wheat: 350, iron: 280, adAstra: 700 },
-      4: { wood: 500, wheat: 700, iron: 600, adAstra: 1500 },
-      5: { wood: 1000, wheat: 1400, iron: 1200, adAstra: 3000 }
-    }
+    maxCapacities: {
+      wood: 90000,
+      iron: 65000,
+      wheat: 245000,
+      fragments: 2500
+    },
+    fillRequirementRatio: 0.80, // %80 Doluluk Şartı
+    costRatio: 0.50             // %50 Kapasite Maliyeti
   },
 
   // =========================================================================
@@ -355,14 +362,14 @@ export const GAME_CONFIG = {
   // GAMEFI & RPG EKONOMİSİ (PHASE 1): ZİNDAN GANİMET ORANLARI
   // =========================================================================
   // Level-scaled drop rates (Lv 1 to Lv 81)
-  FRAGMENT_DROP_MIN: 0.018,       // 1.8% at Lv 1
-  FRAGMENT_DROP_MAX: 0.18,        // 18% at Lv 81
-  BOX_DROP_MIN: 0.000018,         // 0.0018% at Lv 1
-  BOX_DROP_MAX: 0.0018,           // 0.18% at Lv 81
+  FRAGMENT_DROP_MIN: 0.0018,       // 0.18% at Lv 1 (Hesap Lv.1'de %0.18)
+  FRAGMENT_DROP_MAX: 0.18,         // 18.0% at Lv 81 (Hesap Lv.81'de %18 - 100 kat artış)
+  BOX_DROP_MIN: 0.000018,          // 0.0018% at Lv 1 (Hesap Lv.1'de %0.0018)
+  BOX_DROP_MAX: 0.0018,            // 0.18% at Lv 81 (Hesap Lv.81'de %0.18 - 100 kat artış)
   // Koleksiyon Eseri (artifact) keşif olasılığı = ARTIFACT_BASE_RATE * seviye (yalnızca boss canavarlarda)
   ARTIFACT_BASE_RATE: 0.0009,
-  // Boss canavarlarda tüm ganimet oranlarına uygulanan çarpan
-  BOSS_DROP_MULTIPLIER: 6,
+  // Kat 3 ve Kat 6 Bosslarında %100 çarpan etkisi (2.0x - 2 katı düşürme oranı)
+  BOSS_DROP_MULTIPLIER: 2.0,
 
   // 5 Adet Dövülebilir & Geliştirilebilir Ekipman (1 Silah, 1 Miğfer, 1 Zırh, 1 Pantolon, 1 Ayakkabı)
   // Tüm eşyalar 13/13 Durability ile başlar, seviye yükseltilebilir ve bittiğinde tekrar dövülebilir!
@@ -626,29 +633,6 @@ export const GAME_CONFIG = {
     { id: 'legendary', name: 'Efsanevi', color: '#fbbf24', affixCount: 3, tier: 2, weight: 5 }
   ],
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 📜 GÖREV SİSTEMİ — README'de duyurulmuş ama kodda hiç yoktu (F-24)
-  // ═══════════════════════════════════════════════════════════════════════
-  QUESTS: {
-    DAILY_SLOTS: 4,
-    WEEKLY_SLOTS: 3,
-    DAILY: [
-      { id: 'd_claim',    icon: '🌲', name: 'Hasat Zamanı',        desc: '3 sefer tamamla ve topla',        metric: 'expeditionsClaimed', goal: 3,  reward: { ada: 120, seasonPoints: 10 } },
-      { id: 'd_dungeon',  icon: '💀', name: 'Zindan Devriyesi',    desc: '2 zindan koşusu tamamla',         metric: 'dungeonRuns',        goal: 2,  reward: { ada: 180, fragments: 2, seasonPoints: 15 } },
-      { id: 'd_arena',    icon: '🏟️', name: 'Arena Çağrısı',       desc: '3 kolezyum düellosu yap',         metric: 'arenaMatches',       goal: 3,  reward: { ada: 150, keys: 1, seasonPoints: 15 } },
-      { id: 'd_repair',   icon: '🔨', name: 'Usta Demirci',        desc: '2 alet veya ekipman onar',        metric: 'repairs',            goal: 2,  reward: { ada: 90,  seasonPoints: 8 } },
-      { id: 'd_trade',    icon: '🏪', name: 'Tüccar Ruhu',         desc: 'AMM pazarında 1 işlem yap',       metric: 'trades',             goal: 1,  reward: { ada: 100, seasonPoints: 10 } },
-      { id: 'd_heal',     icon: '🌾', name: 'Sahra Revizi',        desc: '3 askeri tam cana getir',         metric: 'soldiersHealed',     goal: 3,  reward: { ada: 110, seasonPoints: 10 } },
-      { id: 'd_upgrade',  icon: '✨', name: 'Güç Artışı',          desc: '1 ekipman seviyesi yükselt',      metric: 'equipmentUpgrades',  goal: 1,  reward: { ada: 200, seasonPoints: 18 } }
-    ],
-    WEEKLY: [
-      { id: 'w_boss',     icon: '🌋', name: 'Behemoth Avcısı',     desc: 'World Boss savaşına ordunu kilitle', metric: 'bossStakes',      goal: 1,  reward: { ada: 900,  seasonPoints: 80 } },
-      { id: 'w_dungeon',  icon: '🗺️', name: 'Derinlere İniş',      desc: '15 zindan koşusu tamamla',        metric: 'dungeonRuns',        goal: 15, reward: { ada: 1400, boxes: 1, seasonPoints: 100 } },
-      { id: 'w_arena',    icon: '⚔️', name: 'Gladyatör Yolu',      desc: '20 arena düellosu kazan',         metric: 'arenaWins',          goal: 20, reward: { ada: 1800, keys: 3, seasonPoints: 120 } },
-      { id: 'w_craft',    icon: '🔮', name: 'Kadim Zanaat',        desc: '3 ekipman döv veya yükselt',      metric: 'craftsOrUpgrades',   goal: 3,  reward: { ada: 1100, fragments: 8, seasonPoints: 90 } },
-      { id: 'w_harvest',  icon: '📦', name: 'Ambar Dolusu',        desc: '25 sefer topla',                  metric: 'expeditionsClaimed', goal: 25, reward: { ada: 1000, seasonPoints: 85 } }
-    ]
-  },
 
   // 60 günlük sezon: ücretsiz şerit herkese, premium şerit ADA ile.
   // F2P/P2E dengesinin en temiz kaldıracı — para EKSTRA alır, ZORUNLU değil.
@@ -683,9 +667,9 @@ export const GAME_CONFIG = {
       fragments: 0
     },
     tools: {
-      axe: { durability: 100, totalGathered: 0 },
-      pickaxe: { durability: 100, totalGathered: 0 },
-      sickle: { durability: 100, totalGathered: 0 }
+      axe: { durability: 4320, totalGathered: 0 },
+      pickaxe: { durability: 4320, totalGathered: 0 },
+      sickle: { durability: 4320, totalGathered: 0 }
     },
     army: {
       infantry: 2,

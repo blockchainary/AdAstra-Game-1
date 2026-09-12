@@ -243,22 +243,6 @@ export class GrandTownScene extends Phaser.Scene {
       const zoneCircle = this.add.circle(cx, cy, radius, 0x000000, 0)
         .setInteractive({ useHandCursor: true });
 
-      // 🏷️ 60+ Yaş Yaşlı Dostu Görsel Bina Etiketi (Harita Üzerinde Belirgin Kapsül)
-      const shortTitle = def.name.split('&')[0].trim();
-      const badgeBg = this.add.rectangle(cx, cy + radius * 0.4, 110, 24, 0x0f172a, 0.78)
-        .setStrokeStyle(1.5, Phaser.Display.Color.HexStringToColor(def.colorHex).color, 0.8)
-        .setDepth(10);
-      const badgeText = this.add.text(cx, cy + radius * 0.4, shortTitle, {
-        fontFamily: 'Cinzel, Inter, sans-serif',
-        fontSize: '11px',
-        fontStyle: 'bold',
-        color: '#ffffff',
-        align: 'center'
-      }).setOrigin(0.5).setDepth(11);
-
-      this.zones.push(badgeBg);
-      this.zones.push(badgeText);
-
       const isAnyModalActive = () => {
         const rpgModal = document.getElementById('rpg-modal');
         const devModal = document.getElementById('dev-modal');

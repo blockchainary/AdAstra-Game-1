@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { GameStateManager } from './js/gameState.js';
-import { GAME_CONFIG } from './js/config.js';
+import { GameStateManager } from '../js/gameState.js';
+import { GAME_CONFIG } from '../js/config.js';
 
 console.log('--- 🧪 ZİNDAN SİLAH DAYANIKLILIĞI (DURABILITY) DOĞRULAMA TESTİ BAŞLATILIYOR ---');
 
@@ -15,7 +15,7 @@ globalThis.localStorage = {
 
 // 1. Yeni bir gameState oluştur
 const gs = new GameStateManager();
-gs.state.adAstraBalance = 100000;
+gs.state.adAstraBalance = 500000;
 gs.state.inventory = { iron: 500, wood: 500, wheat: 500, fragments: 50 };
 
 // 2. Asker satın al

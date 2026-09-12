@@ -67,7 +67,7 @@ const PAGES = [
     levels: [
       { level: 7, name: 'Karanlık Tarikatçı', icon: '🧙‍♂️', hp: 1800, atk: 185, rewardAdAstra: 175, rewardXp: 400, color: 0x22c55e },
       { level: 8, name: 'Cehennem Tazısı', icon: '🐺', hp: 2200, atk: 215, rewardAdAstra: 210, rewardXp: 480, color: 0x06b6d4 },
-      { level: 9, name: 'Kadim Taş Golyat', icon: '🗿', hp: 3500, atk: 280, rewardAdAstra: 400, rewardXp: 900, color: 0xef4444, isBoss: true, bossLabel: 'ARA BOSS' }
+      { level: 9, name: 'Kadim Taş Golyat', icon: '🗿', hp: 9500, atk: 520, rewardAdAstra: 800, rewardXp: 1800, color: 0xef4444, isBoss: true, bossLabel: 'ARA BOSS' }
     ]
   },
   // 4. KAT: LANETLİ FİRAVUN MEZARI & HAYALETLER
@@ -99,7 +99,10 @@ const PAGES = [
       { px: 0.490, py: 0.865, bw: 0.250, bh: 0.078 },
       { px: 0.775, py: 0.865, bw: 0.250, bh: 0.078 }
     ],
-    portal: { px: 0.806, py: 0.576, bw: 0.180, bh: 0.090 },
+    portal: [
+      { px: 0.945, py: 0.865, bw: 0.115, bh: 0.085 }, // Floor 6 Taş Butonu
+      { px: 0.955, py: 0.460, bw: 0.090, bh: 0.220 }  // Sağdaki Lav Portal Kapısı
+    ],
     levels: [
       { level: 13, name: 'Ateş İblisleri', icon: '😈', hp: 4200, atk: 330, rewardAdAstra: 380, rewardXp: 800, color: 0x22c55e },
       { level: 14, name: 'Lav Elementalleri', icon: '🌋', hp: 4700, atk: 360, rewardAdAstra: 420, rewardXp: 880, color: 0x06b6d4 },
@@ -121,7 +124,7 @@ const PAGES = [
     levels: [
       { level: 16, name: 'Kıyamet Şövalyesi', icon: '🛡️', hp: 6000, atk: 430, rewardAdAstra: 550, rewardXp: 1100, color: 0x22c55e },
       { level: 17, name: 'Kadim Gölge Lordu', icon: '👁️', hp: 7000, atk: 470, rewardAdAstra: 650, rewardXp: 1300, color: 0x06b6d4 },
-      { level: 18, name: 'Kıyamet Ejderhası IGNIS', icon: '🐉', hp: 12000, atk: 600, rewardAdAstra: 1500, rewardXp: 3000, color: 0xef4444, isBoss: true, bossLabel: 'BÜYÜK BOSS' }
+      { level: 18, name: 'Kıyamet Ejderhası IGNIS', icon: '🐉', hp: 38000, atk: 1250, rewardAdAstra: 3000, rewardXp: 6000, color: 0xef4444, isBoss: true, bossLabel: 'BÜYÜK BOSS' }
     ]
   }
 ];
@@ -270,12 +273,15 @@ export class DungeonScene extends Phaser.Scene {
 
     // Sonraki Kat Portalı (Sağ Alttaki Taş Levha & Portal)
     if (page.portal) {
-      this.createNextPortal({
-        x: page.portal.px * w,
-        y: page.portal.py * h,
-        bw: page.portal.bw * w,
-        bh: page.portal.bh * h
-      }, pageIndex);
+      const portalList = Array.isArray(page.portal) ? page.portal : [page.portal];
+      portalList.forEach(p => {
+        this.createNextPortal({
+          x: p.px * w,
+          y: p.py * h,
+          bw: p.bw * w,
+          bh: p.bh * h
+        }, pageIndex);
+      });
     }
   }
 
@@ -372,7 +378,8 @@ export class DungeonScene extends Phaser.Scene {
         subEl.textContent = 'Tıkla ve Sonraki Kata Işınlan';
         tooltipEl.classList.remove('hidden');
         tooltipEl.classList.add('visible');
-        tooltipEl.style.left = `${pointer.x}px`;
+        const posX = Math.min(window.innerWidth - 130, Math.max(130, pointer.x));
+        tooltipEl.style.left = `${posX}px`;
         tooltipEl.style.top = `${pointer.y - 45}px`;
       }
     });
@@ -380,7 +387,8 @@ export class DungeonScene extends Phaser.Scene {
     portalZone.on('pointermove', (pointer) => {
       const tooltipEl = document.getElementById('realm-hover-tooltip');
       if (tooltipEl && tooltipEl.classList.contains('visible')) {
-        tooltipEl.style.left = `${pointer.x}px`;
+        const posX = Math.min(window.innerWidth - 130, Math.max(130, pointer.x));
+        tooltipEl.style.left = `${posX}px`;
         tooltipEl.style.top = `${pointer.y - 45}px`;
       }
     });

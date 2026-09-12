@@ -271,42 +271,6 @@ function renderRealmSidebar(state, maxStamina, staminaInt) {
     dom.sidebarAvaxBalance.innerText = (state.avaxBalance || 250).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
-  // 1.5 ⭐ Günün 3 Görevi Render
-  const dailyQuestsEl = document.getElementById('sidebar-daily-quests-list');
-  if (dailyQuestsEl) {
-    const quests = gameState.getDailyQuests();
-    dailyQuestsEl.innerHTML = quests.map(q => {
-      const isDone = q.completed;
-      const isClaimed = q.claimed;
-
-      return `
-        <div style="background: rgba(0,0,0,0.35); border: 1px solid ${isDone ? '#ca8a04' : 'rgba(255,255,255,0.08)'}; border-radius: 8px; padding: 6px 8px; display: flex; justify-content: space-between; align-items: center; gap: 6px;">
-          <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
-            <span style="font-size: 1.1rem;">${q.icon}</span>
-            <div style="min-width: 0;">
-              <div style="font-weight: 800; font-size: 0.75rem; color: ${isDone ? '#facc15' : '#fff'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                ${q.title}
-              </div>
-              <div style="font-size: 0.65rem; color: #94a3b8;">
-                +${q.rewardAda} ADA • +${q.rewardXp} XP
-              </div>
-            </div>
-          </div>
-          <div>
-            ${isClaimed ? `
-              <span style="font-size: 0.65rem; color: #4ade80; font-weight: 800; background: rgba(34,197,94,0.15); padding: 2px 6px; border-radius: 4px;">✅ ALINDI</span>
-            ` : isDone ? `
-              <button class="btn-claim-daily-quest" data-qid="${q.id}" style="background: #16a34a; border: 1px solid #4ade80; color: #fff; font-size: 0.68rem; font-weight: 800; padding: 3px 8px; border-radius: 6px; cursor: pointer;">
-                🎁 AL
-              </button>
-            ` : `
-              <span style="font-size: 0.65rem; color: #94a3b8; font-weight: 700; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px;">${q.current}/${q.target}</span>
-            `}
-          </div>
-        </div>
-      `;
-    }).join('');
-  }
 
   // 2. Aktif Seferler
   renderExpeditionTracker('iron', dom.expFillIron, dom.expTimeIron);
@@ -605,7 +569,7 @@ function openEconomyDashboardModal(tab = economyActiveTab) {
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
               <div style="font-size: 0.95rem; font-weight: 800; color: #facc15;">🌾 Buğday Biyolojik Tüketim Oranı (Σ ≥ 1.00)</div>
-              <div style="font-size: 0.78rem; color: #94a3b8;">18 Askerin 18 dakikada bir iyileşmesi ve stamina doldurma tüketimi.</div>
+              <div style="font-size: 0.78rem; color: #94a3b8;">Ordunun 18 dakikada bir iyileşmesi ve stamina doldurma tüketimi.</div>
             </div>
             <span class="card-badge" style="color: #22c55e; font-size: 0.95rem;">${metrics.sigmaWheat} (Dengede)</span>
           </div>
@@ -698,7 +662,7 @@ function openEconomyDashboardModal(tab = economyActiveTab) {
 // =========================================================================
 function openWarehouseModal() {
   const state = gameState.state;
-  dom.modalTitle.innerHTML = `<span>📦</span> <span>KRALLIK DEPOSU & SİLO KAPASİTE YÖNETİMİ</span>`;
+  dom.modalTitle.innerHTML = `<span>📦</span> <span>KRALLIK SİLO & DEPO YÖNETİMİ</span>`;
 
   const wood = state.inventory.wood || 0;
   const iron = state.inventory.iron || 0;
@@ -706,28 +670,74 @@ function openWarehouseModal() {
   const adAstra = state.adAstraBalance || 0;
 
   const cap = gameState.getWarehouseCapacity();
-  const canUpgrade = state.warehouseLevel < GAME_CONFIG.WAREHOUSE.baseLevels;
-  const nextCost = canUpgrade ? GAME_CONFIG.WAREHOUSE.upgradeCosts[state.warehouseLevel + 1] : null;
+  const cost = gameState.getWarehouseUpgradeCost();
 
-  let upgradeBtn = '';
-  if (canUpgrade && nextCost) {
-    const canAfford = wood >= nextCost.wood && iron >= nextCost.iron && wheat >= nextCost.wheat && adAstra >= nextCost.adAstra;
-    upgradeBtn = `
-      <div style="background: #140e08; padding: 12px; border-radius: 8px; border: 1px solid #583007; margin-top: 12px;">
-        <div style="color: #cbd5e1; font-weight: 700; margin-bottom: 8px;">Seviye ${state.warehouseLevel + 1} Yükseltme Maliyeti:</div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.88rem;">
-          <div style="color: ${wood >= nextCost.wood ? '#4ade80' : '#f87171'}; font-weight: 700;">🌲 ${wood}/${nextCost.wood} Odun</div>
-          <div style="color: ${iron >= nextCost.iron ? '#4ade80' : '#f87171'}; font-weight: 700;">⛏️ ${iron}/${nextCost.iron} Demir</div>
-          <div style="color: ${wheat >= nextCost.wheat ? '#4ade80' : '#f87171'}; font-weight: 700;">🌾 ${wheat}/${nextCost.wheat} Buğday</div>
-          <div style="color: ${adAstra >= nextCost.adAstra ? '#4ade80' : '#f87171'}; font-weight: 700;">🟣 ${adAstra.toFixed(1)}/${nextCost.adAstra} $ADASTRA</div>
+  let upgradeSection = '';
+  if (cost) {
+    const is80 = cost.is80PercentFull;
+    const canAfford = cost.canAffordCost;
+
+    let buttonHtml = '';
+    if (!is80) {
+      buttonHtml = `
+        <button id="btn-modal-upgrade-warehouse" class="btn-clean" disabled style="margin-top: 12px; width: 100%; font-size: 0.95rem; padding: 13px; font-weight: 800; background: #3b1404; color: #f59e0b; border: 1px solid #78350f; cursor: not-allowed;">
+          ⚠️ TÜM KAYNAK DEPOLARI EN AZ %80 DOLU OLMALIDIR
+        </button>
+      `;
+    } else if (!canAfford) {
+      buttonHtml = `
+        <button id="btn-modal-upgrade-warehouse" class="btn-clean" disabled style="margin-top: 12px; width: 100%; font-size: 0.95rem; padding: 13px; font-weight: 800; background: #450a0a; color: #f87171; border: 1px solid #7f1d1d; cursor: not-allowed;">
+          ⚠️ YETERSİZ KAYNAK VEYA $ADASTRA BAKİYESİ
+        </button>
+      `;
+    } else {
+      buttonHtml = `
+        <button id="btn-modal-upgrade-warehouse" class="btn-clean btn-clean-green" style="margin-top: 12px; width: 100%; font-size: 1.05rem; padding: 13px; font-weight: 800;">
+          🔨 SİLOYU SEVİYE ${cost.nextLevel}'E YÜKSELT
+        </button>
+      `;
+    }
+
+    upgradeSection = `
+      <!-- %80 Doluluk Ön Koşulu -->
+      <div style="background: #140e08; padding: 12px; border-radius: 8px; border: 1px solid ${is80 ? '#22c55e' : '#f59e0b'}; margin-top: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span style="color: #fde047; font-weight: 800; font-size: 0.9rem;">📋 Yükseltme Ön Koşulu: En Az %80 Doluluk</span>
+          <span style="font-size: 0.8rem; font-weight: 700; color: ${is80 ? '#4ade80' : '#f59e0b'};">${is80 ? '✅ KOŞUL SAĞLANDI' : '⚠️ DOLULUK BEKLENİYOR'}</span>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; font-size: 0.82rem;">
+          <div style="color: ${cost.isWood80 ? '#4ade80' : '#f87171'}; font-weight: 700;">🌲 ${wood.toFixed(0)}/${cost.reqWoodFill} (%80) ${cost.isWood80 ? '✅' : '❌'}</div>
+          <div style="color: ${cost.isIron80 ? '#4ade80' : '#f87171'}; font-weight: 700;">⛏️ ${iron.toFixed(0)}/${cost.reqIronFill} (%80) ${cost.isIron80 ? '✅' : '❌'}</div>
+          <div style="color: ${cost.isWheat80 ? '#4ade80' : '#f87171'}; font-weight: 700;">🌾 ${wheat.toFixed(0)}/${cost.reqWheatFill} (%80) ${cost.isWheat80 ? '✅' : '❌'}</div>
         </div>
       </div>
-      <button id="btn-modal-upgrade-warehouse" class="btn-clean btn-clean-green" style="margin-top: 12px; width: 100%; font-size: 1.05rem; padding: 13px; font-weight: 800;" ${canAfford ? '' : 'disabled'}>
-        🔨 SEVİYE ${state.warehouseLevel + 1}'E YÜKSELT
-      </button>
+
+      <!-- Yükseltme Maliyeti (Kapasitenin %50'si + Anlık DEX Pazar ADA Değeri) -->
+      <div style="background: #140e08; padding: 12px; border-radius: 8px; border: 1px solid #583007; margin-top: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span style="color: #cbd5e1; font-weight: 800; font-size: 0.9rem;">Seviye ${cost.nextLevel} Yükseltme Maliyeti:</span>
+          <span style="font-size: 0.74rem; color: #a78bfa; background: #2e1065; padding: 2px 8px; border-radius: 6px; border: 1px solid #7c3aed; font-weight: 700;">
+            🤖 AMM DEX Canlı Bot: Anlık Değer
+          </span>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.88rem;">
+          <div style="color: ${wood >= cost.wood ? '#4ade80' : '#f87171'}; font-weight: 700;">🌲 ${wood.toFixed(0)}/${cost.wood} Odun</div>
+          <div style="color: ${iron >= cost.iron ? '#4ade80' : '#f87171'}; font-weight: 700;">⛏️ ${iron.toFixed(0)}/${cost.iron} Demir</div>
+          <div style="color: ${wheat >= cost.wheat ? '#4ade80' : '#f87171'}; font-weight: 700;">🌾 ${wheat.toFixed(0)}/${cost.wheat} Buğday</div>
+          <div style="color: ${adAstra >= cost.adAstra ? '#4ade80' : '#f87171'}; font-weight: 700;" id="live-warehouse-ada-cost">
+            🟣 <span id="val-warehouse-ada-cur">${adAstra.toFixed(1)}</span> / <span id="val-warehouse-ada-req">${cost.adAstra.toLocaleString('tr-TR')}</span> $ADASTRA
+          </div>
+        </div>
+        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #3e2205; font-size: 0.78rem; color: #94a3b8; display: flex; justify-content: space-between; align-items: center;">
+          <span>Yeni Kapasiteler (Lv.${cost.nextLevel}): <strong style="color: #fde047;">🌲 ${cost.nextCap.wood} | ⛏️ ${cost.nextCap.iron} | 🌾 ${cost.nextCap.wheat}</strong></span>
+          <span style="color: #a78bfa; font-size: 0.74rem;">⚡ Saniye başı AMM güncellenir</span>
+        </div>
+      </div>
+
+      ${buttonHtml}
     `;
   } else {
-    upgradeBtn = `<div style="text-align: center; color: #facc15; margin-top: 12px; font-weight: 800; font-size: 0.95rem;">✅ Maksimum Depo Seviyesine Ulaşıldı (Seviye 10 Master)</div>`;
+    upgradeSection = `<div style="text-align: center; color: #facc15; margin-top: 12px; font-weight: 800; font-size: 0.95rem;">✅ Maksimum Silo Seviyesine Ulaşıldı (Seviye 18 Master - 90k🌲 / 65k⛏️ / 245k🌾)</div>`;
   }
 
   dom.modalBody.innerHTML = `
@@ -738,42 +748,42 @@ function openWarehouseModal() {
       </div>
       
       <div class="clean-desc" style="margin-bottom: 12px;">
-        Depo seviyeni yükselterek Demir, Odun ve Buğday maks stok kapasitelerini artırabilir ve krallık üretimini büyütebilirsin.
+        Depo seviyeni yükselterek Odun, Demir ve Buğday maks stok kapasitelerini artırabilirsin. Siloyu yükseltmek için <strong>tüm depolar en az %80 dolu</strong> olmalı ve kapasitenin <strong>%50'si + anlık pazar değeri kadar ADA</strong> harcanır.
       </div>
 
       <div class="inv-grid" style="gap: 10px; margin-top: 8px;">
         <div style="background: #140e08; padding: 12px; border-radius: 8px; border: 1px solid #583007;">
-          <div style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 6px; font-weight: 700;">⛏️ Demir Stok Durumu</div>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <div style="flex: 1; height: 18px; background: #0c0604; border-radius: 4px; border: 1px solid #583007; overflow: hidden;">
-              <div style="height: 100%; background: #94a3b8; width: ${Math.min(100, (iron / cap.iron) * 100)}%;"></div>
-            </div>
-            <span style="font-weight: 800; color: #94a3b8; min-width: 70px; text-align: right;">${iron}/${cap.iron}</span>
-          </div>
-        </div>
-
-        <div style="background: #140e08; padding: 12px; border-radius: 8px; border: 1px solid #583007;">
-          <div style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 6px; font-weight: 700;">🌲 Odun Stok Durumu</div>
+          <div style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 6px; font-weight: 700;">🌲 Odun Silosu (%${Math.round((wood / cap.wood) * 100)})</div>
           <div style="display: flex; align-items: center; gap: 8px;">
             <div style="flex: 1; height: 18px; background: #0c0604; border-radius: 4px; border: 1px solid #583007; overflow: hidden;">
               <div style="height: 100%; background: #4ade80; width: ${Math.min(100, (wood / cap.wood) * 100)}%;"></div>
             </div>
-            <span style="font-weight: 800; color: #4ade80; min-width: 70px; text-align: right;">${wood}/${cap.wood}</span>
+            <span style="font-weight: 800; color: #4ade80; min-width: 80px; text-align: right;">${wood.toFixed(0)}/${cap.wood}</span>
           </div>
         </div>
 
         <div style="background: #140e08; padding: 12px; border-radius: 8px; border: 1px solid #583007;">
-          <div style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 6px; font-weight: 700;">🌾 Buğday Stok Durumu</div>
+          <div style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 6px; font-weight: 700;">⛏️ Demir Silosu (%${Math.round((iron / cap.iron) * 100)})</div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="flex: 1; height: 18px; background: #0c0604; border-radius: 4px; border: 1px solid #583007; overflow: hidden;">
+              <div style="height: 100%; background: #94a3b8; width: ${Math.min(100, (iron / cap.iron) * 100)}%;"></div>
+            </div>
+            <span style="font-weight: 800; color: #94a3b8; min-width: 80px; text-align: right;">${iron.toFixed(0)}/${cap.iron}</span>
+          </div>
+        </div>
+
+        <div style="background: #140e08; padding: 12px; border-radius: 8px; border: 1px solid #583007;">
+          <div style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 6px; font-weight: 700;">🌾 Buğday Silosu (%${Math.round((wheat / cap.wheat) * 100)})</div>
           <div style="display: flex; align-items: center; gap: 8px;">
             <div style="flex: 1; height: 18px; background: #0c0604; border-radius: 4px; border: 1px solid #583007; overflow: hidden;">
               <div style="height: 100%; background: #facc15; width: ${Math.min(100, (wheat / cap.wheat) * 100)}%;"></div>
             </div>
-            <span style="font-weight: 800; color: #facc15; min-width: 70px; text-align: right;">${wheat}/${cap.wheat}</span>
+            <span style="font-weight: 800; color: #facc15; min-width: 80px; text-align: right;">${wheat.toFixed(0)}/${cap.wheat}</span>
           </div>
         </div>
       </div>
 
-      ${upgradeBtn}
+      ${upgradeSection}
     </div>
   `;
 
@@ -797,9 +807,9 @@ function openInventoryModal() {
   const pickaxeCost = gameState.calculateRepairCost('pickaxe') || { woodCost: 0, ironCost: 0, adAstraCost: 0, missingDurability: 0 };
   const sickleCost = gameState.calculateRepairCost('sickle') || { woodCost: 0, ironCost: 0, adAstraCost: 0, missingDurability: 0 };
 
-  const axe = state.tools.axe || { durability: 100 };
-  const pickaxe = state.tools.pickaxe || { durability: 100 };
-  const sickle = state.tools.sickle || { durability: 100 };
+  const axe = state.tools.axe || { durability: 4320 };
+  const pickaxe = state.tools.pickaxe || { durability: 4320 };
+  const sickle = state.tools.sickle || { durability: 4320 };
 
   dom.modalBody.innerHTML = `
     <!-- Karakter Seviye Atlama Kartı -->
@@ -820,16 +830,22 @@ function openInventoryModal() {
           <span style="color: ${state.currentXp >= req.xp ? '#4ade80' : '#f87171'};">${state.currentXp} / ${req.xp} XP</span>
         </div>
         
-        <div style="font-size: 0.85rem; font-weight: 700; color: #cbd5e1; margin-top: 4px;">Gereken Hammadde & Token:</div>
+        <div style="font-size: 0.85rem; font-weight: 700; color: #cbd5e1; margin-top: 4px; display: flex; justify-content: space-between; align-items: center;">
+          <span>Gereken Hammadde & Token:</span>
+          <span style="font-size: 0.74rem; color: #a78bfa; background: #2e1065; padding: 2px 7px; border-radius: 6px; border: 1px solid #7c3aed; font-weight: 700;">🤖 AMM DEX Canlı Bot</span>
+        </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 0.82rem; font-weight: 600;">
           <div style="color: ${wood >= req.wood ? '#4ade80' : '#f87171'};">🌲 ${wood}/${req.wood} Odun</div>
           <div style="color: ${iron >= req.iron ? '#4ade80' : '#f87171'};">⛏️ ${iron}/${req.iron} Demir</div>
           <div style="color: ${wheat >= req.wheat ? '#4ade80' : '#f87171'};">🌾 ${wheat}/${req.wheat} Buğday</div>
+          <div style="color: ${adAstra >= req.adAstra ? '#4ade80' : '#f87171'};" id="live-levelup-ada-box">
+            🟣 <span id="val-levelup-ada-cur">${adAstra.toFixed(1)}</span> / <span id="val-levelup-ada-req">${req.adAstra.toLocaleString('tr-TR')}</span> ADA
+          </div>
         </div>
         
-        <div style="display: flex; justify-content: space-between; font-size: 0.88rem; font-weight: 700; margin-top: 2px;">
-          <span style="color: #c084fc;">🟣 AdAstra:</span>
-          <span style="color: ${adAstra >= req.adAstra ? '#4ade80' : '#f87171'};">${adAstra.toFixed(1)} / ${req.adAstra} ADA</span>
+        <div style="font-size: 0.74rem; color: #94a3b8; margin-top: 2px; border-top: 1px dashed #3e2205; padding-top: 5px; display: flex; justify-content: space-between; align-items: center;">
+          <span>💡 Ekstra ADA bedeli, istenen odun/demir/buğdayın DEX pazar değeridir.</span>
+          <span style="color: #a78bfa; font-size: 0.72rem;">⚡ Canlı Bot Aktif</span>
         </div>
       </div>
 
@@ -845,11 +861,14 @@ function openInventoryModal() {
         <span class="card-badge" style="color: #38bdf8;">${Math.floor(state.stamina)} / ${maxStamina} ⚡</span>
       </div>
       <div class="clean-desc">
-        Seviye atlandıkça maksimum stamina artar. Sefer süresi uzadıkça harcanan stamina da artar. Depodaki buğdayları fırınlayarak veya tavernadan ziyafet sofrasıyla staminanı doldurabilirsin.
+        Seviye atlandıkça maksimum stamina artar. 1 Stamina doldurmak için dakikada çıkarılan buğdayın %21'i (3.15 Buğday) tüketilir. Depodaki buğday ile staminanı hemen yenileyebilirsin.
       </div>
-      <div style="margin-top: 8px;">
-        <button id="btn-wheat-stamina-refill" class="btn-clean btn-clean-gold" style="font-size: 0.88rem; padding: 10px;" ${wheat < 20 || state.stamina >= maxStamina ? 'disabled' : ''}>
-          🍞 20 Buğday Tüket (+25 ⚡ Stamina Doldur)
+      <div style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px;">
+        <button id="btn-wheat-stamina-refill" class="btn-clean btn-clean-outline" style="flex: 1; min-width: 170px; font-size: 0.85rem; padding: 10px;" ${wheat < 63 || state.stamina >= maxStamina ? 'disabled' : ''}>
+          🍞 +20 ⚡ Stamina Doldur (63 Buğday)
+        </button>
+        <button id="btn-wheat-stamina-refill-max" class="btn-clean btn-clean-gold" style="flex: 1.3; min-width: 200px; font-size: 0.85rem; padding: 10px; font-weight: 800;" ${wheat <= 0 || state.stamina >= maxStamina ? 'disabled' : ''}>
+          ⚡ Tek Tıkla Tam Doldur (${Math.ceil(Math.max(0, maxStamina - Math.floor(state.stamina)) * 3.15)} Buğday)
         </button>
       </div>
     </div>
@@ -861,15 +880,15 @@ function openInventoryModal() {
         <div class="inv-slot"><div class="inv-icon">🌲</div><div class="inv-qty">${(Number(wood) || 0).toFixed(2)}</div><div class="inv-name">Odun</div></div>
         <div class="inv-slot"><div class="inv-icon">⛏️</div><div class="inv-qty">${(Number(iron) || 0).toFixed(2)}</div><div class="inv-name">Demir</div></div>
         <div class="inv-slot"><div class="inv-icon">🌾</div><div class="inv-qty">${(Number(wheat) || 0).toFixed(2)}</div><div class="inv-name">Buğday</div></div>
-        <div class="inv-slot"><div class="inv-icon">🧩</div><div class="inv-qty">${(Number(state.inventory.fragments) || 0).toFixed(2)}</div><div class="inv-name">Parça</div></div>
+        <div class="inv-slot"><div class="inv-icon">🧩</div><div class="inv-qty">${(Number(state.inventory.fragments) || 0).toFixed(2)}</div><div class="inv-name">Teçhizat Parçaları</div></div>
       </div>
     </div>
 
-    <!-- Aletler & Tamirat (Odun + Demir + AdAstra) -->
+    <!-- Aletler & Tamirat (Odun + Demir + 1 ADA/dk - Buğday Gerekmez) -->
     <div class="clean-card">
       <div class="card-title-row">
         <div class="card-title">🔨 Aletler & Dayanıklılık</div>
-        <span style="font-size: 0.85rem; color: #fde047; font-weight: 700;">Odun + Demir + ADA ile Onarım</span>
+        <span style="font-size: 0.85rem; color: #fde047; font-weight: 700;">Odun + Demir + ADA ile Onarım (Buğdaysız)</span>
       </div>
 
       <!-- Balta -->
@@ -878,12 +897,12 @@ function openInventoryModal() {
           <span style="font-size: 1.4rem;">🪓</span>
           <div>
             <div style="font-size: 0.95rem; font-weight: 800;">Acemi Baltası</div>
-            <div style="font-size: 0.8rem; color: #94a3b8;">${axe.durability >= 100 ? '✅ Sağlam' : `Maliyet: <strong>${axeCost.woodCost} Odun</strong> + <strong>${axeCost.ironCost} Demir</strong> + <strong>${axeCost.adAstraCost} ADA</strong>`}</div>
+            <div style="font-size: 0.8rem; color: #94a3b8;">${axe.durability >= 4320 ? '✅ Tam Sağlam (4320/4320 dk)' : `Onarım Maliyeti (-${axeCost.missingDurability} dk): <strong>${axeCost.woodCost} Odun</strong> + <strong>${axeCost.ironCost} Demir</strong> + <strong>${axeCost.adAstraCost} ADA</strong>`}</div>
           </div>
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
-          <span class="card-badge" style="color: ${axe.durability <= 25 ? '#ef4444' : '#22c55e'};">%${axe.durability}</span>
-          <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="axe" style="padding: 6px 12px; font-size: 0.8rem; width: auto;" ${axe.durability >= 100 ? 'disabled' : ''}>${axe.durability >= 100 ? 'Tam' : 'Onar'}</button>
+          <span class="card-badge" style="color: ${axe.durability <= 720 ? '#ef4444' : '#22c55e'};">${axe.durability}/4320 dk (%${Math.round((axe.durability / 4320) * 100)})</span>
+          <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="axe" style="padding: 6px 12px; font-size: 0.8rem; width: auto;" ${axe.durability >= 4320 ? 'disabled' : ''}>${axe.durability >= 4320 ? 'Tam' : 'Onar'}</button>
         </div>
       </div>
 
@@ -893,12 +912,12 @@ function openInventoryModal() {
           <span style="font-size: 1.4rem;">⛏️</span>
           <div>
             <div style="font-size: 0.95rem; font-weight: 800;">Bronz Kazma</div>
-            <div style="font-size: 0.8rem; color: #94a3b8;">${pickaxe.durability >= 100 ? '✅ Sağlam' : `Maliyet: <strong>${pickaxeCost.woodCost} Odun</strong> + <strong>${pickaxeCost.ironCost} Demir</strong> + <strong>${pickaxeCost.adAstraCost} ADA</strong>`}</div>
+            <div style="font-size: 0.8rem; color: #94a3b8;">${pickaxe.durability >= 4320 ? '✅ Tam Sağlam (4320/4320 dk)' : `Onarım Maliyeti (-${pickaxeCost.missingDurability} dk): <strong>${pickaxeCost.woodCost} Odun</strong> + <strong>${pickaxeCost.ironCost} Demir</strong> + <strong>${pickaxeCost.adAstraCost} ADA</strong>`}</div>
           </div>
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
-          <span class="card-badge" style="color: ${pickaxe.durability <= 25 ? '#ef4444' : '#22c55e'};">%${pickaxe.durability}</span>
-          <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="pickaxe" style="padding: 6px 12px; font-size: 0.8rem; width: auto;" ${pickaxe.durability >= 100 ? 'disabled' : ''}>${pickaxe.durability >= 100 ? 'Tam' : 'Onar'}</button>
+          <span class="card-badge" style="color: ${pickaxe.durability <= 720 ? '#ef4444' : '#22c55e'};">${pickaxe.durability}/4320 dk (%${Math.round((pickaxe.durability / 4320) * 100)})</span>
+          <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="pickaxe" style="padding: 6px 12px; font-size: 0.8rem; width: auto;" ${pickaxe.durability >= 4320 ? 'disabled' : ''}>${pickaxe.durability >= 4320 ? 'Tam' : 'Onar'}</button>
         </div>
       </div>
 
@@ -908,12 +927,12 @@ function openInventoryModal() {
           <span style="font-size: 1.4rem;">🌾</span>
           <div>
             <div style="font-size: 0.95rem; font-weight: 800;">Demir Orak</div>
-            <div style="font-size: 0.8rem; color: #94a3b8;">${sickle.durability >= 100 ? '✅ Sağlam' : `Maliyet: <strong>${sickleCost.woodCost} Odun</strong> + <strong>${sickleCost.ironCost} Demir</strong> + <strong>${sickleCost.adAstraCost} ADA</strong>`}</div>
+            <div style="font-size: 0.8rem; color: #94a3b8;">${sickle.durability >= 4320 ? '✅ Tam Sağlam (4320/4320 dk)' : `Onarım Maliyeti (-${sickleCost.missingDurability} dk): <strong>${sickleCost.woodCost} Odun</strong> + <strong>${sickleCost.ironCost} Demir</strong> + <strong>${sickleCost.adAstraCost} ADA</strong>`}</div>
           </div>
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
-          <span class="card-badge" style="color: ${sickle.durability <= 25 ? '#ef4444' : '#22c55e'};">%${sickle.durability}</span>
-          <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="sickle" style="padding: 6px 12px; font-size: 0.8rem; width: auto;" ${sickle.durability >= 100 ? 'disabled' : ''}>${sickle.durability >= 100 ? 'Tam' : 'Onar'}</button>
+          <span class="card-badge" style="color: ${sickle.durability <= 720 ? '#ef4444' : '#22c55e'};">${sickle.durability}/4320 dk (%${Math.round((sickle.durability / 4320) * 100)})</span>
+          <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="sickle" style="padding: 6px 12px; font-size: 0.8rem; width: auto;" ${sickle.durability >= 4320 ? 'disabled' : ''}>${sickle.durability >= 4320 ? 'Tam' : 'Onar'}</button>
         </div>
       </div>
     </div>
@@ -1047,8 +1066,8 @@ function openMonsterBattleModal(monster) {
             }));
 
             let dropsHtml = '';
-            if (dropRes.fragmentsGained > 0) dropsHtml += `<div>🧩 +${dropRes.fragmentsGained} Parça</div>`;
-            if (dropRes.boxGained > 0) dropsHtml += `<div>📦 +${dropRes.boxGained} Kilitli Sandık</div>`;
+            if (dropRes.fragmentsGained > 0) dropsHtml += `<div>🧩 +${dropRes.fragmentsGained} Teçhizat Parçaları</div>`;
+            if (dropRes.boxGained > 0) dropsHtml += `<div>📦 +${dropRes.boxGained} Pandora Kutusu</div>`;
             if (dropRes.artifactDiscovered) dropsHtml += `<div>${dropRes.artifactDiscovered.icon} Yeni Eser Keşfedildi: ${dropRes.artifactDiscovered.name}!</div>`;
             if (dropRes.isBoss) dropsHtml += `<div>🔑 +1 Arena Anahtarı</div>`;
 
@@ -1066,8 +1085,8 @@ function openMonsterBattleModal(monster) {
             window.dispatchEvent(new CustomEvent('monster-defeated', { detail: { level: monster.level } }));
 
             let dropsHtml = '';
-            if (dropRes.fragmentsGained > 0) dropsHtml += `<div>🧩 +${dropRes.fragmentsGained} Parça</div>`;
-            if (dropRes.boxGained > 0) dropsHtml += `<div>📦 +${dropRes.boxGained} Kilitli Sandık</div>`;
+            if (dropRes.fragmentsGained > 0) dropsHtml += `<div>🧩 +${dropRes.fragmentsGained} Teçhizat Parçaları</div>`;
+            if (dropRes.boxGained > 0) dropsHtml += `<div>📦 +${dropRes.boxGained} Pandora Kutusu</div>`;
             if (dropRes.artifactDiscovered) dropsHtml += `<div>${dropRes.artifactDiscovered.icon} Yeni Eser Keşfedildi: ${dropRes.artifactDiscovered.name}!</div>`;
             if (dropRes.isBoss) dropsHtml += `<div>🔑 +1 Arena Anahtarı</div>`;
 
@@ -1100,6 +1119,13 @@ function renderExpeditionActiveBox(nodeId) {
   const colorMap = { wood: '#4ade80', iron: '#38bdf8', wheat: '#facc15' };
   const nodeColor = colorMap[nodeId] || '#ca8a04';
 
+  const cap = gameState.getWarehouseCapacity();
+  const limit = cap[nodeId];
+  const currentInv = Number(gameState.state.inventory[nodeId]) || 0;
+  const isOverflow = limit != null && (currentInv + accrued.accruedAmount > limit);
+  const resourceDisplayNames = { wood: 'odun', iron: 'demir', wheat: 'buğday' };
+  const rLabel = resourceDisplayNames[nodeId] || nodeConfig.name;
+
   return `
     <div class="expedition-active-box" id="modal-exp-box-${nodeId}" style="border-color: ${nodeColor};">
       <div class="exp-active-header">
@@ -1118,16 +1144,23 @@ function renderExpeditionActiveBox(nodeId) {
 
       <div class="exp-accrued-row">
         <span>${nodeConfig.icon} Biriken Kaynak:</span>
-        <strong class="exp-accrued-val" id="modal-exp-accrued-${nodeId}">+${accrued.accruedAmount} ${nodeConfig.name} (+${Math.floor(accrued.accruedAmount * 0.5)} XP)</strong>
+        <strong class="exp-accrued-val" id="modal-exp-accrued-${nodeId}">+${accrued.accruedAmount} ${nodeConfig.name} (+${accrued.accruedXp || 0} XP)</strong>
       </div>
+
+      ${isOverflow ? `
+        <div style="background: rgba(180, 83, 9, 0.25); border: 1px solid #f59e0b; border-radius: 6px; padding: 8px 10px; margin-top: 8px; font-size: 0.84rem; color: #fde047; text-align: center; font-weight: 700; line-height: 1.4;">
+          ⚠️ Silo'nuz dolu! Lütfen ${rLabel} seferini tamamlamak için silonuzu büyütün ve silonuzda yer açın.
+          <div style="font-size: 0.75rem; color: #cbd5e1; font-weight: 400; margin-top: 2px;">Mevcut: ${currentInv.toFixed(0)} / ${limit} | Sefer Mahsulü: +${accrued.accruedAmount} ${nodeConfig.name}</div>
+        </div>
+      ` : ''}
 
       <div class="exp-btn-row">
         <button class="btn-clean btn-clean-purple btn-modal-partial-claim" data-node="${nodeId}" id="btn-modal-partial-${nodeId}" style="flex: 1;" ${accrued.accruedAmount <= 0 ? 'disabled' : ''}>
           ⚡ ERKEN TOPLA (+${accrued.accruedAmount} Al)
         </button>
         ${accrued.isCompleted ? `
-          <button class="btn-clean btn-clean-green btn-modal-claim" data-node="${nodeId}" style="flex: 1;">
-            🏁 TAMAMLANDI - TÜMÜNÜ TOPLA
+          <button class="btn-clean ${isOverflow ? 'btn-clean-amber' : 'btn-clean-green'} btn-modal-claim" data-node="${nodeId}" style="flex: 1; ${isOverflow ? 'background: #78350f; color: #fde047; border: 1px solid #f59e0b;' : ''}">
+            ${isOverflow ? `⚠️ SİLO DOLU: ${rLabel.toUpperCase()} İÇİN YER AÇIN` : '🏁 TAMAMLANDI - TÜMÜNÜ TOPLA'}
           </button>
         ` : ''}
       </div>
@@ -1156,21 +1189,30 @@ function openTownZoneModal(zoneId, zoneName) {
 
   // 1. ORMAN (WOOD)
   if (zoneId === 'forest') {
-    const playerTool = state.tools.axe || { durability: 0 };
-    const axeCost = gameState.calculateRepairCost('axe');
+    const playerTool = state.tools.axe || { durability: 4320 };
+    const maxDur = 4320;
+    const durPct = Math.round(((playerTool.durability != null ? playerTool.durability : maxDur) / maxDur) * 100);
+    const axeCost = gameState.calculateRepairCost('axe') || { woodCost: 0, ironCost: 0, adAstraCost: 0, missingDurability: 0 };
     const activeExp = state.activeExpeditions.wood;
     const isSpeedActive = gameState.isBuffActive('speed_wood');
+    const currentDurationMin = gameState.getExpeditionDurationMinutes();
+    const estYield = Math.floor(18 * currentDurationMin * (isSpeedActive ? 1.5 : 1));
 
     html = `
       <div class="clean-card">
         <div class="card-title-row">
           <div class="card-title">🌲 Odun Kesim Seferi</div>
-          <div class="card-badge">${currentDuration} Saatlik Sefer ${isSpeedActive ? '⚡ 1.5x Hızlı' : ''}</div>
+          <div class="card-badge">${currentDuration} Saat (${currentDurationMin} dk) ${isSpeedActive ? '⚡ 1.5x Hızlı' : ''}</div>
         </div>
         
+        <div style="font-size: 0.84rem; color: #94a3b8; margin: 4px 0 10px 0; line-height: 1.4;">
+          ⚡ <strong>Fix Üretim:</strong> 18 Odun / dakika (1.080 Odun/saat) • Her seviyede sabittir.<br>
+          📦 <strong>Beklenen Sefer Kazancı:</strong> ~${estYield} Odun | 🪓 <strong>Aşınma:</strong> -${currentDurationMin} dk
+        </div>
+
         <div class="durability-row">
           <span style="font-size: 0.95rem; font-weight: 700;">🪓 Balta Durumu:</span>
-          <span class="card-badge" style="color: ${playerTool.durability <= 25 ? '#ef4444' : '#22c55e'};">%${playerTool.durability}</span>
+          <span class="card-badge" style="color: ${playerTool.durability <= 720 ? '#ef4444' : '#22c55e'};">${playerTool.durability} / 4320 dk (%${durPct})</span>
         </div>
 
         ${activeExp ? renderExpeditionActiveBox('wood') : `
@@ -1183,10 +1225,15 @@ function openTownZoneModal(zoneId, zoneName) {
       <div class="clean-card">
         <div class="card-title-row">
           <div class="card-title">🔨 Balta Tamiratı</div>
-          <span style="font-size: 0.85rem; color: #fde047; font-weight: 700;">${axeCost.resourceCost} Odun + ${axeCost.adAstraCost} ADA</span>
+          <span style="font-size: 0.85rem; color: #fde047; font-weight: 700;">
+            ${axeCost.missingDurability > 0 ? `${axeCost.woodCost} Odun + ${axeCost.ironCost} Demir + ${axeCost.adAstraCost} ADA` : '✅ Tam Sağlam'}
+          </span>
         </div>
-        <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="axe" ${playerTool.durability >= 100 ? 'disabled' : ''}>
-          ${playerTool.durability >= 100 ? 'Balta Tamamen Sağlam' : `Baltayı Onar (${axeCost.resourceCost} Odun + ${axeCost.adAstraCost} ADA)`}
+        <div style="font-size: 0.78rem; color: #94a3b8; margin-bottom: 8px;">
+          Onarım Bedeli: Dk başı 1.5 Odun + 1.0 Demir + 1 ADA (Eksik: ${axeCost.missingDurability} dk)
+        </div>
+        <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="axe" ${axeCost.missingDurability <= 0 ? 'disabled' : ''}>
+          ${axeCost.missingDurability <= 0 ? 'Balta Tamamen Sağlam' : `Baltayı Onar (${axeCost.woodCost}🌲 + ${axeCost.ironCost}⛏️ + ${axeCost.adAstraCost} 🪙)`}
         </button>
       </div>
     `;
@@ -1194,21 +1241,30 @@ function openTownZoneModal(zoneId, zoneName) {
 
   // 2. MADEN (IRON) - Sadece Maden Seferleri & Kazma Bakımı (Sekmesiz Temiz Görünüm)
   else if (zoneId === 'mine') {
-    const pickaxeTool = state.tools.pickaxe || { durability: 0 };
-    const pickCost = gameState.calculateRepairCost('pickaxe');
+    const pickaxeTool = state.tools.pickaxe || { durability: 4320 };
+    const maxDur = 4320;
+    const durPct = Math.round(((pickaxeTool.durability != null ? pickaxeTool.durability : maxDur) / maxDur) * 100);
+    const pickCost = gameState.calculateRepairCost('pickaxe') || { woodCost: 0, ironCost: 0, adAstraCost: 0, missingDurability: 0 };
     const activeExp = state.activeExpeditions.iron;
     const isSpeedActive = gameState.isBuffActive('speed_iron');
+    const currentDurationMin = gameState.getExpeditionDurationMinutes();
+    const estYield = Math.floor(12 * currentDurationMin * (isSpeedActive ? 1.5 : 1));
 
     html = `
       <div class="clean-card">
         <div class="card-title-row">
           <div class="card-title">⛏️ Demir Madeni Seferi</div>
-          <div class="card-badge">${currentDuration} Saatlik Sefer ${isSpeedActive ? '⚡ 1.5x Hızlı' : ''}</div>
+          <div class="card-badge">${currentDuration} Saat (${currentDurationMin} dk) ${isSpeedActive ? '⚡ 1.5x Hızlı' : ''}</div>
+        </div>
+
+        <div style="font-size: 0.84rem; color: #94a3b8; margin: 4px 0 10px 0; line-height: 1.4;">
+          ⚡ <strong>Fix Üretim:</strong> 12 Demir / dakika (720 Demir/saat) • Her seviyede sabittir.<br>
+          📦 <strong>Beklenen Sefer Kazancı:</strong> ~${estYield} Demir | ⛏️ <strong>Aşınma:</strong> -${currentDurationMin} dk
         </div>
 
         <div class="durability-row">
           <span style="font-size: 0.95rem; font-weight: 700;">⛏️ Kazma Durumu:</span>
-          <span class="card-badge" style="color: ${pickaxeTool.durability <= 25 ? '#ef4444' : '#22c55e'};">%${pickaxeTool.durability}</span>
+          <span class="card-badge" style="color: ${pickaxeTool.durability <= 720 ? '#ef4444' : '#22c55e'};">${pickaxeTool.durability} / 4320 dk (%${durPct})</span>
         </div>
 
         ${activeExp ? renderExpeditionActiveBox('iron') : `
@@ -1221,10 +1277,15 @@ function openTownZoneModal(zoneId, zoneName) {
       <div class="clean-card">
         <div class="card-title-row">
           <div class="card-title">🔨 Kazma Tamiratı</div>
-          <span style="font-size: 0.85rem; color: #fde047; font-weight: 700;">${pickCost.resourceCost} Demir + ${pickCost.adAstraCost} ADA</span>
+          <span style="font-size: 0.85rem; color: #fde047; font-weight: 700;">
+            ${pickCost.missingDurability > 0 ? `${pickCost.woodCost} Odun + ${pickCost.ironCost} Demir + ${pickCost.adAstraCost} ADA` : '✅ Tam Sağlam'}
+          </span>
         </div>
-        <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="pickaxe" ${pickaxeTool.durability >= 100 ? 'disabled' : ''}>
-          ${pickaxeTool.durability >= 100 ? 'Kazma Tamamen Sağlam' : `Kazmayı Onar (${pickCost.resourceCost} Demir + ${pickCost.adAstraCost} ADA)`}
+        <div style="font-size: 0.78rem; color: #94a3b8; margin-bottom: 8px;">
+          Onarım Bedeli: Dk başı 1.5 Odun + 1.0 Demir + 1 ADA (Eksik: ${pickCost.missingDurability} dk)
+        </div>
+        <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="pickaxe" ${pickCost.missingDurability <= 0 ? 'disabled' : ''}>
+          ${pickCost.missingDurability <= 0 ? 'Kazma Tamamen Sağlam' : `Kazmayı Onar (${pickCost.woodCost}🌲 + ${pickCost.ironCost}⛏️ + ${pickCost.adAstraCost} 🪙)`}
         </button>
       </div>
     `;
@@ -1458,21 +1519,30 @@ function openTownZoneModal(zoneId, zoneName) {
 
   // 3. ÇİFTLİK (WHEAT)
   else if (zoneId === 'farm') {
-    const sickleTool = state.tools.sickle || { durability: 0 };
-    const sickleCost = gameState.calculateRepairCost('sickle');
+    const sickleTool = state.tools.sickle || { durability: 4320 };
+    const maxDur = 4320;
+    const durPct = Math.round(((sickleTool.durability != null ? sickleTool.durability : maxDur) / maxDur) * 100);
+    const sickleCost = gameState.calculateRepairCost('sickle') || { woodCost: 0, ironCost: 0, adAstraCost: 0, missingDurability: 0 };
     const activeExp = state.activeExpeditions.wheat;
     const isSpeedActive = gameState.isBuffActive('speed_wheat');
+    const currentDurationMin = gameState.getExpeditionDurationMinutes();
+    const estYield = Math.floor(15 * currentDurationMin * (isSpeedActive ? 1.5 : 1));
 
     html = `
       <div class="clean-card">
         <div class="card-title-row">
           <div class="card-title">🌾 Buğday Hasat Seferi</div>
-          <div class="card-badge">${currentDuration} Saatlik Sefer ${isSpeedActive ? '⚡ 1.5x Hızlı' : ''}</div>
+          <div class="card-badge">${currentDuration} Saat (${currentDurationMin} dk) ${isSpeedActive ? '⚡ 1.5x Hızlı' : ''}</div>
         </div>
         
+        <div style="font-size: 0.84rem; color: #94a3b8; margin: 4px 0 10px 0; line-height: 1.4;">
+          ⚡ <strong>Fix Üretim:</strong> 15 Buğday / dakika (900 Buğday/saat) • Her seviyede sabittir.<br>
+          📦 <strong>Beklenen Sefer Kazancı:</strong> ~${estYield} Buğday | 🌾 <strong>Aşınma:</strong> -${currentDurationMin} dk
+        </div>
+
         <div class="durability-row">
           <span style="font-size: 0.95rem; font-weight: 700;">🌾 Orak Durumu:</span>
-          <span class="card-badge" style="color: ${sickleTool.durability <= 25 ? '#ef4444' : '#22c55e'};">%${sickleTool.durability}</span>
+          <span class="card-badge" style="color: ${sickleTool.durability <= 720 ? '#ef4444' : '#22c55e'};">${sickleTool.durability} / 4320 dk (%${durPct})</span>
         </div>
 
         ${activeExp ? renderExpeditionActiveBox('wheat') : `
@@ -1485,10 +1555,15 @@ function openTownZoneModal(zoneId, zoneName) {
       <div class="clean-card">
         <div class="card-title-row">
           <div class="card-title">🔨 Orak Tamiratı</div>
-          <span style="font-size: 0.85rem; color: #fde047; font-weight: 700;">${sickleCost.resourceCost} Buğday + ${sickleCost.adAstraCost} ADA</span>
+          <span style="font-size: 0.85rem; color: #fde047; font-weight: 700;">
+            ${sickleCost.missingDurability > 0 ? `${sickleCost.woodCost} Odun + ${sickleCost.ironCost} Demir + ${sickleCost.adAstraCost} ADA` : '✅ Tam Sağlam'}
+          </span>
         </div>
-        <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="sickle" ${sickleTool.durability >= 100 ? 'disabled' : ''}>
-          ${sickleTool.durability >= 100 ? 'Orak Tamamen Sağlam' : `Orağı Onar (${sickleCost.resourceCost} Buğday + ${sickleCost.adAstraCost} ADA)`}
+        <div style="font-size: 0.78rem; color: #94a3b8; margin-bottom: 8px;">
+          Onarım Bedeli: Dk başı 1.5 Odun + 1.0 Demir + 1 ADA (Eksik: ${sickleCost.missingDurability} dk)
+        </div>
+        <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="sickle" ${sickleCost.missingDurability <= 0 ? 'disabled' : ''}>
+          ${sickleCost.missingDurability <= 0 ? 'Orak Tamamen Sağlam' : `Orağı Onar (${sickleCost.woodCost}🌲 + ${sickleCost.ironCost}⛏️ + ${sickleCost.adAstraCost} 🪙)`}
         </button>
       </div>
     `;
@@ -1498,8 +1573,8 @@ function openTownZoneModal(zoneId, zoneName) {
   else if (zoneId === 'market') {
     const marketTabsHtml = `
       <div class="phase2-tab-row">
-        <button class="phase2-tab-btn market-tab-btn ${marketActiveTab === 'resources' ? 'active' : ''}" data-tab="resources">🪙 Hammadde & Sandık Havuzları</button>
-        <button class="phase2-tab-btn market-tab-btn ${marketActiveTab === 'fragments' ? 'active' : ''}" data-tab="fragments">🧩 Parça Ticareti</button>
+        <button class="phase2-tab-btn market-tab-btn ${marketActiveTab === 'resources' ? 'active' : ''}" data-tab="resources">🪙 Hammadde & Pandora Kutusu Havuzları</button>
+        <button class="phase2-tab-btn market-tab-btn ${marketActiveTab === 'fragments' ? 'active' : ''}" data-tab="fragments">🧩 Teçhizat Parçaları Ticareti</button>
         <button class="phase2-tab-btn market-tab-btn ${marketActiveTab === 'p2p_collection' ? 'active' : ''}" data-tab="p2p_collection">👑 P2P Koleksiyon Pazarı</button>
       </div>
     `;
@@ -1511,7 +1586,7 @@ function openTownZoneModal(zoneId, zoneName) {
           <span style="font-size: 0.85rem; color: #c084fc; font-weight: 700;">Bakiye: ${state.adAstraBalance.toFixed(1)} ADA</span>
         </div>
         <div class="clean-desc">
-          Automated Market Maker ($x \\cdot y = k$) DEX likidite havuzlarında hammadde, kilitli sandık ve anahtar ticareti yapabilir veya P2P pazarda koleksiyon eserlerini satabilirsin.
+          Automated Market Maker ($x \\cdot y = k$) DEX likidite havuzlarında hammadde, Pandora Kutusu ve anahtar ticareti yapabilir veya P2P pazarda koleksiyon eserlerini satabilirsin.
         </div>
       </div>
 
@@ -1657,7 +1732,7 @@ function openTownZoneModal(zoneId, zoneName) {
             <div class="card-title">👑 P2P Koleksiyon Eseri Satış İlanı Oluştur</div>
             <span class="card-badge" style="color:#fde047;">${userArtifacts.length} Eser Sahip</span>
           </div>
-          <div class="clean-desc">Zindandan veya sandıklardan çıkardığın nadir koleksiyon eserlerini istediğin $ADASTRA fiyatı ile diğer oyunculara sat!</div>
+          <div class="clean-desc">Zindandan veya Pandora Kutularından çıkardığın nadir koleksiyon eserlerini istediğin $ADASTRA fiyatı ile diğer oyunculara sat!</div>
           
           ${userArtifacts.length > 0 ? `
             <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; align-items:center;">
@@ -1670,7 +1745,7 @@ function openTownZoneModal(zoneId, zoneName) {
               </button>
             </div>
           ` : `
-            <div style="color:#94a3b8; font-size:0.82rem; margin-top:8px;">⚠️ Henüz keşfettiğin bir koleksiyon eseri yok. Zindan bosslarını yenerek veya sandık açarak eser kazanabilirsin.</div>
+            <div style="color:#94a3b8; font-size:0.82rem; margin-top:8px;">⚠️ Henüz keşfettiğin bir koleksiyon eseri yok. Zindan bosslarını yenerek veya Pandora Kutusu açarak eser kazanabilirsin.</div>
           `}
         </div>
 
@@ -1882,7 +1957,14 @@ function renderBarracksHtml() {
     const playerEquip = state.equipment || {};
     const unassignedItems = [];
     ['weapon', 'helmet', 'armor', 'legs', 'boots'].forEach(slot => {
-      if (playerEquip[slot]) unassignedItems.push({ slot, ...playerEquip[slot] });
+      if (playerEquip && playerEquip[slot]) {
+        unassignedItems.push({ slot, source: 'kingdom', ...playerEquip[slot] });
+      }
+    });
+    (state.armoryInventory || []).forEach((item, armIdx) => {
+      if (item) {
+        unassignedItems.push({ slot: item.slot, source: 'armory', armoryIndex: armIdx, ...item });
+      }
     });
 
     contentHtml = `
@@ -1892,12 +1974,18 @@ function renderBarracksHtml() {
             <div class="card-title">⚔️ Akıllı Silah Dağıtım & Donatım Hub'ı</div>
             <div class="clean-desc">Tüm dövülmüş eşyaları tek tıkla orduna dağıt veya tüm teçhizatları tek tıkla sök!</div>
           </div>
-          <div style="display:flex; gap:8px;">
-            <button class="btn-clean btn-clean-green btn-smart-auto-equip" style="width:auto; padding:8px 14px; font-size:0.8rem;">
-              ⚡ En İyi Eşyaları Otomatik Dağıt
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn-clean btn-clean-green btn-smart-auto-equip" style="width:auto; padding:8px 14px; font-size:0.8rem;" title="En yüksek seviyeli ve sağlam teçhizatları orduna dağıtır">
+              ⚡ En İyi Eşyaları Otomatik Kuşan
             </button>
-            <button class="btn-clean btn-clean-gold btn-smart-unequip-all" style="width:auto; padding:8px 14px; font-size:0.8rem;">
+            <button class="btn-clean btn-clean-gold btn-smart-unequip-all" style="width:auto; padding:8px 14px; font-size:0.8rem;" title="Tüm askerlerin teçhizatlarını söküp boşta havuza aktarır">
               🔄 Tüm Eşyaları Sök
+            </button>
+            <button class="btn-clean btn-clean-blue btn-smart-repair-all-equip" style="width:auto; padding:8px 14px; font-size:0.8rem;" title="Krallıktaki ve askerlerdeki tüm teçhizatları tek tıkla onarır">
+              🔨 Tümünü Onar
+            </button>
+            <button class="btn-clean btn-smart-scrap-low-tier" style="width:auto; padding:8px 14px; font-size:0.8rem; background:rgba(239,68,68,0.2); border:1px solid #ef4444; color:#fca5a5;" title="Boştaki Seviye 1 fazlalık eşyaları hurdaya çevirip parça kazanır">
+              ♻️ Düşükleri Hurdaya Çevir
             </button>
           </div>
         </div>
@@ -1923,7 +2011,7 @@ function renderBarracksHtml() {
 
         <div class="armory-soldiers-panel">
           <div style="font-weight:800; font-size:0.9rem; color:#4ade80; margin-bottom:8px;">
-            🛡️ 18 Kişilik Ordu Donatım Durumu
+            🛡️ Ordu Donatım Durumu
           </div>
           ${soldiers.map((sol, idx) => {
             const stats = gameState.getSoldierFullStats(idx);
@@ -1953,19 +2041,20 @@ function renderBarracksHtml() {
   } else {
     // Default Tab: 🛡️ Ordu Yönetimi (army)
     const soldiers = state.soldierUnits || [];
-    const maxSoldiers = GAME_CONFIG.MAX_SOLDIERS;
-    const canBuy = soldiers.length < maxSoldiers && state.adAstraBalance >= GAME_CONFIG.SOLDIER_PRICE;
+    const maxSoldiers = GAME_CONFIG.MAX_SOLDIERS ?? Infinity;
+    const nextSoldierCost = gameState.getSoldierCost(soldiers.length + 1);
+    const canBuy = (maxSoldiers === Infinity || soldiers.length < maxSoldiers) && state.adAstraBalance >= nextSoldierCost;
 
     if (soldiers.length === 0) {
       contentHtml = `
         <div class="clean-card" style="border-color: #38bdf8;">
           <div class="card-title">🛡️ Ordu Yönetimi</div>
-          <div class="clean-desc">Henüz hiç askerin yok. İlk askerini satın alarak orduna başla! Maksimum ${maxSoldiers} askere kadar sahip olabilirsin.</div>
+          <div class="clean-desc">Henüz hiç askerin yok. İlk askerini satın alarak orduna başla! Sınırsız asker alarak ordunu büyütebilirsin.</div>
         </div>
         <div class="clean-card" style="background: #0c1117; border-color: #30a46c; text-align: center;">
           <div style="font-weight: 800; font-size: 1rem; margin-bottom: 10px; color: #94a3b8;">⚔️ Roster Boş</div>
           <button id="btn-buy-soldier-unit" class="btn-clean btn-clean-green" ${canBuy ? '' : 'disabled'}>
-            ➕ Yeni Asker Satın Al (${GAME_CONFIG.SOLDIER_PRICE.toLocaleString('tr-TR')} ADA)
+            ➕ Yeni Asker Satın Al (${nextSoldierCost.toLocaleString('tr-TR')} ADA)
           </button>
         </div>
       `;
@@ -2004,7 +2093,7 @@ function renderBarracksHtml() {
             <span class="hud-pill-icon">👥</span>
             <div>
               <div class="hud-pill-label">Toplam Ordu</div>
-              <div class="hud-pill-val" style="color: #38bdf8;">${totalSoldiers}/${maxSoldiers} Asker</div>
+              <div class="hud-pill-val" style="color: #38bdf8;">${totalSoldiers} Asker</div>
             </div>
           </div>
           <div class="barracks-hud-pill">
@@ -2025,7 +2114,7 @@ function renderBarracksHtml() {
             <span class="hud-pill-icon">🛡️</span>
             <div>
               <div class="hud-pill-label">Kuşanılmış Yuva</div>
-              <div class="hud-pill-val" style="color: #fde047;">${totalEquippedSlots}/${maxSoldiers * 5} Dolu</div>
+              <div class="hud-pill-val" style="color: #fde047;">${totalEquippedSlots}/${totalSoldiers * 5} Dolu</div>
             </div>
           </div>
         </div>
@@ -2061,13 +2150,13 @@ function renderBarracksHtml() {
           <button class="btn-clean btn-smart-unequip-all" style="width: auto; padding: 8px 14px; font-size: 0.85rem; background: #334155; border-color: #64748b;">
             🔄 Eşyaları Sök
           </button>
-          ${soldiers.length < maxSoldiers ? `
+          ${(maxSoldiers === Infinity || soldiers.length < maxSoldiers) ? `
             <button id="btn-buy-soldier-unit" class="btn-clean" style="width: auto; padding: 8px 14px; font-size: 0.85rem; background: #7c3aed; border-color: #a78bfa;" ${canBuy ? '' : 'disabled'}>
-              ➕ Yeni Asker Satın Al (${GAME_CONFIG.SOLDIER_PRICE.toLocaleString('tr-TR')} ADA)
+              ➕ Yeni Asker Satın Al (${nextSoldierCost.toLocaleString('tr-TR')} ADA)
             </button>
           ` : `
             <span style="font-size: 0.85rem; color: #4ade80; font-weight: 800; align-self: center; background: rgba(34,197,94,0.15); padding: 6px 12px; border-radius: 8px; border: 1px solid #22c55e;">
-              🛡️ Kadro Tam Dolu (${maxSoldiers}/${maxSoldiers})
+              🛡️ Kadro Tam Dolu (${soldiers.length}/${maxSoldiers})
             </span>
           `}
         </div>
@@ -2684,7 +2773,7 @@ function openColosseumModal() {
 }
 
 // =========================================================================
-// 4.7 PHASE 2: 18 PARÇALIK NFT KOLEKSİYONU & KİLİTLİ KUTULAR
+// 4.7 PHASE 2: 18 PARÇALIK NFT KOLEKSİYONU & PANDORA KUTULARI
 // =========================================================================
 function renderCollectionHtml() {
   const state = gameState.state;
@@ -2692,7 +2781,7 @@ function renderCollectionHtml() {
   const tabsHtml = `
     <div class="phase2-tab-row">
       <button class="phase2-tab-btn collection-tab-btn ${collectionActiveTab === 'koleksiyon' ? 'active' : ''}" data-tab="koleksiyon">👑 Koleksiyon (18 Eser)</button>
-      <button class="phase2-tab-btn collection-tab-btn ${collectionActiveTab === 'kutular' ? 'active' : ''}" data-tab="kutular">📦 Kilitli Kutular</button>
+      <button class="phase2-tab-btn collection-tab-btn ${collectionActiveTab === 'kutular' ? 'active' : ''}" data-tab="kutular">📦 Pandora Kutuları</button>
     </div>
   `;
 
@@ -2718,7 +2807,7 @@ function renderCollectionHtml() {
           <div class="card-title">🏆 ${GAME_CONFIG.GENESIS_NFT.name}</div>
           <span class="card-badge">${discoveredCount}/${requiredCount} Eser</span>
         </div>
-        <div class="clean-desc">Zindan bosslarını yenerek ve Kilitli Sandıklar açarak 18 Koleksiyon Eserinin tamamını topla; ardından efsanevi Genesis NFT'ni bas!</div>
+        <div class="clean-desc">Zindan bosslarını yenerek ve Pandora Kutuları açarak 18 Koleksiyon Eserinin tamamını topla; ardından efsanevi Genesis NFT'ni bas!</div>
         <button id="btn-mint-genesis" class="btn-clean btn-clean-purple" ${(!allDiscovered || genesisMinted) ? 'disabled' : ''}>
           ${genesisMinted ? '✅ Genesis NFT Zaten Basıldı' : `🏆 GENESIS NFT BAS (${GAME_CONFIG.GENESIS_NFT.adAstraCost} ADA)`}
         </button>
@@ -2738,20 +2827,20 @@ function renderCollectionHtml() {
     const boxCount = Math.min(lockedBoxes, 12);
     const boxesHtml = boxCount > 0
       ? Array.from({ length: boxCount }, () => `<div class="mystery-box-item">📦</div>`).join('')
-      : `<div class="phase2-empty-state">Şu anda açılacak bir Kilitli Sandığın yok. Zindanlarda canavar öldürerek şansını dene!</div>`;
+      : `<div class="phase2-empty-state">Şu anda açılacak bir Pandora Kutun yok. Zindanlarda canavar öldürerek şansını dene!</div>`;
 
     contentHtml = `
       <div class="clean-card">
         <div class="card-title-row">
-          <div class="card-title">📦 Kilitli Sandıklar</div>
+          <div class="card-title">📦 Pandora Kutuları</div>
           <span class="card-badge">🔑 ${arenaKeys} Anahtar</span>
         </div>
-        <div class="clean-desc">Her sandığı açmak 1 🔑 Arena Anahtarı gerektirir. Anahtarları Zindan bosslarını yenerek veya 18v18 Kolezyum Savaşını kazanarak topla!</div>
+        <div class="clean-desc">Her kutuyu açmak 1 🔑 Arena Anahtarı gerektirir. Anahtarları Zindan bosslarını yenerek veya Kolezyum Savaşını kazanarak topla!</div>
       </div>
       ${revealHtml}
       <div class="mystery-box-grid">${boxesHtml}</div>
       <button id="btn-open-mystery-box" class="btn-clean btn-clean-green" ${canOpen ? '' : 'disabled'}>
-        📦 SANDIK AÇ (1 🔑 Anahtar Harca) — ${lockedBoxes} Sandık Mevcut
+        📦 PANDORA KUTUSU AÇ (1 🔑 Anahtar Harca) — ${lockedBoxes} Kutu Mevcut
       </button>
     `;
   }
@@ -2764,7 +2853,7 @@ function openCollectionModal(initialTab) {
     collectionActiveTab = initialTab;
     lastBoxResult = null;
   }
-  dom.modalTitle.innerHTML = `<span>👑</span> <span>18 PARÇALIK NFT KOLEKSİYONU & KİLİTLİ KUTULAR</span>`;
+  dom.modalTitle.innerHTML = `<span>👑</span> <span>18 PARÇALIK NFT KOLEKSİYONU & PANDORA KUTULARI</span>`;
   dom.modalBody.innerHTML = renderCollectionHtml();
   displayModal();
 }
@@ -2795,8 +2884,8 @@ function openTestMenuModal() {
           <button class="btn-clean btn-clean-sm btn-test-action" data-action="add_wood" style="background: #14532d;">🌲 +5.000 Odun Ekle</button>
           <button class="btn-clean btn-clean-sm btn-test-action" data-action="add_iron" style="background: #0369a1;">⛏️ +5.000 Demir Ekle</button>
           <button class="btn-clean btn-clean-sm btn-test-action" data-action="add_wheat" style="background: #854d0e;">🌾 +5.000 Buğday Ekle</button>
-          <button class="btn-clean btn-clean-sm btn-test-action" data-action="add_fragments" style="background: #7e22ce;">🧩 +500 Parça Ekle</button>
-          <button class="btn-clean btn-clean-sm btn-test-action" data-action="add_boxes" style="background: #9a3412;">📦 +50 Kilitli Sandık Ekle</button>
+          <button class="btn-clean btn-clean-sm btn-test-action" data-action="add_fragments" style="background: #7e22ce;">🧩 +500 Teçhizat Parçaları Ekle</button>
+          <button class="btn-clean btn-clean-sm btn-test-action" data-action="add_boxes" style="background: #9a3412;">📦 +50 Pandora Kutusu Ekle</button>
           <button class="btn-clean btn-clean-sm btn-test-action" data-action="add_keys" style="background: #ca8a04;">🔑 +50 Arena Anahtarı Ekle</button>
           <button class="btn-clean btn-clean-sm btn-test-action" data-action="full_stamina" style="background: #047857;">⚡ Stamina %100 Full Yap</button>
         </div>
@@ -2839,12 +2928,12 @@ function openTestMenuModal() {
 
       <!-- 5. KOLEKSİYON & SANDIK TESTLERİ -->
       <div class="clean-card" style="background: #181308; border-color: #eab308;">
-        <div style="font-weight: 800; font-size: 0.9rem; color: #facc15; margin-bottom: 8px;">👑 5. Koleksiyon & Sandık Testleri</div>
+        <div style="font-weight: 800; font-size: 0.9rem; color: #facc15; margin-bottom: 8px;">👑 5. Koleksiyon & Pandora Kutusu Testleri</div>
         <div style="display: flex; flex-direction: column; gap: 6px;">
           <button class="btn-clean btn-clean-sm btn-test-action" data-action="unlock_all_artifacts" style="background: #a16207;">👑 Tüm 18 Koleksiyon Eserini Keşfet (18/18)</button>
           <button class="btn-clean btn-clean-sm btn-test-action" data-action="mint_genesis" style="background: #6b21a8;">🏆 Genesis NFT'yi Ücretsiz Bas</button>
-          <button class="btn-clean btn-clean-sm btn-test-action" data-action="open_1_box" style="background: #15803d;">📦 1 Adet Kilitli Sandık Aç</button>
-          <button class="btn-clean btn-clean-sm btn-test-action" data-action="open_10_boxes" style="background: #047857;">📦 10 Adet Kilitli Sandık Aç (Toplu)</button>
+          <button class="btn-clean btn-clean-sm btn-test-action" data-action="open_1_box" style="background: #15803d;">📦 1 Adet Pandora Kutusu Aç</button>
+          <button class="btn-clean btn-clean-sm btn-test-action" data-action="open_10_boxes" style="background: #047857;">📦 10 Adet Pandora Kutusu Aç (Toplu)</button>
         </div>
       </div>
 
@@ -2974,6 +3063,13 @@ function openDashboardModal() {
 
   dom.modalTitle.innerHTML = `<span>🏰</span> <span>KRALLIK DASHBOARD & 1-CLICK MERKEZİ</span>`;
 
+  const missingStamina = Math.max(0, summary.maxStamina - Math.floor(summary.stamina));
+  const wheatPerStamina = (GAME_CONFIG.BASE_PRODUCTION.wheat || 15) * (GAME_CONFIG.WHEAT_REFILL_RATIO || 0.21);
+  const wheatNeededForFull = Math.ceil(missingStamina * wheatPerStamina);
+  const userWheat = Math.floor(Number(gameState.state.inventory.wheat) || 0);
+  const isStaminaFull = summary.stamina >= summary.maxStamina;
+  const canRefillStamina = !isStaminaFull && userWheat > 0;
+
   // 1-Click Top Actions Bar
   const quickActionsHtml = `
     <div class="clean-card" style="background: linear-gradient(135deg, rgba(20,14,8,0.95), rgba(35,22,12,0.95)); border-color: rgba(245,158,11,0.5);">
@@ -2985,11 +3081,14 @@ function openDashboardModal() {
         <button class="btn-1click btn-1click-claim-restart-exp" title="Tamamlanan seferleri topla ve boştakileri başlat">
           <span>⚡</span> <span>Tüm Seferleri Topla & Başlat</span>
         </button>
+        <button class="btn-1click btn-1click-refill-stamina" ${!canRefillStamina ? 'disabled' : ''} title="Depodaki buğday ile tüm staminayı tek tıkla tamamen doldur">
+          <span>⚡</span> <span>Tüm Staminayı Doldur (${isStaminaFull ? 'Dolu' : `${wheatNeededForFull}🌾`})</span>
+        </button>
         <button class="btn-1click btn-1click-repair-tools" ${repairCosts.count === 0 ? 'disabled' : ''} title="Tüm aletleri tamir et">
-          <span>🔨</span> <span>Tüm Aletleri Onar (${repairCosts.totalWood}🌲 ${repairCosts.totalIron}⛏️ ${repairCosts.totalAda}🟣)</span>
+          <span>🔨</span> <span>Tüm Aletleri Onar (${repairCosts.count === 0 ? 'Tam Sağlam' : `${repairCosts.totalWood}🌲 ${repairCosts.totalIron}⛏️ ${repairCosts.totalAda}🟣`})</span>
         </button>
         <button class="btn-1click btn-1click-heal-army" ${healCosts.count === 0 ? 'disabled' : ''} title="Tüm yaralı askerleri doyur ve iyileştir">
-          <span>🌾</span> <span>Tüm Orduyu Doyur (${healCosts.totalWheat}🌾 ${healCosts.totalAda}🟣)</span>
+          <span>🌾</span> <span>Tüm Orduyu Doyur (${healCosts.count === 0 ? 'Tam Sağlıklı' : `${healCosts.totalWheat}🌾`})</span>
         </button>
       </div>
     </div>
@@ -3034,23 +3133,23 @@ function openDashboardModal() {
         `).join('') || '<div style="color:#94a3b8; font-size:0.8rem; padding:6px 0;">Şu an aktif sefer yok.</div>'}
       </div>
 
-      <!-- Widget 3: Alet Sağlığı -->
+      <!-- Widget 3: Alet Sağlığı (72 Saat = 4320 Dakika) -->
       <div class="dashboard-widget">
         <div class="dashboard-widget-title"><span>🔨</span> <span>Alet Dayanıklılıkları (Ort. %${summary.avgToolHealth})</span></div>
         ${summary.toolSummary.map(t => `
           <div class="dashboard-stat-row">
             <span>${t.icon} ${t.name}</span>
-            <span class="dashboard-stat-value" style="color:${t.durability < 30 ? '#ef4444' : '#34d399'};">${t.durability}/100</span>
+            <span class="dashboard-stat-value" style="color:${t.pct < 20 ? '#ef4444' : '#34d399'};">${t.durability}/${t.maxDurability || 4320}</span>
           </div>
           <div class="dashboard-mini-bar">
-            <div class="dashboard-mini-bar-fill" style="width:${t.durability}%; background:${t.durability < 30 ? '#ef4444' : '#10b981'};"></div>
+            <div class="dashboard-mini-bar-fill" style="width:${t.pct}%; background:${t.pct < 20 ? '#ef4444' : '#10b981'};"></div>
           </div>
         `).join('')}
       </div>
 
       <!-- Widget 4: Ordu & Sağlık -->
       <div class="dashboard-widget">
-        <div class="dashboard-widget-title"><span>🛡️</span> <span>18 Kişilik Ordu (%${summary.avgHpPct} Can)</span></div>
+        <div class="dashboard-widget-title"><span>🛡️</span> <span>Ordu (%${summary.avgHpPct} Can)</span></div>
         <div class="dashboard-stat-row">
           <span>Toplam Savaş Gücü</span>
           <span class="dashboard-stat-value" style="color:#fde047;">⚔️ ${summary.totalAtk} ATK • ❤️ ${summary.totalHp} HP</span>
@@ -3066,26 +3165,26 @@ function openDashboardModal() {
         </div>
       </div>
 
-      <!-- Widget 6: Depo Doluluk -->
+      <!-- Widget 6: Silo & Depo Doluluk -->
       <div class="dashboard-widget">
-        <div class="dashboard-widget-title"><span>📦</span> <span>Depo Kapasitesi (${summary.warehouseCapacity} Birim)</span></div>
+        <div class="dashboard-widget-title"><span>📦</span> <span>Silo & Depo Kapasitesi (Seviye ${gameState.state.warehouseLevel})</span></div>
         <div class="dashboard-stat-row">
           <span>🌲 Odun (%${summary.woodPct})</span>
-          <span class="dashboard-stat-value">${(Number(summary.inventory.wood) || 0).toFixed(2)}</span>
+          <span class="dashboard-stat-value">${(Number(summary.inventory.wood) || 0).toFixed(0)} / ${summary.warehouseCapacity.wood}</span>
         </div>
         <div class="dashboard-mini-bar">
           <div class="dashboard-mini-bar-fill" style="width:${summary.woodPct}%; background:#10b981;"></div>
         </div>
         <div class="dashboard-stat-row" style="margin-top:6px;">
           <span>⛏️ Demir (%${summary.ironPct})</span>
-          <span class="dashboard-stat-value">${(Number(summary.inventory.iron) || 0).toFixed(2)}</span>
+          <span class="dashboard-stat-value">${(Number(summary.inventory.iron) || 0).toFixed(0)} / ${summary.warehouseCapacity.iron}</span>
         </div>
         <div class="dashboard-mini-bar">
           <div class="dashboard-mini-bar-fill" style="width:${summary.ironPct}%; background:#0284c7;"></div>
         </div>
         <div class="dashboard-stat-row" style="margin-top:6px;">
           <span>🌾 Buğday (%${summary.wheatPct})</span>
-          <span class="dashboard-stat-value">${(Number(summary.inventory.wheat) || 0).toFixed(2)}</span>
+          <span class="dashboard-stat-value">${(Number(summary.inventory.wheat) || 0).toFixed(0)} / ${summary.warehouseCapacity.wheat}</span>
         </div>
         <div class="dashboard-mini-bar">
           <div class="dashboard-mini-bar-fill" style="width:${summary.wheatPct}%; background:#f59e0b;"></div>
@@ -3216,8 +3315,13 @@ function openSmartArmoryModal() {
 
   const unassignedItems = [];
   ['weapon', 'helmet', 'armor', 'legs', 'boots'].forEach(slot => {
-    if (playerEquip[slot]) {
-      unassignedItems.push({ slot, ...playerEquip[slot] });
+    if (playerEquip && playerEquip[slot]) {
+      unassignedItems.push({ slot, source: 'kingdom', ...playerEquip[slot] });
+    }
+  });
+  (state.armoryInventory || []).forEach((item, armIdx) => {
+    if (item) {
+      unassignedItems.push({ slot: item.slot, source: 'armory', armoryIndex: armIdx, ...item });
     }
   });
 
@@ -3245,7 +3349,7 @@ function openSmartArmoryModal() {
   const rightPanelHtml = `
     <div class="armory-soldiers-panel">
       <div style="font-weight:800; font-size:0.9rem; color:#4ade80; margin-bottom:8px;">
-        <span>🛡️ 18 Kişilik Ordu Donatım Durumu</span>
+        <span>🛡️ Ordu Donatım Durumu</span>
       </div>
       ${soldiers.map((sol, idx) => {
         const stats = gameState.getSoldierFullStats(idx);
@@ -3279,12 +3383,18 @@ function openSmartArmoryModal() {
           <div class="card-title">⚔️ Akıllı Silah Dağıtım & Donatım Hub'ı</div>
           <div class="clean-desc">Tüm dövülmüş eşyaları tek tıkla orduna dağıt veya tüm teçhizatları tek tıkla sök!</div>
         </div>
-        <div style="display:flex; gap:8px;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <button class="btn-clean btn-clean-green btn-smart-auto-equip" style="width:auto; padding:8px 14px; font-size:0.8rem;">
-            ⚡ En İyi Eşyaları Otomatik Dağıt
+            ⚡ En İyi Eşyaları Otomatik Kuşan
           </button>
           <button class="btn-clean btn-clean-gold btn-smart-unequip-all" style="width:auto; padding:8px 14px; font-size:0.8rem;">
             🔄 Tüm Eşyaları Sök
+          </button>
+          <button class="btn-clean btn-clean-blue btn-smart-repair-all-equip" style="width:auto; padding:8px 14px; font-size:0.8rem;">
+            🔨 Tümünü Onar
+          </button>
+          <button class="btn-clean btn-smart-scrap-low-tier" style="width:auto; padding:8px 14px; font-size:0.8rem; background:rgba(239,68,68,0.2); border:1px solid #ef4444; color:#fca5a5;">
+            ♻️ Düşükleri Hurdaya Çevir
           </button>
         </div>
       </div>
@@ -3664,7 +3774,6 @@ function executeMonsterBattle(monster, selectedIndices, protectWeapons) {
         });
 
         state.dungeonProgress = Math.max(state.dungeonProgress || 1, monster.level + 1);
-        gameState.recordDailyQuestProgress('dungeon');
 
         const lvlMsg = levelUpNotice.length > 0 ? ` • 🎉 ${levelUpNotice.join(', ')}` : '';
         const wearMsg = weaponsWorn.length > 0 ? ` • ⚔️ Silah Aşınması: ${weaponsWorn.join(', ')}` : '';
@@ -3674,7 +3783,21 @@ function executeMonsterBattle(monster, selectedIndices, protectWeapons) {
           showToast(`⚔️ Silahların dayanıklılığı -1 azaldı: ${weaponsWorn.join(', ')}`, 'info');
         }
 
+        const isBossMonster = !!(monster.isBoss || monster.level === 9 || monster.level === 18);
+        const dropRes = gameState.addDungeonXpAndDrops(monster.level, isBossMonster);
+        let dropsMsg = [];
+        if (dropRes.fragmentsGained > 0) dropsMsg.push(`🧩 +${dropRes.fragmentsGained} Teçhizat Parçaları`);
+        if (dropRes.boxGained > 0) dropsMsg.push(`📦 +${dropRes.boxGained} Pandora Kutusu`);
+        if (dropRes.artifactDiscovered) dropsMsg.push(`${dropRes.artifactDiscovered.icon} ${dropRes.artifactDiscovered.name}`);
+        if (isBossMonster) dropsMsg.push(`🔑 +1 Arena Anahtarı`);
+
+        if (monster.level === 18) {
+          state.dungeonProgress = 1;
+          showToast('🏆 ZİNDAN DÖNGÜSÜ TAMAMLANDI! 1. Kat 1. Seviyeden yeniden başladı!', 'success');
+        }
+
         if (logEl) {
+          const dropsHtml = dropsMsg.length > 0 ? `<div style="text-align:center; color:#c084fc; margin-top:6px; font-weight:700; font-size:0.9rem;">🎁 Ganimet: ${dropsMsg.join(' • ')}</div>` : '';
           logEl.innerHTML = `
             <div style="color:#4ade80; font-weight:800; font-size:1.1rem; text-align:center;">
               🏆 ZAFER! ${monster.name} yok edildi!
@@ -3682,6 +3805,7 @@ function executeMonsterBattle(monster, selectedIndices, protectWeapons) {
             <div style="text-align:center; color:#fde047; margin-top:4px;">
               +${adaReward} $ADASTRA • Savaşa katılan askerlerine +${monster.rewardXp} Asker XP! ${lvlMsg}
             </div>
+            ${dropsHtml}
             <div style="text-align:center; font-size:0.8rem; margin-top:6px; color:${protectWeapons ? '#38bdf8' : weaponsWorn.length > 0 ? '#fca5a5' : '#94a3b8'};">
               ${protectWeapons 
                 ? '🛡️ Silah koruması devrede olduğu için silahlar aşınmadı.' 
@@ -3811,7 +3935,14 @@ function executeCommand(actionId) {
     case 'economy': openEconomyDashboardModal('overview'); break;
     case 'claimAll':
       const cRes = gameState.claimAndRestartAllExpeditions();
-      showToast(`⚡ ${cRes.claimed} Sefer Toplandı, ${cRes.restarted} Yeni Sefer Başlatıldı!`, 'success');
+      if (cRes.staminaWarning) {
+        showToast(cRes.staminaWarning, 'warning');
+      } else if (cRes.messages && cRes.messages.length > 0) {
+        showToast(cRes.messages[0], 'warning');
+      }
+      if (cRes.claimed > 0 || cRes.restarted > 0) {
+        showToast(`⚡ ${cRes.claimed} Sefer Toplandı, ${cRes.restarted} Yeni Sefer Başlatıldı!`, 'success');
+      }
       renderTopBar();
       break;
     case 'repairAll':
@@ -3873,6 +4004,12 @@ function initAppEvents() {
       openColosseumModal();
     } else if (key === 'E') {
       openInventoryModal();
+    } else if (key === 'T') {
+      const devModal = document.getElementById('dev-modal');
+      if (devModal) {
+        if (devModal.classList.contains('hidden')) openDevModal();
+        else closeDevModal();
+      }
     }
   });
 
@@ -4072,20 +4209,6 @@ function initAppEvents() {
   if (dom.sideBtnCollection) dom.sideBtnCollection.addEventListener('click', () => openCollectionModal('koleksiyon'));
   if (dom.sideBtnBoxes) dom.sideBtnBoxes.addEventListener('click', () => openCollectionModal('kutular'));
 
-  // Günün Görevleri Ödül Alma Butonu (.btn-claim-daily-quest)
-  document.addEventListener('click', (e) => {
-    const claimQuestBtn = e.target.closest('.btn-claim-daily-quest');
-    if (claimQuestBtn) {
-      const qid = claimQuestBtn.dataset.qid;
-      const res = gameState.claimDailyQuest(qid);
-      if (res.success) {
-        showToast(res.message, 'success');
-        renderTopBar();
-      } else {
-        showToast(res.message, 'info');
-      }
-    }
-  });
 
   // Sefer kartlarına tıklayınca ilgili kaynağın modalını aç
   document.querySelectorAll('.sidebar-exp-card').forEach(card => {
@@ -4183,8 +4306,29 @@ function initAppEvents() {
     const exp1ClickBtn = e.target.closest('.btn-1click-claim-restart-exp');
     if (exp1ClickBtn) {
       const res = gameState.claimAndRestartAllExpeditions();
-      showToast(`⚡ ${res.claimed} Sefer Toplandı, ${res.restarted} Yeni Sefer Başlatıldı!`, 'success');
-      sound.playHarvest();
+      if (res.staminaWarning) {
+        showToast(res.staminaWarning, 'warning');
+      } else if (res.messages && res.messages.length > 0) {
+        showToast(res.messages[0], 'warning');
+      }
+      if (res.claimed > 0 || res.restarted > 0) {
+        showToast(`⚡ ${res.claimed} Sefer Toplandı, ${res.restarted} Yeni Sefer Başlatıldı!`, 'success');
+        sound.playHarvest();
+      }
+      openDashboardModal();
+      renderTopBar();
+      return;
+    }
+
+    // 1-Click: Tüm Staminayı Doldur
+    const refill1ClickBtn = e.target.closest('.btn-1click-refill-stamina');
+    if (refill1ClickBtn) {
+      const res = gameState.refillStaminaToMaxWithWheat();
+      if (res.success) {
+        showToast(res.message, 'success');
+      } else {
+        showToast(res.message, 'info');
+      }
       openDashboardModal();
       renderTopBar();
       return;
@@ -4288,7 +4432,7 @@ function initAppEvents() {
         showToast(`📦 +${res.amount} ${res.resourceName} & +${res.xpGained} XP kazanıldı!`, 'success');
         closeModal();
       } else {
-        showToast(res.message, 'error');
+        showToast(res.message, res.isWarehouseFull ? 'warning' : 'error');
       }
       renderTopBar();
       return;
@@ -4306,7 +4450,7 @@ function initAppEvents() {
         if (accEl) accEl.innerText = `+0 ${GAME_CONFIG.GLOBAL_RESOURCE_CAPS[node].name}`;
         partialClaimBtn.disabled = true;
       } else {
-        showToast(res.message, 'error');
+        showToast(res.message, res.isWarehouseFull ? 'warning' : 'error');
       }
       renderTopBar();
       return;
@@ -4396,7 +4540,34 @@ function initAppEvents() {
     if (smartUnequipAllBtn) {
       const res = gameState.unequipAllSoldiers();
       showToast(res.message, res.success ? 'success' : 'info');
-      openBarracksModal();
+      if (barracksActiveTab === 'armory') openBarracksModal();
+      else if (dom.modalTitle && dom.modalTitle.innerText.includes('Akıllı Silah')) openSmartArmoryModal();
+      else openBarracksModal();
+      renderTopBar();
+      return;
+    }
+
+    // 🔨 Tüm Silah & Zırhları Tek Tıkla Onar
+    const smartRepairAllBtn = e.target.closest('.btn-smart-repair-all-equip');
+    if (smartRepairAllBtn) {
+      const res = gameState.repairAllEquipmentInKingdom();
+      showToast(res.message, res.success ? 'success' : 'info');
+      if (res.success) sound.playRepair();
+      if (barracksActiveTab === 'armory') openBarracksModal();
+      else if (dom.modalTitle && dom.modalTitle.innerText.includes('Akıllı Silah')) openSmartArmoryModal();
+      else openBarracksModal();
+      renderTopBar();
+      return;
+    }
+
+    // ♻️ Düşük Kalite / Fazlalıkları Hurdaya Çevir
+    const smartScrapBtn = e.target.closest('.btn-smart-scrap-low-tier');
+    if (smartScrapBtn) {
+      const res = gameState.scrapAllLowTierEquipment(1);
+      showToast(res.message, res.success ? 'success' : 'info');
+      if (barracksActiveTab === 'armory') openBarracksModal();
+      else if (dom.modalTitle && dom.modalTitle.innerText.includes('Akıllı Silah')) openSmartArmoryModal();
+      else openBarracksModal();
       renderTopBar();
       return;
     }
@@ -4431,9 +4602,22 @@ function initAppEvents() {
       return;
     }
 
-    // Buğday ile Stamina Doldur
+    // Buğday ile Stamina Doldur (+25)
     if (e.target.closest('#btn-wheat-stamina-refill')) {
       const res = gameState.refillStaminaWithWheat();
+      if (res.success) {
+        showToast(res.message, 'success');
+        openInventoryModal();
+      } else {
+        showToast(res.message, 'error');
+      }
+      renderTopBar();
+      return;
+    }
+
+    // Buğday ile Staminayı Tek Seferde Tam Doldur
+    if (e.target.closest('#btn-wheat-stamina-refill-max')) {
+      const res = gameState.refillStaminaToMaxWithWheat();
       if (res.success) {
         showToast(res.message, 'success');
         openInventoryModal();
@@ -4469,11 +4653,11 @@ function initAppEvents() {
           break;
         case 'add_fragments':
           gameState.cheatAddResources(0, 0, 0, 500, 0, 0, 0);
-          toastMsg = '🧩 +500 Parça eklendi!';
+          toastMsg = '🧩 +500 Teçhizat Parçaları eklendi!';
           break;
         case 'add_boxes':
           gameState.cheatAddResources(0, 0, 0, 0, 0, 50, 0);
-          toastMsg = '📦 +50 Kilitli Sandık eklendi!';
+          toastMsg = '📦 +50 Pandora Kutusu eklendi!';
           break;
         case 'add_keys':
           gameState.cheatAddResources(0, 0, 0, 0, 0, 0, 50);
@@ -4556,7 +4740,7 @@ function initAppEvents() {
         case 'open_10_boxes':
           gameState.cheatAddResources(0, 0, 0, 0, 0, 10, 0);
           for (let b = 0; b < 10; b++) gameState.unboxMysteryBox();
-          toastMsg = '📦 10 Adet Kilitli Sandık Açıldı ve Koleksiyon Eserleri Eklendi!';
+          toastMsg = '📦 10 Adet Pandora Kutusu Açıldı ve Koleksiyon Eserleri Eklendi!';
           break;
         case 'stake_boss':
           const stRes = gameState.stakeArmyForWorldBoss();
@@ -4587,7 +4771,7 @@ function initAppEvents() {
           toastMsg = '⏳ Tüm Sefer Zamanlayıcıları Anında Tamamlandı!';
           break;
         case 'reset_state':
-          localStorage.clear();
+          gameState.vanillaReset();
           location.reload();
           return;
       }
@@ -5114,15 +5298,15 @@ function initAppEvents() {
       return;
     }
 
-    // Kilitli Sandık Açma (1 Arena Anahtarı Karşılığında)
+    // Pandora Kutusu Açma (1 Arena Anahtarı Karşılığında)
     if (e.target.closest('#btn-open-mystery-box')) {
       const st = gameState.state;
       if ((st.lockedBoxes || 0) <= 0) {
-        showToast('Açılacak Kilitli Sandığın yok!', 'error');
+        showToast('Açılacak Pandora Kutun yok!', 'error');
         return;
       }
       if ((st.arenaKeys || 0) <= 0) {
-        showToast('Sandık açmak için en az 1 🔑 Arena Anahtarına ihtiyacın var! (Zindan bosslarını yen veya 18v18 Kolezyum Savaşını kazan)', 'error');
+        showToast('Pandora Kutusu açmak için en az 1 🔑 Arena Anahtarına ihtiyacın var! (Zindan bosslarını yen veya Kolezyum Savaşını kazan)', 'error');
         return;
       }
       const res = gameState.unboxMysteryBox();
@@ -5333,7 +5517,7 @@ function initDevPanelEvents() {
       else if (mode === 'add') gameState.state.lockedBoxes = Math.max(0, (gameState.state.lockedBoxes || 0) + val);
       else if (mode === 'sub') gameState.state.lockedBoxes = Math.max(0, (gameState.state.lockedBoxes || 0) - val);
       gameState.saveState();
-      msg = `📦 Kilitli Sandık: ${gameState.state.lockedBoxes} yapıldı!`;
+      msg = `📦 Pandora Kutusu: ${gameState.state.lockedBoxes} yapıldı!`;
     } else if (target === 'dungeon') {
       const dLvl = mode === 'zero' ? 1 : Math.max(1, Math.min(18, val));
       gameState.setDungeonProgress(dLvl);
@@ -5451,7 +5635,7 @@ function initDevPanelEvents() {
 
       case 'add-fragments':
         gameState.addDevResource('fragments', amount);
-        showToast(`🧩 +${amount.toLocaleString()} Parça (Fragment) eklendi!`, 'success');
+        showToast(`🧩 +${amount.toLocaleString()} Teçhizat Parçaları eklendi!`, 'success');
         sound.playLevelUp();
         break;
 
@@ -5470,7 +5654,7 @@ function initDevPanelEvents() {
       case 'add-boxes':
         gameState.state.lockedBoxes = (gameState.state.lockedBoxes || 0) + amount;
         gameState.saveState();
-        showToast(`📦 +${amount} Kilitli Sandık eklendi!`, 'success');
+        showToast(`📦 +${amount} Pandora Kutusu eklendi!`, 'success');
         sound.playLevelUp();
         break;
 
@@ -5538,12 +5722,12 @@ function initDevPanelEvents() {
         break;
 
       case 'unlock-all-soldiers':
-        while ((gameState.state.soldierUnits || []).length < (GAME_CONFIG.MAX_SOLDIERS || 18)) {
+        for (let k = 0; k < 18; k++) {
           gameState.state.soldierUnits.push(gameState.createSoldierUnit(gameState.state.soldierUnits.length + 1));
         }
         gameState.state.soldierUnits.forEach(s => { s.hp = s.maxHp || 100; });
         gameState.saveState();
-        showToast(`⚔️ 18 Asker tamamı orduya katıldı!`, 'success');
+        showToast(`⚔️ Orduya +18 asker katıldı! (Toplam: ${gameState.state.soldierUnits.length})`, 'success');
         sound.playLevelUp();
         break;
 
@@ -5555,11 +5739,11 @@ function initDevPanelEvents() {
 
       case 'vanilla-reset': {
         const confirmReset = window.confirm(
-          '🍦 EMİN MİSİN?\n\nBu işlem TÜM ilerlemeni (seviye, XP, ordu, kaynaklar, envanter, teçhizat, zindan ilerlemesi ve aktif seferler) kalıcı olarak silecek ve hesabını sıfırdan vanilla başlangıç profiline (Lv.1, 100 Stamina, 250 ADA) döndürecek.\n\nDevam etmek istiyor musun?'
+          '🍦 EMİN MİSİN?\n\nBu işlem TÜM kişisel hesap ilerlemeni (seviye, XP, ordu, kaynaklar, envanter, teçhizat, zindan ilerlemesi ve aktif seferler) sıfırlayarak hesabını başlangıç profiline (Lv.1, 100 Stamina, 250 ADA) döndürecek.\n\n🛡️ Not: Oyun ekonomisi, AMM pazar havuzları ve hazine ayarları KORUNACAKTIR.\n\nDevam etmek istiyor musun?'
         );
         if (!confirmReset) break;
         gameState.vanillaReset();
-        showToast('🍦 Hesabın tamamen vanilla başlangıç profiline sıfırlandı! Sayfa yenileniyor...', 'success');
+        showToast('🍦 Hesabın başlangıç profiline sıfırlandı (Ekonomi ayarları korundu)! Sayfa yenileniyor...', 'success');
         sound.playLevelUp();
         renderTopBar();
         setTimeout(() => location.reload(), 900);
@@ -5572,6 +5756,88 @@ function initDevPanelEvents() {
   });
 }
 
+let _liveUpgradeUiTimer = 0;
+function refreshLiveUpgradeCostUI(deltaSeconds = 1) {
+  _liveUpgradeUiTimer += deltaSeconds;
+  if (_liveUpgradeUiTimer < 1.0) return;
+  _liveUpgradeUiTimer = 0;
+
+  if (!dom.modalContainer || !dom.modalContainer.classList.contains('active')) return;
+
+  const state = gameState.state;
+  const adAstra = state.adAstraBalance || 0;
+  const inv = state.inventory || {};
+
+  // 1. Silo Modalı Açıksa Canlı Güncelle
+  const whBtn = document.getElementById('btn-modal-upgrade-warehouse');
+  const whAdaVal = document.getElementById('val-warehouse-ada-req');
+  const whAdaCur = document.getElementById('val-warehouse-ada-cur');
+  if (whBtn && whAdaVal) {
+    const cost = gameState.getWarehouseUpgradeCost();
+    if (cost) {
+      whAdaVal.innerText = cost.adAstra.toLocaleString('tr-TR');
+      if (whAdaCur) whAdaCur.innerText = adAstra.toFixed(1);
+      const adaBox = document.getElementById('live-warehouse-ada-cost');
+      if (adaBox) {
+        adaBox.style.color = adAstra >= cost.adAstra ? '#4ade80' : '#f87171';
+      }
+      if (!cost.is80PercentFull) {
+        whBtn.disabled = true;
+        whBtn.className = 'btn-clean';
+        whBtn.style.background = '#3b1404';
+        whBtn.style.color = '#f59e0b';
+        whBtn.style.borderColor = '#78350f';
+        whBtn.style.cursor = 'not-allowed';
+        whBtn.innerText = '⚠️ TÜM KAYNAK DEPOLARI EN AZ %80 DOLU OLMALIDIR';
+      } else if (!cost.canAffordCost) {
+        whBtn.disabled = true;
+        whBtn.className = 'btn-clean';
+        whBtn.style.background = '#450a0a';
+        whBtn.style.color = '#f87171';
+        whBtn.style.borderColor = '#7f1d1d';
+        whBtn.style.cursor = 'not-allowed';
+        whBtn.innerText = '⚠️ YETERSİZ KAYNAK VEYA $ADASTRA BAKİYESİ';
+      } else {
+        whBtn.disabled = false;
+        whBtn.className = 'btn-clean btn-clean-green';
+        whBtn.removeAttribute('style');
+        whBtn.style.marginTop = '12px';
+        whBtn.style.width = '100%';
+        whBtn.style.fontSize = '1.05rem';
+        whBtn.style.padding = '13px';
+        whBtn.style.fontWeight = '800';
+        whBtn.innerText = `🔨 SİLOYU SEVİYE ${cost.nextLevel}'E YÜKSELT`;
+      }
+    }
+  }
+
+  // 2. Karakter Seviye Modalı Açıksa Canlı Güncelle
+  const lvlBtn = document.getElementById('btn-modal-levelup');
+  const lvlAdaVal = document.getElementById('val-levelup-ada-req');
+  const lvlAdaCur = document.getElementById('val-levelup-ada-cur');
+  if (lvlBtn && lvlAdaVal) {
+    const req = gameState.getNextLevelRequirement();
+    if (req) {
+      lvlAdaVal.innerText = req.adAstra.toLocaleString('tr-TR');
+      if (lvlAdaCur) lvlAdaCur.innerText = adAstra.toFixed(1);
+      const lvlAdaBox = document.getElementById('live-levelup-ada-box');
+      if (lvlAdaBox) {
+        lvlAdaBox.style.color = adAstra >= req.adAstra ? '#4ade80' : '#f87171';
+      }
+      const canAfford = state.currentXp >= req.xp &&
+                        (inv.wood || 0) >= req.wood &&
+                        (inv.iron || 0) >= req.iron &&
+                        (inv.wheat || 0) >= req.wheat &&
+                        adAstra >= req.adAstra;
+      if (!canAfford) {
+        lvlBtn.style.opacity = '0.7';
+      } else {
+        lvlBtn.style.opacity = '1';
+      }
+    }
+  }
+}
+
 function uiGameLoop(currentTime) {
   const deltaMs = currentTime - lastTickTime;
   lastTickTime = currentTime;
@@ -5580,8 +5846,10 @@ function uiGameLoop(currentTime) {
   gameState.regenerateStamina(deltaSeconds);
   gameState.updateExpeditions(deltaSeconds);
   gameState.processSoldierPassiveHealing(deltaSeconds);
+  gameState.tickUpgradeCostBot(deltaSeconds);
   globalPool.simulateGlobalActivity(deltaSeconds);
   refreshBarracksLiveUI(deltaSeconds);
+  refreshLiveUpgradeCostUI(deltaSeconds);
 
   // Canlı Açık Sefer Modalı Sayacı Güncelleme
   ['wood', 'iron', 'wheat'].forEach(nodeId => {
@@ -5596,7 +5864,7 @@ function uiGameLoop(currentTime) {
       if (pctEl) pctEl.innerText = `%${acc.pct}`;
       fillEl.style.width = `${acc.pct}%`;
       if (accEl) {
-        accEl.innerText = `+${acc.accruedAmount} ${GAME_CONFIG.GLOBAL_RESOURCE_CAPS[nodeId].name} (+${Math.floor(acc.accruedAmount * 0.5)} XP)`;
+        accEl.innerText = `+${acc.accruedAmount} ${GAME_CONFIG.GLOBAL_RESOURCE_CAPS[nodeId].name} (+${acc.accruedXp || 0} XP)`;
       }
       if (partBtn) {
         partBtn.disabled = acc.accruedAmount <= 0;
@@ -5660,6 +5928,7 @@ function initPhaser() {
 window.addEventListener('DOMContentLoaded', () => {
   initPhaser();
   initAppEvents();
+  initDevPanelEvents();
   renderTopBar();
   lastTickTime = performance.now();
   requestAnimationFrame(uiGameLoop);

@@ -31,14 +31,8 @@ export function makeRng(seed) {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// Element üçgeni: Ateş → Doğa → Buz → Ateş
-// ─────────────────────────────────────────────────────────────────────────
+// Element sistemi devre dışı — askerler nötr. Her zaman 1.0 döndürür.
 export function elementMultiplier(attacker, defender) {
-  const T = GAME_CONFIG.ELEMENT_TRIANGLE;
-  if (!attacker || !defender || attacker === defender) return 1;
-  if (T[attacker] && T[attacker].strongVs === defender) return T.STRONG_MULT;
-  if (T[defender] && T[defender].strongVs === attacker) return T.WEAK_MULT;
   return 1;
 }
 
@@ -75,7 +69,7 @@ export function createUnit(spec) {
     pen: Math.max(0, spec.pen != null ? spec.pen : cls.basePen),
     lifesteal: spec.lifesteal || 0,
 
-    element: spec.element || 'neutral',
+    element: null,
     row: spec.row || cls.preferredRow,
 
     // Tur başına aksiyon sayısı. Tek bir boss 18 askere karşı bir aksiyonla

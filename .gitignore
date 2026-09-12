@@ -1,11 +1,45 @@
+# Dependencies
 node_modules/
-.vite/
+.pnp
+.pnp.js
+
+# Production builds & caches
 dist/
+dist-ssr/
+.vite/
+*.local
+
+# Logs & Debug
+logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment & Secret files
+.env
+.env.production
+.env.local
+.env.*.local
+
+# OS & Editor generated files
 .DS_Store
 Thumbs.db
-.env
-.env.local
-/*.png
-/test-results/
-/playwright-report/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# IDE & AI Assistant metadata
+.agents/
+
+# Testing artifacts
+test-results/
+playwright-report/
+coverage/
