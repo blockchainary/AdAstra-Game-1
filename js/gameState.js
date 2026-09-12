@@ -47,7 +47,15 @@ export class GameStateManager {
       },
       armoryInventory: Array.isArray(parsed.armoryInventory) ? parsed.armoryInventory : [],
       collectionArtifacts: this.mergeCollectionArtifacts(parsed.collectionArtifacts),
-      soldierUnits: this.mergeSoldierUnits(parsed.soldierUnits)
+      soldierUnits: this.mergeSoldierUnits(parsed.soldierUnits),
+      dungeonMonsterCurrentHp: parsed.dungeonMonsterCurrentHp || {},
+      lotteryTickets: parsed.lotteryTickets || 0,
+      lotteryPool: parsed.lotteryPool != null ? parsed.lotteryPool : 1000000,
+      lotteryAmortiPool: parsed.lotteryAmortiPool || 0,
+      wheelTicketShards: parsed.wheelTicketShards || 0,
+      botSiloAutoUpgrade: parsed.botSiloAutoUpgrade !== undefined ? parsed.botSiloAutoUpgrade : true,
+      botActiveUntil: parsed.botActiveUntil || 0,
+      redeemCodes: Array.isArray(parsed.redeemCodes) ? parsed.redeemCodes : []
     };
   }
 
@@ -75,30 +83,30 @@ export class GameStateManager {
   // hızı, kritiği ve saf tercihini değiştirir; her birinin kendi yeteneği vardır.
   static SOLDIER_ROTATION = ['guardian', 'ranger', 'paladin', 'mage'];
 
-  createSoldierUnit(index, classId = null) {
-    const rotation = GameStateManager.SOLDIER_ROTATION;
-    const cls = classId && GAME_CONFIG.COMBAT_CLASSES[classId]
-      ? classId
-      : rotation[(index - 1) % rotation.length];
-    const c = GAME_CONFIG.COMBAT_CLASSES[cls];
+  createSoldierUnit(index) {
+    const level = 1;
+    const maxHp = GAME_CONFIG.SOLDIER_MAX_HP || 100;
+    const baseAtk = GAME_CONFIG.SOLDIER_BASE_ATK || 25;
 
     return {
       id: `soldier_${Date.now()}_${index}`,
-      name: `${c.name} #${index}`,
-      class: cls,
-      className: c.name,
-      icon: c.icon,
+      name: `AdAstra Şampiyonu #${index}`,
+      class: 'adastra_champion',
+      classId: 'adastra_champion',
+      className: 'AdAstra Şampiyonu',
+      icon: '⚔️',
       element: null,
-      row: c.preferredRow,
-      level: 1,
+      row: 'front',
+      level,
       xp: 0,
-      maxHp: Math.round(100 * c.hpMult),
-      hp: Math.round(100 * c.hpMult),
-      baseAtk: Math.round(20 * c.atkMult),
-      baseArmor: c.baseArmor,
-      baseSpeed: c.baseSpeed,
-      baseCrit: c.baseCrit,
-      basePen: c.basePen,
+      maxHp,
+      hp: maxHp,
+      baseAtk,
+      atk: baseAtk,
+      baseArmor: 10,
+      baseSpeed: 10,
+      baseCrit: 0.05,
+      basePen: 5,
       woundedUntil: 0,
       equipment: { weapon: null, helmet: null, armor: null, legs: null, boots: null }
     };
@@ -125,32 +133,30 @@ export class GameStateManager {
   }
 
   mergeSoldierUnits(saved) {
-    const rotation = GameStateManager.SOLDIER_ROTATION;
     if (!Array.isArray(saved) || saved.length === 0) {
-      // Sıfırlanmış hesapta ordu boş başlar; otomatik asker yaratılmaz.
       return [];
     }
     return saved.map((s, i) => {
-      // Eski kayıtlarda herkes 'warrior' idi; rotasyona göre sınıf atanır.
-      const cls = GAME_CONFIG.COMBAT_CLASSES[s.class] ? s.class : rotation[i % rotation.length];
-      const c = GAME_CONFIG.COMBAT_CLASSES[cls];
+      const level = Math.max(1, s.level || 1);
+      const maxHp = 100 + (level - 1) * (GAME_CONFIG.SOLDIER_HP_PER_LEVEL || 25);
+      const baseAtk = 25 + (level - 1) * (GAME_CONFIG.SOLDIER_ATK_PER_LEVEL || 6);
       return {
         id: s.id || `soldier_${i + 1}`,
-        name: s.name && s.className ? s.name : `${c.name} #${i + 1}`,
-        class: cls,
-        className: c.name,
-        icon: c.icon,
+        name: `AdAstra Şampiyonu #${i + 1}`,
+        class: 'adastra_champion',
+        className: 'AdAstra Şampiyonu',
+        icon: '⚔️',
         element: null,
-        row: s.row || c.preferredRow,
-        level: s.level || 1,
+        row: 'front',
+        level,
         xp: s.xp || 0,
-        maxHp: s.maxHp || Math.round(100 * c.hpMult),
-        hp: s.hp != null ? s.hp : (s.maxHp || Math.round(100 * c.hpMult)),
-        baseAtk: s.baseAtk || Math.round(20 * c.atkMult),
-        baseArmor: s.baseArmor != null ? s.baseArmor : c.baseArmor,
-        baseSpeed: s.baseSpeed != null ? s.baseSpeed : c.baseSpeed,
-        baseCrit: s.baseCrit != null ? s.baseCrit : c.baseCrit,
-        basePen: s.basePen != null ? s.basePen : c.basePen,
+        maxHp: s.maxHp || maxHp,
+        hp: s.hp != null ? Math.min(s.hp, s.maxHp || maxHp) : maxHp,
+        baseAtk: s.baseAtk || baseAtk,
+        baseArmor: 10,
+        baseSpeed: 10,
+        baseCrit: 0.05,
+        basePen: 5,
         woundedUntil: s.woundedUntil || 0,
         equipment: {
           weapon: null, helmet: null, armor: null, legs: null, boots: null,
@@ -259,8 +265,14 @@ export class GameStateManager {
     const maxHp = soldier.maxHp || 100;
     const hp = Math.min(maxHp, Math.max(0, soldier.hp != null ? soldier.hp : maxHp));
     const missingHp = Math.max(0, maxHp - hp);
-    const wheatNeeded = Math.ceil(missingHp * cfg.WHEAT_PER_HP);
-    const adaCost = Math.ceil(missingHp * cfg.INSTANT_HEAL_ADA_PER_HP);
+    const wheatRate = (GAME_CONFIG.SOLDIER_FAST_HEAL && GAME_CONFIG.SOLDIER_FAST_HEAL.wheatPerHp != null)
+      ? GAME_CONFIG.SOLDIER_FAST_HEAL.wheatPerHp
+      : 0.30;
+    const adaRate = (GAME_CONFIG.SOLDIER_FAST_HEAL && GAME_CONFIG.SOLDIER_FAST_HEAL.adAstraPerHp != null)
+      ? GAME_CONFIG.SOLDIER_FAST_HEAL.adAstraPerHp
+      : 0.10;
+    const wheatNeeded = Math.round(missingHp * wheatRate * 100) / 100;
+    const adaCost = Math.round(missingHp * adaRate * 100) / 100;
     const secondsRemaining = missingHp > 0 ? Math.ceil((missingHp / maxHp) * cfg.FULL_HEAL_SECONDS) : 0;
     const wheatInStock = Math.floor(this.state.inventory.wheat || 0);
 
@@ -272,7 +284,9 @@ export class GameStateManager {
       isFull: missingHp <= 0,
       isPaused: missingHp > 0 && wheatInStock <= 0,
       wheatNeeded,
+      wheatCost: wheatNeeded,
       adaCost,
+      adAstraCost: adaCost,
       secondsRemaining,
       wheatInStock
     };
@@ -350,6 +364,10 @@ export class GameStateManager {
       success: true,
       message: `⚡ ${soldier.name} anında tam cana kavuştu! (-${info.wheatNeeded} 🌾 Buğday, -${info.adaCost} 🟣 ADA)`
     };
+  }
+
+  healSoldierInstantly(soldierIndex) {
+    return this.instantHealSoldierUnit(soldierIndex);
   }
 
   equipSoldierSlot(soldierIndex, slotKey) {
@@ -1539,23 +1557,59 @@ export class GameStateManager {
     return this.liveUpgradeCosts;
   }
 
-  // =========================================================================
-  // 7.5. 5 ADET DEMİRCİ EKİPMANI (SİLAH, MİĞFER, ZIRH, PANTOLON, AYAKKABI)
-  // =========================================================================
-  // Toplam Ekipman Bonuslarını Hesaplar (Tüm 5 yuvanın ATK ve HP toplamı)
-  getEquipmentBonusStats() {
-    let totalAtk = 0;
-    let totalHp = 0;
-    if (!this.state.equipment) return { totalAtk: 0, totalHp: 0 };
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔨 YENİ MATEMATİKSEL TEÇHİZAT CRAFT, UPGRADE VE ONARIM MOTORU
+  // ═══════════════════════════════════════════════════════════════════════
+  // 1 ATK = 18 dk Odun (324) + 18 dk Demir (216) + AMM DEX ADA + 1 Parça
+  // 1 HP  = 21 dk Odun (378) + 21 dk Demir (252) + AMM DEX ADA + 1 Parça
+  // Upgrade: Hammadde +%18 (1.18x), Parça 2 katı (1 -> 2 -> 4 -> 8 -> 16)
+  // Dayanıklılık: 13/13 (Zafere -1). Sıfırlanınca yenileme: Kümülatif üretimin %10'u
+  // ═══════════════════════════════════════════════════════════════════════
 
-    for (const slot of ['weapon', 'helmet', 'armor', 'legs', 'boots']) {
-      const item = this.state.equipment[slot];
-      if (item && item.durability > 0) {
-        totalAtk += item.atkBonus || 0;
-        totalHp += item.hpBonus || 0;
-      }
+  getCumulativeEquipmentResourceCost(item) {
+    const lvl = Math.max(1, item?.level || 1);
+    const atk = item?.baseAtk || (item?.slot === 'weapon' ? 25 : 0);
+    const hp = item?.baseHp || (item?.slot !== 'weapon' ? 50 : 0);
+    const baseWood = Math.max(15, atk * (18 * 18) + hp * (21 * 18));
+    const baseIron = Math.max(20, atk * (18 * 12) + hp * (21 * 12));
+
+    let totalWood = 0;
+    let totalIron = 0;
+    for (let l = 1; l <= lvl; l++) {
+      const mult = Math.pow(1.18, l - 1);
+      totalWood += baseWood * mult;
+      totalIron += baseIron * mult;
     }
-    return { totalAtk, totalHp };
+    return {
+      baseWood,
+      baseIron,
+      totalWood: Math.round(totalWood),
+      totalIron: Math.round(totalIron)
+    };
+  }
+
+  // 1. Ekipman Dövme Maliyetini Hesapla
+  calculateEquipmentCraftCost(recipeOrSlot) {
+    const recipe = typeof recipeOrSlot === 'string'
+      ? (GAME_CONFIG.EQUIPMENT_RECIPES[recipeOrSlot] || {})
+      : (recipeOrSlot || {});
+    const atk = recipe.baseAtk || 0;
+    const hp = recipe.baseHp || 0;
+    const wood = Math.max(15, atk * (18 * 18) + hp * (21 * 18));
+    const iron = Math.max(20, atk * (18 * 12) + hp * (21 * 12));
+    const fragments = 1;
+    const adaCost = ammMarket.calculateResourcesAdAstraValue({ wood, iron }).totalAda;
+
+    return {
+      wood,
+      iron,
+      fragments,
+      adAstra: adaCost,
+      woodCost: wood,
+      ironCost: iron,
+      fragCost: fragments,
+      adaCost: adaCost
+    };
   }
 
   // 1. Ekipman Dövme (Craft) - Sınırsız Dövme: Boşsa doğrudan kuşanılır, doluysa Cephanelik Deposu'na eklenir
@@ -1570,8 +1624,9 @@ export class GameStateManager {
       this.state.armoryInventory = [];
     }
 
+    const cost = this.calculateEquipmentCraftCost(recipe);
     const inv = this.state.inventory;
-    const cost = recipe.cost;
+
     if ((inv.fragments || 0) < cost.fragments) {
       return { success: false, message: `Yetersiz Teçhizat Parçası! (${cost.fragments} Teçhizat Parçaları gerekli)` };
     }
@@ -1586,8 +1641,8 @@ export class GameStateManager {
     }
 
     inv.fragments = (inv.fragments || 0) - cost.fragments;
-    inv.iron = (inv.iron || 0) - cost.iron;
-    inv.wood = (inv.wood || 0) - cost.wood;
+    inv.iron -= cost.iron;
+    inv.wood -= cost.wood;
     this.state.adAstraBalance -= cost.adAstra;
     globalPool.recordTokenSpend(cost.adAstra);
 
@@ -1612,7 +1667,7 @@ export class GameStateManager {
       destination = 've krallık ana yuvasına kuşandırıldı';
     } else {
       this.state.armoryInventory.push(item);
-      destination = 've Cephanelik Deposu\'na eklendi (İstediğin askere giydirebilirsin)';
+      destination = 've Cephanelik Deposu\'na eklendi';
     }
 
     sound.playRepair();
@@ -1625,69 +1680,18 @@ export class GameStateManager {
     };
   }
 
-  // 2. Ekipman Tekrar Dövme / Onarım Maliyeti (Reforge Cost)
-  // Durability 13 altına düştüğünde tekrar dövülerek 13/13 yapılır.
-  // Eşyanın seviyesi ne kadar yüksekse tekrar dövme maliyeti de o kadar yüksek olur!
-  calculateEquipmentReforgeCost(slotKey) {
-    const item = this.state.equipment ? this.state.equipment[slotKey] : null;
-    if (!item) return null;
-
-    const missing = 13 - (item.durability || 0);
-    if (missing <= 0) return { missing: 0, ironCost: 0, woodCost: 0, adAstraCost: 0, isRepaired: true };
-
-    const lvl = item.level || 1;
-    const ironCost = Math.max(4, Math.ceil(missing * 3 * lvl));
-    const woodCost = Math.max(3, Math.ceil(missing * 2 * lvl));
-    const adAstraCost = Math.max(3, Math.ceil(missing * 2 * lvl));
-
-    return {
-      missing,
-      ironCost,
-      woodCost,
-      adAstraCost,
-      isRepaired: false,
-      itemName: item.name,
-      level: lvl
-    };
-  }
-
-  // Ekipmanı Tekrar Döv (Reforge to 13/13)
-  reforgeEquipment(slotKey) {
-    const cost = this.calculateEquipmentReforgeCost(slotKey);
-    if (!cost) return { success: false, message: 'Ekipman bulunamadı!' };
-    if (cost.missing <= 0) return { success: false, message: 'Ekipman zaten 13/13 dayanıklılıkta!' };
-
-    const inv = this.state.inventory;
-    if ((inv.iron || 0) < cost.ironCost) {
-      return { success: false, message: `Yetersiz Demir! (${cost.ironCost} Demir gerekli)` };
+  // 2. Ekipman Geliştirme Maliyeti (Upgrade Cost)
+  // Kaynaklar +%18 artar, Parçalar 2 katına çıkar, ADA ise AMM DEX pazar değerine eşittir
+  calculateEquipmentUpgradeCost(itemOrSlot, soldierIndex = null) {
+    let item = null;
+    if (typeof itemOrSlot === 'object' && itemOrSlot !== null) {
+      item = itemOrSlot;
+    } else if (soldierIndex !== null && soldierIndex !== undefined && soldierIndex !== '') {
+      const soldier = (this.state.soldierUnits || [])[soldierIndex];
+      item = soldier?.equipment ? soldier.equipment[itemOrSlot] : null;
+    } else {
+      item = this.state.equipment ? this.state.equipment[itemOrSlot] : null;
     }
-    if ((inv.wood || 0) < cost.woodCost) {
-      return { success: false, message: `Yetersiz Odun! (${cost.woodCost} Odun gerekli)` };
-    }
-    if (this.state.adAstraBalance < cost.adAstraCost) {
-      return { success: false, message: `Yetersiz AdAstra! (${cost.adAstraCost} $ADASTRA gerekli)` };
-    }
-
-    inv.iron -= cost.ironCost;
-    inv.wood -= cost.woodCost;
-    this.state.adAstraBalance -= cost.adAstraCost;
-    globalPool.recordTokenSpend(cost.adAstraCost);
-
-    const item = this.state.equipment[slotKey];
-    item.durability = 13;
-
-    sound.playRepair();
-    this.saveState();
-
-    return {
-      success: true,
-      message: `🔨 ${item.icon} ${item.name} örste yeniden dövüldü ve 13/13 dayanıklılığa ulaştı!`
-    };
-  }
-
-  // 3. Ekipman Geliştirme Maliyeti (Upgrade Cost: Lv.1 -> Lv.10 DeepSeek-R1 Matriksi)
-  calculateEquipmentUpgradeCost(slotKey) {
-    const item = this.state.equipment ? this.state.equipment[slotKey] : null;
     if (!item) return null;
 
     const currentLvl = item.level || 1;
@@ -1696,29 +1700,30 @@ export class GameStateManager {
     }
 
     const nextLvl = currentLvl + 1;
-    const tier = GAME_CONFIG.EQUIPMENT_UPGRADE_TIERS[nextLvl] || {
-      iron: nextLvl * 30,
-      wood: nextLvl * 20,
-      fragments: nextLvl * 5,
-      adAstra: nextLvl * 100
-    };
+    const cum = this.getCumulativeEquipmentResourceCost(item);
+    const mult = Math.pow(1.18, currentLvl);
+    const woodCost = Math.max(15, Math.round(cum.baseWood * mult));
+    const ironCost = Math.max(20, Math.round(cum.baseIron * mult));
+    const fragmentCost = Math.pow(2, currentLvl); // 1 -> 2 -> 4 -> 8 -> 16
+    const adAstraCost = ammMarket.calculateResourcesAdAstraValue({ wood: woodCost, iron: ironCost }).totalAda;
 
     return {
       isMaxLevel: false,
       currentLevel: currentLvl,
       nextLevel: nextLvl,
-      ironCost: tier.iron,
-      woodCost: tier.wood,
-      fragmentCost: tier.fragments,
-      adAstraCost: tier.adAstra,
+      ironCost,
+      woodCost,
+      fragmentCost,
+      adAstraCost,
       nextAtk: Math.round(item.baseAtk * (1 + (nextLvl - 1) * 0.35)),
-      nextHp: Math.round(item.baseHp * (1 + (nextLvl - 1) * 0.35))
+      nextHp: Math.round(item.baseHp * (1 + (nextLvl - 1) * 0.35)),
+      item
     };
   }
 
-  // Ekipmanı Geliştir (Upgrade Level: Demir + Odun + Parça + AdAstra)
-  upgradeEquipment(slotKey) {
-    const cost = this.calculateEquipmentUpgradeCost(slotKey);
+  // Ekipmanı Geliştir
+  upgradeEquipment(itemOrSlot, soldierIndex = null) {
+    const cost = this.calculateEquipmentUpgradeCost(itemOrSlot, soldierIndex);
     if (!cost) return { success: false, message: 'Ekipman bulunamadı!' };
     if (cost.isMaxLevel) return { success: false, message: 'Bu ekipman zaten maksimum seviyede (Lv.10 Master)!' };
 
@@ -1742,7 +1747,7 @@ export class GameStateManager {
     this.state.adAstraBalance -= cost.adAstraCost;
     globalPool.recordTokenSpend(cost.adAstraCost);
 
-    const item = this.state.equipment[slotKey];
+    const item = cost.item;
     item.level = cost.nextLevel;
     item.atkBonus = cost.nextAtk;
     item.hpBonus = cost.nextHp;
@@ -1757,58 +1762,52 @@ export class GameStateManager {
     };
   }
 
-  // =========================================================================
-  // 8. TEÇHİZAT ONARIM VE DAYANIKLILIK YÖNETİMİ
-  // =========================================================================
-
-  calculateEquipmentRepairCost(slotKey, soldierIndex = null) {
+  // 3. Teçhizat Onarım Maliyeti (Repair Cost)
+  // Kural: Dayanıklılık sıfırlanınca üretim kaynaklarının %10'u (Odun+Demir+AMM DEX ADA). Kısmi hasarda oranlanır.
+  calculateEquipmentRepairCost(itemOrSlot, soldierIndex = null) {
     let item = null;
-    if (soldierIndex !== null && soldierIndex !== undefined && soldierIndex !== '') {
+    if (typeof itemOrSlot === 'object' && itemOrSlot !== null) {
+      item = itemOrSlot;
+    } else if (soldierIndex !== null && soldierIndex !== undefined && soldierIndex !== '') {
       const soldier = (this.state.soldierUnits || [])[soldierIndex];
-      item = soldier?.equipment ? soldier.equipment[slotKey] : null;
+      item = soldier?.equipment ? soldier.equipment[itemOrSlot] : null;
     } else {
-      item = this.state.equipment ? this.state.equipment[slotKey] : null;
+      item = this.state.equipment ? this.state.equipment[itemOrSlot] : null;
     }
     if (!item) return { missingDurability: 0, ironCost: 0, woodCost: 0, fragCost: 0, adaCost: 0, isRepaired: true };
 
     const maxDur = item.maxDurability || 13;
     const curDur = item.durability != null ? item.durability : maxDur;
     const missing = Math.max(0, maxDur - curDur);
-    if (missing <= 0) return { missingDurability: 0, ironCost: 0, woodCost: 0, fragCost: 0, adaCost: 0, isRepaired: true };
+    if (missing <= 0) return { missingDurability: 0, ironCost: 0, woodCost: 0, fragCost: 0, adaCost: 0, isRepaired: true, item };
 
-    const lvl = item.level || 1;
-    const ironCost = Math.max(2, Math.ceil(missing * 2 * lvl));
-    const woodCost = Math.max(1, Math.ceil(missing * 1.5 * lvl));
-    const fragCost = lvl >= 5 ? Math.ceil(missing * 0.5) : 0;
-    const adaCost = Math.max(1, Math.ceil(missing * 1 * lvl));
+    const cum = this.getCumulativeEquipmentResourceCost(item);
+    const damageRatio = missing / maxDur;
+    // Sıfır dayanıklılıkta kümülatif kaynağın %10'u, kısmi hasarda oranlanır
+    const woodCost = Math.max(1, Math.round(cum.totalWood * 0.10 * damageRatio));
+    const ironCost = Math.max(1, Math.round(cum.totalIron * 0.10 * damageRatio));
+    const adaCost = ammMarket.calculateResourcesAdAstraValue({ wood: woodCost, iron: ironCost }).totalAda;
 
     return {
       missingDurability: missing,
       ironCost,
       woodCost,
-      fragCost,
+      fragCost: 0,
       adaCost,
       isRepaired: false,
       itemName: item.name,
-      level: lvl
+      level: item.level || 1,
+      item
     };
   }
 
-  repairEquipment(slotKey, soldierIndex = null) {
-    let item = null;
-    let soldier = null;
-    if (soldierIndex !== null && soldierIndex !== undefined && soldierIndex !== '') {
-      soldier = (this.state.soldierUnits || [])[soldierIndex];
-      item = soldier?.equipment ? soldier.equipment[slotKey] : null;
-    } else {
-      item = this.state.equipment ? this.state.equipment[slotKey] : null;
-    }
-
-    if (!item) return { success: false, message: 'Onarılacak ekipman bulunamadı!' };
-
-    const cost = this.calculateEquipmentRepairCost(slotKey, soldierIndex);
+  repairEquipment(itemOrSlot, soldierIndex = null) {
+    const cost = this.calculateEquipmentRepairCost(itemOrSlot, soldierIndex);
+    if (!cost || !cost.item) return { success: false, message: 'Onarılacak ekipman bulunamadı!' };
+    const item = cost.item;
+    const soldier = (soldierIndex !== null && soldierIndex !== undefined && soldierIndex !== '') ? (this.state.soldierUnits || [])[soldierIndex] : null;
     if (cost.missingDurability <= 0) {
-      return { success: false, message: `${item.name} zaten tamamen sağlam!` };
+      return { success: false, message: `${item.name} zaten tamamen sağlam (13/13)!` };
     }
 
     const inv = this.state.inventory;
@@ -1933,52 +1932,7 @@ export class GameStateManager {
     }
 
     if (!item) return { success: false, message: 'Yükseltilecek ekipman bulunamadı!' };
-
-    const currentLvl = item.level || 1;
-    if (currentLvl >= (GAME_CONFIG.EQUIPMENT_MAX_LEVEL || 10)) {
-      return { success: false, message: 'Bu ekipman zaten maksimum seviyede (Lv.10 Master)!' };
-    }
-
-    const nextLvl = currentLvl + 1;
-    const tier = GAME_CONFIG.EQUIPMENT_UPGRADE_TIERS[nextLvl] || {
-      iron: nextLvl * 30,
-      wood: nextLvl * 20,
-      fragments: nextLvl * 5,
-      adAstra: nextLvl * 100
-    };
-
-    const inv = this.state.inventory;
-    if ((inv.fragments || 0) < tier.fragments) {
-      return { success: false, message: `Yetersiz Teçhizat Parçası! (${tier.fragments} Teçhizat Parçaları gerekli)` };
-    }
-    if ((inv.iron || 0) < tier.iron) {
-      return { success: false, message: `Yetersiz Demir! (${tier.iron} Demir gerekli)` };
-    }
-    if ((inv.wood || 0) < tier.wood) {
-      return { success: false, message: `Yetersiz Odun! (${tier.wood} Odun gerekli)` };
-    }
-    if (this.state.adAstraBalance < tier.adAstra) {
-      return { success: false, message: `Yetersiz AdAstra! (${tier.adAstra} $ADASTRA gerekli)` };
-    }
-
-    inv.fragments = (inv.fragments || 0) - tier.fragments;
-    inv.iron = (inv.iron || 0) - tier.iron;
-    inv.wood = (inv.wood || 0) - tier.wood;
-    this.state.adAstraBalance -= tier.adAstra;
-    globalPool.recordTokenSpend(tier.adAstra);
-
-    item.level = nextLvl;
-    item.atkBonus = Math.round((item.baseAtk || 20) * (1 + (nextLvl - 1) * 0.35));
-    item.hpBonus = Math.round((item.baseHp || 30) * (1 + (nextLvl - 1) * 0.35));
-    item.durability = item.maxDurability || 13;
-
-    sound.playLevelUp();
-    this.saveState();
-
-    return {
-      success: true,
-      message: `✨ ${item.icon} ${item.name} Seviye ${item.level}'e yükseltildi! (+${item.atkBonus} Saldırı, +${item.hpBonus} Can, 13/13 Dayanıklılık)`
-    };
+    return this.upgradeEquipment(item);
   }
 
   // Cephanelikteki veya Krallıktaki eşyayı seçilen askere kuşandırır
@@ -2044,8 +1998,7 @@ export class GameStateManager {
     };
   }
 
-  // Tek tıkla krallıktaki, cephanelikteki ve tüm askerlerin üzerindeki hasarlı teçhizatları onarır
-    // ♻️ Düşük Kalite / Seviye 1 Fazlalık Boştaki Eşyaları Hurdaya Çevirip Parça Kazanma
+  // ♻️ Düşük Kalite / Seviye 1 Fazlalık Boştaki Eşyaları Hurdaya Çevirip Parça Kazanma
   scrapAllLowTierEquipment(maxLevel = 1) {
     if (!Array.isArray(this.state.armoryInventory)) this.state.armoryInventory = [];
     let scrappedCount = 0;
@@ -2095,29 +2048,24 @@ export class GameStateManager {
       success: true,
       scrappedCount,
       message: `♻️ ${scrappedCount} adet düşük seviye boşta eşya hurdaya ayrıldı! (+${gainedFragments} 💎 Teçhizat Parçaları, +${gainedIron} ⛏️ Demir)`
-    };;
+    };
   }
 
+  // Krallıktaki, cephanelikteki ve askerlerdeki tüm hasarlı eşyaları tek seferde onarır
+  // Krallıktaki, cephanelikteki ve askerlerdeki tüm hasarlı eşyaları tek seferde onarır
   repairAllEquipmentInKingdom() {
     const all = this.getAllArmoryEquipmentList();
-    let totalIron = 0, totalWood = 0, totalFrag = 0, totalAda = 0, repairedCount = 0;
+    let totalIron = 0, totalWood = 0, totalAda = 0, repairedCount = 0;
+    const toRepair = [];
 
     all.forEach(entry => {
-      const maxDur = entry.item.maxDurability || 13;
-      const curDur = entry.item.durability != null ? entry.item.durability : maxDur;
-      const missing = Math.max(0, maxDur - curDur);
-      if (missing > 0) {
-        const lvl = entry.item.level || 1;
-        const ironCost = Math.max(2, Math.ceil(missing * 2 * lvl));
-        const woodCost = Math.max(1, Math.ceil(missing * 1.5 * lvl));
-        const fragCost = lvl >= 5 ? Math.ceil(missing * 0.5) : 0;
-        const adaCost = Math.max(1, Math.ceil(missing * 1 * lvl));
-
-        totalIron += ironCost;
-        totalWood += woodCost;
-        totalFrag += fragCost;
-        totalAda += adaCost;
+      const cost = this.calculateEquipmentRepairCost(entry.item);
+      if (cost && cost.missingDurability > 0) {
+        totalIron += cost.ironCost;
+        totalWood += cost.woodCost;
+        totalAda += cost.adaCost;
         repairedCount++;
+        toRepair.push({ item: entry.item, cost });
       }
     });
 
@@ -2128,18 +2076,15 @@ export class GameStateManager {
     const inv = this.state.inventory;
     if ((inv.iron || 0) < totalIron) return { success: false, message: `Yetersiz Demir! (${totalIron} Demir gerekli)` };
     if ((inv.wood || 0) < totalWood) return { success: false, message: `Yetersiz Odun! (${totalWood} Odun gerekli)` };
-    if ((inv.fragments || 0) < totalFrag) return { success: false, message: `Yetersiz Teçhizat Parçası! (${totalFrag} Teçhizat Parçaları gerekli)` };
     if ((this.state.adAstraBalance || 0) < totalAda) return { success: false, message: `Yetersiz $ADASTRA! (${totalAda} ADA gerekli)` };
 
     inv.iron -= totalIron;
     inv.wood -= totalWood;
-    if (totalFrag > 0) inv.fragments -= totalFrag;
     this.state.adAstraBalance -= totalAda;
     globalPool.recordTokenSpend(totalAda);
 
-    all.forEach(entry => {
-      const maxDur = entry.item.maxDurability || 13;
-      entry.item.durability = maxDur;
+    toRepair.forEach(({ item }) => {
+      item.durability = item.maxDurability || 13;
     });
 
     sound.playRepair();
@@ -2147,8 +2092,339 @@ export class GameStateManager {
 
     return {
       success: true,
-      message: `🔨 Krallıktaki ${repairedCount} parça teçhizat tek seferde onarıldı! (-${totalIron} Demir, -${totalWood} Odun, -${totalAda} ADA)`
+      repairedCount,
+      message: `🔨 Krallıktaki ${repairedCount} parça teçhizat tek seferde onarıldı! (-${totalWood} Odun, -${totalIron} Demir, -${totalAda} ADA)`
     };
+  }
+
+  // Özelleştirilmiş Geliştirme: Belirli kategori (silah, miğfer vb.) ve belirli seviyedeki eşyaları geliştirir
+  // Örnek: "Sadece Seviye 2 Silahları Geliştir" veya "Sadece Seviye 1 Miğferleri Geliştir"
+  upgradeEquipmentByTypeAndLevel(targetSlot = null, targetLevel = null) {
+    const all = this.getAllArmoryEquipmentList();
+    let upgradedCount = 0;
+    let messages = [];
+
+    for (const entry of all) {
+      const item = entry.item;
+      if (!item) continue;
+      const matchSlot = !targetSlot || targetSlot === 'all' || item.slot === targetSlot;
+      const matchLevel = targetLevel == null || item.level === targetLevel;
+      if (matchSlot && matchLevel && (item.level || 1) < (GAME_CONFIG.EQUIPMENT_MAX_LEVEL || 10)) {
+        const res = this.upgradeEquipment(item);
+        if (res.success) {
+          upgradedCount++;
+        } else {
+          messages.push(res.message);
+          break; // Kaynak yetmediğinde dur
+        }
+      }
+    }
+
+    if (upgradedCount === 0 && messages.length > 0) {
+      return { success: false, message: messages[0] };
+    }
+    if (upgradedCount === 0) {
+      return { success: false, message: 'Geliştirilecek uygun teçhizat bulunamadı!' };
+    }
+
+    return {
+      success: true,
+      upgradedCount,
+      message: `✨ ${upgradedCount} adet teçhizat başarıyla bir sonraki seviyeye yükseltildi!`
+    };
+  }
+
+  // Tüm Cephanelikteki Geliştirilebilir Eşyaları Toplu Geliştir
+  upgradeAllEquipmentInKingdom() {
+    return this.upgradeEquipmentByTypeAndLevel('all', null);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 👾 ZİNDAN KALICI (PERSISTENT) CANAVAR CANI YÖNETİMİ
+  // ═══════════════════════════════════════════════════════════════════════
+  getMonsterCurrentHp(floorLevel, baseHp) {
+    if (!this.state.dungeonMonsterCurrentHp) this.state.dungeonMonsterCurrentHp = {};
+    const saved = this.state.dungeonMonsterCurrentHp[floorLevel];
+    return (saved != null && saved > 0) ? saved : baseHp;
+  }
+
+  recordMonsterHp(floorLevel, hp) {
+    if (!this.state.dungeonMonsterCurrentHp) this.state.dungeonMonsterCurrentHp = {};
+    if (hp <= 0) {
+      delete this.state.dungeonMonsterCurrentHp[floorLevel];
+    } else {
+      this.state.dungeonMonsterCurrentHp[floorLevel] = Math.round(hp);
+    }
+    this.saveState();
+  }
+
+  clearMonsterHp(floorLevel) {
+    if (this.state.dungeonMonsterCurrentHp) {
+      delete this.state.dungeonMonsterCurrentHp[floorLevel];
+      this.saveState();
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🤖 TAVERNA 24 SAATLİK OTOMASYON BOTU (KÂRA ORTAK MODELİ)
+  // ═══════════════════════════════════════════════════════════════════════
+  calculateTavernaBotProfitAndCost() {
+    const prod = GAME_CONFIG.BASE_PRODUCTION;
+    const woodPrice = ammMarket.getPrice('wood') || 2.50;
+    const ironPrice = ammMarket.getPrice('iron') || 4.00;
+    const wheatPrice = ammMarket.getPrice('wheat') || 0.90;
+
+    const grossValuePerMin = (prod.wood * woodPrice) + (prod.iron * ironPrice) + (prod.wheat * wheatPrice);
+    const staminaPerMin = (3 * (GAME_CONFIG.STAMINA_COST_PER_EXPEDITION || 20)) / 18;
+    const wheatPerMinForStamina = staminaPerMin * (GAME_CONFIG.WHEAT_PER_STAMINA || 3.15);
+    const staminaCostPerMinAda = wheatPerMinForStamina * wheatPrice;
+
+    const toolWoodPerMin = 3 * 1.5;
+    const toolIronPerMin = 3 * 1.0;
+    const toolAdaPerMin = 3 * 1.0;
+    const toolCostPerMinAda = (toolWoodPerMin * woodPrice) + (toolIronPerMin * ironPrice) + toolAdaPerMin;
+
+    const netProfitPerMin = Math.max(1, grossValuePerMin - staminaCostPerMinAda - toolCostPerMinAda);
+    const netProfit24h = netProfitPerMin * 1440;
+    const botCostAda = Math.max(100, Math.round(netProfit24h * 0.50));
+
+    return {
+      grossValuePerMin: parseFloat(grossValuePerMin.toFixed(2)),
+      staminaCostPerMinAda: parseFloat(staminaCostPerMinAda.toFixed(2)),
+      toolCostPerMinAda: parseFloat(toolCostPerMinAda.toFixed(2)),
+      netProfitPerMin: parseFloat(netProfitPerMin.toFixed(2)),
+      netProfit24h: Math.round(netProfit24h),
+      grossRevenueAda: Math.round(grossValuePerMin * 1440),
+      staminaWheatCostAda: Math.round(staminaCostPerMinAda * 1440),
+      toolRepairCostAda: Math.round(toolCostPerMinAda * 1440),
+      netProfitAda: Math.round(netProfit24h),
+      botCostAda
+    };
+  }
+
+  buyTavernaAutomationBot(useFree = false) {
+    const calc = this.calculateTavernaBotProfitAndCost();
+    const cost = useFree ? 0 : calc.botCostAda;
+
+    if (!useFree && this.state.adAstraBalance < cost) {
+      return {
+        success: false,
+        message: `Yetersiz $ADASTRA! 24 Saatlik Otomasyon Botu için ${cost.toLocaleString()} ADA gereklidir (Saf kârın %50'si).`
+      };
+    }
+
+    if (!useFree) {
+      this.state.adAstraBalance -= cost;
+      globalPool.recordTokenSpend(cost);
+    }
+
+    const now = Date.now();
+    const baseTime = (this.state.botActiveUntil && this.state.botActiveUntil > now) ? this.state.botActiveUntil : now;
+    this.state.botActiveUntil = baseTime + (24 * 3600 * 1000);
+    this.state.tavernaBotActive = true;
+    this.state.tavernaBotExpiresAt = this.state.botActiveUntil;
+
+    sound.playLevelUp();
+    this.saveState();
+
+    return {
+      success: true,
+      botActiveUntil: this.state.botActiveUntil,
+      costPaid: cost,
+      message: `🤖 24 Saatlik Otomasyon Botu aktifleştirildi! (Maliyet: ${cost.toLocaleString()} ADA, Kâr Ortaklığı: %50)`
+    };
+  }
+
+  setBotSiloOption(autoUpgrade = true) {
+    this.state.botSiloAutoUpgrade = !!autoUpgrade;
+    if (!this.state.botSettings) this.state.botSettings = {};
+    this.state.botSettings.siloAutoUpgrade = !!autoUpgrade;
+    this.saveState();
+    return { success: true, autoUpgrade: this.state.botSiloAutoUpgrade };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🎪 KRALLIK KARNAVALI: 14 ÖDÜLLÜ ŞANS ÇARKI & HAFTALIK PİYANGO
+  // ═══════════════════════════════════════════════════════════════════════
+  spinCarnivalWheel(paymentMethod = 'ada') {
+    const costAda = GAME_CONFIG.CARNIVAL?.WHEEL_COST_ADA || 100;
+    const inv = this.state.inventory;
+
+    if (paymentMethod === 'ada') {
+      if (this.state.adAstraBalance < costAda) {
+        return { success: false, message: `Yetersiz $ADASTRA! Çark çevirmek için ${costAda} ADA gereklidir.` };
+      }
+      this.state.adAstraBalance -= costAda;
+      globalPool.recordTokenSpend(costAda);
+    } else if (paymentMethod === 'ticket') {
+      if ((this.state.lotteryTickets || 0) < 1) {
+        return { success: false, message: 'Çark çevirmek için en az 1 Piyango Biletine sahip olmalısın!' };
+      }
+      this.state.lotteryTickets -= 1;
+    } else if (['wood', 'iron', 'wheat'].includes(paymentMethod)) {
+      const price = ammMarket.getPrice(paymentMethod) || 1.0;
+      const requiredAmount = Math.ceil(costAda / price);
+      if ((inv[paymentMethod] || 0) < requiredAmount) {
+        return { success: false, message: `Yetersiz ${paymentMethod.toUpperCase()}! 100 ADA değerinde hammadde için ${requiredAmount} adet gereklidir.` };
+      }
+      inv[paymentMethod] -= requiredAmount;
+      if (ammMarket.pools[paymentMethod]) ammMarket.pools[paymentMethod].resourceReserve += requiredAmount;
+    } else {
+      return { success: false, message: 'Geçersiz ödeme yöntemi!' };
+    }
+
+    const rewards = GAME_CONFIG.CARNIVAL.WHEEL_REWARDS;
+    const totalWeight = rewards.reduce((s, r) => s + (r.weight || 1), 0);
+    let rand = Math.random() * totalWeight;
+    let selectedReward = rewards[0];
+
+    for (const r of rewards) {
+      if (rand < r.weight) {
+        selectedReward = r;
+        break;
+      }
+      rand -= r.weight;
+    }
+
+    let rewardSummaryText = selectedReward.name;
+    if (selectedReward.type === 'ada') {
+      this.state.adAstraBalance += selectedReward.amount;
+    } else if (selectedReward.type === 'resource') {
+      inv[selectedReward.key] = (inv[selectedReward.key] || 0) + selectedReward.amount;
+    } else if (selectedReward.type === 'amm_raw') {
+      const p = ammMarket.getPrice(selectedReward.key) || 1.0;
+      const grantAmount = Math.round(selectedReward.adaVal / p);
+      inv[selectedReward.key] = (inv[selectedReward.key] || 0) + grantAmount;
+      rewardSummaryText = `${grantAmount} ${selectedReward.key.toUpperCase()} (${selectedReward.name})`;
+    } else if (selectedReward.type === 'bot_free') {
+      this.buyTavernaAutomationBot(true);
+    } else if (selectedReward.type === 'key') {
+      this.state.arenaKeys = (this.state.arenaKeys || 0) + selectedReward.amount;
+    } else if (selectedReward.type === 'scroll') {
+      inv[selectedReward.key] = (inv[selectedReward.key] || 0) + selectedReward.amount;
+    } else if (selectedReward.type === 'ticket_shard') {
+      this.state.wheelTicketShards = (this.state.wheelTicketShards || 0) + 1;
+      if (this.state.wheelTicketShards >= 10) {
+        this.state.wheelTicketShards -= 10;
+        this.state.lotteryTickets = (this.state.lotteryTickets || 0) + 1;
+        rewardSummaryText += ' (🎉 10 Parça birikti: +1 Piyango/Çark Bileti Kazanıldı!)';
+      }
+    } else if (selectedReward.type === 'analysis_code') {
+      const code = `ALPHAVAX-COIN-${Date.now().toString(36).toUpperCase()}`;
+      if (!Array.isArray(this.state.redeemCodes)) this.state.redeemCodes = [];
+      this.state.redeemCodes.push({ code, type: 'coin_analysis', created: Date.now() });
+      rewardSummaryText = `👑 Kodun: ${code} (Vercel App Coin Analizi)`;
+    }
+
+    sound.playLevelUp();
+    this.saveState();
+
+    return {
+      success: true,
+      reward: selectedReward,
+      rewardSummaryText,
+      message: `🎉 Tebrikler! Çarktan kazandın: ${rewardSummaryText}`
+    };
+  }
+
+  buyLotteryTickets(ticketCount = 1) {
+    const count = Math.max(1, parseInt(ticketCount) || 1);
+    const cost = count * (GAME_CONFIG.CARNIVAL?.LOTTERY?.TICKET_COST_ADA || 100);
+
+    if (this.state.adAstraBalance < cost) {
+      return { success: false, message: `Yetersiz $ADASTRA! ${count} bilet için ${cost} ADA gereklidir.` };
+    }
+
+    this.state.adAstraBalance -= cost;
+    this.state.lotteryTickets = (this.state.lotteryTickets || 0) + count;
+    this.state.lotteryPool = (this.state.lotteryPool || 1000000) + cost;
+
+    sound.playHarvest();
+    this.saveState();
+
+    return {
+      success: true,
+      ticketCount: count,
+      totalTickets: this.state.lotteryTickets,
+      lotteryPool: this.state.lotteryPool,
+      message: `🎟️ ${count} Adet Piyango Bileti satın alındı! (Toplam Biletin: ${this.state.lotteryTickets})`
+    };
+  }
+
+  drawWeeklyLottery() {
+    const pool = this.state.lotteryPool || 1000000;
+    const winnerShare = pool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.WEEKLY_WINNER_SHARE || 0.18);
+    const amortiShare = pool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.AMORTI_SHARE || 0.02);
+    const rolloverShare = pool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.ROLLOVER_SHARE || 0.80);
+
+    this.state.lotteryAmortiPool = (this.state.lotteryAmortiPool || 0) + amortiShare;
+    this.state.lotteryPool = rolloverShare;
+
+    const userTickets = this.state.lotteryTickets || 0;
+    const totalTickets = Math.max(100, userTickets + 900);
+    const userWinChance = userTickets / totalTickets;
+    const userWon = Math.random() < userWinChance;
+
+    let burnedTickets = 0;
+    let keptTickets = userTickets;
+
+    if (userWon && userTickets > 0) {
+      const ticketCostTotal = userTickets * 100;
+      this.state.adAstraBalance += winnerShare;
+
+      if (winnerShare >= ticketCostTotal * 2) {
+        burnedTickets = userTickets;
+        keptTickets = 0;
+        this.state.lotteryTickets = 0;
+      } else {
+        burnedTickets = Math.min(userTickets, Math.floor((winnerShare / 2) / 100));
+        keptTickets = userTickets - burnedTickets;
+        this.state.lotteryTickets = keptTickets;
+      }
+      sound.playLevelUp();
+    }
+
+    this.saveState();
+
+    return {
+      userWon,
+      wonAmount: userWon ? winnerShare : 0,
+      winnerShare,
+      amortiShare,
+      rolloverPool: rolloverShare,
+      userTicketsRemaining: keptTickets,
+      burnedTickets
+    };
+  }
+
+  burnLotteryTicketsForAmorti(count = 1) {
+    const userTickets = this.state.lotteryTickets || 0;
+    const toBurn = Math.min(userTickets, Math.max(1, parseInt(count) || 1));
+    if (toBurn <= 0) return { success: false, message: 'Yakılacak biletin bulunmuyor!' };
+
+    const amortiPool = this.state.lotteryAmortiPool || 0;
+    if (amortiPool <= 0) {
+      return { success: false, message: 'Amorti havuzunda henüz birikmiş $ADASTRA bulunmuyor.' };
+    }
+
+    const sharePerTicket = Math.max(1, Math.floor(amortiPool / Math.max(100, userTickets + 400)));
+    const totalPayout = toBurn * sharePerTicket;
+
+    this.state.lotteryTickets -= toBurn;
+    this.state.lotteryAmortiPool = Math.max(0, amortiPool - totalPayout);
+    this.state.adAstraBalance += totalPayout;
+
+    this.saveState();
+    return {
+      success: true,
+      burned: toBurn,
+      payout: totalPayout,
+      message: `🎟️ ${toBurn} Bilet yakıldı ve Amorti Kasasından +${totalPayout.toLocaleString()} ADA çekildi!`
+    };
+  }
+
+  useLotteryTicketForWheel() {
+    return this.spinCarnivalWheel('ticket');
   }
 
   // =========================================================================
@@ -2513,7 +2789,15 @@ export class GameStateManager {
       dungeonProgress: 1,
       collectionArtifacts: this.mergeCollectionArtifacts([]),
       soldierUnits: [],
-      armoryInventory: []
+      armoryInventory: [],
+      dungeonMonsterCurrentHp: {},
+      lotteryTickets: 0,
+      lotteryPool: 1000000,
+      lotteryAmortiPool: 0,
+      wheelTicketShards: 0,
+      botSiloAutoUpgrade: true,
+      botActiveUntil: 0,
+      redeemCodes: []
     };
     this.saveState();
   }
@@ -2671,17 +2955,28 @@ export class GameStateManager {
   }
 
   claimAndRestartAllExpeditions() {
-    const results = { claimed: 0, restarted: 0, totalHarvest: 0, messages: [] };
-    const completed = Object.keys(this.state.activeExpeditions || {}).filter(
-      nId => this.state.activeExpeditions[nId]?.isCompleted
-    );
-    for (const nodeId of completed) {
-      const res = this.claimExpedition(nodeId);
-      if (res.success) {
-        results.claimed++;
-        results.totalHarvest += res.amount || 0;
-      } else if (res.isWarehouseFull) {
-        results.messages.push(res.message);
+    const results = { claimed: 0, partialClaimed: 0, restarted: 0, totalHarvest: 0, messages: [] };
+    const allActive = Object.keys(this.state.activeExpeditions || {});
+    for (const nodeId of allActive) {
+      const exp = this.state.activeExpeditions[nodeId];
+      if (!exp) continue;
+      if (exp.isCompleted) {
+        const res = this.claimExpedition(nodeId);
+        if (res.success) {
+          results.claimed++;
+          results.totalHarvest += res.amount || 0;
+        } else if (res.isWarehouseFull) {
+          results.messages.push(res.message);
+        }
+      } else {
+        // Sefer henüz bitmemiş olsa bile o ana kadar çıkartılan kaynakları topla
+        const pRes = this.claimPartialExpedition(nodeId);
+        if (pRes.success) {
+          results.partialClaimed++;
+          results.totalHarvest += pRes.amount || 0;
+        } else if (pRes.isWarehouseFull) {
+          results.messages.push(pRes.message);
+        }
       }
     }
 

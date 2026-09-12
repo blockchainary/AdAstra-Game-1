@@ -10,23 +10,23 @@
 
 import { GAME_CONFIG } from './config.js';
 
-const POOL_IDS = ['dungeon', 'arena', 'worldBoss', 'ammBuyback', 'season'];
+const POOL_IDS = ['dungeon', 'arena', 'worldBoss', 'ammBuyback', 'carnival'];
 
 export class TreasuryLedger {
   constructor() {
-    this.storageKey = 'adastra_treasury_ledger_v1';
+    this.storageKey = 'adastra_treasury_ledger_v2';
     this.state = this.load();
   }
 
   load() {
     const seed = () => ({
-      pools: { dungeon: 180000, arena: 120000, worldBoss: 110000, ammBuyback: 90000, season: 45000 },
+      pools: { dungeon: 180000, arena: 120000, worldBoss: 110000, ammBuyback: 90000, carnival: 60000 },
       lifetimeDeposited: 0,
       lifetimeWithdrawn: 0,
       lifetimeBurned: 0,
       // Havuz bazında toplam giriş/çıkış — çözünürlük oranı (solvency) için
-      inflow: { dungeon: 0, arena: 0, worldBoss: 0, ammBuyback: 0, season: 0 },
-      outflow: { dungeon: 0, arena: 0, worldBoss: 0, ammBuyback: 0, season: 0 },
+      inflow: { dungeon: 0, arena: 0, worldBoss: 0, ammBuyback: 0, carnival: 0 },
+      outflow: { dungeon: 0, arena: 0, worldBoss: 0, ammBuyback: 0, carnival: 0 },
       // Ödül ölçekleme geçmişi (panelde gösterilir)
       lastScaleFactor: 1
     });

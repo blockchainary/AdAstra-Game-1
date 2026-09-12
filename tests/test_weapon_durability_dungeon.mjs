@@ -16,7 +16,7 @@ globalThis.localStorage = {
 // 1. Yeni bir gameState oluştur
 const gs = new GameStateManager();
 gs.state.adAstraBalance = 500000;
-gs.state.inventory = { iron: 500, wood: 500, wheat: 500, fragments: 50 };
+gs.state.inventory = { iron: 50000, wood: 50000, wheat: 50000, fragments: 500 };
 
 // 2. Asker satın al
 const buyRes = gs.buySoldierUnit();

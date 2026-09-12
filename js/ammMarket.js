@@ -26,7 +26,14 @@ import { GAME_CONFIG } from './config.js';
 const TARGET_PRICE_IMPACT = 0.07;
 
 // Kota bilgisi olmayan varlıklar için varsayılan haftalık arz tahmini
-const WEEKLY_SUPPLY_FALLBACK = { fragments: 9000, boxes: 260, keys: 900 };
+const WEEKLY_SUPPLY_FALLBACK = {
+  fragments: 9000,
+  boxes: 260,
+  keys: 900,
+  scroll_heal: 1500,
+  scroll_stamina: 1000,
+  scroll_repair: 1200
+};
 
 function weeklySupplyOf(key) {
   const cap = GAME_CONFIG.GLOBAL_RESOURCE_CAPS[key];
@@ -49,20 +56,22 @@ function derivePool(key, meta) {
 
 function buildDefaultPools() {
   return {
-    wood:      derivePool('wood',      { name: 'Odun', icon: '🌲' }),
-    iron:      derivePool('iron',      { name: 'Demir', icon: '⛏️' }),
-    wheat:     derivePool('wheat',     { name: 'Buğday', icon: '🌾' }),
-    fragments: derivePool('fragments', { name: 'Teçhizat Parçaları', icon: '🧩' }),
-    boxes:     derivePool('boxes',     { name: 'Pandora Kutusu', icon: '📦' }),
-    keys:      derivePool('keys',      { name: 'Arena Anahtarı', icon: '🔑' })
+    wood:           derivePool('wood',           { name: 'Odun', icon: '🌲' }),
+    iron:           derivePool('iron',           { name: 'Demir', icon: '⛏️' }),
+    wheat:          derivePool('wheat',          { name: 'Buğday', icon: '🌾' }),
+    fragments:      derivePool('fragments',      { name: 'Teçhizat Parçaları', icon: '🧩' }),
+    boxes:          derivePool('boxes',          { name: 'Pandora Kutusu', icon: '📦' }),
+    keys:           derivePool('keys',           { name: 'Arena Anahtarı', icon: '🔑' }),
+    scroll_heal:    derivePool('scroll_heal',    { name: 'Ordu İyileştirme Parşömeni', icon: '📜' }),
+    scroll_stamina: derivePool('scroll_stamina', { name: 'Stamina Fulleme Parşömeni', icon: '⚡' }),
+    scroll_repair:  derivePool('scroll_repair',  { name: 'Alet Onarım Parşömeni', icon: '🔨' })
   };
 }
 
 export class AMMMarketEngine {
   constructor() {
-    // v7: v6 havuzları bozuk fiyatlarla kaydedilmişti; sürüm artırımı
-    // eski localStorage verisinin taşınmasını engeller.
-    this.storageKey = 'adastra_amm_pools_v7';
+    // v8: Yeni Parşömen AMM havuzları (%1 fee)
+    this.storageKey = 'adastra_amm_pools_v8';
     this.pools = this.loadPools();
     this.feeStats = this.loadFeeStats();
   }

@@ -164,11 +164,14 @@ export const GAME_CONFIG = {
     wheat:     { minPriceAda: 0.45, maxPriceAda: 2.20,  defaultPriceAda: 0.90 },
     fragments: { minPriceAda: 20.0, maxPriceAda: 120.0, defaultPriceAda: 45.0 },
     boxes:     { minPriceAda: 400,  maxPriceAda: 2500,  defaultPriceAda: 900 },
-    keys:      { minPriceAda: 150,  maxPriceAda: 900,   defaultPriceAda: 350 }
+    keys:           { minPriceAda: 150,  maxPriceAda: 900,   defaultPriceAda: 350 },
+    scroll_heal:    { minPriceAda: 15.0, maxPriceAda: 90.0,  defaultPriceAda: 30.0 },
+    scroll_stamina: { minPriceAda: 30.0, maxPriceAda: 180.0, defaultPriceAda: 60.0 },
+    scroll_repair:  { minPriceAda: 25.0, maxPriceAda: 150.0, defaultPriceAda: 50.0 }
   },
 
-  // Swap ücreti: yarısı yakılır, yarısı likiditeye kalır (F-07)
-  AMM_FEE_RATE: 0.003,
+  // Swap ücreti: yarısı yakılır, yarısı likiditeye kalır (Yeni Standart: %1.00)
+  AMM_FEE_RATE: 0.01,
   AMM_FEE_BURN_SHARE: 0.5,
   // Fiyat koridoru dışına çıkan işlemler reddedilir; hazine buyback devreye girer
   AMM_MAX_SLIPPAGE_PER_TX: 0.12,
@@ -184,20 +187,44 @@ export const GAME_CONFIG = {
   },
 
   // =========================================================================
-  // SOLDIER & MILITARY SYSTEM (SOLDIERS)
+  // SOLDIER & MILITARY SYSTEM (TEK TİP ADASTRA ŞAMPİYONU)
   // =========================================================================
-  // 1 asker satın almanın maliyeti 180.000 $ADASTRA (180 bin ADA).
-  // Sınırsız ordu ve her asker alımı sabit 180.000 ADA olarak belirlendi.
+  // Tek bir asker türü: AdAstra Şampiyonu. Level 1'de fix 100 HP ve fix 25 ATK.
   SOLDIER_PRICE: 180000,              // 1 askerin fiyatı: 180.000 ADA
   SOLDIER_COST_BASE: 180000,
   SOLDIER_COST_EXPONENT: 0,           // Sabit 180.000 ADA
   MAX_SOLDIERS: Infinity,             // Sınırsız ordu ve asker alımı
-  SOLDIER_MAX_HP: 100,
+  SOLDIER_MAX_HP: 100,                // Fix Level 1 HP
+  SOLDIER_BASE_ATK: 25,               // Fix Level 1 ATK
+  SOLDIER_HP_PER_LEVEL: 25,           // Her seviye atlayışta +25 HP
+  SOLDIER_ATK_PER_LEVEL: 6,           // Her seviye atlayışta +6 ATK
   SOLDIER_HEAL_DURATION_MINUTES: 1080,
   SOLDIER_HEAL_TICK_MINUTES: 18,
   SOLDIER_HEAL_HP_PER_TICK: 1.667,
 
+  // Hızlı Asker Doyurma Kuralı:
+  // Her 1 HP için: 1 dakikada üretilen buğdayın %1'i (30 * 0.01 = 0.30 Buğday) + 0.1 ADA
+  SOLDIER_FAST_HEAL: {
+    wheatPerHp: 0.30,  // 30 buğday/dk * %1 = 0.30 Buğday
+    adAstraPerHp: 0.10 // 0.1 ADA
+  },
+
   // =========================================================================
+  // KRALLIK DEMİRCİSİ YENİ CRAFT, UPGRADE VE DAYANIKLILIK MATEMATİĞİ
+  // =========================================================================
+  // 1 ATK = 18 dk Odun (324) + 18 dk Demir (216) + AMM DEX ADA + 1 Parça
+  // 1 HP  = 21 dk Odun (378) + 21 dk Demir (252) + AMM DEX ADA + 1 Parça
+  // Upgrade: Hammadde +%18, Parça 2 katı (1 -> 2 -> 4 -> 8 -> 16)
+  // Dayanıklılık: 13/13 (Zindan zaferinde -1). Sıfırlanınca yenileme: Toplam üretimin %10'u
+  EQUIPMENT_RULES: {
+    maxDurability: 13,
+    durabilityLossPerVictory: 1,
+    baseMinutesPerAtk: 18,
+    baseMinutesPerHp: 21,
+    upgradeResourceMultiplier: 1.18, // %18 kaynak artışı
+    upgradeFragmentMultiplier: 2.0,  // Parça 2 katına çıkar
+    zeroDurabilityRestoreRatio: 0.10 // Sıfırlanınca %10 üretim maliyeti
+  },
   // 🌾 ORDU: OTOMATİK BUĞDAY İLE PASİF İYİLEŞME & ANINDA İYİLEŞTİRME
   // =========================================================================
   SOLDIER_PASSIVE_HEAL: {
@@ -603,15 +630,17 @@ export const GAME_CONFIG = {
   // ═══════════════════════════════════════════════════════════════════════
   // 🏦 HAZİNE DEFTERİ — YASA 1: ödül basılmaz, transfer edilir (F-05)
   // ═══════════════════════════════════════════════════════════════════════
-  TREASURY_ALLOCATION: { dungeon: 0.34, arena: 0.22, worldBoss: 0.20, ammBuyback: 0.16, season: 0.08 },
+  // %22 Ebedi Yakım, Kalan %78'lik Gelirin 5 Ana Havuza Dağıtımı:
+  // %25 Zindan, %15 Kolezyum, %15 World Boss, %13 AMM Buyback & Likidite, %10 Karnaval
+  TREASURY_ALLOCATION: { dungeon: 0.25, arena: 0.15, worldBoss: 0.15, ammBuyback: 0.13, carnival: 0.10 },
   TREASURY_POOL_NAMES: {
     dungeon: 'Zindan Ganimet Kasası',
     arena: 'Kolezyum Şampiyonluk Havuzu',
     worldBoss: 'World Boss Ödül Havuzu',
     ammBuyback: 'AMM Likidite & Buyback Rezervi',
-    season: 'Sezon & Staking Havuzu'
+    carnival: 'Sirk & Karnaval Ödül Havuzu'
   },
-  TREASURY_TARGET_RESERVE: { dungeon: 180000, arena: 120000, worldBoss: 110000, ammBuyback: 90000, season: 45000 },
+  TREASURY_TARGET_RESERVE: { dungeon: 180000, arena: 120000, worldBoss: 110000, ammBuyback: 90000, carnival: 60000 },
   TREASURY_MIN_PAYOUT_RATIO: 0.15,   // havuz boşalsa bile ödül tamamen sıfırlanmaz
   TREASURY_SINGLE_DRAW_CAP: 0.02,    // tek ödül havuzun en fazla %2'sini çekebilir
 
@@ -653,6 +682,100 @@ export const GAME_CONFIG = {
     MAX_STARS: 10,
     COST_ADA: 50000
   },
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🎪 KRALLIK KARNAVALI: ŞANS ÇARKI & HAFTALIK PİYANGO
+  // ═══════════════════════════════════════════════════════════════════════
+  CARNIVAL: {
+    WHEEL_COST_ADA: 100, // 100 ADA veya dengi hammadde veya 1 Piyango Bileti
+    // 14 Potansiyel Ödül (Kasa Asla Kaybetmez - RTP ~%78, Kasa Kârı %22)
+    WHEEL_REWARDS: [
+      { id: 'frag_1',        name: '1 Teçhizat Parçası',              icon: '🧩', type: 'resource', key: 'fragments', amount: 1,    valAda: 45,   weight: 120 },
+      { id: 'frag_10',       name: '10 Teçhizat Parçası',             icon: '🧩', type: 'resource', key: 'fragments', amount: 10,   valAda: 450,  weight: 18 },
+      { id: 'raw_1000_wood', name: '1.000 ADA Değerinde Odun',        icon: '🌲', type: 'amm_raw',  key: 'wood',      adaVal: 1000, valAda: 1000, weight: 3 },
+      { id: 'raw_1000_iron', name: '1.000 ADA Değerinde Demir',       icon: '⛏️', type: 'amm_raw',  key: 'iron',      adaVal: 1000, valAda: 1000, weight: 3 },
+      { id: 'raw_1000_wheat',name: '1.000 ADA Değerinde Buğday',      icon: '🌾', type: 'amm_raw',  key: 'wheat',     adaVal: 1000, valAda: 1000, weight: 2 },
+      { id: 'raw_50_wood',   name: 'Amorti: 50 ADA Değerinde Odun',   icon: '🌲', type: 'amm_raw',  key: 'wood',      adaVal: 50,   valAda: 50,   weight: 40 },
+      { id: 'raw_50_iron',   name: 'Amorti: 50 ADA Değerinde Demir',  icon: '⛏️', type: 'amm_raw',  key: 'iron',      adaVal: 50,   valAda: 50,   weight: 40 },
+      { id: 'raw_50_wheat',  name: 'Amorti: 50 ADA Değerinde Buğday', icon: '🌾', type: 'amm_raw',  key: 'wheat',     adaVal: 50,   valAda: 50,   weight: 40 },
+      { id: 'free_bot_24h',  name: '24 Saatlik Otomasyon Botu (Ücretsiz)', icon: '🤖', type: 'bot_free', hours: 24,                  valAda: 200,  weight: 30 },
+      { id: 'ada_200',       name: '200 $ADASTRA Nakit Ödül',         icon: '🟣', type: 'ada',      amount: 200,                    valAda: 200,  weight: 30 },
+      { id: 'ada_1000',      name: '🏆 1.000 $ADASTRA BÜYÜK İKRAMİYE',icon: '👑', type: 'ada',      amount: 1000,                   valAda: 1000, weight: 5 },
+      { id: 'scroll_heal',   name: 'Ordu İyileştirme Parşömeni (+10 HP)', icon: '📜', type: 'scroll', key: 'scroll_heal', amount: 1, valAda: 30, weight: 150 },
+      { id: 'ada_50',        name: '50 $ADASTRA Ödül',                icon: '🟣', type: 'ada',      amount: 50,                     valAda: 50,   weight: 100 },
+      { id: 'box_key',       name: '1 Pandora Kutusu Anahtarı',       icon: '🔑', type: 'key',      amount: 1,                      valAda: 350,  weight: 24 },
+      { id: 'scroll_stamina',name: 'Stamina Fulleme Parşömeni',       icon: '⚡', type: 'scroll', key: 'scroll_stamina', amount: 1, valAda: 60, weight: 100 },
+      { id: 'scroll_repair', name: '%10 Alet Onarım Parşömeni',       icon: '🔨', type: 'scroll', key: 'scroll_repair', amount: 1, valAda: 50, weight: 120 },
+      { id: 'wheel_ticket_shard', name: 'Amorti Çark Bileti (10 Adet = 1 Çevirme)', icon: '🎟️', type: 'ticket_shard', amount: 1,  valAda: 10, weight: 155 },
+      { id: 'coin_analysis_code', name: 'AlphAvax Vercel App Özel Coin Analiz Bileti', icon: '🎫', type: 'analysis_code', amount: 1, valAda: 0, weight: 20 }
+    ],
+    // Haftalık Piyango Sistemi
+    LOTTERY: {
+      TICKET_COST_ADA: 100,
+      SEED_POOL_ADA: 1000000,     // 1.000.000 ADA AlphaVax Tohum Kasa
+      WEEKLY_WINNER_SHARE: 0.18,  // %18'i 1 Talihliye
+      AMORTI_SHARE: 0.02,         // %2 Amorti Hazinesine
+      ROLLOVER_SHARE: 0.80,       // %80 Sonraki Haftaya Devir
+      MAX_ROLLOVER_WEEKS: 4       // 4 Hafta boyunca çıkmayan bilet amorti/çarka dönüşür
+    }
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 📜 GÜNCELLEME LOGU (CHANGELOG) — v1.00'dan İtibaren Sürüm Tarihçesi
+  // ═══════════════════════════════════════════════════════════════════════
+  CHANGELOG: [
+    {
+      version: 'v1.00',
+      title: 'Genesis Lansmanı',
+      date: 'Ağustos 2026',
+      changes: ['Oyunun ilk Alpha sürümü yayınlandı.', 'Temel 3 kaynak seferi (Odun, Demir, Buğday) aktif edildi.', 'Başlangıç Kışla ve Pazar alanı açıldı.']
+    },
+    {
+      version: 'v1.01',
+      title: 'Zindan & Pandora Keşfi',
+      date: 'Ağustos 2026',
+      changes: ['18 Katlı Zindan ve Kat Canavarları sistemi eklendi.', 'Pandora Kutuları ve 18 Koleksiyon Eseri oyuna dahil edildi.', 'Kolezyum ve Şampiyonluk derecesi entegre edildi.']
+    },
+    {
+      version: 'v1.02',
+      title: '10 Yıllık Ekonomik Model',
+      date: 'Eylül 2026',
+      changes: ['4320 Dakikalık (72 saat) alet dayanıklılık sistemi getirildi.', 'Haftalık 490k buğday, 180k odun, 130k demir kotaları bağlandı.', 'Seviye bazlı sefer süresi artışı (18 dk -> 72 saat) tanımlandı.']
+    },
+    {
+      version: 'v1.03',
+      title: 'Haftalık Sıfırlama & Vanilla Reset',
+      date: 'Eylül 2026',
+      changes: ['Haftalık kaynak limitlerinin Pazar/Pazartesi 00:01 TSİ sıfırlanması sağlandı.', 'Vanilla Sıfırlama ile cephanelik ve haftalık limitler sıfırlanabilir hale getirildi.']
+    },
+    {
+      version: 'v1.04',
+      title: 'Canlı Düşme Oranları & HUD',
+      date: 'Eylül 2026',
+      changes: ['Zindan içi ve Seviye Atlama ekranında canlı Pandora ve Parça düşme oranları göstergesi eklendi.', 'Kat 3 ve Kat 6 Boss çarpanları HUD paneline yansıtıldı.']
+    },
+    {
+      version: 'v1.05',
+      title: 'Sistem Denetimi & Hazine Güvenliği',
+      date: 'Eylül 2026',
+      changes: ['Maksimum Seviye 81 tavanı korundu.', 'WHEAT_PER_STAMINA = 3.15 eşitliği sağlandı.', 'Zindan savaş aralığı sızıntıları temizlendi, Hazine Defteri zindan ödüllerine bağlandı.']
+    },
+    {
+      version: 'v1.06',
+      title: 'Büyük Krallık Reformu & Karnaval',
+      date: 'Eylül 2026',
+      changes: [
+        'Tek tip elit asker: "AdAstra Şampiyonu" (Lv.1: 100 HP, 25 ATK) tanımlandı.',
+        'Zindanda Persistent Canavar Canı (kaybedilen savaşta canavarın canı yenilenmez).',
+        'Krallık Demircisi "Çantam" kategorik filtreleri, seviye sıralaması ve toplu yükseltme/onarım.',
+        'Yeni Teçhizat Craft & Upgrade matematiği (ATK 18 dk, HP 21 dk üretim + AMM ADA + Parça; 13 Dayanıklılık).',
+        '24 Saatlik Kâr Ortaklı Taverna Otomasyon Botu (Saf kârın %50\'si) & Silo yönetimi.',
+        'Krallık Karnavalı: 14 Ödüllü Şans Çarkı (RTP %78, Kasa Kârı %22) & 1M ADA Tohumlu Haftalık Piyango.',
+        'AMM Swap ücreti %1.00 yapıldı; 3 yeni Parşömen likidite havuzu açıldı.',
+        '1-Click "Tüm Seferleri Topla" butonu artık bitmemiş seferlerdeki biriken kaynakları da anında topluyor.'
+      ]
+    }
+  ],
 
   // Başlangıç Profili
   STARTING_PROFILE: {

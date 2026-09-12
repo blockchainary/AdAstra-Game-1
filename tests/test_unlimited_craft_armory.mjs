@@ -14,8 +14,8 @@ globalThis.localStorage = {
 };
 
 const gs = new GameStateManager();
-gs.state.adAstraBalance = 500000;
-gs.state.inventory = { iron: 5000, wood: 5000, wheat: 5000, fragments: 500 };
+gs.state.adAstraBalance = 2000000;
+gs.state.inventory = { iron: 500000, wood: 500000, wheat: 500000, fragments: 5000 };
 
 // 1. İlk silahı üret (Krallık ana yuvasına girmeli)
 const c1 = gs.craftEquipment('weapon');

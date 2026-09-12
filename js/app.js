@@ -1034,8 +1034,6 @@ function openInventoryModal() {
   displayModal();
 }
 
-}
-
 function renderExpeditionActiveBox(nodeId) {
   const nodeConfig = GAME_CONFIG.GLOBAL_RESOURCE_CAPS[nodeId];
   const accrued = gameState.getAccruedExpeditionHarvest(nodeId);
@@ -1231,6 +1229,12 @@ function openTownZoneModal(zoneId, zoneName) {
     const armoryList = gameState.getAllArmoryEquipmentList();
     const soldiers = state.soldierUnits || [];
 
+    // Kategori Filtresi & Sıralama Hafızası
+    window.blacksmithCategoryFilter = window.blacksmithCategoryFilter || 'all';
+    window.blacksmithSortOrder = window.blacksmithSortOrder || 'level_desc';
+    const activeCategory = window.blacksmithCategoryFilter;
+    const activeSort = window.blacksmithSortOrder;
+
     // Seçili asker indeksi (varsayılan: 0)
     let curSoldierIdx = window.blacksmithSelectedSoldierIndex != null ? window.blacksmithSelectedSoldierIndex : 0;
     if (curSoldierIdx >= soldiers.length && soldiers.length > 0) curSoldierIdx = 0;
@@ -1239,6 +1243,36 @@ function openTownZoneModal(zoneId, zoneName) {
 
     // Hasarlı eşya sayısı kontrolü
     const damagedArmoryItems = armoryList.filter(e => (e.item.durability || 13) < (e.item.maxDurability || 13));
+
+    // Filtreleme ve Sıralama
+    let filteredArmoryList = armoryList.filter(entry => {
+      if (activeCategory !== 'all' && entry.item.slot !== activeCategory) return false;
+      return true;
+    });
+
+    if (activeSort === 'level_desc') {
+      filteredArmoryList.sort((a, b) => (b.item.level || 1) - (a.item.level || 1));
+    } else if (activeSort === 'level_asc') {
+      filteredArmoryList.sort((a, b) => (a.item.level || 1) - (b.item.level || 1));
+    } else if (activeSort === 'durability_asc') {
+      filteredArmoryList.sort((a, b) => (a.item.durability || 13) - (b.item.durability || 13));
+    }
+
+    // Kategori sayıları
+    const catCounts = {
+      all: armoryList.length,
+      weapon: armoryList.filter(e => e.item.slot === 'weapon').length,
+      helmet: armoryList.filter(e => e.item.slot === 'helmet').length,
+      armor: armoryList.filter(e => e.item.slot === 'armor').length,
+      legs: armoryList.filter(e => e.item.slot === 'legs').length,
+      boots: armoryList.filter(e => e.item.slot === 'boots').length
+    };
+
+    // Mevcut eşyalardan özelleştirilmiş geliştirme kısayolları
+    const lvl1Weapons = armoryList.filter(e => e.item.slot === 'weapon' && (e.item.level || 1) === 1);
+    const lvl2Weapons = armoryList.filter(e => e.item.slot === 'weapon' && (e.item.level || 1) === 2);
+    const lvl1Helmets = armoryList.filter(e => e.item.slot === 'helmet' && (e.item.level || 1) === 1);
+    const lvl1Armors = armoryList.filter(e => e.item.slot === 'armor' && (e.item.level || 1) === 1);
 
     // 60+ Yaş Yaşlı Dostu Tasarım: 2 Net Ana Sekme (1. Silah Döv / 2. Çantam & Teçhizatlarım)
     const activeBlacksmithTab = window.blacksmithActiveTab || 'forge';
@@ -1265,18 +1299,18 @@ function openTownZoneModal(zoneId, zoneName) {
               <span>🔨 Ocağın Başı: Ne Üretmek İstersin?</span>
             </div>
             <div style="font-size: 0.88rem; color: #94a3b8;">
-              İstediğin parçaya tıkla ve üret. Ürettiğin her eşya otomatik olarak <strong>"Çantam & Eşyalarım"</strong> sekmesine eklenir.
+              İstediğin parçaya tıkla ve üret. Her 1 Saldırı Gücü = 18 dk kaynak, Her 1 Can Puanı = 21 dk kaynak + AMM DEX ADA + 1 Parça talep edilir. Eşyaların dayanıklılığı 13/13'tür.
             </div>
           </div>
 
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
             ${slots.map(slot => {
               const recipe = equipConfig[slot];
-              const cost = recipe.cost;
-              const canAfford = (state.inventory.iron || 0) >= cost.iron &&
-                                (state.inventory.wood || 0) >= cost.wood &&
-                                (state.inventory.fragments || 0) >= cost.fragments &&
-                                state.adAstraBalance >= cost.adAstra;
+              const cost = gameState.calculateEquipmentCraftCost(slot);
+              const canAfford = (state.inventory.iron || 0) >= cost.ironCost &&
+                                (state.inventory.wood || 0) >= cost.woodCost &&
+                                (state.inventory.fragments || 0) >= cost.fragCost &&
+                                state.adAstraBalance >= cost.adaCost;
 
               return `
                 <div class="clean-card" style="display: flex; flex-direction: column; justify-content: space-between; gap: 12px; padding: 16px; border: 1.5px solid ${canAfford ? 'rgba(245,158,11,0.3)' : 'rgba(255,255,255,0.06)'};">
@@ -1289,14 +1323,16 @@ function openTownZoneModal(zoneId, zoneName) {
                       <div style="font-size: 0.88rem; font-weight: 700; color: #4ade80; margin-top: 2px;">
                         ${recipe.baseAtk > 0 ? `⚔️ +${recipe.baseAtk} Saldırı Gücü ` : ''}
                         ${recipe.baseHp > 0 ? `❤️ +${recipe.baseHp} Can Puanı` : ''}
+                        <span style="color:#fde047; font-size:0.8rem; font-weight:normal;">(Dayanıklılık: 13/13)</span>
                       </div>
                     </div>
                   </div>
 
-                  <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 10px; font-size: 0.84rem; color: #cbd5e1; display: flex; justify-content: space-around;">
-                    <span>⛏️ ${cost.iron} Demir</span>
-                    <span>🌲 ${cost.wood} Odun</span>
-                    <span>🟣 ${cost.adAstra} ADA</span>
+                  <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 10px; font-size: 0.82rem; color: #cbd5e1; display: flex; justify-content: space-around; flex-wrap:wrap; gap:4px;">
+                    <span>⛏️ ${cost.ironCost} Demir</span>
+                    <span>🌲 ${cost.woodCost} Odun</span>
+                    <span>🧩 ${cost.fragCost} Parça</span>
+                    <span>🟣 ${cost.adaCost} ADA</span>
                   </div>
 
                   <button class="btn-clean btn-craft-equipment" data-slot="${slot}" style="padding: 12px; font-size: 1rem; font-weight: 800; background: ${canAfford ? '#16a34a' : '#334155'}; border-color: ${canAfford ? '#4ade80' : '#475569'}; color: #fff;" ${canAfford ? '' : 'disabled'}>
@@ -1309,42 +1345,118 @@ function openTownZoneModal(zoneId, zoneName) {
 
         </div>
       ` : `
-        <!-- 2. SEKME: ÇANTAM & TEÇHİZATLARIM (FERAH VE NET KONTROL) -->
+        <!-- 2. SEKME: ÇANTAM & TEÇHİZATLARIM (YENİLENMİŞ KATEGORİK FİLTRE VE SIRALAMA) -->
         <div style="display: flex; flex-direction: column; gap: 12px;">
 
-          <!-- Toplu Akıllı İşlem Barı -->
-          <div class="clean-card" style="border-left: 4px solid #38bdf8; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-            <div>
-              <div style="font-size: 1.05rem; font-weight: 800; color: #fff;">
-                🎒 Sahip Olduğun Tüm Silah ve Zırhlar (${armoryList.length} Parça)
-              </div>
-              <div style="font-size: 0.85rem; color: #94a3b8;">
-                Buradan eşyalarının seviyesini yükseltebilir, askerinize verebilir veya hasarlıları onarabilirsiniz.
-              </div>
+          <!-- Kategori Filtre Butonları -->
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; background: rgba(0,0,0,0.3); padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);">
+            <button class="btn-clean btn-bs-cat-filter ${activeCategory === 'all' ? 'active' : ''}" data-cat="all" style="width: auto; padding: 6px 12px; font-size: 0.85rem; ${activeCategory === 'all' ? 'background:#38bdf8; color:#000; font-weight:800;' : 'background:#1e293b; color:#94a3b8;'}">
+              🎒 Tümü (${catCounts.all})
+            </button>
+            <button class="btn-clean btn-bs-cat-filter ${activeCategory === 'weapon' ? 'active' : ''}" data-cat="weapon" style="width: auto; padding: 6px 12px; font-size: 0.85rem; ${activeCategory === 'weapon' ? 'background:#f59e0b; color:#000; font-weight:800;' : 'background:#1e293b; color:#94a3b8;'}">
+              🗡️ Silahlar (${catCounts.weapon})
+            </button>
+            <button class="btn-clean btn-bs-cat-filter ${activeCategory === 'helmet' ? 'active' : ''}" data-cat="helmet" style="width: auto; padding: 6px 12px; font-size: 0.85rem; ${activeCategory === 'helmet' ? 'background:#a855f7; color:#fff; font-weight:800;' : 'background:#1e293b; color:#94a3b8;'}">
+              🪖 Miğferler (${catCounts.helmet})
+            </button>
+            <button class="btn-clean btn-bs-cat-filter ${activeCategory === 'armor' ? 'active' : ''}" data-cat="armor" style="width: auto; padding: 6px 12px; font-size: 0.85rem; ${activeCategory === 'armor' ? 'background:#22c55e; color:#000; font-weight:800;' : 'background:#1e293b; color:#94a3b8;'}">
+              🛡️ Gövde Zırhları (${catCounts.armor})
+            </button>
+            <button class="btn-clean btn-bs-cat-filter ${activeCategory === 'legs' ? 'active' : ''}" data-cat="legs" style="width: auto; padding: 6px 12px; font-size: 0.85rem; ${activeCategory === 'legs' ? 'background:#06b6d4; color:#000; font-weight:800;' : 'background:#1e293b; color:#94a3b8;'}">
+              👖 Pantolonlar (${catCounts.legs})
+            </button>
+            <button class="btn-clean btn-bs-cat-filter ${activeCategory === 'boots' ? 'active' : ''}" data-cat="boots" style="width: auto; padding: 6px 12px; font-size: 0.85rem; ${activeCategory === 'boots' ? 'background:#eab308; color:#000; font-weight:800;' : 'background:#1e293b; color:#94a3b8;'}">
+              👢 Botlar (${catCounts.boots})
+            </button>
+          </div>
+
+          <!-- Toplu Akıllı İşlem Barı & Sıralama -->
+          <div class="clean-card" style="border-left: 4px solid #38bdf8; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; padding: 12px 16px;">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap:wrap;">
+              <span style="font-size: 0.85rem; font-weight: 700; color: #cbd5e1;">📊 Sıralama:</span>
+              <select id="select-bs-sort" style="background: #1e293b; color: #fde047; border: 1px solid #475569; border-radius: 6px; padding: 6px 10px; font-size: 0.82rem; font-weight: 700;">
+                <option value="level_desc" ${activeSort === 'level_desc' ? 'selected' : ''}>En Yüksek Seviyeden Başla (Azalan)</option>
+                <option value="level_asc" ${activeSort === 'level_asc' ? 'selected' : ''}>En Düşük Seviyeden Başla (Artan)</option>
+                <option value="durability_asc" ${activeSort === 'durability_asc' ? 'selected' : ''}>Hasarlılar Önce (Dayanıklılık)</option>
+              </select>
             </div>
 
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-              <button class="btn-clean btn-armory-repair-all" style="width: auto; background: #0284c7; border-color: #38bdf8; padding: 10px 16px; font-size: 0.88rem;" ${damagedArmoryItems.length === 0 ? 'disabled' : ''}>
+              <button class="btn-clean btn-armory-upgrade-all" style="width: auto; background: linear-gradient(135deg, #7c3aed, #4f46e5); border-color: #a78bfa; padding: 8px 14px; font-size: 0.84rem; font-weight: 800;">
+                ⚡ Hepsini Toplu Geliştir
+              </button>
+              <button class="btn-clean btn-armory-repair-all" style="width: auto; background: #0284c7; border-color: #38bdf8; padding: 8px 14px; font-size: 0.84rem;" ${damagedArmoryItems.length === 0 ? 'disabled' : ''}>
                 🔨 Kırılan Her Şeyi Onar (${damagedArmoryItems.length})
               </button>
-              <button class="btn-clean btn-smart-auto-equip" style="width: auto; background: #16a34a; border-color: #4ade80; padding: 10px 16px; font-size: 0.88rem;">
+              <button class="btn-clean btn-smart-auto-equip" style="width: auto; background: #16a34a; border-color: #4ade80; padding: 8px 14px; font-size: 0.84rem;">
                 ⚡ En İyileri Askerlerime Giydir
               </button>
-              <button class="btn-clean btn-smart-unequip-all" style="width: auto; background: #334155; border-color: #64748b; padding: 10px 16px; font-size: 0.88rem;">
+              <button class="btn-clean btn-smart-unequip-all" style="width: auto; background: #334155; border-color: #64748b; padding: 8px 14px; font-size: 0.84rem;">
                 🔄 Tümünü Çantaya Topla
               </button>
             </div>
           </div>
 
+          <!-- Özelleştirilmiş Hızlı Geliştirme Paneli -->
+          <div class="clean-card" style="border-left: 4px solid #f59e0b; padding: 12px 16px; background: rgba(30,20,10,0.4);">
+            <div style="font-size: 0.9rem; font-weight: 800; color: #fde047; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+              <span>🎯 Özelleştirilmiş Hızlı Geliştirme</span>
+              <span style="font-size: 0.75rem; color: #94a3b8; font-weight: normal;">(Sadece belirli seviye ve türdeki eşyaları geliştir)</span>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+              ${lvl1Weapons.length > 0 ? `
+                <button class="btn-clean btn-custom-upgrade-shortcut" data-slot="weapon" data-level="1" style="width: auto; padding: 6px 12px; font-size: 0.8rem; background: #7c3aed; border-color: #a78bfa;">
+                  ⚡ Sadece Seviye 1 Silahları Geliştir (${lvl1Weapons.length})
+                </button>
+              ` : ''}
+              ${lvl2Weapons.length > 0 ? `
+                <button class="btn-clean btn-custom-upgrade-shortcut" data-slot="weapon" data-level="2" style="width: auto; padding: 6px 12px; font-size: 0.8rem; background: #6d28d9; border-color: #a78bfa;">
+                  ⚡ Sadece Seviye 2 Silahları Geliştir (${lvl2Weapons.length})
+                </button>
+              ` : ''}
+              ${lvl1Helmets.length > 0 ? `
+                <button class="btn-clean btn-custom-upgrade-shortcut" data-slot="helmet" data-level="1" style="width: auto; padding: 6px 12px; font-size: 0.8rem; background: #0284c7; border-color: #38bdf8;">
+                  ⚡ Sadece Seviye 1 Miğferleri Geliştir (${lvl1Helmets.length})
+                </button>
+              ` : ''}
+              ${lvl1Armors.length > 0 ? `
+                <button class="btn-clean btn-custom-upgrade-shortcut" data-slot="armor" data-level="1" style="width: auto; padding: 6px 12px; font-size: 0.8rem; background: #059669; border-color: #34d399;">
+                  ⚡ Sadece Seviye 1 Zırhları Geliştir (${lvl1Armors.length})
+                </button>
+              ` : ''}
+
+              <!-- Özel Seçici Grubu -->
+              <div style="display: flex; gap: 6px; align-items: center; margin-left: auto; flex-wrap:wrap;">
+                <select id="custom-up-slot" style="background: #1e293b; color: #fff; border: 1px solid #475569; border-radius: 6px; padding: 5px 8px; font-size: 0.78rem;">
+                  <option value="weapon">🗡️ Silah</option>
+                  <option value="helmet">🪖 Miğfer</option>
+                  <option value="armor">🛡️ Zırh</option>
+                  <option value="legs">👖 Pantolon</option>
+                  <option value="boots">👢 Bot</option>
+                </select>
+                <select id="custom-up-level" style="background: #1e293b; color: #fff; border: 1px solid #475569; border-radius: 6px; padding: 5px 8px; font-size: 0.78rem;">
+                  <option value="1">Seviye 1</option>
+                  <option value="2">Seviye 2</option>
+                  <option value="3">Seviye 3</option>
+                  <option value="4">Seviye 4</option>
+                  <option value="5">Seviye 5</option>
+                </select>
+                <button class="btn-clean btn-trigger-custom-upgrade" style="width: auto; padding: 5px 12px; font-size: 0.78rem; background: #d97706; border-color: #f59e0b; color: #fff; font-weight: 800;">
+                  ⚡ Bu Grubu Geliştir
+                </button>
+              </div>
+            </div>
+          </div>
+
           <!-- Eşya Listesi -->
           <div style="display: flex; flex-direction: column; gap: 10px;">
-            ${armoryList.length === 0 ? `
+            ${filteredArmoryList.length === 0 ? `
               <div class="clean-card" style="text-align: center; padding: 40px 20px; color: #94a3b8;">
                 <div style="font-size: 2.5rem; margin-bottom: 8px;">🎒</div>
-                <div style="font-size: 1.1rem; font-weight: 700; color: #fff;">Çantanızda Henüz Eşya Yok</div>
-                <div style="font-size: 0.9rem; margin-top: 4px;">Yukarıdaki <strong>"1. YENİ SİLAH & ZIRH DÖV"</strong> sekmesine tıklayarak ordunuz için silah üretebilirsiniz.</div>
+                <div style="font-size: 1.1rem; font-weight: 700; color: #fff;">Bu Kategori İçin Çantanızda Eşya Yok</div>
+                <div style="font-size: 0.9rem; margin-top: 4px;">Yukarıdaki <strong>"1. YENİ SİLAH & ZIRH DÖV"</strong> sekmesine tıklayarak ordunuz için yeni eşya üretebilirsiniz.</div>
               </div>
-            ` : armoryList.map((entry, idx) => {
+            ` : filteredArmoryList.map((entry, idx) => {
               const { source, slotKey, slotName, soldierIndex, soldierName, locationLabel, item, armoryIndex } = entry;
               const isMaxLvl = (item.level || 1) >= (GAME_CONFIG.EQUIPMENT_MAX_LEVEL || 10);
               const nextLvl = (item.level || 1) + 1;
@@ -1352,12 +1464,19 @@ function openTownZoneModal(zoneId, zoneName) {
               const curDur = item.durability != null ? item.durability : maxDur;
               const isDamaged = curDur < maxDur;
 
-              const upCost = !isMaxLvl ? (GAME_CONFIG.EQUIPMENT_UPGRADE_TIERS[nextLvl] || { iron: nextLvl*30, wood: nextLvl*20, fragments: nextLvl*5, adAstra: nextLvl*100 }) : null;
+              const upCost = !isMaxLvl ? gameState.calculateEquipmentUpgradeCost(item) : null;
               const canAffordUp = upCost ? (
-                (state.inventory.iron || 0) >= upCost.iron &&
-                (state.inventory.wood || 0) >= upCost.wood &&
-                (state.inventory.fragments || 0) >= upCost.fragments &&
-                state.adAstraBalance >= upCost.adAstra
+                (state.inventory.iron || 0) >= upCost.ironCost &&
+                (state.inventory.wood || 0) >= upCost.woodCost &&
+                (state.inventory.fragments || 0) >= upCost.fragCost &&
+                state.adAstraBalance >= upCost.adaCost
+              ) : false;
+
+              const repCost = isDamaged ? gameState.calculateEquipmentRepairCost(item) : null;
+              const canAffordRep = repCost ? (
+                (state.inventory.iron || 0) >= repCost.ironCost &&
+                (state.inventory.wood || 0) >= repCost.woodCost &&
+                state.adAstraBalance >= repCost.adaCost
               ) : false;
 
               const isEquipped = source === 'soldier';
@@ -1365,7 +1484,7 @@ function openTownZoneModal(zoneId, zoneName) {
               return `
                 <div class="clean-card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-left: 5px solid ${isEquipped ? '#22c55e' : '#38bdf8'}; padding: 14px 18px;">
                   
-                  <!-- Sol: Eşya İkonu, Adı ve Kimde Olduğu -->
+                  <!-- Sol: Eşya İkonu, Adı ve Özellikleri -->
                   <div style="display: flex; align-items: center; gap: 14px;">
                     <div style="font-size: 2.2rem; background: rgba(0,0,0,0.4); width: 54px; height: 54px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
                       ${item.icon}
@@ -1375,22 +1494,32 @@ function openTownZoneModal(zoneId, zoneName) {
                         <span>${item.name}</span>
                         <span class="card-badge" style="background: #2563eb; color: #fff; border: none; font-size: 0.8rem; padding: 2px 8px;">Seviye ${item.level || 1}</span>
                       </div>
-                      <div style="font-size: 0.85rem; color: #94a3b8; margin-top: 3px; display: flex; gap: 12px;">
+                      <div style="font-size: 0.85rem; color: #94a3b8; margin-top: 3px; display: flex; gap: 12px; flex-wrap:wrap;">
                         <span style="color: #4ade80; font-weight: 700;">
                           ${item.atkBonus > 0 ? `⚔️ +${item.atkBonus} Saldırı ` : ''}${item.hpBonus > 0 ? `❤️ +${item.hpBonus} Can` : ''}
                         </span>
                         <span style="color: ${curDur <= 4 ? '#ef4444' : '#cbd5e1'};">
-                          🛡️ Dayanıklılık: ${curDur}/${maxDur}
+                          🛡️ Dayanıklılık: <strong>${curDur}/${maxDur}</strong>
                         </span>
                         <span style="color: ${isEquipped ? '#86efac' : '#7dd3fc'}; font-weight: 700;">
                           📍 Konum: ${locationLabel}
                         </span>
                       </div>
+                      ${upCost ? `
+                        <div style="font-size:0.75rem; color:#a78bfa; margin-top:4px;">
+                          ✨ Lv.${nextLvl} Geliştirme: ${upCost.ironCost}⛏️ Demir • ${upCost.woodCost}🌲 Odun • ${upCost.fragCost}🧩 Parça • ${upCost.adaCost}🟣 ADA
+                        </div>
+                      ` : ''}
+                      ${repCost ? `
+                        <div style="font-size:0.75rem; color:#38bdf8; margin-top:2px;">
+                          🔧 Tamir Bedeli: ${repCost.ironCost}⛏️ Demir • ${repCost.woodCost}🌲 Odun • ${repCost.adaCost}🟣 ADA
+                        </div>
+                      ` : ''}
                     </div>
                   </div>
 
-                  <!-- Sağ: Net Büyük Aksiyon Butonları -->
-                  <div style="display: flex; gap: 8px; align-items: center;">
+                  <!-- Sağ: Aksiyon Butonları -->
+                  <div style="display: flex; gap: 8px; align-items: center; flex-wrap:wrap;">
                     ${!isMaxLvl ? `
                       <button class="btn-clean btn-armory-direct-upgrade" 
                         data-source="${source}" 
@@ -1410,8 +1539,9 @@ function openTownZoneModal(zoneId, zoneName) {
                       <button class="btn-clean btn-armory-repair btn-equip-repair" 
                         data-slot="${slotKey}" 
                         data-soldier-idx="${soldierIndex !== null ? soldierIndex : ''}"
-                        style="width: auto; background: #0284c7; border-color: #38bdf8; padding: 10px 14px; font-size: 0.88rem;">
-                        🔧 Onar
+                        style="width: auto; background: #0284c7; border-color: #38bdf8; padding: 10px 14px; font-size: 0.88rem;"
+                        ${canAffordRep ? '' : 'disabled'}>
+                        🔧 Onar (${repCost ? repCost.adaCost : 0} ADA)
                       </button>
                     ` : ''}
 
@@ -1701,10 +1831,12 @@ function openTownZoneModal(zoneId, zoneName) {
     const isBotActive = gameState.isAutoCollectorActive();
     const expiry = gameState.getAutoCollectorExpiry();
     const remainingMs = Math.max(0, expiry - Date.now());
-    const remDays = Math.floor(remainingMs / (24 * 3600 * 1000));
-    const remHours = Math.floor((remainingMs % (24 * 3600 * 1000)) / (3600 * 1000));
+    const remHours = Math.floor(remainingMs / (3600 * 1000));
     const remMinutes = Math.floor((remainingMs % (3600 * 1000)) / (60 * 1000));
-    const botRemainingText = remDays > 0 ? `${remDays}g ${remHours}s` : `${remHours}s ${remMinutes}d`;
+    const botRemainingText = `${remHours} saat ${remMinutes} dakika`;
+
+    const botCalc = gameState.calculateTavernaBotProfitAndCost();
+    const isSiloAutoUpgrade = gameState.state.botSiloAutoUpgrade !== false;
 
     const isPotion1 = gameState.isBuffActive('speed_potion_1');
     const isPotion2 = gameState.isBuffActive('speed_potion_2');
@@ -1714,55 +1846,64 @@ function openTownZoneModal(zoneId, zoneName) {
       <div class="clean-card">
         <div class="card-title">🍺 Taverna Güçlendirmeleri & Otomasyon</div>
         <div class="clean-desc">
-          Ekonomik dengeye göre optimize edilmiş 3 kademeli sefer iksirleri ve 24 saatlik otomatik toplama botu ile sefer verimini katla.
+          Ekonomik dengeye göre optimize edilmiş sefer hızlandırıcı iksirler ve net kâr ortaklığı ile çalışan 24 saatlik otonom sefer botu.
         </div>
       </div>
 
-      <!-- 1. Otomatik Toplayıcı & Tamir Bot Paketleri (3 Kademe) -->
-      <div class="clean-card" style="border-color: ${isBotActive ? '#4ade80' : '#ca8a04'}; background: #181109;">
+      <!-- 1. 24 Saatlik Akıllı Otomasyon & Tamir Botu (%50 Saf Kâr Payı) -->
+      <div class="clean-card" style="border-color: ${isBotActive ? '#4ade80' : '#f59e0b'}; background: #181109;">
         <div class="card-title-row">
-          <div class="card-title">🤖 Otomatik Toplama & Otomatik Tamir Botu</div>
-          <div class="card-badge" style="color: ${isBotActive ? '#4ade80' : '#facc15'};">
-            ${isBotActive ? `✅ Aktif (${botRemainingText} Kaldı)` : '3 Farklı Paket'}
+          <div class="card-title">🤖 24 Saatlik Otonom Sefer & Tamir Botu</div>
+          <div class="card-badge" style="color: ${isBotActive ? '#4ade80' : '#facc15'}; font-weight:800;">
+            ${isBotActive ? `✅ Bot Aktif (${botRemainingText} Kaldı)` : '💤 Bot Kapalı'}
           </div>
         </div>
-        <div class="clean-desc" style="font-size: 0.82rem; line-height: 1.4; color: #cbd5e1;">
-          Seferler tamamlandığında kaynakları otomatik toplar. Kazma, balta ve orak aşındığında <strong>depodaki hammadde ve ADA ile aletleri otomatik onarır</strong> ve seferleri kesintisiz sürdürür.
+        
+        <div class="clean-desc" style="font-size: 0.84rem; line-height: 1.5; color: #cbd5e1; margin-top:4px;">
+          Bot; dakika başı çıkartılan Odun, Demir ve Buğday'ın anlık AMM DEX değerinden, staminayı doldurmak için harcanan buğday ve aletlerin tamir masraflarını çıkardıktan sonra kalan <strong>saf kârınızın yarısına (%50) ortak</strong> olarak çalışır.
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
-          <!-- Günlük Bot -->
-          <div style="background: #140e08; padding: 10px 12px; border-radius: 8px; border: 1px solid #583007; display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <div style="font-weight: 800; font-size: 0.92rem; color: #fde047;">🤖 Günlük Bot (24 Saat)</div>
-              <div style="font-size: 0.76rem; color: #94a3b8;">1 Günlük Otomasyon • 23.500 $ADASTRA</div>
-            </div>
-            <button class="btn-clean btn-modal-buybuff" data-buff="auto_collector" style="padding: 6px 14px; font-size: 0.8rem; width: auto;">
-              23.500 ADA
-            </button>
-          </div>
+        <!-- Şeffaf Saf Kâr & Maliyet Tablosu -->
+        <div style="background: rgba(0,0,0,0.4); border-radius: 8px; padding: 12px; margin: 10px 0; border: 1px solid rgba(245,158,11,0.2);">
+          <div style="font-weight:800; font-size:0.86rem; color:#fde047; margin-bottom:6px;">📊 24 Saatlik Ekonomik Hesaplama & Saf Kâr Dağılımı:</div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; font-size:0.8rem; color:#cbd5e1;">
+            <div>🌾 24s Brüt Üretim AMM Değeri:</div>
+            <div style="text-align:right; font-weight:700; color:#4ade80;">+${botCalc.dailyGrossValAda.toLocaleString()} ADA</div>
 
-          <!-- Haftalık Bot -->
-          <div style="background: #140e08; padding: 10px 12px; border-radius: 8px; border: 1px solid #ca8a04; display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <div style="font-weight: 800; font-size: 0.92rem; color: #38bdf8;">🤖 Haftalık Bot (7 Gün) <span style="font-size: 0.72rem; color: #4ade80; background: rgba(74,222,128,0.15); padding: 2px 6px; border-radius: 4px;">%15 İNDİRİM</span></div>
-              <div style="font-size: 0.76rem; color: #94a3b8;">7 Günlük Kesintisiz Otomasyon • 140.000 $ADASTRA</div>
-            </div>
-            <button class="btn-clean btn-clean-green btn-modal-buybuff" data-buff="auto_collector_weekly" style="padding: 6px 14px; font-size: 0.8rem; width: auto;">
-              140.000 ADA
-            </button>
-          </div>
+            <div>⚡ 24s Stamina Buğday Bedeli:</div>
+            <div style="text-align:right; font-weight:700; color:#f87171;">-${botCalc.dailyStaminaCostAda.toLocaleString()} ADA (${botCalc.dailyWheatNeededForStamina} 🌾)</div>
 
-          <!-- Aylık Bot -->
-          <div style="background: #140e08; padding: 10px 12px; border-radius: 8px; border: 1px solid #a855f7; display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <div style="font-weight: 800; font-size: 0.92rem; color: #c084fc;">🤖 Aylık Mega Bot (30 Gün) <span style="font-size: 0.72rem; color: #facc15; background: rgba(250,204,21,0.15); padding: 2px 6px; border-radius: 4px;">%30 İNDİRİM</span></div>
-              <div style="font-size: 0.76rem; color: #94a3b8;">30 Günlük Mega Otomasyon & Tamir • 490.000 $ADASTRA</div>
-            </div>
-            <button class="btn-clean btn-modal-buybuff" data-buff="auto_collector_monthly" style="padding: 6px 14px; font-size: 0.8rem; width: auto; background: linear-gradient(135deg, #9333ea, #6b21a8); border-color: #c084fc;">
-              490.000 ADA
-            </button>
+            <div>🔨 24s Alet Tamir Masrafı:</div>
+            <div style="text-align:right; font-weight:700; color:#f87171;">-${botCalc.dailyToolRepairAda.toLocaleString()} ADA</div>
+
+            <div style="border-top:1px solid rgba(255,255,255,0.1); padding-top:4px; font-weight:800; color:#fff;">💰 24s Net Saf Kâr:</div>
+            <div style="border-top:1px solid rgba(255,255,255,0.1); padding-top:4px; text-align:right; font-weight:800; color:#38bdf8;">+${botCalc.dailyNetProfitAda.toLocaleString()} ADA</div>
+
+            <div style="font-weight:900; color:#ca8a04;">🤝 Bot Satış Bedeli (%50 Kâr Payı):</div>
+            <div style="text-align:right; font-weight:900; color:#facc15; font-size:0.95rem;">${botCalc.dailyBotCostAda.toLocaleString()} $ADASTRA</div>
           </div>
+        </div>
+
+        <!-- Silo Doluluk Seçeneği -->
+        <div style="background: rgba(15,23,42,0.6); padding: 10px 12px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 10px;">
+          <div style="font-weight: 800; font-size: 0.85rem; color: #38bdf8; margin-bottom: 6px;">📦 Silo Dolarsa Bot Ne Yapsın?</div>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: #cbd5e1; cursor: pointer; margin-bottom: 4px;">
+            <input type="radio" name="bot_silo_opt" value="upgrade" ${isSiloAutoUpgrade ? 'checked' : ''} />
+            <span><strong>Siloyu Otomatik Yükselt:</strong> Hesapta ADA varsa çeker, yoksa ambar kaynaklarını pazarda satarak ADA biriktirir.</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: #cbd5e1; cursor: pointer;">
+            <input type="radio" name="bot_silo_opt" value="sell" ${!isSiloAutoUpgrade ? 'checked' : ''} />
+            <span><strong>Yer Açmak İçin %50 Sat:</strong> Siloda yer açmak için depolanan kaynakların yarısını marketten satar.</span>
+          </label>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <div style="font-size:0.75rem; color:#94a3b8; max-width:380px;">
+            ℹ️ 24 saat dolduğunda hesabınızda yeterli ADA varsa bot anlık market fiyatından otomatik bir 24 saat daha yenilenir; yetersizse durur.
+          </div>
+          <button id="btn-buy-taverna-bot" class="btn-clean" style="width: auto; background: linear-gradient(135deg, #ca8a04, #eab308); color: #000; font-weight: 900; padding: 10px 20px; box-shadow: 0 4px 14px rgba(234,179,8,0.3);">
+            ${isBotActive ? `⚡ Süreyi 24 Saat Uzat (${botCalc.dailyBotCostAda.toLocaleString()} ADA)` : `🤖 24 Saatlik Botu Başlat (${botCalc.dailyBotCostAda.toLocaleString()} ADA)`}
+          </button>
         </div>
       </div>
 
@@ -1817,39 +1958,9 @@ function openTownZoneModal(zoneId, zoneName) {
     `;
   }
 
-  // 6. KARNAVAL & SİRK (ŞENLİKLER & GÖSTERİLER)
+  // 6. KARNAVAL & SİRK (ŞENLİKLER, 14 ÖDÜLLÜ ÇARK & HAFTALIK PİYANGO)
   else if (zoneId === 'carnival') {
-    html = `
-      <div class="clean-card">
-        <div class="card-title-row">
-          <div class="card-title">🎪 Krallık Karnavalı & Şenlik Meydanı</div>
-          <span class="card-badge" style="color: #ec4899;">🎈 Şenlik Başladı</span>
-        </div>
-        <div class="clean-desc">
-          Palyaçolar, akrobatlar, ateşbazlar ve sıcak hava balonlarıyla dolu büyük AdAstra krallık karnavalı!
-        </div>
-      </div>
-
-      <div class="clean-card" style="border-color: #ec4899;">
-        <div class="card-title-row">
-          <div class="card-title">🎁 Günlük Karnaval Çadırı Şansı</div>
-          <span class="card-badge" style="color: #facc15;">Ücretsiz</span>
-        </div>
-        <div class="clean-desc">
-          Karnaval çadırına girip falcıdan ve soytarılardan günün moral bonusunu al!
-        </div>
-        <button class="btn-clean btn-clean-purple" id="btn-carnival-cheer" style="margin-top: 10px; background: linear-gradient(135deg, #ec4899, #8b5cf6);">
-          🎪 Karnaval Coşkusuna Katıl (+10 ⚡ Stamina Moral Bonusu)
-        </button>
-      </div>
-
-      <div class="clean-card">
-        <div class="card-title">🎈 Sıcak Hava Balonu Manzarası</div>
-        <div style="font-size: 0.85rem; color: #94a3b8; line-height: 1.5;">
-          Gökyüzünden tüm AdAstra krallığını, dağ madenlerini ve gladyatör arenasını izle. Yakında özel mini oyunlar ve karnaval turnuvaları burada açılacak!
-        </div>
-      </div>
-    `;
+    html = renderCarnivalHtml(window.carnivalActiveTab || 'wheel');
   }
 
   dom.modalBody.innerHTML = html;
@@ -2100,16 +2211,16 @@ function renderBarracksHtml() {
             return `
               <div class="soldier-roster-card ${rarity} ${isAct ? 'active' : ''} btn-select-soldier-card" data-soldier-idx="${idx}">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <span style="font-size: 1.25rem;">${clsIcon}</span>
-                  <span class="soldier-element-tag" style="color: ${el.color}; background: ${el.bg}; border: 1px solid ${el.border};">
-                    ${el.icon} ${el.name}
+                  <span style="font-size: 1.25rem;">⚔️</span>
+                  <span class="soldier-element-tag" style="color: #c084fc; background: rgba(168,85,247,0.15); border: 1px solid #a855f7;">
+                    👑 AdAstra Şampiyonu
                   </span>
                 </div>
                 <div style="font-size: 0.85rem; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3px;">
                   #${idx + 1} ${s.name}
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; color: #94a3b8;">
-                  <span>Lv.${s.level || 1} ${s.className || 'Asker'}</span>
+                  <span>Lv.${s.level || 1} Şampiyon</span>
                   <span style="color: #fde047; font-weight: 700;">${eqCount}/5 Yuva</span>
                 </div>
                 <!-- 5 Yuva Mini Göstergesi -->
@@ -2231,17 +2342,17 @@ function renderBarracksHtml() {
           <div class="soldier-sheet-header">
             <div style="display: flex; align-items: center; gap: 10px;">
               <div style="font-size: 1.8rem; background: rgba(0,0,0,0.4); border-radius: 10px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 1.5px solid #ca8a04;">
-                ${selClsIcon}
+                ⚔️
               </div>
               <div>
                 <div style="font-size: 1.15rem; font-weight: 900; color: #fff; display: flex; align-items: center; gap: 8px;">
                   <span>${selectedSoldier.name}</span>
-                  <span class="soldier-element-tag" style="color: ${selEl.color}; background: ${selEl.bg}; border: 1px solid ${selEl.border};">
-                    ${selEl.icon} ${selEl.name}
+                  <span class="soldier-element-tag" style="color: #c084fc; background: rgba(168,85,247,0.15); border: 1px solid #a855f7;">
+                    👑 AdAstra Şampiyonu
                   </span>
                 </div>
                 <div style="font-size: 0.8rem; color: #fde047; margin-top: 2px;">
-                  Seviye ${selectedSoldier.level || 1} • ${selectedSoldier.className || 'Asker'} • Özel Teçhizat Envanteri
+                  Seviye ${selectedSoldier.level || 1} • AdAstra Şampiyonu • 5 Parça Teçhizat Envanteri
                 </div>
               </div>
             </div>
@@ -2305,6 +2416,218 @@ function renderBarracksHtml() {
   }
 
   return `${pendingBannerHtml}${tabsHtml}${contentHtml}`;
+}
+
+// =========================================================================
+// 4.4B KRALLIK KARNAVALI & ŞANS ÇARKI (14 ÖDÜL) & HAFTALIK PİYANGO
+// =========================================================================
+window.carnivalActiveTab = 'wheel';
+
+function renderCarnivalHtml(activeTab = 'wheel') {
+  window.carnivalActiveTab = activeTab;
+  const state = gameState.state;
+  const wheelRewards = GAME_CONFIG.CARNIVAL?.WHEEL_REWARDS || [];
+  const pWheat = ammMarket.getPrice('wheat') || 1.0;
+  const pIron = ammMarket.getPrice('iron') || 1.0;
+  const pWood = ammMarket.getPrice('wood') || 1.0;
+
+  const costWheat = Math.round(100 / pWheat);
+  const costIron = Math.round(100 / pIron);
+  const costWood = Math.round(100 / pWood);
+
+  const lotteryPool = state.lotteryPool || 1000000;
+  const amortiPool = state.lotteryAmortiPool || 0;
+  const winnerReward = Math.round(lotteryPool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.WEEKLY_WINNER_SHARE || 0.18));
+  const amortiShare = Math.round(lotteryPool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.AMORTI_SHARE || 0.02));
+  const rolloverShare = Math.round(lotteryPool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.ROLLOVER_SHARE || 0.80));
+  const myTickets = state.lotteryTickets || 0;
+  const totalTicketsEst = Math.max(100, myTickets + 900);
+  const myChancePct = ((myTickets / totalTicketsEst) * 100).toFixed(2);
+  const shards = state.wheelTicketShards || 0;
+  const redeemCodes = state.redeemCodes || [];
+
+  return `
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+      <button class="phase2-tab-btn carnival-tab-btn ${activeTab === 'wheel' ? 'active' : ''}" data-carnival-tab="wheel" style="padding: 12px; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 8px;">
+        <span style="font-size: 1.3rem;">🎡</span>
+        <span>1. 14 ÖDÜLLÜ ŞANS ÇARKI</span>
+      </button>
+      <button class="phase2-tab-btn carnival-tab-btn ${activeTab === 'lottery' ? 'active' : ''}" data-carnival-tab="lottery" style="padding: 12px; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 8px;">
+        <span style="font-size: 1.3rem;">🎟️</span>
+        <span>2. HAFTALIK KRALLIK PİYANGOSU</span>
+      </button>
+    </div>
+
+    ${activeTab === 'wheel' ? `
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div class="clean-card" style="border-left: 4px solid #ec4899; background: #1a0f1d;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div>
+              <div style="font-size: 1.1rem; font-weight: 900; color: #fff; display:flex; align-items:center; gap:8px;">
+                <span>🎡 14 Potansiyel Ödüllü Krallık Çarkı</span>
+                <span class="card-badge" style="background:#ec4899; color:#fff; border:none; font-weight:800;">RTP ~%78 • Kasa Garantili</span>
+              </div>
+              <div style="font-size: 0.85rem; color: #cbd5e1; margin-top:2px;">
+                100 ADA veya 100 ADA'ya denk gelen hammadde ile çevirebilir, ya da piyango biletini çark hakkına dönüştürebilirsin!
+              </div>
+            </div>
+            <div style="font-size:0.82rem; color:#fde047; background:rgba(0,0,0,0.4); padding:6px 14px; border-radius:8px; border:1px solid rgba(250,204,21,0.3);">
+              🎟️ Amorti Bilet Parçaları: <strong>${shards}/10</strong> ${shards >= 10 ? '🎉 (+1 Bilet Eklendi!)' : ''}
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 8px;">
+          ${wheelRewards.map((r, i) => `
+            <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 8px; text-align:center;">
+              <div style="font-size: 1.6rem; margin-bottom: 2px;">${r.icon}</div>
+              <div style="font-size: 0.78rem; font-weight: 800; color: #fff; line-height: 1.2;">${r.name}</div>
+              <div style="font-size: 0.68rem; color: #facc15; margin-top: 3px;">Ağırlık: %${((r.weight / 1000) * 100).toFixed(1)}</div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="clean-card" style="border-color: #f59e0b; background: rgba(20,14,8,0.85); padding:16px;">
+          <div style="font-weight: 800; font-size: 0.95rem; color: #fde047; margin-bottom: 10px; text-align:center;">
+            🎲 Ödeme Yöntemini Seç ve Çarkı Çevir:
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px;">
+            <button class="btn-clean btn-spin-wheel" data-pay="ada" style="background:#7c3aed; border-color:#a78bfa; font-weight:800; padding:10px;">
+              🟣 100 ADA İle Çevir
+            </button>
+            <button class="btn-clean btn-spin-wheel" data-pay="wheat" style="background:#d97706; border-color:#f59e0b; font-weight:800; padding:10px;">
+              🌾 ${costWheat} Buğday İle Çevir
+            </button>
+            <button class="btn-clean btn-spin-wheel" data-pay="iron" style="background:#2563eb; border-color:#60a5fa; font-weight:800; padding:10px;">
+              ⛏️ ${costIron} Demir İle Çevir
+            </button>
+            <button class="btn-clean btn-spin-wheel" data-pay="wood" style="background:#16a34a; border-color:#4ade80; font-weight:800; padding:10px;">
+              🌲 ${costWood} Odun İle Çevir
+            </button>
+            <button class="btn-clean btn-spin-wheel" data-pay="ticket" ${myTickets > 0 ? '' : 'disabled'} style="background:#db2777; border-color:#f472b6; font-weight:800; padding:10px;">
+              🎟️ 1 Bilet İle Çevir (${myTickets} Bilet)
+            </button>
+          </div>
+        </div>
+
+        <div id="carnival-wheel-result"></div>
+
+        ${redeemCodes.length > 0 ? `
+          <div class="clean-card" style="border-left: 4px solid #ca8a04;">
+            <div style="font-weight: 800; color: #fde047; font-size: 0.9rem; margin-bottom: 6px;">👑 Kazandığın AlphAvax Coin Analiz Kodları:</div>
+            ${redeemCodes.map(c => `
+              <div style="font-family: monospace; font-size: 0.85rem; color: #fff; background: rgba(0,0,0,0.5); padding: 6px 10px; border-radius: 4px; margin-top: 4px; display:flex; justify-content:space-between; align-items:center;">
+                <span>🎟️ Kod: <strong>${c.code}</strong></span>
+                <span style="color:#4ade80; font-size:0.75rem;">(Vercel App Redeem Aktif)</span>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+
+      </div>
+    ` : `
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div class="clean-card" style="border-left: 4px solid #f59e0b; background: #1a150c;">
+          <div class="card-title-row">
+            <div class="card-title">🎟️ Haftalık Büyük AdAstra Piyangosu</div>
+            <span class="card-badge" style="background:#ca8a04; color:#000; font-weight:900;">1.000.000 ADA Tohum Kasa</span>
+          </div>
+          <div class="clean-desc" style="font-size:0.85rem; line-height:1.4;">
+            Her hafta toplanan toplam ödül havuzunun <strong>%18'i şanslı bir kişiye</strong> verilir. %2'si Amorti Hazine Kasası'nda birikir, <strong>%80'i ise sonraki haftaya devreder</strong> (Rollover).
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+          <div class="clean-card" style="text-align:center; padding:14px; border-color:#f59e0b;">
+            <div style="font-size:0.8rem; color:#94a3b8;">🏆 Bu Haftanın Büyük Ödülü (%18)</div>
+            <div style="font-size:1.4rem; font-weight:900; color:#fde047; margin-top:4px;">
+              ${winnerReward.toLocaleString()} $ADASTRA
+            </div>
+          </div>
+          <div class="clean-card" style="text-align:center; padding:14px; border-color:#a855f7;">
+            <div style="font-size:0.8rem; color:#94a3b8;">🏦 Toplam Piyango Kasası</div>
+            <div style="font-size:1.4rem; font-weight:900; color:#c084fc; margin-top:4px;">
+              ${lotteryPool.toLocaleString()} $ADASTRA
+            </div>
+          </div>
+          <div class="clean-card" style="text-align:center; padding:14px; border-color:#0284c7;">
+            <div style="font-size:0.8rem; color:#94a3b8;">🛡️ Amorti Hazine Hesabı (%2)</div>
+            <div style="font-size:1.4rem; font-weight:900; color:#38bdf8; margin-top:4px;">
+              ${amortiPool.toLocaleString()} $ADASTRA
+            </div>
+          </div>
+          <div class="clean-card" style="text-align:center; padding:14px; border-color:#10b981;">
+            <div style="font-size:0.8rem; color:#94a3b8;">🎟️ Senin Biletlerin & Şansın</div>
+            <div style="font-size:1.3rem; font-weight:900; color:#4ade80; margin-top:4px;">
+              ${myTickets} Bilet (%${myChancePct})
+            </div>
+          </div>
+        </div>
+
+        <div class="clean-card" style="border-left: 4px solid #22c55e; background: rgba(10,30,15,0.4); font-size:0.82rem; color:#cbd5e1; line-height:1.5;">
+          <strong>🛡️ AlphAvax 2x Kazanç Güvencesi:</strong> Eğer size piyango çıkar ancak kazandığınız ödül aldığınız bilet sayısının maliyetinin en az 2 katı etmezse, elinizdeki tüm biletler yakılmaz! Sadece kazandığınız ödülün yarısına denk gelecek kadar bilet yakılır, kalan tüm biletleriniz sonraki haftaki piyango çekilişine katılmaya devam eder.
+        </div>
+
+        <div class="clean-card" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; padding:16px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="font-size:0.88rem; font-weight:700; color:#fff;">Bilet Adedi:</span>
+            <input type="number" id="lottery-ticket-count" value="1" min="1" max="1000" style="width:80px; background:#1e293b; color:#fde047; border:1px solid #475569; padding:8px; border-radius:6px; font-weight:800; font-size:1rem; text-align:center;" />
+            <button id="btn-buy-lottery-action" class="btn-clean" style="width:auto; background:linear-gradient(135deg, #f59e0b, #d97706); color:#000; font-weight:900; padding:10px 18px;">
+              🎟️ Bilet Satın Al (100 ADA/Adet)
+            </button>
+          </div>
+
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button id="btn-burn-lottery-amorti-action" class="btn-clean" style="width:auto; background:#0369a1; border-color:#38bdf8; padding:10px 16px; font-size:0.84rem;" ${myTickets > 0 && amortiPool > 0 ? '' : 'disabled'}>
+              🔥 Biletlerimi Yak & Amorti Al
+            </button>
+            <button id="btn-draw-lottery-now-action" class="btn-clean" style="width:auto; background:#7c3aed; border-color:#a78bfa; padding:10px 16px; font-size:0.84rem; font-weight:800;">
+              🎲 Çekilişi Şimdi Başlat
+            </button>
+          </div>
+        </div>
+
+        <div id="carnival-lottery-result"></div>
+      </div>
+    `}
+  `;
+}
+
+function openCarnivalModal(activeTab = 'wheel') {
+  window.carnivalActiveTab = activeTab;
+  dom.modalTitle.innerHTML = `<span>🎪</span> <span>KRALLIK KARNAVALI, ŞANS ÇARKI & PİYANGO</span>`;
+  dom.modalBody.innerHTML = renderCarnivalHtml(activeTab);
+  displayModal();
+}
+
+function openChangelogModal() {
+  dom.modalTitle.innerHTML = `<span>📜</span> <span>ADASTRA REALM SÜRÜM GEÇMİŞİ & GÜNCELLEME LOGU</span>`;
+  const logs = GAME_CONFIG.CHANGELOG || [];
+  dom.modalBody.innerHTML = `
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div class="clean-card" style="border-left: 4px solid #38bdf8; background: #0c1929;">
+        <div style="font-size: 1.05rem; font-weight: 800; color: #fff;">📜 Krallık Güncelleme Günlüğü (v1.00 — v1.06)</div>
+        <div style="font-size: 0.85rem; color: #94a3b8; margin-top:2px;">
+          AdAstra krallığının ilk gününden bugüne kadar devreye alınan tüm sistem mekanikleri, tokenomics kuralları ve sürüm notları.
+        </div>
+      </div>
+      ${logs.map(log => `
+        <div class="clean-card" style="border-left: 4px solid #a855f7; padding: 14px 18px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; flex-wrap:wrap; gap:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="card-badge" style="background:#7c3aed; color:#fff; font-weight:900; font-size:0.85rem; padding:3px 8px;">${log.version}</span>
+              <span style="font-size:0.95rem; font-weight:800; color:#fde047;">${log.title}</span>
+            </div>
+            <span style="font-size:0.75rem; color:#94a3b8;">${log.date}</span>
+          </div>
+          <ul style="margin: 0; padding-left: 18px; font-size: 0.82rem; color: #cbd5e1; line-height: 1.6;">
+            ${log.changes.map(c => `<li>${c}</li>`).join('')}
+          </ul>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  displayModal();
 }
 
 function openBarracksModal() {
@@ -3002,17 +3325,17 @@ function openDashboardModal() {
         <span class="card-badge" style="color: #fde047;">TAB Kısayolu</span>
       </div>
       <div class="dashboard-1click-grid">
-        <button class="btn-1click btn-1click-claim-restart-exp" title="Tamamlanan seferleri topla ve boştakileri başlat">
+        <button class="btn-1click btn-1click-claim-restart-exp" title="Tamamlanan veya sürmekte olan tüm seferlerin biriken kaynaklarını anında topla ve boştakileri başlat">
           <span>⚡</span> <span>Tüm Seferleri Topla & Başlat</span>
         </button>
         <button class="btn-1click btn-1click-refill-stamina" ${!canRefillStamina ? 'disabled' : ''} title="Depodaki buğday ile tüm staminayı tek tıkla tamamen doldur">
-          <span>⚡</span> <span>Tüm Staminayı Doldur (${isStaminaFull ? 'Dolu' : `${wheatNeededForFull}🌾`})</span>
+          <span>⚡</span> <span>Tüm Staminayı Doldur (${isStaminaFull ? 'Dolu' : `${wheatNeededForFull} 🌾`})</span>
         </button>
-        <button class="btn-1click btn-1click-repair-tools" ${repairCosts.count === 0 ? 'disabled' : ''} title="Tüm aletleri tamir et">
-          <span>🔨</span> <span>Tüm Aletleri Onar (${repairCosts.count === 0 ? 'Tam Sağlam' : `${repairCosts.totalWood}🌲 ${repairCosts.totalIron}⛏️ ${repairCosts.totalAda}🟣`})</span>
+        <button class="btn-1click btn-1click-repair-tools" ${repairCosts.count === 0 ? 'disabled' : ''} title="Tüm aşınmış aletleri tamir et">
+          <span>🔨</span> <span>Tüm Aletleri Onar (${repairCosts.count === 0 ? 'Tam Sağlam' : `${repairCosts.totalWood} 🌲 ${repairCosts.totalIron} ⛏️ ${repairCosts.totalAda} 🟣`})</span>
         </button>
         <button class="btn-1click btn-1click-heal-army" ${healCosts.count === 0 ? 'disabled' : ''} title="Tüm yaralı askerleri doyur ve iyileştir">
-          <span>🌾</span> <span>Tüm Orduyu Doyur (${healCosts.count === 0 ? 'Tam Sağlıklı' : `${healCosts.totalWheat}🌾`})</span>
+          <span>🌾</span> <span>Tüm Orduyu Doyur (${healCosts.count === 0 ? 'Tam Sağlıklı' : `${healCosts.totalWheat} 🌾 ${healCosts.totalAda.toFixed(1)} 🟣`})</span>
         </button>
       </div>
     </div>
@@ -3562,6 +3885,10 @@ function executeMonsterBattle(monster, selectedIndices, protectWeapons) {
   const playerTotalHp = playerSquad.reduce((s, u) => s + u.hp, 0);
   const playerTotalAtk = playerSquad.reduce((s, u) => s + u.atk, 0);
 
+  let pCurHp = playerTotalHp;
+  let eCurHp = gameState.getMonsterCurrentHp(monster.level, monster.hp);
+  const enemyStartHpPct = Math.min(100, Math.max(0, Math.round((eCurHp / monster.hp) * 100)));
+
   dom.modalBody.innerHTML = `
     <div class="clean-card" style="border-color: #ef4444; background: #1c1012;">
       <div class="card-title-row">
@@ -3579,18 +3906,16 @@ function executeMonsterBattle(monster, selectedIndices, protectWeapons) {
       <div class="arena-vs-badge">VS</div>
       <div class="arena-squad enemy-squad">
         <div class="arena-squad-title">💀 ${monster.name}</div>
-        <div class="arena-hp-track"><div id="dungeon-enemy-hp-fill" class="arena-hp-fill enemy" style="width: 100%;"></div></div>
-        <div style="font-size:0.8rem; text-align:center; color:#ef4444;" id="dungeon-enemy-hp-text">${monster.hp} / ${monster.hp} HP</div>
+        <div class="arena-hp-track"><div id="dungeon-enemy-hp-fill" class="arena-hp-fill enemy" style="width: ${enemyStartHpPct}%;"></div></div>
+        <div style="font-size:0.8rem; text-align:center; color:#ef4444;" id="dungeon-enemy-hp-text">${eCurHp} / ${monster.hp} HP</div>
       </div>
     </div>
 
     <div id="dungeon-combat-log" class="clean-card arena-combat-log">
-      ⚔️ Savaş başlıyor...
+      ⚔️ Savaş başlıyor... ${eCurHp < monster.hp ? `<span style="color:#fde047;">(Canavar önceki savaştan yaralı: ${eCurHp}/${monster.hp} HP)</span>` : ''}
     </div>
   `;
 
-  let pCurHp = playerTotalHp;
-  let eCurHp = monster.hp;
   const pHpFill = document.getElementById('dungeon-player-hp-fill');
   const eHpFill = document.getElementById('dungeon-enemy-hp-fill');
   const pHpText = document.getElementById('dungeon-player-hp-text');
@@ -3689,76 +4014,84 @@ function executeMonsterBattle(monster, selectedIndices, protectWeapons) {
         }
       });
 
-      if (isVictory) {
-        sound.playLevelUp();
-        const adaReward = monster.rewardAdAstra || monster.rewardAda || (monster.level * 25);
-        state.adAstraBalance += adaReward;
+    const isBossMonster = !!(monster.isBoss || monster.level === 9 || monster.level === 18);
+    const dropRes = gameState.addDungeonXpAndDrops(monster.level, isBossMonster);
+    const adaReward = dropRes.adAstraGained || monster.rewardAdAstra || (monster.level * 25);
 
-        // Zindan XP'si SADECE savaşa giren askerlere gider (Karakter avatar seviyesine gitmez)
-        let levelUpNotice = [];
-        selectedIndices.forEach(idx => {
-          const sRes = gameState.addSoldierXp(idx, monster.rewardXp);
-          if (sRes && sRes.leveledUp) {
-            levelUpNotice.push(`Asker #${idx + 1} Lv.${sRes.newLevel}'e Yükseldi!`);
-          }
-        });
+    if (isVictory) {
+      sound.playLevelUp();
+      gameState.clearMonsterHp(monster.level);
 
-        state.dungeonProgress = Math.max(state.dungeonProgress || 1, monster.level + 1);
-
-        const lvlMsg = levelUpNotice.length > 0 ? ` • 🎉 ${levelUpNotice.join(', ')}` : '';
-        const wearMsg = weaponsWorn.length > 0 ? ` • ⚔️ Silah Aşınması: ${weaponsWorn.join(', ')}` : '';
-        addNotification('🏆', `${monster.name} yenildi! +${adaReward} ADA kazandın. Savaşa katılan askerlerin +${monster.rewardXp} Asker XP kazandı.${lvlMsg}${wearMsg}`);
-
-        if (weaponsWorn.length > 0) {
-          showToast(`⚔️ Silahların dayanıklılığı -1 azaldı: ${weaponsWorn.join(', ')}`, 'info');
+      // Zindan XP'si SADECE savaşa giren askerlere gider (Karakter avatar seviyesine gitmez)
+      let levelUpNotice = [];
+      selectedIndices.forEach(idx => {
+        const sRes = gameState.addSoldierXp(idx, monster.rewardXp);
+        if (sRes && sRes.leveledUp) {
+          levelUpNotice.push(`Asker #${idx + 1} Lv.${sRes.newLevel}'e Yükseldi!`);
         }
+      });
 
-        const isBossMonster = !!(monster.isBoss || monster.level === 9 || monster.level === 18);
-        const dropRes = gameState.addDungeonXpAndDrops(monster.level, isBossMonster);
-        let dropsMsg = [];
-        if (dropRes.fragmentsGained > 0) dropsMsg.push(`🧩 +${dropRes.fragmentsGained} Teçhizat Parçaları`);
-        if (dropRes.boxGained > 0) dropsMsg.push(`📦 +${dropRes.boxGained} Pandora Kutusu`);
-        if (dropRes.artifactDiscovered) dropsMsg.push(`${dropRes.artifactDiscovered.icon} ${dropRes.artifactDiscovered.name}`);
-        if (isBossMonster) dropsMsg.push(`🔑 +1 Arena Anahtarı`);
+      state.dungeonProgress = Math.max(state.dungeonProgress || 1, monster.level + 1);
 
-        if (monster.level === 18) {
-          state.dungeonProgress = 1;
-          showToast('🏆 ZİNDAN DÖNGÜSÜ TAMAMLANDI! 1. Kat 1. Seviyeden yeniden başladı!', 'success');
-        }
+      const lvlMsg = levelUpNotice.length > 0 ? ` • 🎉 ${levelUpNotice.join(', ')}` : '';
+      const wearMsg = weaponsWorn.length > 0 ? ` • ⚔️ Silah Aşınması: ${weaponsWorn.join(', ')}` : '';
+      addNotification('🏆', `${monster.name} yenildi! +${adaReward} ADA kazandın. Savaşa katılan askerlerin +${monster.rewardXp} Asker XP kazandı.${lvlMsg}${wearMsg}`);
 
-        if (logEl) {
-          const dropsHtml = dropsMsg.length > 0 ? `<div style="text-align:center; color:#c084fc; margin-top:6px; font-weight:700; font-size:0.9rem;">🎁 Ganimet: ${dropsMsg.join(' • ')}</div>` : '';
-          logEl.innerHTML = `
-            <div style="color:#4ade80; font-weight:800; font-size:1.1rem; text-align:center;">
-              🏆 ZAFER! ${monster.name} yok edildi!
-            </div>
-            <div style="text-align:center; color:#fde047; margin-top:4px;">
-              +${adaReward} $ADASTRA • Savaşa katılan askerlerine +${monster.rewardXp} Asker XP! ${lvlMsg}
-            </div>
-            ${dropsHtml}
-            <div style="text-align:center; font-size:0.8rem; margin-top:6px; color:${protectWeapons ? '#38bdf8' : weaponsWorn.length > 0 ? '#fca5a5' : '#94a3b8'};">
-              ${protectWeapons 
-                ? '🛡️ Silah koruması devrede olduğu için silahlar aşınmadı.' 
-                : weaponsWorn.length > 0 
-                  ? `⚔️ Savaşta kullanılan silahların dayanıklılığı -1 azaldı: <strong>${weaponsWorn.join(', ')}</strong>` 
-                  : '⚔️ Savaşta silah aşınması gerçekleşmedi.'}
-            </div>
-          `;
-        }
-      } else {
-        if (logEl) {
-          logEl.innerHTML = `
-            <div style="color:#ef4444; font-weight:800; font-size:1.1rem; text-align:center;">
-              💀 BOZGUN! Ordun ${monster.name} karşısında geri çekilmek zorunda kaldı.
-            </div>
-          `;
-        }
+      if (weaponsWorn.length > 0) {
+        showToast(`⚔️ Silahların dayanıklılığı -1 azaldı: ${weaponsWorn.join(', ')}`, 'info');
       }
 
-      gameState.saveState();
-      renderTopBar();
+      let dropsMsg = [];
+      if (dropRes.fragmentsGained > 0) dropsMsg.push(`🧩 +${dropRes.fragmentsGained} Teçhizat Parçaları`);
+      if (dropRes.boxGained > 0) dropsMsg.push(`📦 +${dropRes.boxGained} Pandora Kutusu`);
+      if (dropRes.artifactDiscovered) dropsMsg.push(`${dropRes.artifactDiscovered.icon} ${dropRes.artifactDiscovered.name}`);
+      if (isBossMonster) dropsMsg.push(`🔑 +1 Arena Anahtarı`);
+
+      // Canavar öldüğünde can kaydı sıfırlanır
+      gameState.clearMonsterHp(monster.level);
+
+      if (monster.level === 18) {
+        state.dungeonProgress = 1;
+        showToast('🏆 ZİNDAN DÖNGÜSÜ TAMAMLANDI! 1. Kat 1. Seviyeden yeniden başladı!', 'success');
+      }
+
+      if (logEl) {
+        const dropsHtml = dropsMsg.length > 0 ? `<div style="text-align:center; color:#c084fc; margin-top:6px; font-weight:700; font-size:0.9rem;">🎁 Ganimet: ${dropsMsg.join(' • ')}</div>` : '';
+        logEl.innerHTML = `
+          <div style="color:#4ade80; font-weight:800; font-size:1.1rem; text-align:center;">
+            🏆 ZAFER! ${monster.name} yok edildi!
+          </div>
+          <div style="text-align:center; color:#fde047; margin-top:4px;">
+            +${adaReward} $ADASTRA • Savaşa katılan askerlerine +${monster.rewardXp} Asker XP! ${lvlMsg}
+          </div>
+          ${dropsHtml}
+          <div style="text-align:center; font-size:0.8rem; margin-top:6px; color:${protectWeapons ? '#38bdf8' : weaponsWorn.length > 0 ? '#fca5a5' : '#94a3b8'};">
+            ${protectWeapons 
+              ? '🛡️ Silah koruması devrede olduğu için silahlar aşınmadı.' 
+              : weaponsWorn.length > 0 
+                ? `⚔️ Savaşta kullanılan silahların dayanıklılığı -1 azaldı: <strong>${weaponsWorn.join(', ')}</strong>` 
+                : '⚔️ Savaşta silah aşınması gerçekleşmedi.'}
+          </div>
+        `;
+      }
+    } else {
+      gameState.recordMonsterHp(monster.level, eCurHp);
+      if (logEl) {
+        logEl.innerHTML = `
+          <div style="color:#ef4444; font-weight:800; font-size:1.1rem; text-align:center;">
+            💀 BOZGUN! Ordun ${monster.name} karşısında geri çekilmek zorunda kaldı.
+          </div>
+          <div style="text-align:center; color:#fca5a5; margin-top:6px; font-size:0.85rem;">
+            🩸 Canavarın Kalan Canı: <strong>${eCurHp} / ${monster.hp} HP</strong> (Canavarın canı dolmadı! Askerlerini doyurup kaldığın yerden savaşa devam edebilirsin.)
+          </div>
+        `;
+      }
     }
-  }, 350);
+
+    gameState.saveState();
+    renderTopBar();
+  }
+}, 350);
 }
 
 // =========================================================================
@@ -4077,6 +4410,13 @@ function initAppEvents() {
   const pillFragments = document.getElementById('res-pill-fragments');
   if (pillFragments) pillFragments.addEventListener('click', () => openTownZoneModal('market', '🏪 AMM Pazar Alanı'));
 
+  // Üst Bar: Güncelleme Günlüğü (Changelog v1.06) ve Krallık Karnavalı Butonları
+  const pillChangelog = document.getElementById('btn-changelog-pill');
+  if (pillChangelog) pillChangelog.addEventListener('click', openChangelogModal);
+
+  const pillCarnival = document.getElementById('btn-carnival-pill');
+  if (pillCarnival) pillCarnival.addEventListener('click', () => openCarnivalModal('wheel'));
+
   // Alt 3D Dock & Sağ Menü Butonları
   const sideBtnInventory = document.getElementById('side-btn-inventory');
   if (sideBtnInventory) sideBtnInventory.addEventListener('click', openInventoryModal);
@@ -4248,8 +4588,12 @@ function initAppEvents() {
       } else if (res.messages && res.messages.length > 0) {
         showToast(res.messages[0], 'warning');
       }
-      if (res.claimed > 0 || res.restarted > 0) {
-        showToast(`⚡ ${res.claimed} Sefer Toplandı, ${res.restarted} Yeni Sefer Başlatıldı!`, 'success');
+      if (res.claimed > 0 || res.partialClaimed > 0 || res.restarted > 0) {
+        const parts = [];
+        if (res.claimed > 0) parts.push(`${res.claimed} Tam Sefer`);
+        if (res.partialClaimed > 0) parts.push(`${res.partialClaimed} Süren Seferden Biriken`);
+        const harvestText = res.totalHarvest > 0 ? ` (+${res.totalHarvest} Kaynak)` : '';
+        showToast(`⚡ ${parts.join(' & ')} Toplandı${harvestText}, ${res.restarted} Sefer Başlatıldı!`, 'success');
         sound.playHarvest();
       }
       openDashboardModal();
@@ -4961,6 +5305,63 @@ function initAppEvents() {
       return;
     }
 
+    // Demirci: Kategori Filtresi (.btn-bs-cat-filter)
+    const bsCatBtn = e.target.closest('.btn-bs-cat-filter');
+    if (bsCatBtn) {
+      window.blacksmithCategoryFilter = bsCatBtn.dataset.cat;
+      openTownZoneModal('blacksmith', '⚒️ KRALLIK DEMİRCİSİ & TAMİRHANE');
+      return;
+    }
+
+    // Demirci: Toplu Tüm Eşyaları Geliştir (.btn-armory-upgrade-all)
+    if (e.target.closest('.btn-armory-upgrade-all')) {
+      const res = gameState.upgradeAllEquipmentInKingdom();
+      if (res.success) {
+        showToast(res.message, 'success');
+        sound.playLevelUp();
+        openTownZoneModal('blacksmith', '⚒️ KRALLIK DEMİRCİSİ & TAMİRHANE');
+      } else {
+        showToast(res.message, 'warning');
+      }
+      renderTopBar();
+      return;
+    }
+
+    // Demirci: Özelleştirilmiş Hızlı Geliştirme Kısayolu (.btn-custom-upgrade-shortcut)
+    const customUpShortcut = e.target.closest('.btn-custom-upgrade-shortcut');
+    if (customUpShortcut) {
+      const slot = customUpShortcut.dataset.slot;
+      const level = parseInt(customUpShortcut.dataset.level, 10);
+      const res = gameState.upgradeEquipmentByTypeAndLevel(slot, level);
+      if (res.success) {
+        showToast(res.message, 'success');
+        sound.playLevelUp();
+        openTownZoneModal('blacksmith', '⚒️ KRALLIK DEMİRCİSİ & TAMİRHANE');
+      } else {
+        showToast(res.message, 'warning');
+      }
+      renderTopBar();
+      return;
+    }
+
+    // Demirci: Özel Seçici ile Grubu Geliştir (.btn-trigger-custom-upgrade)
+    if (e.target.closest('.btn-trigger-custom-upgrade')) {
+      const slotSelect = dom.modalBody.querySelector('#custom-up-slot');
+      const levelSelect = dom.modalBody.querySelector('#custom-up-level');
+      const slot = slotSelect ? slotSelect.value : 'weapon';
+      const level = levelSelect ? parseInt(levelSelect.value, 10) : 1;
+      const res = gameState.upgradeEquipmentByTypeAndLevel(slot, level);
+      if (res.success) {
+        showToast(res.message, 'success');
+        sound.playLevelUp();
+        openTownZoneModal('blacksmith', '⚒️ KRALLIK DEMİRCİSİ & TAMİRHANE');
+      } else {
+        showToast(res.message, 'warning');
+      }
+      renderTopBar();
+      return;
+    }
+
     // Demirci: Ekipmanı Yeniden Dövme / Onarım (Reforge to 13/13)
     const equipReforgeBtn = e.target.closest('.btn-reforge-equipment');
     if (equipReforgeBtn) {
@@ -5030,6 +5431,104 @@ function initAppEvents() {
       } else {
         showToast(res.message, 'error');
       }
+      renderTopBar();
+      return;
+    }
+
+    // Taverna: 24 Saatlik Otomasyon & Tamir Botu Başlat/Uzat (#btn-buy-taverna-bot)
+    if (e.target.closest('#btn-buy-taverna-bot')) {
+      const res = gameState.buyTavernaAutomationBot(false);
+      if (res.success) {
+        showToast(res.message, 'success');
+        sound.playLevelUp();
+        openTownZoneModal('tavern', '🍺 Taverna & Han');
+      } else {
+        showToast(res.message, 'error');
+      }
+      renderTopBar();
+      return;
+    }
+
+    // Karnaval: Sekme Geçişi (.carnival-tab-btn)
+    const carnTabBtn = e.target.closest('.carnival-tab-btn');
+    if (carnTabBtn) {
+      const tab = carnTabBtn.dataset.carnivalTab;
+      openCarnivalModal(tab);
+      return;
+    }
+
+    // Karnaval: 14 Ödüllü Şans Çarkını Çevir (.btn-spin-wheel)
+    const spinWheelBtn = e.target.closest('.btn-spin-wheel');
+    if (spinWheelBtn) {
+      const payMethod = spinWheelBtn.dataset.pay;
+      const res = gameState.spinCarnivalWheel(payMethod);
+      const resBox = dom.modalBody.querySelector('#carnival-wheel-result');
+      if (res.success) {
+        showToast(`🎉 Çarktan Kazandın: ${res.rewardSummaryText}`, 'success');
+        sound.playLevelUp();
+        if (resBox) {
+          resBox.innerHTML = `
+            <div class="clean-card" style="border:2px solid #ec4899; background:linear-gradient(135deg, rgba(236,72,153,0.3), rgba(168,85,247,0.3)); text-align:center; padding:16px; margin-top:10px;">
+              <div style="font-size:2.5rem;">${res.reward?.icon || '🎁'}</div>
+              <div style="font-size:1.15rem; font-weight:900; color:#fff; margin-top:4px;">🎉 TEBRİKLER KAZANDINIZ!</div>
+              <div style="font-size:1.05rem; font-weight:800; color:#fde047; margin-top:4px;">${res.rewardSummaryText}</div>
+            </div>
+          `;
+        }
+      } else {
+        showToast(res.message, 'error');
+      }
+      renderTopBar();
+      return;
+    }
+
+    // Karnaval: Piyango Bilet Satın Al (#btn-buy-lottery-action)
+    if (e.target.closest('#btn-buy-lottery-action')) {
+      const countInput = dom.modalBody.querySelector('#lottery-ticket-count');
+      const count = countInput ? parseInt(countInput.value, 10) || 1 : 1;
+      const res = gameState.buyLotteryTickets(count);
+      if (res.success) {
+        showToast(res.message, 'success');
+        sound.playHarvest();
+        openCarnivalModal('lottery');
+      } else {
+        showToast(res.message, 'error');
+      }
+      renderTopBar();
+      return;
+    }
+
+    // Karnaval: Piyango Amorti Payı Al (#btn-burn-lottery-amorti-action)
+    if (e.target.closest('#btn-burn-lottery-amorti-action')) {
+      const res = gameState.burnLotteryTicketsForAmorti();
+      if (res.success) {
+        showToast(res.message, 'success');
+        sound.playHarvest();
+        openCarnivalModal('lottery');
+      } else {
+        showToast(res.message, 'error');
+      }
+      renderTopBar();
+      return;
+    }
+
+    // Karnaval: Piyango Çekilişi Şimdi Yap (#btn-draw-lottery-now-action)
+    if (e.target.closest('#btn-draw-lottery-now-action')) {
+      const res = gameState.drawWeeklyLottery();
+      showToast(res.message, res.userWon ? 'success' : 'info');
+      sound.playLevelUp();
+      const resBox = dom.modalBody.querySelector('#carnival-lottery-result');
+      if (resBox) {
+        resBox.innerHTML = `
+          <div class="clean-card" style="border:2px solid ${res.userWon ? '#4ade80' : '#38bdf8'}; background:rgba(0,0,0,0.6); padding:16px; margin-top:10px;">
+            <div style="font-weight:800; font-size:1rem; color:${res.userWon ? '#4ade80' : '#fde047'};">
+              ${res.userWon ? '👑 TEBRİKLER! PİYANGO SİZE ÇIKTI!' : '🎲 Haftalık Çekiliş Tamamlandı'}
+            </div>
+            <div style="font-size:0.85rem; color:#cbd5e1; margin-top:4px;">${res.message}</div>
+          </div>
+        `;
+      }
+      openCarnivalModal('lottery');
       renderTopBar();
       return;
     }
@@ -5294,6 +5793,24 @@ function initAppEvents() {
           gainEl.innerText = `~${gain.toFixed(2)} ADA`;
         }
       }
+      return;
+    }
+  });
+
+  // Modal İçi Seçim Değişiklikleri (Demirci Sıralaması & Taverna Bot Silo Tercihi)
+  dom.modalBody.addEventListener('change', (e) => {
+    // Demirci Çantam Sıralama Değişimi
+    if (e.target && e.target.id === 'select-bs-sort') {
+      window.blacksmithSortFilter = e.target.value;
+      openTownZoneModal('blacksmith', '⚒️ KRALLIK DEMİRCİSİ & TAMİRHANE');
+      return;
+    }
+
+    // Taverna 24s Bot Silo Doluluk Seçeneği Değişimi
+    if (e.target && e.target.name === 'bot_silo_opt') {
+      const autoUpgrade = e.target.value === 'upgrade';
+      gameState.setBotSiloOption(autoUpgrade);
+      showToast(autoUpgrade ? '🤖 Bot: Silo dolunca otomatik yükseltme modu seçildi.' : '🤖 Bot: Silo dolunca %50 pazarda satış modu seçildi.', 'info');
       return;
     }
   });
