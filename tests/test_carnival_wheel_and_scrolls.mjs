@@ -108,7 +108,8 @@ assert(spinWoodRes.success, 'Odun ile çark çevirme başarılı olmalı');
 assert(spinWoodRes.burnedInfo, 'burnedInfo dönmeli');
 assert.equal(spinWoodRes.burnedInfo.resource, 'wood');
 assert.equal(spinWoodRes.burnedInfo.amount, expectedWoodCost);
-assert.equal(gs.state.inventory.wood, 5000 - expectedWoodCost, 'Envanterden odun tam düşmeli');
+const wonWood = (spinWoodRes.slice?.type === 'resource' && spinWoodRes.slice?.resource === 'wood') ? spinWoodRes.slice.amount : 0;
+assert.equal(gs.state.inventory.wood, 5000 - expectedWoodCost + wonWood, 'Envanterden odun tam düşmeli');
 assert.equal(ammMarket.pools.wood.resourceReserve, initialWoodReserve, 'AMM havuz rezervine ASLA odun eklenmemeli, yanmalı');
 assert.equal(gs.state.burnedResources.wood, expectedWoodCost, 'burnedResources.wood kaydedilmeli');
 
@@ -117,7 +118,8 @@ const ironPrice = ammMarket.getPrice('iron') || 1.0;
 const expectedIronCost = Math.ceil(100 / ironPrice);
 const spinIronRes = gs.spinCarnivalWheel('iron');
 assert(spinIronRes.success, 'Demir ile çark çevirme başarılı olmalı');
-assert.equal(gs.state.inventory.iron, 5000 - expectedIronCost, 'Envanterden demir tam düşmeli');
+const wonIron = (spinIronRes.slice?.type === 'resource' && spinIronRes.slice?.resource === 'iron') ? spinIronRes.slice.amount : 0;
+assert.equal(gs.state.inventory.iron, 5000 - expectedIronCost + wonIron, 'Envanterden demir tam düşmeli');
 assert.equal(ammMarket.pools.iron.resourceReserve, initialIronReserve, 'AMM havuz rezervine ASLA demir eklenmemeli, yanmalı');
 assert.equal(gs.state.burnedResources.iron, expectedIronCost, 'burnedResources.iron kaydedilmeli');
 
@@ -126,11 +128,24 @@ const wheatPrice = ammMarket.getPrice('wheat') || 1.0;
 const expectedWheatCost = Math.ceil(100 / wheatPrice);
 const spinWheatRes = gs.spinCarnivalWheel('wheat');
 assert(spinWheatRes.success, 'Buğday ile çark çevirme başarılı olmalı');
-assert.equal(gs.state.inventory.wheat, 5000 - expectedWheatCost, 'Envanterden buğday tam düşmeli');
+const wonWheat = (spinWheatRes.slice?.type === 'resource' && spinWheatRes.slice?.resource === 'wheat') ? spinWheatRes.slice.amount : 0;
+assert.equal(gs.state.inventory.wheat, 5000 - expectedWheatCost + wonWheat, 'Envanterden buğday tam düşmeli');
 assert.equal(ammMarket.pools.wheat.resourceReserve, initialWheatReserve, 'AMM havuz rezervine ASLA buğday eklenmemeli, yanmalı');
 assert.equal(gs.state.burnedResources.wheat, expectedWheatCost, 'burnedResources.wheat kaydedilmeli');
 
 console.log('✅ Karnaval çarkında harcanan odun, demir ve buğdayların anında yakılarak yok edildiği %100 doğrulandı.');
+
+// Test 5.1: SoldierUnits üzerinde spesifik Asker ID ile Ordu İyileştirme Parşömeni
+gs.state.soldierUnits = [
+  { id: 'sol_101', name: 'Piyade', hp: 30, maxHp: 100 },
+  { id: 'sol_102', name: 'Okçu', hp: 40, maxHp: 100 }
+];
+gs.state.inventory.scroll_heal = 2;
+const targetedHeal = gs.useScroll('scroll_heal', 'sol_102');
+assert(targetedHeal.success, 'Belirli ID li askere iyileştirme parşömeni uygulanabilmeli');
+assert.equal(gs.state.soldierUnits[1].hp, 50, 'Hedeflenen askerin canı 40 tan 50 ye çıkmalı');
+assert.equal(gs.state.soldierUnits[0].hp, 30, 'Hedeflenmeyen askerin canı değişmemeli');
+assert.equal(gs.state.inventory.scroll_heal, 1, '1 parşömen düşmeli');
 
 // Test 6: Krallık Hazinesi & Havuz Dağılımı ve Ödül Bakiyeleri Özeti
 console.log('\n[6/6] Krallık Hazinesi & Havuz Dağılımı ve Canlı Ödüller Test Ediliyor...');

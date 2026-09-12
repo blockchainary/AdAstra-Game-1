@@ -970,6 +970,11 @@ function openInventoryModal() {
         <button id="btn-wheat-stamina-refill-max" class="btn-clean btn-clean-gold" style="flex: 1.3; min-width: 200px; font-size: 0.85rem; padding: 10px; font-weight: 800;" ${wheat <= 0 || state.stamina >= maxStamina ? 'disabled' : ''}>
           ⚡ Tek Tıkla Tam Doldur (${Math.ceil(Math.max(0, maxStamina - Math.floor(state.stamina)) * 3.15)} Buğday)
         </button>
+        ${scrollStamina > 0 ? `
+          <button class="btn-clean btn-clean-purple btn-use-scroll" data-scroll="scroll_stamina" style="flex: 1; min-width: 180px; font-size: 0.85rem; padding: 10px; font-weight: 800;" ${state.stamina >= maxStamina ? 'disabled' : ''} title="Stamina Fulleme Parşömeni Kullan">
+            📜 Parşömen Kullan (${scrollStamina} Adet • Full ⚡)
+          </button>
+        ` : ''}
       </div>
     </div>
 
@@ -1065,7 +1070,14 @@ function openInventoryModal() {
     <div class="clean-card">
       <div class="card-title-row">
         <div class="card-title">🔨 Aletler & Dayanıklılık</div>
-        <span style="font-size: 0.85rem; color: #fde047; font-weight: 700;">Odun + Demir + ADA ile Onarım (Buğdaysız)</span>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          ${scrollRepair > 0 ? `
+            <button class="btn-clean btn-clean-purple btn-use-scroll" data-scroll="scroll_repair" style="padding: 5px 12px; font-size: 0.8rem; font-weight: 800; width: auto;" title="Tüm aletlere anında +432 dk (%10) dayanıklılık ekler">
+              📜 Parşömen Kullan (${scrollRepair} Adet • +432 dk)
+            </button>
+          ` : ''}
+          <span style="font-size: 0.85rem; color: #fde047; font-weight: 700;">Odun + Demir + ADA ile Onarım (Buğdaysız)</span>
+        </div>
       </div>
 
       <!-- Balta -->
@@ -1224,6 +1236,11 @@ function openTownZoneModal(zoneId, zoneName) {
           <button class="btn-clean btn-modal-start" data-node="wood" ${playerTool.durability <= 0 || state.stamina < 25 ? 'disabled' : ''}>
             ${currentDuration} Saatlik Odun Görevine Gönder (-25 ⚡)
           </button>
+          ${state.stamina < 25 && (state.inventory.scroll_stamina || 0) > 0 ? `
+            <button class="btn-clean btn-clean-purple btn-use-scroll" data-scroll="scroll_stamina" style="margin-top: 6px; width: 100%; font-weight: 800;" title="Stamina Fulleme Parşömeni Kullan">
+              ⚡ Yetersiz Stamina! Parşömen Kullan (${state.inventory.scroll_stamina} Adet • Full ⚡)
+            </button>
+          ` : ''}
         `}
       </div>
 
@@ -1237,9 +1254,16 @@ function openTownZoneModal(zoneId, zoneName) {
         <div style="font-size: 0.78rem; color: #94a3b8; margin-bottom: 8px;">
           Onarım Bedeli: Dk başı 1.5 Odun + 1.0 Demir + 1 ADA (Eksik: ${axeCost.missingDurability} dk)
         </div>
-        <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="axe" ${axeCost.missingDurability <= 0 ? 'disabled' : ''}>
-          ${axeCost.missingDurability <= 0 ? 'Balta Tamamen Sağlam' : `Baltayı Onar (${axeCost.woodCost}🌲 + ${axeCost.ironCost}⛏️ + ${axeCost.adAstraCost} 🪙)`}
-        </button>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="axe" style="flex: 1; min-width: 160px;" ${axeCost.missingDurability <= 0 ? 'disabled' : ''}>
+            ${axeCost.missingDurability <= 0 ? 'Balta Tamamen Sağlam' : `Baltayı Onar (${axeCost.woodCost}🌲 + ${axeCost.ironCost}⛏️ + ${axeCost.adAstraCost} 🪙)`}
+          </button>
+          ${(state.inventory.scroll_repair || 0) > 0 ? `
+            <button class="btn-clean btn-clean-purple btn-use-scroll" data-scroll="scroll_repair" style="width: auto; padding: 8px 14px; font-weight: 800;" ${playerTool.durability >= 4320 ? 'disabled' : ''} title="%10 Alet Onarım Parşömeni Kullan">
+              📜 Parşömen Kullan (${state.inventory.scroll_repair} Adet)
+            </button>
+          ` : ''}
+        </div>
       </div>
     `;
   }
@@ -1276,6 +1300,11 @@ function openTownZoneModal(zoneId, zoneName) {
           <button class="btn-clean btn-modal-start" data-node="iron" ${pickaxeTool.durability <= 0 || state.stamina < 25 ? 'disabled' : ''}>
             ${currentDuration} Saatlik Maden Görevine Gönder (-25 ⚡)
           </button>
+          ${state.stamina < 25 && (state.inventory.scroll_stamina || 0) > 0 ? `
+            <button class="btn-clean btn-clean-purple btn-use-scroll" data-scroll="scroll_stamina" style="margin-top: 6px; width: 100%; font-weight: 800;" title="Stamina Fulleme Parşömeni Kullan">
+              ⚡ Yetersiz Stamina! Parşömen Kullan (${state.inventory.scroll_stamina} Adet • Full ⚡)
+            </button>
+          ` : ''}
         `}
       </div>
 
@@ -1289,9 +1318,16 @@ function openTownZoneModal(zoneId, zoneName) {
         <div style="font-size: 0.78rem; color: #94a3b8; margin-bottom: 8px;">
           Onarım Bedeli: Dk başı 1.5 Odun + 1.0 Demir + 1 ADA (Eksik: ${pickCost.missingDurability} dk)
         </div>
-        <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="pickaxe" ${pickCost.missingDurability <= 0 ? 'disabled' : ''}>
-          ${pickCost.missingDurability <= 0 ? 'Kazma Tamamen Sağlam' : `Kazmayı Onar (${pickCost.woodCost}🌲 + ${pickCost.ironCost}⛏️ + ${pickCost.adAstraCost} 🪙)`}
-        </button>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="pickaxe" style="flex: 1; min-width: 160px;" ${pickCost.missingDurability <= 0 ? 'disabled' : ''}>
+            ${pickCost.missingDurability <= 0 ? 'Kazma Tamamen Sağlam' : `Kazmayı Onar (${pickCost.woodCost}🌲 + ${pickCost.ironCost}⛏️ + ${pickCost.adAstraCost} 🪙)`}
+          </button>
+          ${(state.inventory.scroll_repair || 0) > 0 ? `
+            <button class="btn-clean btn-clean-purple btn-use-scroll" data-scroll="scroll_repair" style="width: auto; padding: 8px 14px; font-weight: 800;" ${pickaxeTool.durability >= 4320 ? 'disabled' : ''} title="%10 Alet Onarım Parşömeni Kullan">
+              📜 Parşömen Kullan (${state.inventory.scroll_repair} Adet)
+            </button>
+          ` : ''}
+        </div>
       </div>
     `;
   }
@@ -1687,6 +1723,11 @@ function openTownZoneModal(zoneId, zoneName) {
           <button class="btn-clean btn-modal-start" data-node="wheat" ${sickleTool.durability <= 0 || state.stamina < 25 ? 'disabled' : ''}>
             ${currentDuration} Saatlik Hasat Görevine Gönder (-25 ⚡)
           </button>
+          ${state.stamina < 25 && (state.inventory.scroll_stamina || 0) > 0 ? `
+            <button class="btn-clean btn-clean-purple btn-use-scroll" data-scroll="scroll_stamina" style="margin-top: 6px; width: 100%; font-weight: 800;" title="Stamina Fulleme Parşömeni Kullan">
+              ⚡ Yetersiz Stamina! Parşömen Kullan (${state.inventory.scroll_stamina} Adet • Full ⚡)
+            </button>
+          ` : ''}
         `}
       </div>
 
@@ -1700,9 +1741,16 @@ function openTownZoneModal(zoneId, zoneName) {
         <div style="font-size: 0.78rem; color: #94a3b8; margin-bottom: 8px;">
           Onarım Bedeli: Dk başı 1.5 Odun + 1.0 Demir + 1 ADA (Eksik: ${sickleCost.missingDurability} dk)
         </div>
-        <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="sickle" ${sickleCost.missingDurability <= 0 ? 'disabled' : ''}>
-          ${sickleCost.missingDurability <= 0 ? 'Orak Tamamen Sağlam' : `Orağı Onar (${sickleCost.woodCost}🌲 + ${sickleCost.ironCost}⛏️ + ${sickleCost.adAstraCost} 🪙)`}
-        </button>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="sickle" style="flex: 1; min-width: 160px;" ${sickleCost.missingDurability <= 0 ? 'disabled' : ''}>
+            ${sickleCost.missingDurability <= 0 ? 'Orak Tamamen Sağlam' : `Orağı Onar (${sickleCost.woodCost}🌲 + ${sickleCost.ironCost}⛏️ + ${sickleCost.adAstraCost} 🪙)`}
+          </button>
+          ${(state.inventory.scroll_repair || 0) > 0 ? `
+            <button class="btn-clean btn-clean-purple btn-use-scroll" data-scroll="scroll_repair" style="width: auto; padding: 8px 14px; font-weight: 800;" ${sickleTool.durability >= 4320 ? 'disabled' : ''} title="%10 Alet Onarım Parşömeni Kullan">
+              📜 Parşömen Kullan (${state.inventory.scroll_repair} Adet)
+            </button>
+          ` : ''}
+        </div>
       </div>
     `;
   }
@@ -2266,6 +2314,11 @@ function renderBarracksHtml() {
           <button class="btn-clean btn-smart-heal-all" style="width: auto; padding: 8px 14px; font-size: 0.85rem; background: #d97706; border-color: #f59e0b;">
             🌾 Tümünü Doyur
           </button>
+          ${(state.inventory.scroll_heal || 0) > 0 ? `
+            <button class="btn-clean btn-clean-purple btn-use-scroll" data-scroll="scroll_heal" style="width: auto; padding: 8px 14px; font-size: 0.85rem; font-weight: 800;" title="Ordu İyileştirme Parşömeni Kullan (+10 Can)">
+              📜 Parşömen Kullan (${state.inventory.scroll_heal} Adet)
+            </button>
+          ` : ''}
           <button class="btn-clean btn-smart-unequip-all" style="width: auto; padding: 8px 14px; font-size: 0.85rem; background: #334155; border-color: #64748b;">
             🔄 Eşyaları Sök
           </button>
@@ -2481,9 +2534,16 @@ function renderBarracksHtml() {
 
             ${heal.isPaused ? `<div class="soldier-heal-badge-warning-full">⚠️ Depoda Yetersiz Buğday veya $ADASTRA! Otomatik İyileşme Durdu</div>` : ''}
 
-            <button class="btn-clean btn-clean-purple btn-soldier-instant-heal" data-soldier-idx="${actualSelectedIndex}" style="margin-top: 8px;" ${heal.isFull ? 'disabled' : ''}>
-              ${heal.isFull ? '✅ Zaten Tam Can' : `⚡ Anında Hızlı Doyur (100x: ${heal.wheatNeeded} 🌾 + ${heal.adaCost} 🟣 ADA)`}
-            </button>
+            <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
+              <button class="btn-clean btn-clean-purple btn-soldier-instant-heal" data-soldier-idx="${actualSelectedIndex}" style="flex: 1; min-width: 180px;" ${heal.isFull ? 'disabled' : ''}>
+                ${heal.isFull ? '✅ Zaten Tam Can' : `⚡ Anında Hızlı Doyur (100x: ${heal.wheatNeeded} 🌾 + ${heal.adaCost} 🟣 ADA)`}
+              </button>
+              ${(state.inventory.scroll_heal || 0) > 0 ? `
+                <button class="btn-clean btn-clean-purple btn-use-scroll" data-scroll="scroll_heal" data-target-id="${selectedSoldier.id || actualSelectedIndex}" style="width: auto; padding: 8px 14px; font-weight: 800;" ${heal.isFull ? 'disabled' : ''} title="Bu Şampiyona +10 Can Kazandır">
+                  📜 Parşömen Kullan (${state.inventory.scroll_heal} Adet)
+                </button>
+              ` : ''}
+            </div>
           </div>`;
           })()}
 
@@ -3993,6 +4053,10 @@ function openDashboardModal() {
   const isStaminaFull = summary.stamina >= summary.maxStamina;
   const canRefillStamina = !isStaminaFull && userWheat > 0;
 
+  const scrollHeal = Number(gameState.state.inventory.scroll_heal) || 0;
+  const scrollStamina = Number(gameState.state.inventory.scroll_stamina) || 0;
+  const scrollRepair = Number(gameState.state.inventory.scroll_repair) || 0;
+
   // 1-Click Top Actions Bar
   const quickActionsHtml = `
     <div class="clean-card" style="background: linear-gradient(135deg, rgba(20,14,8,0.95), rgba(35,22,12,0.95)); border-color: rgba(245,158,11,0.5);">
@@ -4007,12 +4071,27 @@ function openDashboardModal() {
         <button class="btn-1click btn-1click-refill-stamina" ${!canRefillStamina ? 'disabled' : ''} title="Depodaki buğday ile tüm staminayı tek tıkla tamamen doldur">
           <span>⚡</span> <span>Tüm Staminayı Doldur (${isStaminaFull ? 'Dolu' : `${wheatNeededForFull} 🌾`})</span>
         </button>
+        ${scrollStamina > 0 ? `
+          <button class="btn-1click btn-use-scroll" data-scroll="scroll_stamina" ${isStaminaFull ? 'disabled' : ''} style="background: linear-gradient(135deg, rgba(88,28,135,0.4), rgba(59,7,100,0.6)); border-color: #a855f7; color: #f3e8ff;" title="Stamina Fulleme Parşömeni Kullanarak Enerjiyi %100 Yap">
+            <span>📜</span> <span>Parşömenle Staminayı Fulle (${scrollStamina})</span>
+          </button>
+        ` : ''}
         <button class="btn-1click btn-1click-repair-tools" ${repairCosts.count === 0 ? 'disabled' : ''} title="Tüm aşınmış aletleri tamir et">
           <span>🔨</span> <span>Tüm Aletleri Onar (${repairCosts.count === 0 ? 'Tam Sağlam' : `${repairCosts.totalWood} 🌲 ${repairCosts.totalIron} ⛏️ ${repairCosts.totalAda} 🟣`})</span>
         </button>
+        ${scrollRepair > 0 ? `
+          <button class="btn-1click btn-use-scroll" data-scroll="scroll_repair" ${repairCosts.count === 0 ? 'disabled' : ''} style="background: linear-gradient(135deg, rgba(88,28,135,0.4), rgba(59,7,100,0.6)); border-color: #a855f7; color: #f3e8ff;" title="%10 Alet Onarım Parşömeni Kullanarak Tüm Aletlere +432 dk Ekle">
+            <span>📜</span> <span>Parşömenle Aletleri Onar (${scrollRepair})</span>
+          </button>
+        ` : ''}
         <button class="btn-1click btn-1click-heal-army" ${healCosts.count === 0 ? 'disabled' : ''} title="Tüm yaralı askerleri doyur ve iyileştir">
           <span>🌾</span> <span>Tüm Orduyu Doyur (${healCosts.count === 0 ? 'Tam Sağlıklı' : `${healCosts.totalWheat} 🌾 ${healCosts.totalAda.toFixed(1)} 🟣`})</span>
         </button>
+        ${scrollHeal > 0 ? `
+          <button class="btn-1click btn-use-scroll" data-scroll="scroll_heal" ${healCosts.count === 0 ? 'disabled' : ''} style="background: linear-gradient(135deg, rgba(88,28,135,0.4), rgba(59,7,100,0.6)); border-color: #a855f7; color: #f3e8ff;" title="Ordu İyileştirme Parşömeni Kullanarak Bir Askeri İyileştir">
+            <span>📜</span> <span>Parşömenle Orduyu İyileştir (${scrollHeal})</span>
+          </button>
+        ` : ''}
       </div>
     </div>
   `;
@@ -4338,6 +4417,7 @@ let preBattleProtectWeapons = false;
 let preBattleSelectedSoldiers = [0];
 
 function openPreBattleModal(monster) {
+  window.currentPreBattleMonster = monster;
   dom.modalTitle.innerHTML = `<span>⚔️</span> <span>SAVAŞ ÖNCESİ TAKTİK FORMASYON HAZIRLIĞI</span>`;
 
   const state = gameState.state;
@@ -4464,7 +4544,12 @@ function openPreBattleModal(monster) {
       ${enemyCardHtml}
       ${armySelectHtml}
     </div>
-    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px;">
+    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px; flex-wrap: wrap;">
+      ${(state.inventory.scroll_heal || 0) > 0 ? `
+        <button class="btn-clean btn-clean-purple btn-use-scroll" data-scroll="scroll_heal" style="width:auto; padding:10px 18px; font-weight:800;" title="Ordu İyileştirme Parşömeni Kullanarak Bir Askeri İyileştir (+10 HP)">
+          📜 Parşömenle İyileştir (${state.inventory.scroll_heal} Adet)
+        </button>
+      ` : ''}
       <button class="btn-clean btn-clean-outline" id="btn-cancel-prebattle" style="width:auto; padding:10px 20px;">
         🏳️ Vazgeç
       </button>
@@ -5585,15 +5670,31 @@ function initAppEvents() {
       return;
     }
 
-    // Envanter: Parşömen Kullan (.btn-use-scroll)
+    // Parşömen Kullan (.btn-use-scroll)
     const useScrollBtn = e.target.closest('.btn-use-scroll');
     if (useScrollBtn) {
       const scrollKey = useScrollBtn.dataset.scroll;
-      const res = gameState.useScroll(scrollKey);
+      const targetId = useScrollBtn.dataset.targetId || null;
+      const res = gameState.useScroll(scrollKey, targetId);
       if (res.success) {
         showToast(res.message, 'success');
         sound.playLevelUp();
-        openInventoryModal();
+        // Aktif açık pencereye göre ekranı anında tazele:
+        if (dom.modalTitle && dom.modalTitle.innerText.includes('DASHBOARD')) {
+          openDashboardModal();
+        } else if (dom.modalTitle && (dom.modalTitle.innerText.includes('KIŞLA') || dom.modalTitle.innerText.includes('KARARGAH'))) {
+          openBarracksModal();
+        } else if (dom.modalTitle && dom.modalTitle.innerText.includes('ORMAN')) {
+          openTownZoneModal('forest', '🌲 BÜYÜLÜ ORMAN & ODUNCULUK');
+        } else if (dom.modalTitle && dom.modalTitle.innerText.includes('MADEN')) {
+          openTownZoneModal('mine', '⛏️ KRALLIK DEMİR MADENİ');
+        } else if (dom.modalTitle && dom.modalTitle.innerText.includes('ÇİFTLİK')) {
+          openTownZoneModal('farm', '🌾 ALTIN BUĞDAY TARLASI');
+        } else if (dom.modalTitle && dom.modalTitle.innerText.includes('SAVAŞ ÖNCESİ') && window.currentPreBattleMonster) {
+          openPreBattleModal(window.currentPreBattleMonster);
+        } else {
+          openInventoryModal();
+        }
       } else {
         showToast(res.message, 'error');
       }

@@ -2491,13 +2491,13 @@ export class GameStateManager {
     }
 
     if (scrollType === 'scroll_heal') {
-      const soldiers = this.state.soldiers || [];
+      const soldiers = (this.state.soldierUnits && this.state.soldierUnits.length > 0) ? this.state.soldierUnits : (this.state.soldiers || []);
       if (soldiers.length === 0) {
         return { success: false, message: 'İyileştirilecek bir askerin bulunmuyor!' };
       }
       let target = null;
-      if (targetId) {
-        target = soldiers.find(s => s.id === targetId);
+      if (targetId !== null && targetId !== undefined) {
+        target = soldiers.find((s, idx) => s.id === targetId || String(idx) === String(targetId));
       }
       if (!target) {
         target = soldiers.find(s => (s.hp || 0) < (s.maxHp || 100));
@@ -2511,7 +2511,7 @@ export class GameStateManager {
       this.saveState();
       return {
         success: true,
-        message: `📜 Ordu İyileştirme Parşömeni kullanıldı! ${target.name} +10 Can kazandı (${target.hp}/${target.maxHp} HP).`
+        message: `📜 Ordu İyileştirme Parşömeni kullanıldı! ${target.name} +10 Can kazandı (${target.hp}/${target.maxHp || 100} HP).`
       };
     }
 
