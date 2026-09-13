@@ -786,16 +786,27 @@ export class GameStateManager {
   }
 
   isAutoCollectorActive() {
-    return this.isBuffActive('auto_collector') ||
+    const now = Date.now();
+    const isTavernaBot = (this.state.botActiveUntil && this.state.botActiveUntil > now) ||
+                         (this.state.tavernaBotActive && this.state.tavernaBotExpiresAt > now);
+    return !!isTavernaBot ||
+           this.isBuffActive('auto_collector') ||
            this.isBuffActive('auto_collector_weekly') ||
            this.isBuffActive('auto_collector_monthly');
   }
 
   getAutoCollectorExpiry() {
+    const now = Date.now();
     let maxExp = 0;
+    if (this.state.botActiveUntil && this.state.botActiveUntil > now) {
+      maxExp = Math.max(maxExp, this.state.botActiveUntil);
+    }
+    if (this.state.tavernaBotActive && this.state.tavernaBotExpiresAt > now) {
+      maxExp = Math.max(maxExp, this.state.tavernaBotExpiresAt);
+    }
     for (const id of ['auto_collector', 'auto_collector_weekly', 'auto_collector_monthly']) {
-      const b = this.state.activeBuffs[id];
-      if (b && b.expiresAt > maxExp && b.expiresAt > Date.now()) {
+      const b = this.state.activeBuffs ? this.state.activeBuffs[id] : null;
+      if (b && b.expiresAt > maxExp && b.expiresAt > now) {
         maxExp = b.expiresAt;
       }
     }
@@ -2544,7 +2555,14 @@ export class GameStateManager {
     this.state.tavernaBotActive = true;
     this.state.tavernaBotExpiresAt = this.state.botActiveUntil;
 
-    sound.playLevelUp();
+    // Tüm auto-collector sistemleriyle geriye dönük uyum için activeBuffs'a da yaz
+    if (!this.state.activeBuffs) this.state.activeBuffs = {};
+    this.state.activeBuffs['auto_collector'] = {
+      id: 'auto_collector',
+      name: '24 Saatlik Otomasyon Botu',
+      expiresAt: this.state.botActiveUntil
+    };
+
     this.saveState();
 
     return {

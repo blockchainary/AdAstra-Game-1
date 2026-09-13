@@ -6541,7 +6541,7 @@ function initAppEvents() {
       const res = gameState.buyTavernaAutomationBot(false);
       if (res.success) {
         showToast(res.message, 'success');
-        sound.playLevelUp();
+        if (typeof sound !== 'undefined' && sound.playLevelUp) sound.playLevelUp();
         openTownZoneModal('tavern', '🍺 Taverna & Han');
       } else {
         showToast(res.message, 'error');
