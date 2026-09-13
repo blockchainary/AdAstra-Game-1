@@ -1229,7 +1229,7 @@ function openTownZoneModal(zoneId, zoneName) {
           </span>
         </div>
         <div style="font-size: 0.78rem; color: #94a3b8; margin-bottom: 8px;">
-          Onarım Bedeli: Dk başı 1.5 Odun + 1.0 Demir + 1 ADA (Eksik: ${axeCost.missingDurability} dk)
+          Onarım Bedeli: Dk başı 1.5 Odun + 1.0 Demir + Anlık AMM Pazar Değeri ADA (Eksik: ${axeCost.missingDurability} dk)
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="axe" style="flex: 1; min-width: 160px;" ${axeCost.missingDurability <= 0 ? 'disabled' : ''}>
@@ -1288,7 +1288,7 @@ function openTownZoneModal(zoneId, zoneName) {
           </span>
         </div>
         <div style="font-size: 0.78rem; color: #94a3b8; margin-bottom: 8px;">
-          Onarım Bedeli: Dk başı 1.5 Odun + 1.0 Demir + 1 ADA (Eksik: ${pickCost.missingDurability} dk)
+          Onarım Bedeli: Dk başı 1.5 Odun + 1.0 Demir + Anlık AMM Pazar Değeri ADA (Eksik: ${pickCost.missingDurability} dk)
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="pickaxe" style="flex: 1; min-width: 160px;" ${pickCost.missingDurability <= 0 ? 'disabled' : ''}>
@@ -1706,7 +1706,7 @@ function openTownZoneModal(zoneId, zoneName) {
           </span>
         </div>
         <div style="font-size: 0.78rem; color: #94a3b8; margin-bottom: 8px;">
-          Onarım Bedeli: Dk başı 1.5 Odun + 1.0 Demir + 1 ADA (Eksik: ${sickleCost.missingDurability} dk)
+          Onarım Bedeli: Dk başı 1.5 Odun + 1.0 Demir + Anlık AMM Pazar Değeri ADA (Eksik: ${sickleCost.missingDurability} dk)
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="sickle" style="flex: 1; min-width: 160px;" ${sickleCost.missingDurability <= 0 ? 'disabled' : ''}>
@@ -7099,8 +7099,19 @@ function initDevPanelEvents() {
 let _liveUpgradeUiTimer = 0;
 function refreshLiveUpgradeCostUI(deltaSeconds = 1) {
   _liveUpgradeUiTimer += deltaSeconds;
-  if (_liveUpgradeUiTimer < 1.0) return;
+  if (_liveUpgradeUiTimer < 1.0 && deltaSeconds < 1.0) return;
   _liveUpgradeUiTimer = 0;
+
+  // 0. Dashboard 1-Click Tüm Aletleri Onar Butonunu Canlı Güncelle
+  const oneClickRepairBtn = document.querySelector('.btn-1click-repair-tools');
+  if (oneClickRepairBtn) {
+    const rCosts = gameState.getAllRepairCost();
+    oneClickRepairBtn.disabled = rCosts.count === 0;
+    const labelSpan = oneClickRepairBtn.querySelector('span:last-child');
+    if (labelSpan) {
+      labelSpan.innerText = `Tüm Aletleri Onar (${rCosts.count === 0 ? 'Tam Sağlam' : `${rCosts.totalWood} 🌲 ${rCosts.totalIron} ⛏️ ${rCosts.totalAda} 🟣`})`;
+    }
+  }
 
   if (!dom.modalContainer || !dom.modalContainer.classList.contains('active')) return;
 
@@ -7176,6 +7187,37 @@ function refreshLiveUpgradeCostUI(deltaSeconds = 1) {
       }
     }
   }
+
+  // 3. Taverna Bot Modalı Açıksa Canlı Fiyat Güncellemesi
+  const botBtn = document.getElementById('btn-buy-taverna-bot');
+  if (botBtn) {
+    const isBotActive = (state.botActiveUntil && state.botActiveUntil > Date.now()) || state.tavernaBotActive;
+    const botCalc = gameState.calculateTavernaBotProfitAndCost();
+    if (botCalc) {
+      const costStr = (botCalc.dailyBotCostAda || botCalc.botCostAda || 0).toLocaleString('tr-TR');
+      botBtn.innerText = isBotActive ? `⚡ Süreyi 24 Saat Uzat (${costStr} ADA)` : `🤖 24 Saatlik Botu Başlat (${costStr} ADA)`;
+    }
+  }
+
+  // 4. Alet Onarım Butonları Açıksa (Balta, Kazma, Orak) Canlı Güncelle
+  const repairBtns = dom.modalContainer.querySelectorAll('.btn-modal-repair');
+  repairBtns.forEach(btn => {
+    const tool = btn.dataset.tool;
+    if (tool) {
+      const cost = gameState.calculateRepairCost(tool);
+      if (cost) {
+        if (cost.missingDurability <= 0) {
+          btn.disabled = true;
+          const toolNames = { axe: 'Balta', pickaxe: 'Kazma', sickle: 'Orak' };
+          btn.innerText = `${toolNames[tool] || 'Alet'} Tamamen Sağlam`;
+        } else {
+          btn.disabled = false;
+          const toolActions = { axe: 'Baltayı Onar', pickaxe: 'Kazmayı Onar', sickle: 'Orağı Onar' };
+          btn.innerText = `${toolActions[tool] || 'Onar'} (${cost.woodCost}🌲 + ${cost.ironCost}⛏️ + ${cost.adAstraCost} 🪙)`;
+        }
+      }
+    }
+  });
 }
 
 function uiGameLoop(currentTime) {
@@ -7270,6 +7312,15 @@ window.addEventListener('DOMContentLoaded', () => {
   initAppEvents();
   initDevPanelEvents();
   renderTopBar();
+
+  // 🏛️ AMM DEX Anlık Fiyat Değişimlerini İzle ve Dinamik Maliyetleri Anında Yenile
+  if (typeof ammMarket !== 'undefined' && ammMarket.subscribe) {
+    ammMarket.subscribe(() => {
+      refreshLiveUpgradeCostUI(1.0);
+      renderTopBar();
+    });
+  }
+
   lastTickTime = performance.now();
   requestAnimationFrame(uiGameLoop);
   runCinematicLoadingSequence();

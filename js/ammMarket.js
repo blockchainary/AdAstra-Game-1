@@ -100,8 +100,38 @@ export class AMMMarketEngine {
   constructor() {
     // v10: 40M $ADASTRA Derin AMM Havuzları (10k ADA Pandora Kutusu, 1k ADA Anahtar)
     this.storageKey = 'adastra_amm_pools_v10';
+    this.listeners = [];
     this.pools = this.loadPools();
     this.feeStats = this.loadFeeStats();
+  }
+
+  // ── Canlı Dinamik Fiyat Abonelik ve Bildirim Sistemi ────────────────
+  subscribe(fn) {
+    if (typeof fn === 'function') {
+      if (!this.listeners) this.listeners = [];
+      this.listeners.push(fn);
+    }
+    return () => {
+      if (this.listeners) {
+        this.listeners = this.listeners.filter(l => l !== fn);
+      }
+    };
+  }
+
+  notifyPriceChange() {
+    if (!this.listeners || this.listeners.length === 0) return;
+    const prices = this.getAllPrices();
+    this.listeners.forEach(fn => {
+      try { fn(prices); } catch (e) { console.error('AMM Price listener error:', e); }
+    });
+  }
+
+  getAllPrices() {
+    const prices = {};
+    for (const key of Object.keys(this.pools || {})) {
+      prices[key] = this.getPrice(key);
+    }
+    return prices;
   }
 
   loadPools() {
@@ -138,6 +168,7 @@ export class AMMMarketEngine {
     if (typeof localStorage === 'undefined') return;
     localStorage.setItem(this.storageKey, JSON.stringify(this.pools));
     localStorage.setItem(this.storageKey + '_fees', JSON.stringify(this.feeStats));
+    this.notifyPriceChange();
   }
 
   // 🏛️ AMM DEX Havuzlarını İlk 40M $ADASTRA Tohum Dağıtımına Sıfırla

@@ -10,6 +10,28 @@ export class GameStateManager {
     this.storageKey = 'adastra_player_save_v6';
     this.state = this.loadState();
     this.listeners = [];
+    if (typeof ammMarket !== 'undefined' && ammMarket && ammMarket.subscribe) {
+      ammMarket.subscribe(() => {
+        this.tickUpgradeCostBot(0);
+        this.notifyListeners();
+      });
+    }
+  }
+
+  subscribe(fn) {
+    if (typeof fn === 'function') {
+      this.listeners.push(fn);
+    }
+    return () => {
+      this.listeners = this.listeners.filter(l => l !== fn);
+    };
+  }
+
+  notifyListeners() {
+    if (!this.listeners) return;
+    this.listeners.forEach(fn => {
+      try { fn(this.state); } catch (e) { console.error('Listener error:', e); }
+    });
   }
 
   loadState() {
@@ -1327,10 +1349,8 @@ export class GameStateManager {
     const ironRatePm = this.getResourceRatePerMinute('iron');
 
     // Kural: Dakika başına üretilen odun ve demirin %25'i alınıp 3 alete paylaştırılır (/ 3)
-    // Ek olarak dakika başına 1 AdAstra onarım bedeli alınır
     const woodCostPerMin = (woodRatePm * 0.25) / 3;
     const ironCostPerMin = (ironRatePm * 0.25) / 3;
-    const adAstraCostPerMin = 1;
 
     if (missingDurability <= 0) {
       return {
@@ -1344,13 +1364,29 @@ export class GameStateManager {
         currentDurability: curDur,
         woodCostPerMin: parseFloat(woodCostPerMin.toFixed(2)),
         ironCostPerMin: parseFloat(ironCostPerMin.toFixed(2)),
-        adAstraCostPerMin
+        adAstraCostPerMin: 0
       };
     }
 
     const woodCost = Math.ceil(missingDurability * woodCostPerMin);
     const ironCost = Math.ceil(missingDurability * ironCostPerMin);
-    const adAstraCost = Math.ceil(missingDurability * adAstraCostPerMin);
+
+    // Kural: Talep edilen odun ve demirin anlık market fiyatlarına (AMM DEX) eşdeğerde $ADASTRA alınır!
+    let adAstraCost = 0;
+    let ammBreakdown = { wood: 0, iron: 0 };
+    if (missingDurability > 0) {
+      if (typeof ammMarket !== 'undefined' && ammMarket && ammMarket.calculateResourcesAdAstraValue) {
+        const ammCalc = ammMarket.calculateResourcesAdAstraValue({ wood: woodCost, iron: ironCost });
+        adAstraCost = Math.max(1, ammCalc.totalAda);
+        ammBreakdown = ammCalc.breakdown;
+      } else {
+        const pWood = (typeof ammMarket !== 'undefined' && ammMarket.getPrice) ? (ammMarket.getPrice('wood') || 2.5) : 2.5;
+        const pIron = (typeof ammMarket !== 'undefined' && ammMarket.getPrice) ? (ammMarket.getPrice('iron') || 4.0) : 4.0;
+        adAstraCost = Math.max(1, Math.round(woodCost * pWood + ironCost * pIron));
+        ammBreakdown = { wood: Math.round(woodCost * pWood), iron: Math.round(ironCost * pIron) };
+      }
+    }
+    const adAstraCostPerMin = missingDurability > 0 ? parseFloat((adAstraCost / missingDurability).toFixed(2)) : 0;
 
     return {
       toolName: toolConfig.name,
@@ -1358,6 +1394,7 @@ export class GameStateManager {
       ironCost,
       wheatCost: 0,
       adAstraCost,
+      ammBreakdown,
       missingDurability,
       maxDurability: maxDur,
       currentDurability: curDur,
@@ -1573,17 +1610,19 @@ export class GameStateManager {
   }
 
   // =========================================================================
-  // 🤖 AMM DEX ANLIK MALİYET BOTU (Her saniye otomatik hesaplar)
+  // 🤖 AMM DEX ANLIK MALİYET BOTU (Her saniye ve her fiyat değişiminde otomatik tarar)
   // =========================================================================
   tickUpgradeCostBot(deltaSeconds = 1) {
     this._upgradeBotTimer = (this._upgradeBotTimer || 0) + deltaSeconds;
-    if (this._upgradeBotTimer < 1.0 && this.liveUpgradeCosts) {
+    if (this._upgradeBotTimer < 1.0 && this.liveUpgradeCosts && deltaSeconds > 0) {
       return this.liveUpgradeCosts;
     }
     this._upgradeBotTimer = 0;
 
     const warehouseCost = this.getWarehouseUpgradeCost();
     const levelReq = this.getNextLevelRequirement();
+    const toolsRepair = this.getAllRepairCost();
+    const botFinancials = this.calculateTavernaBotProfitAndCost();
 
     this.liveUpgradeCosts = {
       timestamp: Date.now(),
@@ -1609,10 +1648,40 @@ export class GameStateManager {
                    (this.state.inventory.iron || 0) >= levelReq.iron &&
                    (this.state.inventory.wheat || 0) >= levelReq.wheat &&
                    (this.state.adAstraBalance || 0) >= levelReq.adAstra
+      },
+      toolsRepair,
+      bot: botFinancials,
+      prices: {
+        wheat: (typeof ammMarket !== 'undefined' && ammMarket.getPrice) ? ammMarket.getPrice('wheat') : 0.9,
+        wood: (typeof ammMarket !== 'undefined' && ammMarket.getPrice) ? ammMarket.getPrice('wood') : 2.5,
+        iron: (typeof ammMarket !== 'undefined' && ammMarket.getPrice) ? ammMarket.getPrice('iron') : 4.0,
+        fragments: (typeof ammMarket !== 'undefined' && ammMarket.getPrice) ? ammMarket.getPrice('fragments') : 45.0,
+        boxes: (typeof ammMarket !== 'undefined' && ammMarket.getPrice) ? ammMarket.getPrice('boxes') : 10000.0,
+        keys: (typeof ammMarket !== 'undefined' && ammMarket.getPrice) ? ammMarket.getPrice('keys') : 1000.0
       }
     };
 
     return this.liveUpgradeCosts;
+  }
+
+  // 🏛️ Anlık Piyasa Fiyatları & Tüm Dinamik Ödeme Maliyetleri Tarayıcısı
+  getDynamicEconomyRates() {
+    const p = {
+      wheat: (typeof ammMarket !== 'undefined' && ammMarket.getPrice) ? ammMarket.getPrice('wheat') : 0.9,
+      wood: (typeof ammMarket !== 'undefined' && ammMarket.getPrice) ? ammMarket.getPrice('wood') : 2.5,
+      iron: (typeof ammMarket !== 'undefined' && ammMarket.getPrice) ? ammMarket.getPrice('iron') : 4.0,
+      fragments: (typeof ammMarket !== 'undefined' && ammMarket.getPrice) ? ammMarket.getPrice('fragments') : 45.0,
+      boxes: (typeof ammMarket !== 'undefined' && ammMarket.getPrice) ? ammMarket.getPrice('boxes') : 10000.0,
+      keys: (typeof ammMarket !== 'undefined' && ammMarket.getPrice) ? ammMarket.getPrice('keys') : 1000.0
+    };
+
+    return {
+      prices: p,
+      warehouse: this.getWarehouseUpgradeCost(),
+      accountLevel: this.getNextLevelRequirement(),
+      toolsRepair: this.getAllRepairCost(),
+      bot: this.calculateTavernaBotProfitAndCost()
+    };
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -2239,8 +2308,10 @@ export class GameStateManager {
 
     const toolWoodPerMin = 3 * 1.5;
     const toolIronPerMin = 3 * 1.0;
-    const toolAdaPerMin = 3 * 1.0;
-    const toolCostPerMinAda = (toolWoodPerMin * woodPrice) + (toolIronPerMin * ironPrice) + toolAdaPerMin;
+    const toolMaterialCostPerMinAda = (toolWoodPerMin * woodPrice) + (toolIronPerMin * ironPrice);
+    // Kural: Alet onarımında talep edilen odun ve demirin anlık market değerine eşdeğerde ADA da alınır
+    const toolAdaPerMin = toolMaterialCostPerMinAda;
+    const toolCostPerMinAda = toolMaterialCostPerMinAda + toolAdaPerMin;
 
     const netProfitPerMin = Math.max(1, grossValuePerMin - staminaCostPerMinAda - toolCostPerMinAda);
     const netProfit24h = netProfitPerMin * 1440;
@@ -2262,7 +2333,8 @@ export class GameStateManager {
       dailyWheatNeededForStamina: Math.round(wheatPerMinForStamina * 1440),
       dailyToolRepairAda: Math.round(toolCostPerMinAda * 1440),
       dailyNetProfitAda: Math.round(netProfit24h),
-      dailyBotCostAda: botCostAda
+      dailyBotCostAda: botCostAda,
+      livePrices: { wood: woodPrice, iron: ironPrice, wheat: wheatPrice }
     };
   }
 
