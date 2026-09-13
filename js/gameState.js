@@ -3883,9 +3883,9 @@ export class GameStateManager {
   }
 
   // =========================================================================
-  // PRE-BATTLE: SAVAŞ TAHMİNİ & SİLAH KORUMA
+  // PRE-BATTLE: SAVAŞ TAHMİNİ (ORDU VE KUŞANILMIŞ SİLAHLAR)
   // =========================================================================
-  getBattlePrediction(enemyHp, enemyAtk, selectedSoldierIndices, protectWeapons = false) {
+  getBattlePrediction(enemyHp, enemyAtk, selectedSoldierIndices) {
     const soldiers = this.state.soldierUnits || [];
     let totalAtk = 0;
     let totalHp = 0;
@@ -3896,11 +3896,7 @@ export class GameStateManager {
       const sol = soldiers[idx];
       if (!sol) continue;
 
-      let solAtk = stats.totalAtk;
-      if (protectWeapons && sol.equipment?.weapon) {
-        solAtk -= (sol.equipment.weapon.atkBonus || 0);
-      }
-      totalAtk += solAtk;
+      totalAtk += stats.totalAtk;
       totalHp += Math.min(sol.hp || sol.maxHp || 100, stats.totalMaxHp);
     }
 
@@ -3913,7 +3909,7 @@ export class GameStateManager {
     else if (winChance < 50) difficulty = 'Zor';
     else if (winChance < 75) difficulty = 'Orta';
 
-    return { totalAtk, totalHp, turnsToKillEnemy, winChance, difficulty, selectedCount: selectedSoldierIndices.length, protectWeapons };
+    return { totalAtk, totalHp, turnsToKillEnemy, winChance, difficulty, selectedCount: selectedSoldierIndices.length };
   }
 
   // =========================================================================

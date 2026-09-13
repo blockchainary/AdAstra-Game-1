@@ -41,16 +41,12 @@ assert(equipRes.success, 'Silah askere kuşanılabilmeli');
 assert(soldier.equipment.weapon, 'Askerin silahı kuşanılmış olmalı');
 assert.equal(soldier.equipment.weapon.durability, 13, 'Askerin silahı 13 dayanıklılıkta olmalı');
 
-// 6. Zindan savaşı simülasyonu: Silah koruması AÇIK (protectWeapons = true)
-// Dayanıklılık düşmemeli
-if (soldier.equipment.weapon) {
-  const curDur = soldier.equipment.weapon.durability;
-  // Savaş sonrası protectWeapons true olduğunda durability azalmaz
-  assert.equal(curDur, 13, 'Silah koruması açıkken durability eksilmemeli');
-}
+// 6. Zindan savaşı tahmini: Silah koruması tamamen kaldırıldı, silahlar daima tam güçle katılır
+const prediction = gs.getBattlePrediction(100, 20, [0]);
+assert(prediction.totalAtk >= 45, 'Asker silahın tam ATK bonusuyla savaşa girmeli');
+assert.equal(prediction.protectWeapons, undefined, 'protectWeapons özelliği tamamen kaldırılmış olmalı');
 
-// 7. Zindan savaşı simülasyonu: Silah koruması KAPALI (protectWeapons = false)
-// Savaş kazanıldığında veya çatışmada silah dayanıklılığı -1 eksilmeli
+// 7. Zindan savaşı: Silahlar her savaşta doğal RPG kuralı olarak -1 aşınır
 const maxD = soldier.equipment.weapon.maxDurability || 13;
 let curD = soldier.equipment.weapon.durability != null ? soldier.equipment.weapon.durability : maxD;
 soldier.equipment.weapon.durability = Math.max(0, curD - 1);

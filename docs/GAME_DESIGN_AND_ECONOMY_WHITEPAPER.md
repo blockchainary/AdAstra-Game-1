@@ -166,9 +166,7 @@ graph LR
 
 ### Savaş Kuralları:
 - **Taktik Formasyon:** Oyuncu 18 askere kadar istediği askerleri savaşa sokabilir.
-- **Silah Dayanıklılığı Koruması:**
-  - ⚔️ **KAPALI:** Silahın ekstra ATK gücüyle tam güç savaşılır, savaş sonunda silahın dayanıklılığı **-1** aşınır.
-  - 🛡️ **AÇIK:** Silahlar aşınmaz, ancak silahın sağladığı ekstra ATK bonusu o savaşta devre dışı kalır.
+- **Silah ve Teçhizat:** Kuşanılmış silahlar tam güçle (ATK bonusuyla) savaşa girer; her zindan çatışması sonrasında silahların dayanıklılığı doğal olarak **-1** aşınır. Aşınan silahlar Demirci'de onarılabilir.
 - **Ganimetler:** Zafer kazanıldığında $ADASTRA ödülü, kat ilerleme kilidi ve savaşa katılan askerlere seviye atlatacak **Asker XP'si** verilir.
 
 ---

@@ -4699,7 +4699,6 @@ function openSmartArmoryModal() {
 // =========================================================================
 // 4.12 SAVAŞ ÖNCESİ TAKTİK & FORMASYON HAZIRLIĞI (PRE-BATTLE FORMATION)
 // =========================================================================
-let preBattleProtectWeapons = false;
 let preBattleSelectedSoldiers = [0];
 
 function openPreBattleModal(monster) {
@@ -4716,7 +4715,7 @@ function openPreBattleModal(monster) {
     preBattleSelectedSoldiers = Array.from({ length: totalSoldiers }, (_, i) => i);
   }
 
-  const prediction = gameState.getBattlePrediction(monster.hp, monster.atk, preBattleSelectedSoldiers, preBattleProtectWeapons);
+  const prediction = gameState.getBattlePrediction(monster.hp, monster.atk, preBattleSelectedSoldiers);
 
   const enemyCardHtml = `
     <div class="prebattle-enemy-card">
@@ -4762,11 +4761,11 @@ function openPreBattleModal(monster) {
     }
   });
   const activeWeaponsPreviewHtml = activeWeaponsList.length > 0 ? `
-    <div style="font-size:0.68rem; color:#fde047; margin-top:4px;">
-      🗡️ Kuşanılmış Silahlar: ${activeWeaponsList.join(' • ')}
+    <div style="font-size:0.75rem; color:#fde047; padding:6px 10px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.25); border-radius:8px; margin-bottom:8px;">
+      🗡️ Kuşanılmış Silahlar: <strong>${activeWeaponsList.join(' • ')}</strong>
     </div>
   ` : `
-    <div style="font-size:0.68rem; color:#94a3b8; margin-top:4px;">
+    <div style="font-size:0.72rem; color:#94a3b8; padding:6px 10px; background:rgba(255,255,255,0.03); border-radius:8px; margin-bottom:8px;">
       ℹ️ Kuşanılmış silah yok (Temel ordu gücüyle savaşılacak).
     </div>
   `;
@@ -4799,16 +4798,9 @@ function openPreBattleModal(monster) {
         <span>🛡️ Savaşa Girecek Askerler (${preBattleSelectedSoldiers.length}/${totalSoldiers})</span>
       </div>
 
-      <div class="prebattle-weapon-toggle ${preBattleProtectWeapons ? 'active' : ''}" id="btn-toggle-weapon-protection">
-        <span>${preBattleProtectWeapons ? '🛡️' : '⚔️'}</span>
-        <div>
-          <div style="font-weight:700;">Silah Dayanıklılığı Koruması: ${preBattleProtectWeapons ? 'AÇIK (Aşınmaz)' : 'KAPALI (Silahlar Kullanılır)'}</div>
-          <div style="font-size:0.72rem; opacity:0.85;">${preBattleProtectWeapons ? 'Silahlar aşınmaz, ancak silah ATK bonusu savaşta kullanılmaz.' : 'Tam güçle savaşılır, kullanılan silahların dayanıklılığı -1 aşınır.'}</div>
-          ${activeWeaponsPreviewHtml}
-        </div>
-      </div>
+      ${activeWeaponsPreviewHtml}
 
-      <div style="max-height:220px; overflow-y:auto; padding-right:4px;">
+      <div style="max-height:240px; overflow-y:auto; padding-right:4px;">
         ${soldiers.map((sol, idx) => {
           const stats = gameState.getSoldierFullStats(idx);
           const isChecked = preBattleSelectedSoldiers.includes(idx);
@@ -4857,14 +4849,6 @@ function openPreBattleModal(monster) {
     });
   }
 
-  const weaponToggle = document.getElementById('btn-toggle-weapon-protection');
-  if (weaponToggle) {
-    weaponToggle.addEventListener('click', () => {
-      preBattleProtectWeapons = !preBattleProtectWeapons;
-      openPreBattleModal(monster);
-    });
-  }
-
   document.querySelectorAll('.prebattle-sol-check').forEach(chk => {
     chk.addEventListener('change', () => {
       const idx = parseInt(chk.dataset.idx, 10);
@@ -4891,14 +4875,14 @@ function openPreBattleModal(monster) {
         showToast('En az 1 asker seçmelisin!', 'error');
         return;
       }
-      executeMonsterBattle(monster, preBattleSelectedSoldiers, preBattleProtectWeapons);
+      executeMonsterBattle(monster, preBattleSelectedSoldiers);
     });
   }
 
   displayModal();
 }
 
-function executeMonsterBattle(monster, selectedIndices, protectWeapons) {
+function executeMonsterBattle(monster, selectedIndices) {
   dom.modalTitle.innerHTML = `<span>⚔️</span> <span>ZİNDAN SAVAŞI: ${monster.name.toUpperCase()}</span>`;
 
   const state = gameState.state;
@@ -4909,18 +4893,13 @@ function executeMonsterBattle(monster, selectedIndices, protectWeapons) {
     .map(idx => {
       const stats = gameState.getSoldierFullStats(idx) || { totalAtk: 20, totalMaxHp: 100 };
       const sol = soldiers[idx];
-      let atk = stats.totalAtk;
-      const w = sol.equipment?.weapon || state.equipment?.weapon;
-      if (protectWeapons && w && (w.durability === undefined || w.durability > 0)) {
-        atk -= (w.atkBonus || 0);
-      }
       return {
         idx,
         name: sol.name,
         icon: BARRACKS_CLASS_ICONS[sol.class] || '🛡️',
         hp: sol.hp != null ? sol.hp : 100,
         maxHp: stats.totalMaxHp,
-        atk
+        atk: stats.totalAtk
       };
     });
 
@@ -5043,20 +5022,18 @@ function executeMonsterBattle(monster, selectedIndices, protectWeapons) {
           const loss = Math.floor((soldiers[idx].hp || 100) * dmgFraction);
           soldiers[idx].hp = Math.max(1, (soldiers[idx].hp || 100) - loss);
 
-          if (!protectWeapons) {
-            if (soldiers[idx].equipment?.weapon) {
-              const w = soldiers[idx].equipment.weapon;
-              const maxD = w.maxDurability || 13;
-              const curD = w.durability != null ? w.durability : maxD;
-              w.durability = Math.max(0, curD - 1);
-              weaponsWorn.push(`${soldiers[idx].name} silahı (${w.durability}/${maxD})`);
-            } else if (state.equipment?.weapon) {
-              const w = state.equipment.weapon;
-              const maxD = w.maxDurability || 13;
-              const curD = w.durability != null ? w.durability : maxD;
-              w.durability = Math.max(0, curD - 1);
-              weaponsWorn.push(`Krallık Kılıcı (${w.durability}/${maxD})`);
-            }
+          if (soldiers[idx].equipment?.weapon) {
+            const w = soldiers[idx].equipment.weapon;
+            const maxD = w.maxDurability || 13;
+            const curD = w.durability != null ? w.durability : maxD;
+            w.durability = Math.max(0, curD - 1);
+            weaponsWorn.push(`${soldiers[idx].name} silahı (${w.durability}/${maxD})`);
+          } else if (state.equipment?.weapon) {
+            const w = state.equipment.weapon;
+            const maxD = w.maxDurability || 13;
+            const curD = w.durability != null ? w.durability : maxD;
+            w.durability = Math.max(0, curD - 1);
+            weaponsWorn.push(`Krallık Kılıcı (${w.durability}/${maxD})`);
           }
         }
       });
@@ -5112,12 +5089,10 @@ function executeMonsterBattle(monster, selectedIndices, protectWeapons) {
             +${adaReward} $ADASTRA • Savaşa katılan askerlerine +${monster.rewardXp} Asker XP! ${lvlMsg}
           </div>
           ${dropsHtml}
-          <div style="text-align:center; font-size:0.8rem; margin-top:6px; color:${protectWeapons ? '#38bdf8' : weaponsWorn.length > 0 ? '#fca5a5' : '#94a3b8'};">
-            ${protectWeapons 
-              ? '🛡️ Silah koruması devrede olduğu için silahlar aşınmadı.' 
-              : weaponsWorn.length > 0 
-                ? `⚔️ Savaşta kullanılan silahların dayanıklılığı -1 azaldı: <strong>${weaponsWorn.join(', ')}</strong>` 
-                : '⚔️ Savaşta silah aşınması gerçekleşmedi.'}
+          <div style="text-align:center; font-size:0.8rem; margin-top:6px; color:${weaponsWorn.length > 0 ? '#fca5a5' : '#94a3b8'};">
+            ${weaponsWorn.length > 0 
+              ? `⚔️ Savaşta kullanılan silahların dayanıklılığı -1 azaldı: <strong>${weaponsWorn.join(', ')}</strong>` 
+              : '⚔️ Savaşta silah aşınması gerçekleşmedi (Kuşanılmış silah yok).'}
           </div>
         `;
       }
