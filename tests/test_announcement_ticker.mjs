@@ -19,6 +19,7 @@ describe('Ekran Üstü Canlı Duyuru ve Risk Bildirim Paneli Testi', () => {
     assert.ok(riskWarning.text.includes('hiçbir audit yapılmamıştır'), 'Metin audit bilgisini içermeli');
     assert.ok(riskWarning.text.includes('lütfen oyuna ana web3 cüzdanınızla bağlanmayın'), 'Metin ana web3 cüzdan uyarısını içermeli');
     assert.ok(riskWarning.text.includes('şuan bu oyun tamamen deneysel bir süreçtir'), 'Metin deneysel süreç uyarısını içermeli');
+    assert.ok(riskWarning.text.includes('yatırım yapmayın veya tamamen free to play olarak oynayın'), 'Metin yatırım yapmayın düzeltmesini içermeli');
     assert.ok(riskWarning.text.includes('anlayısınız ve ilginiz için teşekkür ederim'), 'Metin teşekkür mesajını içermeli');
   });
 

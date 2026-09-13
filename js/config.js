@@ -864,7 +864,7 @@ export const GAME_CONFIG = {
     {
       id: 'audit_risk_warning',
       badge: '🚨 GÜVENLİK & RİSK UYARISI',
-      text: 'bu oyun tamamen antigravity ide gemini 3.8 flash botu ile yazılmıştır. hiçbir audit yapılmamıştır ve yazılım/kodlama bilmeyen tek bir kullanıcı tarafından geliştirilmektedir, bu sebepten bir çok güvenik açığı bulunabilir. bu güvenlik açıkları tamamen tespit edilip oyun audit edilene kadar lütfen oyuna ana web3 cüzdanınızla bağlanmayın. sadece bu oyunda kullancağınız yeni bir web3 cüzdan açın, yapacağınız yatırımlarda olası bir hacklenme veya güvenlik zaafında yatırımlarınızın gidebileceğini unutmayın. şuan bu oyun tamamen deneysel bir süreçtir lütfen riskinizi gözeterek yatırım yapın. eğer sürece ve şu anki duruma güvenmiyorsanız lütfen oyunu oynamayın, yatırıp yapmayın veya tamamen free to play olarak oynayın. anlayısınız ve ilginiz için teşekkür ederim',
+      text: 'bu oyun tamamen antigravity ide gemini 3.8 flash botu ile yazılmıştır. hiçbir audit yapılmamıştır ve yazılım/kodlama bilmeyen tek bir kullanıcı tarafından geliştirilmektedir, bu sebepten bir çok güvenik açığı bulunabilir. bu güvenlik açıkları tamamen tespit edilip oyun audit edilene kadar lütfen oyuna ana web3 cüzdanınızla bağlanmayın. sadece bu oyunda kullancağınız yeni bir web3 cüzdan açın, yapacağınız yatırımlarda olası bir hacklenme veya güvenlik zaafında yatırımlarınızın gidebileceğini unutmayın. şuan bu oyun tamamen deneysel bir süreçtir lütfen riskinizi gözeterek yatırım yapın. eğer sürece ve şu anki duruma güvenmiyorsanız lütfen oyunu oynamayın, yatırım yapmayın veya tamamen free to play olarak oynayın. anlayısınız ve ilginiz için teşekkür ederim',
       active: true,
       priority: 1
     },
