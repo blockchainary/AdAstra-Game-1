@@ -2809,7 +2809,11 @@ export class GameStateManager {
       sound.playLevelUp();
     }
 
-    this.saveState();
+    const message = userWon
+      ? `👑 TEBRİKLER! Krallık Piyangosu size çıktı! Sahip olduğunuz ${burnedTickets} biletin net 2 katı (+${wonAmount.toLocaleString('tr-TR')} $ADASTRA) anında cüzdanınıza aktarıldı!`
+      : (userTickets > 0
+          ? `🎲 Çekiliş tamamlandı. Bu hafta ikramiye size çıkmadı ancak hiçbir biletiniz yanmadı! Satın aldığınız ${userTickets} adet biletiniz otomatik olarak bir sonraki haftaya devredildi, şansınız kesintisiz devam ediyor.`
+          : `🎲 Çekiliş tamamlandı. Bu hafta biletiniz bulunmuyordu. Bir sonraki haftaya devreden dev kasadan pay almak için bilet alabilirsiniz.`);
 
     return {
       userWon,
@@ -2818,7 +2822,8 @@ export class GameStateManager {
       amortiShare,
       rolloverPool: this.state.lotteryPool,
       userTicketsRemaining: keptTickets,
-      burnedTickets
+      burnedTickets,
+      message
     };
   }
 

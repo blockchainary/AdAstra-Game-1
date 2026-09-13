@@ -3144,22 +3144,22 @@ function renderCarnivalHtml(activeTab = 'wheel') {
       <div style="display: flex; flex-direction: column; gap: 12px;">
         <div class="clean-card" style="border-left: 4px solid #f59e0b; background: #1a150c;">
           <div class="card-title-row">
-            <div class="card-title">🎟️ Haftalık Büyük AdAstra Piyangosu</div>
+            <div class="card-title">🎟️ Haftalık Devreden Krallık Piyangosu</div>
             <span class="card-badge" style="background:#ca8a04; color:#000; font-weight:900;">20.000.000 ADA Tohum Kasa</span>
           </div>
-          <div class="clean-desc" style="font-size:0.85rem; line-height:1.4;">
-            Her hafta toplanan toplam ödül havuzunun <strong>%18'i şanslı bir kişiye</strong> verilir. %2'si Amorti Hazine Kasası'nda birikir, <strong>%80'i ise sonraki haftaya devreder</strong> (Rollover).
+          <div class="clean-desc" style="font-size:0.86rem; line-height:1.5;">
+            Piyangomuzda satın aldığınız biletler <strong>kesinlikle yanmaz ve yok olmaz</strong>! Çekilişte ikramiye çıkmasa dahi tüm biletleriniz otomatik olarak sonraki haftalara devreder ve kazanana kadar şansınız devam eder. Kazanan talihli, bilet tutarının <strong>net 2 katını</strong> dev kasadan nakit kazanır ve sadece kazanan talihlinin biletleri ödülü aldıktan sonra yakılır.
           </div>
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
           <div class="clean-card" style="text-align:center; padding:14px; border-color:#f59e0b;">
-            <div style="font-size:0.8rem; color:#94a3b8;">🏆 Piyango Kazanç Oranı (Bilet x 2)</div>
+            <div style="font-size:0.8rem; color:#94a3b8;">🏆 Büyük İkramiye Kazancı</div>
             <div style="font-size:1.35rem; font-weight:900; color:#fde047; margin-top:4px;">
-              2.0x (Net 2 Katı Nakit)
+              Net 2 Katı Nakit Ödül
             </div>
             <div style="font-size:0.75rem; color:#4ade80; margin-top:3px;">
-              ${myTickets > 0 ? `Çıkarsa: +${(myTickets * 200).toLocaleString('tr-TR')} ADA` : 'Bilet tutarının 2 katı'}
+              ${myTickets > 0 ? `Çıkarsa: +${(myTickets * 200).toLocaleString('tr-TR')} ADA` : 'Bilet tutarınızın tam 2 katı'}
             </div>
           </div>
           <div class="clean-card" style="text-align:center; padding:14px; border-color:#a855f7;">
@@ -3167,14 +3167,14 @@ function renderCarnivalHtml(activeTab = 'wheel') {
             <div style="font-size:1.35rem; font-weight:900; color:#c084fc; margin-top:4px;">
               ${lotteryPool.toLocaleString('tr-TR')} $ADASTRA
             </div>
-            <div style="font-size:0.75rem; color:#94a3b8; margin-top:3px;">Rollover ile sürekli büyür</div>
+            <div style="font-size:0.75rem; color:#94a3b8; margin-top:3px;">Devrederek sürekli büyür</div>
           </div>
           <div class="clean-card" style="text-align:center; padding:14px; border-color:#0284c7;">
-            <div style="font-size:0.8rem; color:#94a3b8;">🛡️ Amorti Hazine Hesabı (%2)</div>
+            <div style="font-size:0.8rem; color:#94a3b8;">🛡️ Amorti İade Havuzu (%2)</div>
             <div style="font-size:1.35rem; font-weight:900; color:#38bdf8; margin-top:4px;">
               ${amortiPool.toLocaleString('tr-TR')} $ADASTRA
             </div>
-            <div style="font-size:0.75rem; color:#94a3b8; margin-top:3px;">Çıkmayan bilet güvencesi</div>
+            <div style="font-size:0.75rem; color:#94a3b8; margin-top:3px;">İstediğiniz an biletinizi nakde çevirin</div>
           </div>
           <div class="clean-card" style="text-align:center; padding:14px; border-color:#10b981;">
             <div style="font-size:0.8rem; color:#94a3b8;">🎟️ Senin Biletlerin & Şansın</div>
@@ -3182,13 +3182,34 @@ function renderCarnivalHtml(activeTab = 'wheel') {
               ${myTickets} / 100 Bilet (%${myChancePct})
             </div>
             <div style="font-size:0.75rem; color:#fde047; margin-top:3px;">
-              ${myTickets >= 100 ? '🚫 Haftalık Kota Dolu' : `Kalan Alım: ${100 - myTickets} Bilet`}
+              ${myTickets >= 100 ? '🚫 Haftalık Kota Dolu' : myTickets > 0 ? '✨ Çıkmazsa haftaya devreder (Yanmaz)' : `Kalan Alım: ${100 - myTickets} Bilet`}
             </div>
           </div>
         </div>
 
-        <div class="clean-card" style="border-left: 4px solid #22c55e; background: rgba(10,30,15,0.4); font-size:0.82rem; color:#cbd5e1; line-height:1.5;">
-          <strong>🛡️ AlphAvax 2x Kazanç Sistemi & Balina Koruması:</strong> Piyango kazananı, satın aldığı bilet miktarının (1 Bilet = 100 ADA) <strong>tam 2 katını ($2\times$)</strong> havuzdan nakit kazanır ve biletleri yakılır! 20.000.000 ADA'lık devasa havuz tükenmez, bilet satışlarıyla büyüyerek sonraki haftaya devreder. Balina istiflemesini önlemek için <strong>hesap başı haftalık maksimum 100 bilet (10.000 ADA)</strong> sınırı konulmuştur.
+        <div class="clean-card" style="border-left: 4px solid #22c55e; background: rgba(10,30,15,0.45); font-size:0.85rem; color:#cbd5e1; line-height:1.6; padding:16px;">
+          <div style="font-weight:900; color:#4ade80; font-size:0.95rem; margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+            <span>🛡️</span>
+            <span>KRALLIK PİYANGOSU NASIL ÇALIŞIR? (YENİ MODEL REHBERİ)</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div>
+              <strong style="color:#fde047;">1. Biletleriniz Asla Yanmaz ve Kaybolmaz:</strong>
+              Piyango çekilişinde biletinize ikramiye çıkmasa bile biletleriniz silinmez veya yok olmaz. Satın aldığınız tüm biletler otomatik olarak bir sonraki haftaya devreder ve siz kazanana kadar her hafta çekilişe katılmaya devam eder.
+            </div>
+            <div>
+              <strong style="color:#4ade80;">2. Net 2 Katı Nakit Kazanç:</strong>
+              Piyango isabet eden talihli vatandaşımız, yatırdığı bilet tutarının (1 Bilet = 100 ADA) tam 2 katını dev kasadan nakit olarak anında kazanır. Yalnızca kazanan talihlinin biletleri ödülü teslim aldıktan sonra yakılır.
+            </div>
+            <div>
+              <strong style="color:#38bdf8;">3. Adil Şans ve Balina Koruması:</strong>
+              Büyük yatırımcıların tüm biletleri toplayıp şansı tekeline almasını engellemek ve herkesin eşit şansa sahip olmasını sağlamak için her vatandaş haftalık en fazla 100 bilet (10.000 ADA) alabilir.
+            </div>
+            <div>
+              <strong style="color:#c084fc;">4. 20 Milyon ADA Tohum Kasası:</strong>
+              Piyango havuzu 20.000.000 ADA'lık güçlü bir tohum fonuyla korunur ve bilet satışlarıyla her hafta devrederek büyümeye devam eder.
+            </div>
+          </div>
         </div>
 
         <div class="clean-card" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; padding:16px;">
