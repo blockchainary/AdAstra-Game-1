@@ -3052,12 +3052,15 @@ export class GameStateManager {
     this.saveState();
   }
 
-  // 🍦 VANILLA HESAP & 100M $ADASTRA İLK DAĞITIM TOHUM HAVUZLARI SIFIRLAMA:
+  // 🍦 VANILLA HESAP & 100M $ADASTRA İLK DAĞITIM TOHUM HAVUZLARI VE TÜM HAZİNELERİ SIFIRLAMA:
   // 1. Oyuncunun kişisel hesabını başlangıç profiline döndürür.
   // 2. Haftalık kaynak çıkartma limitlerini tam kapasiteye (%100) sıfırlar.
   // 3. AMM DEX Pazar Havuzlarını tam 40M $ADASTRA ilk tohum rezervlerine sıfırlar.
-  // 4. Krallık Hazinesi Kasalarını tam 40M $ADASTRA ilk tohum rezervlerine sıfırlar.
+  // 4. Krallık Hazinesi Kasalarını (Zindan 14M, Arena 8M, World Boss 8M, AMM Buyback 6M, Karnaval 4M) tam 40M $ADASTRA ilk tohum rezervlerine sıfırlar.
   // 5. Krallık Piyango Havuzunu tam 20M $ADASTRA tohumuna sıfırlar.
+  // 6. World Boss'u tam 1.000.000 Can ve 8M ADA ödül havuzuyla ilk haline sıfırlar.
+  // 7. Kolezyum Gladyatör Arenasını, ELO derecesini, günlük maç haklarını ve liderlik tablosunu sıfırlar.
+  // 8. Zindan katlarını ve canavar canlarını Seviye 1'e ve %100 tam cana sıfırlar.
   // Toplam 100 Milyon $ADASTRA başlangıç fonu ilk anki oranlarıyla oyuna yeniden dağıtılır!
   vanillaReset() {
     if (typeof localStorage !== 'undefined') {
@@ -3069,7 +3072,9 @@ export class GameStateManager {
     if (typeof ammMarket !== 'undefined' && ammMarket && ammMarket.resetPools) {
       ammMarket.resetPools();
     }
-    if (typeof treasury !== 'undefined' && treasury && treasury.reset) {
+    if (typeof treasury !== 'undefined' && treasury && treasury.resetToSeed) {
+      treasury.resetToSeed();
+    } else if (typeof treasury !== 'undefined' && treasury && treasury.reset) {
       treasury.reset();
     }
     this.state = {
@@ -3118,8 +3123,55 @@ export class GameStateManager {
       wheelTicketShards: 0,
       botSiloAutoUpgrade: true,
       botActiveUntil: 0,
+      tavernaBotActive: false,
       redeemCodes: [],
-      burnedResources: { wood: 0, iron: 0, wheat: 0 }
+      burnedResources: { wood: 0, iron: 0, wheat: 0 },
+      // 🏟️ KOLEZYUM GLADYATÖR ARENASI İLK DAĞITIM VE DURUM SIFIRLAMA
+      colosseumStats: {
+        wins: 0,
+        losses: 0,
+        score: 0,
+        rank: 11,
+        totalAdaWon: 0,
+        rating: (GAME_CONFIG.COLOSSEUM && GAME_CONFIG.COLOSSEUM.STARTING_RATING) || 1000
+      },
+      colosseumLeaderboard: [
+        { rank: 1, name: 'Kraliyet Gladyatörü Leonidas', score: 48, wins: 48, losses: 2, icon: '🦁', title: 'Arena Şampiyonu', rewardKeys: 5, rewardAda: 15000 },
+        { rank: 2, name: 'Valkyrie Selin', score: 42, wins: 42, losses: 5, icon: '⚔️', title: 'Yenilmez Gladyatör', rewardKeys: 3, rewardAda: 8000 },
+        { rank: 3, name: 'Gölge Şövalyesi Eren', score: 38, wins: 38, losses: 7, icon: '🗡️', title: 'Arenanın Fatihi', rewardKeys: 1, rewardAda: 2500 },
+        { rank: 4, name: 'Titan Barok', score: 35, wins: 35, losses: 8, icon: '🗿', title: 'Taş Muhafız', rewardKeys: 1, rewardAda: 2500 },
+        { rank: 5, name: 'Büyücü Zafira', score: 31, wins: 31, losses: 9, icon: '🧙‍♀️', title: 'Kadim Elementalist', rewardKeys: 1, rewardAda: 2500 },
+        { rank: 6, name: 'Gece Avcısı Kaan', score: 28, wins: 28, losses: 10, icon: '🏹', title: 'Usta Nişancı', rewardKeys: 1, rewardAda: 2500 },
+        { rank: 7, name: 'Korsan Kaptan Drake', score: 25, wins: 25, losses: 12, icon: '🏴‍☠️', title: 'Denizler Fatihi', rewardKeys: 1, rewardAda: 2500 },
+        { rank: 8, name: 'Ejderha Süvarisi Alperen', score: 22, wins: 22, losses: 13, icon: '🐉', title: 'Ateş Lordu', rewardKeys: 1, rewardAda: 2500 },
+        { rank: 9, name: 'Kutsal Şövalye Galahad', score: 19, wins: 19, losses: 14, icon: '🛡️', title: 'Işık Muhafızı', rewardKeys: 1, rewardAda: 2500 },
+        { rank: 10, name: 'Fırtına Savaşçısı Zephyr', score: 16, wins: 16, losses: 15, icon: '⚡', title: 'Fırtına Getiren', rewardKeys: 1, rewardAda: 2500 },
+      ],
+      dailyCounters: {
+        date: new Date().toISOString().slice(0, 10),
+        arenaMatches: 0,
+        dungeonRuns: 0
+      },
+      // 🌋 DÜNYA BOSSU (WORLD BOSS) İLK DAĞITIM VE CAN SIFIRLAMA
+      worldBoss: {
+        name: 'Kadim Kıyamet Behemoth\'u (WORLD BOSS)',
+        icon: '🌋',
+        weeklyAdaPool: (typeof treasury !== 'undefined' && treasury.getPool) ? Math.round(treasury.getPool('worldBoss')) : 8000000,
+        bossHp: 1000000,
+        maxBossHp: 1000000,
+        bossAtk: 500000,
+        stakedArmyCount: 0,
+        totalStakedAtk: 0,
+        totalStakedHp: 0,
+        userStaked: false,
+        userDamage: 0,
+        userStakedSoldiersCount: 0,
+        userStakedAtk: 0,
+        userStakedHp: 0,
+        claimableRewardAda: 0,
+        totalClaimedAda: 0,
+        lastBattleTimestamp: null
+      }
     };
     this.saveState();
   }
@@ -3317,15 +3369,17 @@ export class GameStateManager {
     const boss = this.getWorldBossInfo();
     const colosseum = state.colosseumStats || { wins: 0, losses: 0, totalAdaWon: 0 };
     
-    // 1. Ödül Havuzları
-    const worldBossPool = boss.weeklyAdaPool || 100000;
-    const colosseumPool = 50000 + (colosseum.wins * 350);
-    const parliamentStakingPool = 85000;
-    const dungeonLootVault = 125000;
+    // 1. Ödül Havuzları (Gerçek Hazine Kasaları ve AMM Likidite Değerleri)
+    const worldBossPool = (typeof treasury !== 'undefined' && treasury.getPool) ? Math.round(treasury.getPool('worldBoss')) : (boss.weeklyAdaPool || 8000000);
+    const colosseumPool = (typeof treasury !== 'undefined' && treasury.getPool) ? Math.round(treasury.getPool('arena')) : 8000000;
+    const dungeonLootVault = (typeof treasury !== 'undefined' && treasury.getPool) ? Math.round(treasury.getPool('dungeon')) : 14000000;
+    const carnivalPool = (typeof treasury !== 'undefined' && treasury.getPool) ? Math.round(treasury.getPool('carnival')) : 4000000;
+    const ammBuybackPool = (typeof treasury !== 'undefined' && treasury.getPool) ? Math.round(treasury.getPool('ammBuyback')) : 6000000;
     const burnedNftPool = 42500 + ((state.genesisNftMinted ? 1 : 0) * 18000);
-    const totalAmmLiquidityAda = 3200000;
+    const totalAmmLiquidityAda = (typeof ammMarket !== 'undefined' && ammMarket.getTotalAdAstraLiquidity) ? ammMarket.getTotalAdAstraLiquidity() : 40000000;
+    const lotteryPoolAda = Math.round(state.lotteryPool || 20000000);
 
-    const totalVaultAda = worldBossPool + colosseumPool + parliamentStakingPool + dungeonLootVault + totalAmmLiquidityAda;
+    const totalVaultAda = worldBossPool + colosseumPool + dungeonLootVault + carnivalPool + ammBuybackPool + totalAmmLiquidityAda;
 
     // 2. Kullanıcının Hak Edişleri & Payları
     const userBossDamage = boss.userDamage || 0;
@@ -3859,7 +3913,7 @@ export class GameStateManager {
       this.state.worldBoss = {
         name: 'Kadim Kıyamet Behemoth\'u (WORLD BOSS)',
         icon: '🌋',
-        weeklyAdaPool: 100000,
+        weeklyAdaPool: (typeof treasury !== 'undefined' && treasury.getPool) ? Math.round(treasury.getPool('worldBoss')) : 8000000,
         bossHp: 1000000,
         maxBossHp: 1000000,
         bossAtk: 500000,
@@ -3876,6 +3930,9 @@ export class GameStateManager {
         lastBattleTimestamp: null
       };
     } else {
+      if (typeof treasury !== 'undefined' && treasury.getPool) {
+        this.state.worldBoss.weeklyAdaPool = Math.round(treasury.getPool('worldBoss')) || 8000000;
+      }
       if (!this.state.worldBoss.userStaked) {
         this.state.worldBoss.stakedArmyCount = 0;
         this.state.worldBoss.totalStakedAtk = 0;

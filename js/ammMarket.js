@@ -183,6 +183,15 @@ export class AMMMarketEngine {
     return this.pools;
   }
 
+  // AMM DEX Toplam $ADASTRA Likidite Rezervi
+  getTotalAdAstraLiquidity() {
+    let total = 0;
+    for (const pool of Object.values(this.pools || {})) {
+      total += (pool.adAstraReserve || 0);
+    }
+    return Math.round(total);
+  }
+
   // ── Fiyatlandırma ───────────────────────────────────────────────────
   getPrice(resourceKey) {
     const pool = this.pools[resourceKey];

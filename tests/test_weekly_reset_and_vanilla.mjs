@@ -109,9 +109,33 @@ assert.equal(lotteryPoolAda, 20000000, 'Krallık Piyango Havuzu tam 20M ADA olma
 assert.equal(gs.state.lotteryTickets, 0, 'Sıfırlama sonrası piyango biletleri 0 olmalı');
 console.log(`✅ [3/3] Krallık Piyangosu: ${lotteryPoolAda.toLocaleString()} $ADASTRA (%20.00) doğrulandı.`);
 
-// D. Genel Toplam: 100.000.000 $ADASTRA
+// D. World Boss, Kolezyum Arenası ve Zindan Sıfırlama Doğrulaması
+console.log('\n--- 🌋 WORLD BOSS, KOLEZYUM VE ZİNDAN SIFIRLAMA KONTROLÜ ---');
+const wb = gs.getWorldBossInfo();
+console.log(`World Boss: ${wb.name}, Can: ${wb.bossHp}/${wb.maxBossHp}, Haftalık Havuz: ${wb.weeklyAdaPool} ADA, Kilitli: ${wb.userStaked}`);
+assert.equal(wb.bossHp, 1000000, 'World Boss canı 1M tam can olmalı');
+assert.equal(wb.maxBossHp, 1000000, 'World Boss max can 1M olmalı');
+assert.equal(wb.weeklyAdaPool, 8000000, 'World Boss haftalık ödül havuzu 8M ADA hazine rezervine eşit olmalı');
+assert.equal(wb.userStaked, false, 'Sıfırlama sonrası ordu kilitli olmamalı');
+assert.equal(wb.userDamage, 0, 'Sıfırlama sonrası vurulan hasar 0 olmalı');
+assert.equal(wb.claimableRewardAda, 0, 'Sıfırlama sonrası talep edilebilir ödül 0 olmalı');
+console.log('✅ [4/5] World Boss Canı (%100) ve 8M ADA Ödül Havuzu başarıyla sıfırlandı.');
+
+const col = gs.state.colosseumStats;
+console.log(`Kolezyum İstatistikleri: Galibiyet: ${col.wins}, Mağlubiyet: ${col.losses}, Puan: ${col.score}, ELO: ${col.rating}`);
+assert.equal(col.wins, 0, 'Kolezyum galibiyet sayısı 0 olmalı');
+assert.equal(col.losses, 0, 'Kolezyum mağlubiyet sayısı 0 olmalı');
+assert.equal(col.score, 0, 'Kolezyum puanı 0 olmalı');
+assert.equal(col.rating, 1000, 'Kolezyum başlangıç ELO derecesi 1000 olmalı');
+assert.equal(gs.state.colosseumLeaderboard.length, 10, 'Liderlik tablosu 10 gladyatör olmalı');
+console.log('✅ [5/5] Kolezyum Arenası, ELO derecesi ve Liderlik Tablosu başarıyla sıfırlandı.');
+
+assert.equal(gs.state.dungeonProgress, 1, 'Zindan ilerlemesi Seviye 1 olmalı');
+assert.equal(Object.keys(gs.state.dungeonMonsterCurrentHp || {}).length, 0, 'Zindan canavarlarının canları tam canlı olmalı');
+
+// E. Genel Toplam: 100.000.000 $ADASTRA
 const grandTotalAda = totalAmmAda + totalTreasuryAda + lotteryPoolAda;
 assert.equal(grandTotalAda, 100000000, 'GENEL TOPLAM TAM 100.000.000 $ADASTRA OLMALI');
-console.log(`🏛️ 100 MİLYON $ADASTRA BAŞLANGIÇ FONU KESİN DAĞILIMI: ${grandTotalAda.toLocaleString()} $ADASTRA %100 DOĞRULANDI!`);
+console.log(`\n🏛️ 100 MİLYON $ADASTRA BAŞLANGIÇ FONU KESİN DAĞILIMI: ${grandTotalAda.toLocaleString()} $ADASTRA %100 DOĞRULANDI!`);
 
-console.log('\n🎉 TÜM HAFTALIK RESET VE 100M ADA TOHUM DAĞITIM SIFIRLAMA TESTLERİ BAŞARIYLA GEÇTİ!');
+console.log('\n🎉 TÜM HAFTALIK RESET, WORLD BOSS, KOLEZYUM VE 100M ADA TOHUM DAĞITIM SIFIRLAMA TESTLERİ BAŞARIYLA GEÇTİ!');
