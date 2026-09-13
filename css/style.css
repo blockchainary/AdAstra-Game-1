@@ -51,12 +51,130 @@ html, body {
   color: #ffffff;
 }
 
+/* =========================================================================
+   0. TOP ANNOUNCEMENT & RISK WARNING TICKER (KAYAN DUYURU & UYARI PANELI)
+   ========================================================================= */
+.top-announcement-ticker {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 32px;
+  background: linear-gradient(90deg, #180808 0%, #2d0d0d 15%, #1f0a0a 50%, #2d0d0d 85%, #180808 100%);
+  border-bottom: 1px solid rgba(239, 68, 68, 0.4);
+  box-shadow: 0 2px 12px rgba(220, 38, 38, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  z-index: 1005;
+  user-select: text;
+  box-sizing: border-box;
+}
+
+.ticker-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  height: 100%;
+  background: linear-gradient(90deg, #991b1b 0%, #dc2626 100%);
+  color: #ffffff;
+  font-family: var(--font-game, 'Cinzel', serif);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  white-space: nowrap;
+  box-shadow: 4px 0 12px rgba(0, 0, 0, 0.6);
+  z-index: 10;
+  flex-shrink: 0;
+  border-right: 1px solid rgba(254, 202, 202, 0.3);
+}
+
+.ticker-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fef08a;
+  box-shadow: 0 0 8px #fef08a;
+  animation: tickerPulseDot 1.2s infinite ease-in-out;
+}
+
+@keyframes tickerPulseDot {
+  0%, 100% { transform: scale(0.85); opacity: 0.7; }
+  50% { transform: scale(1.25); opacity: 1; box-shadow: 0 0 10px #fef08a; }
+}
+
+.ticker-track {
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+  mask-image: linear-gradient(90deg, transparent 0px, black 20px, black calc(100% - 20px), transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0px, black 20px, black calc(100% - 20px), transparent 100%);
+}
+
+.ticker-marquee-inner {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  will-change: transform;
+  animation: tickerMarqueeScroll 60s linear infinite;
+}
+
+.top-announcement-ticker:hover .ticker-marquee-inner {
+  animation-play-state: paused;
+}
+
+@keyframes tickerMarqueeScroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 32px;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 0.74rem;
+  color: #fee2e2;
+  line-height: 32px;
+}
+
+.ticker-item-badge {
+  background: rgba(220, 38, 38, 0.35);
+  border: 1px solid rgba(248, 113, 113, 0.6);
+  border-radius: 4px;
+  padding: 1px 7px;
+  font-family: var(--font-game, 'Cinzel', serif);
+  font-weight: 800;
+  color: #fef08a;
+  font-size: 0.66rem;
+  letter-spacing: 0.5px;
+}
+
+.ticker-item-text {
+  font-weight: 500;
+  letter-spacing: 0.25px;
+  color: #fecaca;
+}
+
+.ticker-item-sep {
+  color: #f59e0b;
+  font-size: 0.85rem;
+  margin-left: 16px;
+  opacity: 0.8;
+}
+
 #phaser-game-container {
   position: absolute;
-  top: 56px;
+  top: 92px;
   left: 0;
   width: 100vw !important;
-  height: calc(100vh - 56px) !important;
+  height: calc(100vh - 92px) !important;
   z-index: 1;
   overflow: hidden;
 }
@@ -76,7 +194,7 @@ html, body {
    ========================================================================= */
 .top-nav-strip, .pixi-topbar, .pixi-top-bar {
   position: fixed;
-  top: 0;
+  top: 32px;
   left: 0;
   right: 0;
   width: 100%;

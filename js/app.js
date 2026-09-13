@@ -7269,7 +7269,7 @@ function uiGameLoop(currentTime) {
 
 function initPhaser() {
   const W = window.innerWidth;
-  const H = Math.max(300, window.innerHeight - 56);
+  const H = Math.max(300, window.innerHeight - 92);
 
   const config = {
     type: Phaser.CANVAS,           // Force Canvas (WebGL can silently fail)
@@ -7290,11 +7290,11 @@ function initPhaser() {
 
   phaserGame = new Phaser.Game(config);
 
-  // Force canvas to fill area below top header strip
+  // Force canvas to fill area below top header strip & ticker
   phaserGame.events.once('ready', () => {
     console.log('[Phaser] Game ready! Resizing canvas...');
     if (phaserGame && phaserGame.scale) {
-      phaserGame.scale.resize(window.innerWidth, Math.max(300, window.innerHeight - 56));
+      phaserGame.scale.resize(window.innerWidth, Math.max(300, window.innerHeight - 92));
     }
     if (window.__finishLoadingBar) window.__finishLoadingBar();
   });
@@ -7302,12 +7302,37 @@ function initPhaser() {
   // Resize on window change
   window.addEventListener('resize', () => {
     if (!phaserGame || !phaserGame.scale) return;
-    phaserGame.scale.resize(window.innerWidth, Math.max(300, window.innerHeight - 56));
+    phaserGame.scale.resize(window.innerWidth, Math.max(300, window.innerHeight - 92));
   });
 }
 
+// 📢 Canlı Duyuru ve Risk Bildirim Paneli Render Motoru
+export function renderTopAnnouncementTicker() {
+  const container = document.getElementById('ticker-marquee-inner');
+  if (!container) return;
+
+  const announcements = GAME_CONFIG.ANNOUNCEMENTS || [];
+  if (!announcements || announcements.length === 0) return;
+
+  const buildItemsHtml = () => {
+    return announcements
+      .filter(a => a.active !== false)
+      .map(item => `
+        <span class="ticker-item">
+          <span class="ticker-item-badge">${item.badge || 'DUYURU'}</span>
+          <span class="ticker-item-text">${item.text}</span>
+          <span class="ticker-item-sep">✦</span>
+        </span>
+      `).join('');
+  };
+
+  // Kesintisiz sonsuz kaydırma (seamless marquee) için 2 döngü duplicate eklenir
+  const singleContent = buildItemsHtml();
+  container.innerHTML = singleContent + singleContent;
+}
 
 window.addEventListener('DOMContentLoaded', () => {
+  renderTopAnnouncementTicker();
   initPhaser();
   initAppEvents();
   initDevPanelEvents();
