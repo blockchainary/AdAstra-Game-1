@@ -1150,6 +1150,23 @@ export class GameStateManager {
     };
   }
 
+  // 🏛️ HAFTALIK EVRENSEL TEMEL GELİR (UBI) TALEP ETME METODU
+  claimWeeklyUbi() {
+    const res = globalPool.claimWeeklyUbi(
+      this.state.level || 1,
+      this.state.adAstraBalance || 0,
+      this.state.lastClaimedUbiEpoch || 0
+    );
+    if (res.success) {
+      this.state.lastClaimedUbiEpoch = res.epochId;
+      this.state.adAstraBalance = (this.state.adAstraBalance || 0) + res.amount;
+      this.state.totalUbiEarned = (this.state.totalUbiEarned || 0) + res.amount;
+      sound.playLevelUp();
+      this.saveState();
+    }
+    return res;
+  }
+
   // 🧙‍♂️ KRAL DANIŞMANI (BİR CÜMLELİK REHBERLİK & TAVSİYE)
   getRoyalAdvisorAdvice() {
     const inv = this.state.inventory || {};
@@ -3298,6 +3315,8 @@ export class GameStateManager {
       tavernaBotActive: false,
       redeemCodes: [],
       burnedResources: { wood: 0, iron: 0, wheat: 0 },
+      lastClaimedUbiEpoch: 0,
+      totalUbiEarned: 0,
       // 🏟️ KOLEZYUM GLADYATÖR ARENASI İLK DAĞITIM VE DURUM SIFIRLAMA
       colosseumStats: {
         wins: 0,

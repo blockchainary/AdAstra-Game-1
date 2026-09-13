@@ -101,7 +101,11 @@ export class GlobalResourceManager {
       maxSupply: MAX_SUPPLY,
       contractAddress: CONTRACT_ADDRESS,
       totalSpent: prevState ? prevState.totalSpent || 54200 : 54200,
-      totalBurned: prevState ? prevState.totalBurned || 18450 : 18450, // %18 Kalıcı Yakım
+      totalBurned: prevState ? prevState.totalBurned || 18450 : 18450, // %13 Kalıcı Yakım
+      creatorRoyaltyTotal: prevState ? prevState.creatorRoyaltyTotal || 0 : 0, // %3 Yapımcı Telifi
+      creatorWallet: GAME_CONFIG.CREATOR_WALLET_ADDRESS || '0x58DBCF66bdd7BfA9da98aDba1965b3794321087C',
+      ubiPool: prevState ? prevState.ubiPool || (GAME_CONFIG.UBI_CONFIG ? GAME_CONFIG.UBI_CONFIG.INITIAL_SEED_POOL : 2400000) : 2400000, // %6 Evrensel Temel Gelir Havuzu
+      ubiWeeklyDistributed: prevState ? prevState.ubiWeeklyDistributed || 0 : 0,
       totalTreasury: prevState ? prevState.totalTreasury || 40000000 : 40000000, // %78 Hazine
       treasury: prevState ? prevState.treasury || {
         dungeon: 14000000,      // %35 Zindan & Boss Zaferleri
@@ -147,32 +151,40 @@ export class GlobalResourceManager {
     return actualHarvested;
   }
 
-  // 🪙 TOKEN HARCANDIĞINDA: %22 KALICI YAKIM + %78 HAZİNE DEFTERİNE GİRİŞ
-  //
-  // v2 farkı: hazine payı artık sadece bir sayaç değil, GERÇEK BİR BÜTÇE.
-  // treasury.deposit() ile beş havuza dağıtılır ve ödüller yalnızca oradan
-  // çekilebilir (YASA 1). Böylece dağıtılan toplam, biriken toplamı aşamaz.
-  //
-  // Ayrıca bu fonksiyon artık asker alımı, AMM ücreti, anlık iyileştirme ve
-  // ekipman tamiri yollarından da çağrılıyor — v1'de bu dört yol muhasebe
-  // dışıydı ve 324.000 ADA'lık asker harcaması hiçbir istatistiğe girmiyordu (F-06).
+  // 🪙 TOKEN HARCANDIĞINDA:
+  // %13 KALICI YAKIM + %3 YAPIMCI TELİFİ + %6 EVRENSEL TEMEL GELİR (UBI) + %78 HAZİNE DEFTERİNE GİRİŞ = %100!
   recordTokenSpend(adAstraAmount) {
-    if (isNaN(adAstraAmount) || adAstraAmount <= 0) return { burned: 0, treasuryShare: 0 };
+    if (isNaN(adAstraAmount) || adAstraAmount <= 0) return { burned: 0, creatorRoyalty: 0, ubiShare: 0, treasuryShare: 0 };
 
-    const burnRate = GAME_CONFIG.TOKEN_BURN_RATE;
+    const burnRate = GAME_CONFIG.TOKEN_BURN_RATE ?? 0.13;           // %13 Kalıcı Yakım
+    const creatorRate = GAME_CONFIG.CREATOR_ROYALTY_RATE ?? 0.03;   // %3 Yapımcı Cüzdanı (0x58DBCF66bdd7BfA9da98aDba1965b3794321087C)
+    const ubiRate = GAME_CONFIG.UBI_POOL_RATE ?? 0.06;              // %6 Evrensel Temel Gelir Havuzu
+    const treasuryRate = GAME_CONFIG.TOKEN_REWARD_POOL_RATE ?? 0.78;// %78 Hazine Havuzları
+
     this.state.totalSpent = (this.state.totalSpent || 0) + adAstraAmount;
 
+    // 1. %13 Kalıcı Yakım
     const burned = adAstraAmount * burnRate;
     this.state.totalBurned = (this.state.totalBurned || 0) + burned;
 
-    const treasuryShare = adAstraAmount * (1 - burnRate);
+    // 2. %3 Yapımcı Telifi
+    const creatorRoyalty = adAstraAmount * creatorRate;
+    this.state.creatorRoyaltyTotal = (this.state.creatorRoyaltyTotal || 0) + creatorRoyalty;
+    this.state.creatorWallet = GAME_CONFIG.CREATOR_WALLET_ADDRESS;
+
+    // 3. %6 Evrensel Temel Gelir (Seviye Stake) Havuzu
+    const ubiShare = adAstraAmount * ubiRate;
+    this.state.ubiPool = (this.state.ubiPool || 0) + ubiShare;
+
+    // 4. %78 Hazine Girişi
+    const treasuryShare = adAstraAmount * treasuryRate;
     this.state.totalTreasury = (this.state.totalTreasury || 0) + treasuryShare;
 
     // Hazine defterine gerçek giriş
     const result = treasury.deposit(treasuryShare);
     treasury.recordBurn(burned);
 
-    // Geriye dönük uyumluluk: eski panel alanları defterden beslenir
+    // Geriye dönük uyumluluk
     this.state.treasury = {
       dungeon: treasury.getPool('dungeon'),
       ammBuyback: treasury.getPool('ammBuyback'),
@@ -182,7 +194,91 @@ export class GlobalResourceManager {
     };
 
     this.saveState();
-    return { burned, treasuryShare, allocations: result.allocations };
+    return { burned, creatorRoyalty, ubiShare, treasuryShare, allocations: result.allocations };
+  }
+
+  // 🏛️ EVRENSEL TEMEL GELİR (UBI) BİLGİSİ VE SEVİYEYE GÖRE HESAPLAMA MOTORU
+  getUbiPoolInfo(playerLevel = 1, lastClaimedEpoch = 0) {
+    const totalPool = this.state.ubiPool || 0;
+    const amortizationWeeks = (GAME_CONFIG.UBI_CONFIG && GAME_CONFIG.UBI_CONFIG.AMORTIZATION_WEEKS) || 12; // 3 Ay = 12 Hafta
+    const weeklyBudget = totalPool / amortizationWeeks;
+
+    const calc = this.calculateLevelUbiPayout(playerLevel, weeklyBudget);
+    const alreadyClaimedThisWeek = (lastClaimedEpoch === this.state.epochId);
+
+    return {
+      totalPool: Math.round(totalPool),
+      weeklyBudget: Math.round(weeklyBudget),
+      amortizationWeeks,
+      epochId: this.state.epochId,
+      alreadyClaimedThisWeek,
+      nextResetTimestamp: this.getNextWeeklyResetTRT(),
+      ...calc
+    };
+  }
+
+  // Seviyeye göre (Lv 1 - 81) üssel dağıtım payı hesabı: W(L) = L^1.85
+  calculateLevelUbiPayout(playerLevel = 1, weeklyBudget = null) {
+    const lvl = Math.max(1, Math.min(81, playerLevel || 1));
+    const nextLvl = Math.min(81, lvl + 1);
+
+    const exponent = (GAME_CONFIG.UBI_CONFIG && GAME_CONFIG.UBI_CONFIG.LEVEL_WEIGHT_EXPONENT) || 1.85;
+    const realmWeight = (GAME_CONFIG.UBI_CONFIG && GAME_CONFIG.UBI_CONFIG.BASE_REALM_ACTIVE_WEIGHT) || 12500;
+
+    const pool = this.state.ubiPool || 0;
+    const budget = weeklyBudget !== null ? weeklyBudget : (pool / 12);
+
+    const playerWeight = Math.pow(lvl, exponent);
+    const nextPlayerWeight = Math.pow(nextLvl, exponent);
+
+    // Minimum garanti 5 ADA ile seviyeye göre artan payout
+    const rawPayout = Math.max(5, (budget * playerWeight) / realmWeight);
+    const rawNextPayout = Math.max(5, (budget * nextPlayerWeight) / realmWeight);
+
+    const payout = Math.round(rawPayout * 100) / 100;
+    const nextLevelPayout = Math.round(rawNextPayout * 100) / 100;
+    const increasePct = payout > 0 ? Math.round(((nextLevelPayout - payout) / payout) * 100) : 0;
+
+    return {
+      playerLevel: lvl,
+      playerWeight: Math.round(playerWeight * 10) / 10,
+      payout,
+      nextLevelPayout,
+      increasePct
+    };
+  }
+
+  // Haftalık Evrensel Temel Gelir Claim Metodu
+  claimWeeklyUbi(playerLevel = 1, currentBalance = 0, lastClaimedEpoch = 0) {
+    if (lastClaimedEpoch === this.state.epochId) {
+      return {
+        success: false,
+        message: 'Bu haftaki Evrensel Temel Gelir (UBI) ödülünüzü zaten talep ettiniz. Sonraki dağıtım Pazar ➜ Pazartesi 00:01 TRT döngüsünde açılacaktır.'
+      };
+    }
+
+    const ubiInfo = this.getUbiPoolInfo(playerLevel, lastClaimedEpoch);
+    const amount = ubiInfo.payout;
+
+    if (amount <= 0 || (this.state.ubiPool || 0) < amount) {
+      return {
+        success: false,
+        message: 'UBI havuzunda şu anda yeterli bakiye bulunmuyor.'
+      };
+    }
+
+    // Havuzdan düş ve deftere yaz
+    this.state.ubiPool -= amount;
+    this.state.ubiWeeklyDistributed = (this.state.ubiWeeklyDistributed || 0) + amount;
+    this.saveState();
+
+    return {
+      success: true,
+      amount,
+      playerLevel,
+      epochId: this.state.epochId,
+      message: `🏛️ Seviye ${playerLevel} Evrensel Temel Geliriniz (+${amount.toLocaleString('tr-TR')} 🟣 $ADASTRA) cüzdanınıza aktarıldı!`
+    };
   }
 
   // Ödül çekimi — tek geçit. Hiçbir modül bakiyeye doğrudan ADA eklemez.

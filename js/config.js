@@ -14,10 +14,23 @@ export const GAME_CONFIG = {
   WHEAT_REFILL_RATIO: 0.21,           // 1 Stamina = Dk başı buğday (15) * %21 = 3.15 Buğday
   WHEAT_PER_STAMINA: 3.15,            // 1 Stamina doldurmak için gereken buğday miktarı (Fix 3.15)
 
-  // %22 Yakım — v2: sink kapsamı genişletildiği için oran yükseltildi.
-  // Artık asker alımı, AMM ücreti, iyileştirme ve tamir de muhasebeleşiyor (F-06).
-  TOKEN_BURN_RATE: 0.22,
+  // %13 Yakım, %3 Yapımcı/Geliştirici Telifi, %6 Evrensel Temel Gelir (UBI) Seviye Havuzu, %78 Hazine
+  TOKEN_BURN_RATE: 0.13,
+  CREATOR_ROYALTY_RATE: 0.03,
+  CREATOR_WALLET_ADDRESS: '0x58DBCF66bdd7BfA9da98aDba1965b3794321087C',
+  UBI_POOL_RATE: 0.06,
   TOKEN_REWARD_POOL_RATE: 0.78,
+
+  // 🏛️ EVRENSEL TEMEL GELİR (UBI) & SEVİYE STAKE HAVUZU PARAMETRELERİ
+  // Havuzdaki para anında tükenmez; 3 ayda (12 haftada) dağıtılacak eğriyle her hafta 1/12'si açılır.
+  // Seviye 1'den Seviye 81'e kadar ağırlık fonksiyonu: W(L) = L^1.85 (Lv 81 katlanarak daha fazla pay alır)
+  UBI_CONFIG: {
+    POOL_RATE: 0.06,
+    AMORTIZATION_WEEKS: 12,              // 3 Ayda dağıtım takvimi (haftalık 1/12 bütçe)
+    LEVEL_WEIGHT_EXPONENT: 1.85,         // Üssel seviye katsayısı (Lv 81 ~ 3.375x çarpan)
+    BASE_REALM_ACTIVE_WEIGHT: 12500,     // Krallık aktif ağırlık pay tabanı
+    INITIAL_SEED_POOL: 2400000           // Başlangıç tohum fonu: 2.4 Milyon $ADASTRA
+  },
 
   // =========================================================================
   // 📈 MATEMATİKSEL EKONOMİ VE FİX ÜRETİM MODELİ

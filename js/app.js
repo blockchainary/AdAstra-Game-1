@@ -956,6 +956,8 @@ function openInventoryModal() {
   const lotteryTickets = state.lotteryTickets || 0;
   const arenaKeys = state.arenaKeys || 0;
 
+  const ubiInfo = globalPool.getUbiPoolInfo(state.level || 1, state.lastClaimedUbiEpoch || 0);
+
   dom.modalBody.innerHTML = `
     <!-- Karakter Seviye Atlama Kartı -->
     <div class="clean-card" style="border-color: #facc15; background: #1c140c;">
@@ -1018,6 +1020,64 @@ function openInventoryModal() {
       ` : `
         <button id="btn-modal-levelup" class="btn-clean btn-clean-green" style="margin-top: 4px;">
           SEVİYE ${state.level + 1}'E YÜKSELT
+        </button>
+      `}
+    </div>
+
+    <!-- 🏛️ EVRENSEL TEMEL GELİR (UBI) & SEVİYE STAKE HAVUZU KARTI -->
+    <div class="clean-card" style="border-color: #c084fc; background: linear-gradient(180deg, #1f112e 0%, #12091c 100%); box-shadow: 0 4px 15px rgba(192, 132, 252, 0.15);">
+      <div class="card-title-row">
+        <div class="card-title" style="display: flex; align-items: center; gap: 8px;">
+          <span>🏛️</span>
+          <span style="color: #f3e8ff;">EVRENSEL TEMEL GELİR (UBI)</span>
+        </div>
+        <span class="card-badge" style="background: #581c87; color: #e9d5ff; border: 1px solid #a855f7;">
+          Seviye Stake Havuzu
+        </span>
+      </div>
+
+      <div class="clean-desc" style="line-height: 1.5; margin: 6px 0 10px 0; color: #d8b4fe; font-size: 0.82rem;">
+        Oyundaki her harcamanın <strong>%6'sı</strong> bu havuzda toplanır. Biriken fonlar <strong>3 ayda (12 haftada)</strong> dağıtılacak takvimle her hafta Pazarı Pazartesiye bağlayan gece <strong>00:01 TRT'de</strong> hesap seviyenize göre pasif gelir olarak açılır.
+      </div>
+
+      <!-- İstatistik ve Seviye Maaş Grid'i -->
+      <div style="background: rgba(15, 10, 25, 0.8); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.82rem;">
+          <div>
+            <div style="color: #a855f7; font-size: 0.72rem; font-weight: 700;">TOPLAM UBI HAVUZU:</div>
+            <div style="color: #f3e8ff; font-weight: 800; font-size: 0.95rem;">${ubiInfo.totalPool.toLocaleString('tr-TR')} 🟣 ADA</div>
+          </div>
+          <div>
+            <div style="color: #a855f7; font-size: 0.72rem; font-weight: 700;">BU HAFTALIK BÜTÇE (1/12):</div>
+            <div style="color: #38bdf8; font-weight: 800; font-size: 0.95rem;">${ubiInfo.weeklyBudget.toLocaleString('tr-TR')} 🟣 ADA</div>
+          </div>
+        </div>
+
+        <div style="border-top: 1px dashed rgba(168, 85, 247, 0.3); padding-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.82rem;">
+          <div>
+            <div style="color: #cbd5e1; font-size: 0.74rem;">Mevcut Seviyeniz (Lv.${state.level}):</div>
+            <div style="color: #4ade80; font-weight: 900; font-size: 1.05rem;">${ubiInfo.payout} 🟣 ADA / Hafta</div>
+          </div>
+          <div>
+            <div style="color: #cbd5e1; font-size: 0.74rem;">Sonraki Seviye (Lv.${Math.min(81, state.level + 1)}):</div>
+            <div style="color: #facc15; font-weight: 800; font-size: 0.95rem;">${ubiInfo.nextLevelPayout} ADA <span style="font-size: 0.75rem; color: #4ade80;">(+%${ubiInfo.increasePct})</span></div>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.74rem; color: #94a3b8; border-top: 1px dashed rgba(168, 85, 247, 0.2); padding-top: 5px;">
+          <span>⏳ Döngü: Pazar ➜ Pazartesi 00:01 TRT</span>
+          <span style="color: #c084fc; font-weight: 700;">Lv.81 Pay Çarpanı: 3.375x</span>
+        </div>
+      </div>
+
+      <!-- Claim Butonu -->
+      ${ubiInfo.alreadyClaimedThisWeek ? `
+        <button id="btn-claim-ubi" class="btn-clean" style="margin-top: 8px; background: #2e1065; border-color: #581c87; color: #a78bfa; cursor: not-allowed;" disabled>
+          ✅ BU HAFTAKİ TEMEL GELİRİNİZ ALINDI (Sonraki: Pazar 00:01)
+        </button>
+      ` : `
+        <button id="btn-claim-ubi" class="btn-clean" style="margin-top: 8px; background: linear-gradient(135deg, #7e22ce 0%, #a855f7 100%); color: #fff; font-weight: 900; font-size: 0.95rem; border: 1.5px solid #d8b4fe; box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);">
+          🏛️ HAFTALIK EVRENSEL TEMEL GELİRİ AL (+${ubiInfo.payout} ADA)
         </button>
       `}
     </div>
@@ -5675,6 +5735,20 @@ function initAppEvents() {
       if (res.success) {
         showToast(res.message, 'success');
         openInventoryModal();
+      } else {
+        showToast(res.message, 'error');
+      }
+      renderTopBar();
+      return;
+    }
+
+    // 🏛️ Evrensel Temel Gelir (UBI) Claim Butonu
+    if (e.target.closest('#btn-claim-ubi')) {
+      const res = gameState.claimWeeklyUbi();
+      if (res.success) {
+        showToast(res.message, 'success');
+        sound.playLevelUp();
+        openInventoryModal(); // Modalı anında yenile ve butonu devre dışı yap
       } else {
         showToast(res.message, 'error');
       }

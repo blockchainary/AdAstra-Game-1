@@ -173,7 +173,7 @@ assert.equal(gs.state.inventory.scroll_heal, 1, '1 parşömen düşmeli');
 console.log('\n[6/6] Krallık Hazinesi & Havuz Dağılımı ve Canlı Ödüller Test Ediliyor...');
 const ecoSummary = gs.getEconomyAndPoolsSummary();
 assert(ecoSummary, 'Hazine ve havuz özeti oluşturulmalı');
-assert.equal(ecoSummary.burnRatePct, 22, 'Kalıcı yakım oranı %22 olmalı');
+assert.equal(ecoSummary.burnRatePct, 13, 'Kalıcı yakım oranı %13 olmalı');
 assert.equal(ecoSummary.allocations.dungeon, 0.35, 'Zindan havuz payı %35 (14M ADA) olmalı');
 assert.equal(ecoSummary.allocations.arena, 0.20, 'Kolezyum havuz payı %20 (8M ADA) olmalı');
 assert.equal(ecoSummary.allocations.worldBoss, 0.20, 'World Boss havuz payı %20 (8M ADA) olmalı');
