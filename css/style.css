@@ -1559,6 +1559,14 @@ body:not(.in-dungeon) .top-nav-menu {
   box-shadow: 0 0 10px rgba(16, 185, 129, 0.25);
 }
 
+.sidebar-bot-pill.paused {
+  background: rgba(234, 179, 8, 0.2);
+  border-color: #eab308;
+  color: #fde047;
+  box-shadow: 0 0 10px rgba(234, 179, 8, 0.35);
+  animation: pulse-border-gold 2s infinite ease-in-out;
+}
+
 .sidebar-bot-pill:hover {
   transform: translateY(-1px);
   filter: brightness(1.1);

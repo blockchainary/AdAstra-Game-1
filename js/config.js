@@ -43,6 +43,14 @@ export const GAME_CONFIG = {
     iron: 12,  // 12 Demir / dakika (720 Demir / saat) - Fix
     wheat: 30  // 30 Buğday / dakika (1.800 Buğday / saat) - Fix (Haftalık 490k kota ve ordu tüketimiyle uyumlu)
   },
+  TAVERNA_BOT: {
+    REQUIRED_PREREQUISITES: {
+      iron: 50,
+      wood: 50,
+      wheat: 50,
+      adAstra: 50
+    }
+  },
   TAVERN_BOOSTS: {
     short: {
       id: 'short',

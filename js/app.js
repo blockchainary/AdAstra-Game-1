@@ -215,8 +215,19 @@ function renderTopBar() {
   const topBotDot = document.getElementById('top-bot-indicator-dot');
   const topBotBtn = document.getElementById('btn-top-taverna-bot-status');
   if (topBotText && topBotDot) {
+    const isPaused = gameState.isBotPaused();
     const isBotActive = gameState.isAutoCollectorActive();
-    if (isBotActive) {
+    if (isPaused) {
+      const prereq = gameState.checkBotPrerequisites();
+      topBotText.innerText = `⏸️ BOT: DURAKLATILDI (${prereq.missingText || 'Kaynak Eksik'})`;
+      topBotDot.style.background = '#facc15';
+      topBotDot.style.boxShadow = '0 0 10px #facc15, 0 0 4px #eab308';
+      if (topBotBtn) {
+        topBotBtn.style.borderColor = '#eab308';
+        topBotBtn.style.color = '#fde047';
+        topBotBtn.style.background = 'linear-gradient(135deg, rgba(234,179,8,0.25), rgba(161,98,7,0.4))';
+      }
+    } else if (isBotActive) {
       const remText = gameState.getAutoCollectorRemainingText();
       topBotText.innerText = `🤖 BOT: AKTİF (${remText})`;
       topBotDot.style.background = '#4ade80';
@@ -319,14 +330,23 @@ function renderRealmSidebar(state, maxStamina, staminaInt) {
   const botPill = document.getElementById('sidebar-bot-pill');
   const botText = document.getElementById('sidebar-bot-status-text');
   if (botPill && botText) {
+    const isPaused = gameState.isBotPaused();
     const isBotActive = gameState.isAutoCollectorActive();
-    if (isBotActive) {
+    if (isPaused) {
+      botPill.classList.remove('active');
+      botPill.classList.add('paused');
+      botText.innerText = '⏸️ Bot: Duraklatıldı';
+      botText.style.color = '#fde047';
+    } else if (isBotActive) {
       botPill.classList.add('active');
+      botPill.classList.remove('paused');
       const remSec = gameState.getAutoCollectorRemainingSeconds();
       botText.innerText = `Bot: ${formatCountdown(remSec)}`;
+      botText.style.color = '#4ade80';
     } else {
-      botPill.classList.remove('active');
+      botPill.classList.remove('active', 'paused');
       botText.innerText = 'Bot: Pasif';
+      botText.style.color = '';
     }
   }
 
@@ -2120,9 +2140,11 @@ function openTownZoneModal(zoneId, zoneName) {
 
   // 5. TAVERNA (MATEMATİKSEL BOOSTLAR & OTOMASYON)
   else if (zoneId === 'tavern') {
+    const isPaused = gameState.isBotPaused();
     const isBotActive = gameState.isAutoCollectorActive();
+    const prereq = gameState.checkBotPrerequisites();
     const expiry = gameState.getAutoCollectorExpiry();
-    const remainingMs = Math.max(0, expiry - Date.now());
+    const remainingMs = isPaused ? (gameState.state.botPausedRemainingMs || 0) : Math.max(0, expiry - Date.now());
     const remHours = Math.floor(remainingMs / (3600 * 1000));
     const remMinutes = Math.floor((remainingMs % (3600 * 1000)) / (60 * 1000));
     const botRemainingText = `${remHours} saat ${remMinutes} dakika`;
@@ -2143,13 +2165,20 @@ function openTownZoneModal(zoneId, zoneName) {
       </div>
 
       <!-- 1. 24 Saatlik Akıllı Otomasyon & Tamir Botu (%50 Saf Kâr Payı) -->
-      <div class="clean-card" style="border-color: ${isBotActive ? '#4ade80' : '#f59e0b'}; background: #181109;">
+      <div class="clean-card" style="border-color: ${isPaused ? '#eab308' : (isBotActive ? '#4ade80' : '#f59e0b')}; background: #181109;">
         <div class="card-title-row">
           <div class="card-title">🤖 24 Saatlik Otonom Sefer & Tamir Botu</div>
-          <div class="card-badge" style="color: ${isBotActive ? '#4ade80' : '#facc15'}; font-weight:800;">
-            ${isBotActive ? `✅ Bot Aktif (${botRemainingText} Kaldı)` : '💤 Bot Kapalı'}
+          <div class="card-badge" style="color: ${isPaused ? '#facc15' : (isBotActive ? '#4ade80' : '#94a3b8')}; font-weight:800;">
+            ${isPaused ? `⏸️ Bot Duraklatıldı (${botRemainingText} Donduruldu)` : (isBotActive ? `✅ Bot Aktif (${botRemainingText} Kaldı)` : '💤 Bot Kapalı')}
           </div>
         </div>
+        ${isPaused ? `
+          <div style="background: rgba(234,179,8,0.15); border: 1px solid #ca8a04; border-radius: 8px; padding: 10px 12px; margin-top: 8px; font-size: 0.82rem; color: #fef08a;">
+            <strong>⏸️ Bot Geçici Olarak Duraklatıldı!</strong> Botun çalışabilmesi ve aşınan aletleri onarabilmesi için deponuzda en az 50 Demir, 50 Odun, 50 Buğday ve 50 $ADASTRA bulunması gerekmektedir. 
+            <br><strong>Kalan Süreniz:</strong> <code>${botRemainingText}</code> dondurulmuştur ve asla azalmaz!
+            <br><strong>Eksikler:</strong> <code>${prereq.missingText}</code> — AMM pazarından veya manuel seferlerden eksikleri tamamladığınız anda bot anında kaldığı yerden çalışmaya devam eder.
+          </div>
+        ` : ''}
         
         <div class="clean-desc" style="font-size: 0.84rem; line-height: 1.5; color: #cbd5e1; margin-top:4px;">
           Bot; dakika başı çıkartılan Odun, Demir ve Buğday'ın anlık AMM DEX değerinden, staminayı doldurmak için harcanan buğday ve aletlerin tamir masraflarını çıkardıktan sonra kalan <strong>saf kârınızın yarısına (%50) ortak</strong> olarak çalışır.
@@ -6407,6 +6436,13 @@ function initAppEvents() {
         gameState.saveState();
         showToast(`🛒 ${res.cost.toFixed(2)} ADA ödendi: +${res.resourceReceived.toLocaleString('tr-TR')} ${res.resourceName} satın alındı! (%2 Harç: ${res.fee.toFixed(2)} ADA Hazine Kasalarına aktarıldı)`, 'success');
         sound.playLevelUp();
+
+        // 🤖 Bot duraklatılmışsa ve eksik kaynak tamamlandıysa anında devreye sok
+        const botResumeCheck = gameState.updateBotPauseState();
+        if (botResumeCheck && botResumeCheck.justResumed) {
+          showToast('🟢 Gerekli tüm kaynaklar sağlandı! 24s Otomasyon Botu kaldığı yerden devreye girdi ve seferleri başlattı!', 'success');
+        }
+
         openTownZoneModal('market', '🏪 AMM Pazar Alanı');
       } else {
         showToast(res.message || 'Alış işlemi gerçekleştirilemedi!', 'error');
@@ -7726,6 +7762,13 @@ function uiGameLoop(currentTime) {
 
   gameState.regenerateStamina(deltaSeconds);
   gameState.updateExpeditions(deltaSeconds);
+  
+  const botPauseStatus = gameState.updateBotPauseState();
+  if (botPauseStatus && botPauseStatus.justResumed) {
+    showToast('🟢 Gerekli tüm kaynaklar tamamlandı! 24s Otomasyon Botu anında devreye girdi.', 'success');
+    sound.playLevelUp();
+  }
+
   gameState.runTavernaAutomationCycle();
   gameState.processSoldierPassiveHealing(deltaSeconds);
   gameState.tickUpgradeCostBot(deltaSeconds);

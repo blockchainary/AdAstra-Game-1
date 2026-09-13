@@ -717,6 +717,7 @@ export class GameStateManager {
       baseDurationSec = Math.floor(baseDurationSec / 1.5);
     }
 
+    const now = Date.now();
     this.state.stamina -= staminaCost;
     this.state.activeExpeditions[nodeId] = {
       nodeId,
@@ -724,6 +725,8 @@ export class GameStateManager {
       durationHours: hours,
       durationSeconds: baseDurationSec,
       elapsedSeconds: 0,
+      startedAt: now,
+      lastTickAt: now,
       isCompleted: false
     };
 
@@ -745,15 +748,29 @@ export class GameStateManager {
 
   updateExpeditions(deltaSeconds) {
     let hasChanges = false;
+    const now = Date.now();
     const speedMult = this.getExpeditionSpeedMultiplier();
-    for (const nodeId of Object.keys(this.state.activeExpeditions)) {
+
+    for (const nodeId of Object.keys(this.state.activeExpeditions || {})) {
       const exp = this.state.activeExpeditions[nodeId];
       if (exp && !exp.isCompleted) {
-        exp.elapsedSeconds += (deltaSeconds * speedMult);
+        // Gerçek zamanlı timestamp farkı (sekme arka planda kalsa da, sayfa yenilense de sayaç asla donmaz)
+        let step = deltaSeconds || 0;
+        if (exp.lastTickAt && exp.lastTickAt > 0) {
+          const realDiff = (now - exp.lastTickAt) / 1000;
+          if (realDiff > 0) {
+            step = Math.max(step, Math.min(realDiff, 86400)); // Aşırı büyük zıplamaları sınırla
+          }
+        }
+        exp.lastTickAt = now;
+        if (!exp.startedAt) exp.startedAt = now - (exp.elapsedSeconds * 1000);
+
+        exp.elapsedSeconds = Math.min(exp.durationSeconds, (exp.elapsedSeconds || 0) + (step * speedMult));
+        hasChanges = true;
+
         if (exp.elapsedSeconds >= exp.durationSeconds) {
           exp.elapsedSeconds = exp.durationSeconds;
           exp.isCompleted = true;
-          hasChanges = true;
 
           // 🤖 OTOMATİK TOPLAMA & OTOMATİK TAMİR BOTU (AUTO-COLLECTOR & AUTO-REPAIR)
           if (this.isAutoCollectorActive()) {
@@ -762,12 +779,20 @@ export class GameStateManager {
         }
       }
     }
-    if (hasChanges) this.saveState();
+
+    if (hasChanges) {
+      this._expSaveThrottle = (this._expSaveThrottle || 0) + 1;
+      if (this._expSaveThrottle >= 60) {
+        this._expSaveThrottle = 0;
+        this.saveState();
+      }
+    }
   }
 
   // 🤖 24 SAATLİK TAVERNA OTONOM SEFER, HASAT, TAMİR & STAMİNA MOTORU
   runTavernaAutomationCycle() {
-    if (!this.isAutoCollectorActive()) return { active: false, actions: [] };
+    this.updateBotPauseState();
+    if (!this.isAutoCollectorActive() || this.isBotPaused()) return { active: false, paused: this.isBotPaused(), actions: [] };
 
     const nodes = ['wood', 'iron', 'wheat'];
     const actions = [];
@@ -833,17 +858,133 @@ export class GameStateManager {
     return { active: true, actions };
   }
 
+  // 🔍 24 Saatlik Otomasyon Botunun Kesintisiz Çalışma Koşulları (Her Kaynaktan Min 50)
+  checkBotPrerequisites() {
+    const inv = this.state.inventory || {};
+    const ada = this.state.adAstraBalance || 0;
+    const req = 50;
+    const missing = [];
+
+    if ((inv.iron || 0) < req) {
+      missing.push({ key: 'iron', name: 'Demir', icon: '⛏️', current: (inv.iron || 0), required: req, missing: Math.ceil(req - (inv.iron || 0)) });
+    }
+    if ((inv.wood || 0) < req) {
+      missing.push({ key: 'wood', name: 'Odun', icon: '🌲', current: (inv.wood || 0), required: req, missing: Math.ceil(req - (inv.wood || 0)) });
+    }
+    if ((inv.wheat || 0) < req) {
+      missing.push({ key: 'wheat', name: 'Buğday', icon: '🌾', current: (inv.wheat || 0), required: req, missing: Math.ceil(req - (inv.wheat || 0)) });
+    }
+    if (ada < req) {
+      missing.push({ key: 'adAstra', name: '$ADASTRA', icon: '🟣', current: ada, required: req, missing: Math.ceil(req - ada) });
+    }
+
+    return {
+      isMet: missing.length === 0,
+      missing,
+      missingText: missing.map(m => `${m.missing} ${m.icon} ${m.name}`).join(', ')
+    };
+  }
+
+  // ⏸️ Botun Duraklatılması (Pause) ve Süresinin Azalmadan Dondurulması (Freeze) Motoru
+  updateBotPauseState() {
+    const now = Date.now();
+    const isTavernaBotPurchased = (this.state.tavernaBotActive && (this.state.tavernaBotExpiresAt || 0) > now) ||
+                                  (this.state.botActiveUntil && this.state.botActiveUntil > now) ||
+                                  (this.state.botPaused && (this.state.botPausedRemainingMs || 0) > 0);
+
+    if (!isTavernaBotPurchased) {
+      if (this.state.botPaused) {
+        this.state.botPaused = false;
+        this.state.botPausedRemainingMs = null;
+      }
+      return { isBotPurchased: false, isPaused: false };
+    }
+
+    const rawExp = Math.max(
+      this.state.botActiveUntil || 0,
+      this.state.tavernaBotExpiresAt || 0
+    );
+
+    const prereq = this.checkBotPrerequisites();
+
+    if (!prereq.isMet) {
+      // Koşullar sağlanmıyor -> BOT DURAKLATILMALI VE SÜRESİ DONDURULMALI!
+      if (!this.state.botPaused) {
+        this.state.botPaused = true;
+        const remainingMs = Math.max(1000, rawExp - now);
+        this.state.botPausedRemainingMs = remainingMs;
+        this.state.botPausedAt = now;
+        this.saveState();
+      } else {
+        // Zaten duraklatılmış, sürenin 1 saniye bile azalmaması için bitiş süresini sürekli ileri ötele!
+        if (this.state.botPausedRemainingMs > 0) {
+          this.state.botActiveUntil = now + this.state.botPausedRemainingMs;
+          this.state.tavernaBotExpiresAt = this.state.botActiveUntil;
+          if (this.state.activeBuffs?.auto_collector) {
+            this.state.activeBuffs.auto_collector.expiresAt = this.state.botActiveUntil;
+          }
+        }
+      }
+      return { isBotPurchased: true, isPaused: true, prereq };
+    } else {
+      // Koşullar tam! (En az 50 Demir, 50 Odun, 50 Buğday, 50 ADA mevcut)
+      if (this.state.botPaused) {
+        // Bot duraklatılmıştı, ŞİMDİ ANINDA UYANDIRILACAK (RESUME)!
+        this.state.botPaused = false;
+        const restoredRemMs = this.state.botPausedRemainingMs || (24 * 3600 * 1000);
+        this.state.botActiveUntil = now + restoredRemMs;
+        this.state.tavernaBotExpiresAt = this.state.botActiveUntil;
+        this.state.botPausedRemainingMs = null;
+        this.state.botPausedAt = null;
+
+        if (!this.state.activeBuffs) this.state.activeBuffs = {};
+        this.state.activeBuffs['auto_collector'] = {
+          id: 'auto_collector',
+          name: '24 Saatlik Otomasyon Botu',
+          expiresAt: this.state.botActiveUntil
+        };
+
+        this.saveState();
+
+        // 🚀 Koşullar tamamlandığı an beklemeden hemen otonom sefer ve tamiratı tetikle!
+        try {
+          this.runTavernaAutomationCycle();
+        } catch (e) {
+          console.warn('Bot resume cycle execution error:', e);
+        }
+
+        return { isBotPurchased: true, isPaused: false, justResumed: true };
+      }
+
+      return { isBotPurchased: true, isPaused: false };
+    }
+  }
+
+  isBotPaused() {
+    return !!this.state.botPaused;
+  }
+
   isAutoCollectorActive() {
+    this.updateBotPauseState();
+
     const now = Date.now();
     const isTavernaBot = (this.state.botActiveUntil && this.state.botActiveUntil > now) ||
-                         (this.state.tavernaBotActive && this.state.tavernaBotExpiresAt > now);
+                         (this.state.tavernaBotActive && this.state.tavernaBotExpiresAt > now) ||
+                         (this.state.botPaused && (this.state.botPausedRemainingMs || 0) > 0);
     return !!isTavernaBot ||
            this.isBuffActive('auto_collector') ||
            this.isBuffActive('auto_collector_weekly') ||
            this.isBuffActive('auto_collector_monthly');
   }
 
+  isBotRunning() {
+    return this.isAutoCollectorActive() && !this.isBotPaused();
+  }
+
   getAutoCollectorExpiry() {
+    if (this.state.botPaused && this.state.botPausedRemainingMs > 0) {
+      return Date.now() + this.state.botPausedRemainingMs;
+    }
     const now = Date.now();
     let maxExp = 0;
     if (this.state.botActiveUntil && this.state.botActiveUntil > now) {
@@ -862,6 +1003,9 @@ export class GameStateManager {
   }
 
   getAutoCollectorRemainingSeconds() {
+    if (this.state.botPaused && this.state.botPausedRemainingMs > 0) {
+      return Math.max(0, Math.floor(this.state.botPausedRemainingMs / 1000));
+    }
     const exp = this.getAutoCollectorExpiry();
     return Math.max(0, Math.floor((exp - Date.now()) / 1000));
   }
@@ -872,9 +1016,16 @@ export class GameStateManager {
     const hrs = Math.floor(sec / 3600);
     const mins = Math.floor((sec % 3600) / 60);
     const s = sec % 60;
-    if (hrs > 0) return `${hrs}s ${mins}d`;
-    if (mins > 0) return `${mins}d ${s}sn`;
-    return `${s}sn`;
+
+    let timeStr = '';
+    if (hrs > 0) timeStr = `${hrs}s ${mins}d`;
+    else if (mins > 0) timeStr = `${mins}d ${s}sn`;
+    else timeStr = `${s}sn`;
+
+    if (this.state.botPaused) {
+      return `⏸️ ${timeStr} (Donduruldu)`;
+    }
+    return timeStr;
   }
 
   // Belirli bir kaynak için dakika başına fix (sabit) üretim miktarı
@@ -2614,10 +2765,16 @@ export class GameStateManager {
     }
 
     const now = Date.now();
-    const baseTime = (this.state.botActiveUntil && this.state.botActiveUntil > now) ? this.state.botActiveUntil : now;
-    this.state.botActiveUntil = baseTime + (24 * 3600 * 1000);
-    this.state.tavernaBotActive = true;
-    this.state.tavernaBotExpiresAt = this.state.botActiveUntil;
+    if (this.state.botPaused && this.state.botPausedRemainingMs > 0) {
+      this.state.botPausedRemainingMs += (24 * 3600 * 1000);
+      this.state.botActiveUntil = now + this.state.botPausedRemainingMs;
+      this.state.tavernaBotExpiresAt = this.state.botActiveUntil;
+    } else {
+      const baseTime = (this.state.botActiveUntil && this.state.botActiveUntil > now) ? this.state.botActiveUntil : now;
+      this.state.botActiveUntil = baseTime + (24 * 3600 * 1000);
+      this.state.tavernaBotActive = true;
+      this.state.tavernaBotExpiresAt = this.state.botActiveUntil;
+    }
 
     // Tüm auto-collector sistemleriyle geriye dönük uyum için activeBuffs'a da yaz
     if (!this.state.activeBuffs) this.state.activeBuffs = {};
@@ -4003,26 +4160,25 @@ export class GameStateManager {
   }
 
   // =========================================================================
-  // BOT KAYNAK EKSİKLİĞİ KONTROLÜ (BİLDİRİM MERKEZİ İÇİN)
+  // BOT KAYNAK EKSİKLİĞİ KONTROLÜ (BİLDİRİM MERKEZİ VE PAUSE İÇİN)
   // =========================================================================
   getBotResourceDeficitWarning() {
-    if (!this.isAutoCollectorActive()) return null;
-    const inv = this.state.inventory || {};
-    const ada = this.state.adAstraBalance || 0;
-    const missing = [];
+    const rawExp = Math.max(
+      this.state.botActiveUntil || 0,
+      this.state.tavernaBotExpiresAt || 0,
+      this.state.activeBuffs?.auto_collector?.expiresAt || 0
+    );
+    const hasBot = (rawExp > Date.now()) || (this.state.botPaused && (this.state.botPausedRemainingMs || 0) > 0);
+    if (!hasBot) return null;
 
-    if ((inv.iron || 0) < 50) missing.push(`${50 - (inv.iron || 0)} ⛏️ Demir`);
-    if ((inv.wood || 0) < 50) missing.push(`${50 - (inv.wood || 0)} 🌲 Odun`);
-    if ((inv.wheat || 0) < 50) missing.push(`${50 - (inv.wheat || 0)} 🌾 Buğday`);
-    if (ada < 50) missing.push(`${(50 - ada).toFixed(0)} 🟣 ADA`);
-
-    if (missing.length > 0) {
+    const prereq = this.checkBotPrerequisites();
+    if (!prereq.isMet) {
       return {
         type: 'warning',
-        icon: '⚠️',
-        title: 'Otomasyon Botu Kaynak Uyarısı',
-        text: `Botun kesintisiz çalışması ve aşınan aletleri otomatik onarabilmesi için deponuzda en az 50 Demir, 50 Odun, 50 Buğday ve 50 $ADASTRA bulundurmalısınız. (Eksikler: ${missing.join(', ')})`,
-        missing
+        icon: '⏸️',
+        title: '24s Otomasyon Botu Duraklatıldı (Süreniz Donduruldu)',
+        text: `Botun aletleri onarabilmesi ve seferleri aksatmaması için deponuzda en az 50 Demir, 50 Odun, 50 Buğday ve 50 $ADASTRA bulunmalıdır. Süreniz dondurulmuştur ve asla azalmaz! (Eksikler: ${prereq.missingText}) — Kaynakları tamamladığınız an bot anında otomatik çalışmaya devam edecektir.`,
+        missing: prereq.missing
       };
     }
     return null;

@@ -13,6 +13,7 @@ test('Taverna Otonom Botu Durum ve Kalan Süre Takip Fonksiyonları Testi', asyn
   });
 
   await t.test('2. Bot Satın Alındığında Kalan Süre ~24 Saat Olmalı ve Metin Doğru Formatlanmalı', () => {
+    gs.state.inventory = { iron: 100, wood: 100, wheat: 100 };
     gs.state.adAstraBalance = 100000;
     const res = gs.buyTavernaAutomationBot(false);
     assert.equal(res.success, true, 'Bot başarıyla satın alınmalı');
@@ -26,6 +27,7 @@ test('Taverna Otonom Botu Durum ve Kalan Süre Takip Fonksiyonları Testi', asyn
   });
 
   await t.test('3. runTavernaAutomationCycle Otonom Sefer Başlatma & Tamirat Döngüsü', () => {
+    gs.state.inventory = { iron: 100, wood: 100, wheat: 100 };
     gs.state.stamina = 100;
     gs.state.tools.axe.durability = 1000;
     gs.state.tools.pickaxe.durability = 1000;
