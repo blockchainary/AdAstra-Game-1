@@ -28,6 +28,7 @@ export const GAME_CONFIG = {
     POOL_RATE: 0.06,
     AMORTIZATION_WEEKS: 12,              // 3 Ayda dağıtım takvimi (haftalık 1/12 bütçe)
     LEVEL_WEIGHT_EXPONENT: 1.85,         // Üssel seviye katsayısı (Lv 81 ~ 3.375x çarpan)
+    BASE_WEIGHT_DIVISOR: 1000,           // 1000 pay tabanı (Lv 1: %0.1, Lv 3: %0.76, Lv 10: %7.1, Lv 81: 3.375x)
     BASE_REALM_ACTIVE_WEIGHT: 12500,     // Krallık aktif ağırlık pay tabanı
     INITIAL_SEED_POOL: 2400000           // Başlangıç tohum fonu: 2.4 Milyon $ADASTRA
   },

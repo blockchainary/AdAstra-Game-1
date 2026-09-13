@@ -72,6 +72,16 @@ export class GlobalResourceManager {
             }
           }
         }
+        // UBI havuzu ve yapımcı cüzdanı eksikse otomatik tohumla ve senkronize et
+        if (parsed.ubiPool === undefined || isNaN(parsed.ubiPool) || parsed.ubiPool <= 0) {
+          parsed.ubiPool = (GAME_CONFIG.UBI_CONFIG && GAME_CONFIG.UBI_CONFIG.INITIAL_SEED_POOL) || 2400000;
+        }
+        if (parsed.creatorRoyaltyTotal === undefined) {
+          parsed.creatorRoyaltyTotal = 0;
+        }
+        if (!parsed.creatorWallet) {
+          parsed.creatorWallet = GAME_CONFIG.CREATOR_WALLET_ADDRESS;
+        }
         return parsed;
       } catch (e) {
         console.error('Global state parse error, resetting:', e);
@@ -194,6 +204,9 @@ export class GlobalResourceManager {
     };
 
     this.saveState();
+    if (typeof window !== 'undefined' && typeof window.updateUbiCardLive === 'function') {
+      try { window.updateUbiCardLive(); } catch (e) {}
+    }
     return { burned, creatorRoyalty, ubiShare, treasuryShare, allocations: result.allocations };
   }
 
@@ -223,25 +236,30 @@ export class GlobalResourceManager {
     const nextLvl = Math.min(81, lvl + 1);
 
     const exponent = (GAME_CONFIG.UBI_CONFIG && GAME_CONFIG.UBI_CONFIG.LEVEL_WEIGHT_EXPONENT) || 1.85;
-    const realmWeight = (GAME_CONFIG.UBI_CONFIG && GAME_CONFIG.UBI_CONFIG.BASE_REALM_ACTIVE_WEIGHT) || 12500;
+    const baseDivisor = (GAME_CONFIG.UBI_CONFIG && GAME_CONFIG.UBI_CONFIG.BASE_WEIGHT_DIVISOR) || 1000;
 
-    const pool = this.state.ubiPool || 0;
+    const pool = Math.max(0, Number(this.state.ubiPool) || 0);
     const budget = weeklyBudget !== null ? weeklyBudget : (pool / 12);
 
     const playerWeight = Math.pow(lvl, exponent);
     const nextPlayerWeight = Math.pow(nextLvl, exponent);
 
-    // Minimum garanti 5 ADA ile seviyeye göre artan payout
-    const rawPayout = Math.max(5, (budget * playerWeight) / realmWeight);
-    const rawNextPayout = Math.max(5, (budget * nextPlayerWeight) / realmWeight);
+    // Her seviyenin haftalık bütçeden aldığı dinamik pay:
+    // Seviye 1: W(1) = 1.0  -> bütçenin %0.1'i (Binde biri)
+    // Seviye 3: W(3) = 7.64 -> bütçenin %0.76'sı (Lv 1'in tam 7.64 katı!)
+    // Seviye 10: W(10) = 70.8 -> bütçenin %7.08'i (Lv 1'in tam 70.8 katı!)
+    // Seviye 81: W(81) = 3375 -> bütçenin 3.375 katı!
+    const rawPayout = (budget * playerWeight) / baseDivisor;
+    const rawNextPayout = (budget * nextPlayerWeight) / baseDivisor;
 
-    const payout = Math.round(rawPayout * 100) / 100;
-    const nextLevelPayout = Math.round(rawNextPayout * 100) / 100;
+    // Minimum 0.01 ADA, 2 ondalık hassasiyetle anlık canlı değer
+    const payout = Math.max(0.01, Math.round(rawPayout * 100) / 100);
+    const nextLevelPayout = Math.max(0.01, Math.round(rawNextPayout * 100) / 100);
     const increasePct = payout > 0 ? Math.round(((nextLevelPayout - payout) / payout) * 100) : 0;
 
     return {
       playerLevel: lvl,
-      playerWeight: Math.round(playerWeight * 10) / 10,
+      playerWeight: Math.round(playerWeight * 100) / 100,
       payout,
       nextLevelPayout,
       increasePct

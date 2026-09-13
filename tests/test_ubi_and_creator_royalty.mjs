@@ -56,6 +56,18 @@ test('Evrensel Temel Gelir (UBI) & %3 Yapımcı Telifi & %13 Yakım Testi', asyn
     assert(lv10.payout > lv1.payout * 50, 'Seviye 10, Seviye 1 den en az 50 kat fazla pay almalı');
     assert(lv81.payout > lv1.payout * 2000, 'Seviye 81, Seviye 1 den en az 2.000 kat fazla pay almalı');
     assert(lv81.playerWeight > 3000, 'Seviye 81 ağırlığı 3.000 in üzerinde olmalı (~3375)');
+
+    // Kullanıcı Senaryosu: 22.000 ADA'lık havuzda Seviye 1 vs Seviye 3 kesinlikle farklı ve dinamik olmalı
+    globalPool.state.ubiPool = 22000;
+    const userLv1 = globalPool.calculateLevelUbiPayout(1);
+    const userLv3 = globalPool.calculateLevelUbiPayout(3);
+    assert.notEqual(userLv1.payout, userLv3.payout, 'Seviye 1 ve Seviye 3 aynı sabit tutarda (5 ADA) kalamaz!');
+    assert(userLv3.payout > userLv1.payout * 7, 'Seviye 3, Seviye 1 in en az 7 katı pay almalı');
+
+    // Havuz 22.000'den 50.000'e çıktığında anlık canlı büyüme
+    globalPool.state.ubiPool = 50000;
+    const updatedLv3 = globalPool.calculateLevelUbiPayout(3);
+    assert(updatedLv3.payout > userLv3.payout * 2, 'Havuz doldukça payout anlık olarak artmalı');
   });
 
   await t.test('[5/6] Envanter / Karakter Paneli Haftalık Claim ve Çift Claim Koruması', () => {

@@ -1045,22 +1045,25 @@ function openInventoryModal() {
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.82rem;">
           <div>
             <div style="color: #a855f7; font-size: 0.72rem; font-weight: 700;">TOPLAM UBI HAVUZU:</div>
-            <div style="color: #f3e8ff; font-weight: 800; font-size: 0.95rem;">${ubiInfo.totalPool.toLocaleString('tr-TR')} 🟣 ADA</div>
+            <div id="ubi-total-pool-val" style="color: #f3e8ff; font-weight: 800; font-size: 0.95rem;">${ubiInfo.totalPool.toLocaleString('tr-TR')} 🟣 ADA</div>
           </div>
           <div>
             <div style="color: #a855f7; font-size: 0.72rem; font-weight: 700;">BU HAFTALIK BÜTÇE (1/12):</div>
-            <div style="color: #38bdf8; font-weight: 800; font-size: 0.95rem;">${ubiInfo.weeklyBudget.toLocaleString('tr-TR')} 🟣 ADA</div>
+            <div id="ubi-weekly-budget-val" style="color: #38bdf8; font-weight: 800; font-size: 0.95rem;">${ubiInfo.weeklyBudget.toLocaleString('tr-TR')} 🟣 ADA</div>
           </div>
         </div>
 
         <div style="border-top: 1px dashed rgba(168, 85, 247, 0.3); padding-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.82rem;">
           <div>
             <div style="color: #cbd5e1; font-size: 0.74rem;">Mevcut Seviyeniz (Lv.${state.level}):</div>
-            <div style="color: #4ade80; font-weight: 900; font-size: 1.05rem;">${ubiInfo.payout} 🟣 ADA / Hafta</div>
+            <div id="ubi-player-payout-val" style="color: #4ade80; font-weight: 900; font-size: 1.05rem;">${ubiInfo.payout.toFixed(2)} 🟣 ADA / Hafta</div>
           </div>
           <div>
             <div style="color: #cbd5e1; font-size: 0.74rem;">Sonraki Seviye (Lv.${Math.min(81, state.level + 1)}):</div>
-            <div style="color: #facc15; font-weight: 800; font-size: 0.95rem;">${ubiInfo.nextLevelPayout} ADA <span style="font-size: 0.75rem; color: #4ade80;">(+%${ubiInfo.increasePct})</span></div>
+            <div id="ubi-next-payout-box" style="color: #facc15; font-weight: 800; font-size: 0.95rem;">
+              <span id="ubi-next-payout-val">${ubiInfo.nextLevelPayout.toFixed(2)}</span> ADA 
+              <span id="ubi-increase-pct-val" style="font-size: 0.75rem; color: #4ade80;">(+%${ubiInfo.increasePct})</span>
+            </div>
           </div>
         </div>
 
@@ -1077,7 +1080,7 @@ function openInventoryModal() {
         </button>
       ` : `
         <button id="btn-claim-ubi" class="btn-clean" style="margin-top: 8px; background: linear-gradient(135deg, #7e22ce 0%, #a855f7 100%); color: #fff; font-weight: 900; font-size: 0.95rem; border: 1.5px solid #d8b4fe; box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);">
-          🏛️ HAFTALIK EVRENSEL TEMEL GELİRİ AL (+${ubiInfo.payout} ADA)
+          🏛️ HAFTALIK EVRENSEL TEMEL GELİRİ AL <span id="ubi-btn-claim-amount">(+${ubiInfo.payout.toFixed(2)} ADA)</span>
         </button>
       `}
     </div>
@@ -1235,6 +1238,28 @@ function openInventoryModal() {
 
   displayModal();
 }
+
+export function updateUbiCardLive() {
+  const elTotal = document.getElementById('ubi-total-pool-val');
+  if (!elTotal) return;
+
+  const state = gameState.state;
+  const ubiInfo = globalPool.getUbiPoolInfo(state.level || 1, state.lastClaimedUbiEpoch || 0);
+
+  const elBudget = document.getElementById('ubi-weekly-budget-val');
+  const elPayout = document.getElementById('ubi-player-payout-val');
+  const elNext = document.getElementById('ubi-next-payout-val');
+  const elPct = document.getElementById('ubi-increase-pct-val');
+  const elBtnAmt = document.getElementById('ubi-btn-claim-amount');
+
+  elTotal.innerText = `${ubiInfo.totalPool.toLocaleString('tr-TR')} 🟣 ADA`;
+  if (elBudget) elBudget.innerText = `${ubiInfo.weeklyBudget.toLocaleString('tr-TR')} 🟣 ADA`;
+  if (elPayout) elPayout.innerText = `${ubiInfo.payout.toFixed(2)} 🟣 ADA / Hafta`;
+  if (elNext) elNext.innerText = `${ubiInfo.nextLevelPayout.toFixed(2)}`;
+  if (elPct) elPct.innerText = `(+%${ubiInfo.increasePct})`;
+  if (elBtnAmt) elBtnAmt.innerText = `(+${ubiInfo.payout.toFixed(2)} ADA)`;
+}
+window.updateUbiCardLive = updateUbiCardLive;
 
 function renderExpeditionActiveBox(nodeId) {
   const nodeConfig = GAME_CONFIG.GLOBAL_RESOURCE_CAPS[nodeId];
@@ -7342,6 +7367,9 @@ function refreshLiveUpgradeCostUI(deltaSeconds = 1) {
   }
 
   if (!dom.modalContainer || !dom.modalContainer.classList.contains('active')) return;
+
+  // 🏛️ Evrensel Temel Gelir (UBI) Kartı Açıksa Anlık Canlı Güncelle
+  updateUbiCardLive();
 
   const state = gameState.state;
   const adAstra = state.adAstraBalance || 0;
