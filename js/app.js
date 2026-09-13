@@ -2541,7 +2541,7 @@ function renderBarracksHtml() {
 
             <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
               <button class="btn-clean btn-clean-purple btn-soldier-instant-heal" data-soldier-idx="${actualSelectedIndex}" style="flex: 1; min-width: 180px;" ${heal.isFull ? 'disabled' : ''}>
-                ${heal.isFull ? '✅ Zaten Tam Can' : `⚡ Anında Hızlı Doyur (10x: ${heal.wheatNeeded} 🌾 + ${heal.adaCost} 🟣 ADA)`}
+                ${heal.isFull ? '✅ Zaten Tam Can' : `⚡ Anında Hızlı Doyur (${heal.wheatNeeded} 🌾 + ${heal.adaCost} 🟣 ADA)`}
               </button>
               ${(state.inventory.scroll_heal || 0) > 0 ? `
                 <button class="btn-clean btn-clean-purple btn-use-scroll" data-scroll="scroll_heal" data-target-id="${selectedSoldier.id || actualSelectedIndex}" style="width: auto; padding: 8px 14px; font-weight: 800;" ${heal.isFull ? 'disabled' : ''} title="Bu Şampiyona +10 Can Kazandır">
