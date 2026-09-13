@@ -210,6 +210,34 @@ function renderTopBar() {
     dom.sidebarBoxBadge.classList.toggle('hidden', boxCount <= 0);
   }
 
+  // 🤖 Üst Menü Canlı Bot Durumu Güncellemesi
+  const topBotText = document.getElementById('top-bot-status-text');
+  const topBotDot = document.getElementById('top-bot-indicator-dot');
+  const topBotBtn = document.getElementById('btn-top-taverna-bot-status');
+  if (topBotText && topBotDot) {
+    const isBotActive = gameState.isAutoCollectorActive();
+    if (isBotActive) {
+      const remText = gameState.getAutoCollectorRemainingText();
+      topBotText.innerText = `🤖 BOT: AKTİF (${remText})`;
+      topBotDot.style.background = '#4ade80';
+      topBotDot.style.boxShadow = '0 0 10px #4ade80, 0 0 4px #22c55e';
+      if (topBotBtn) {
+        topBotBtn.style.borderColor = '#22c55e';
+        topBotBtn.style.color = '#4ade80';
+        topBotBtn.style.background = 'linear-gradient(135deg, rgba(34,197,94,0.25), rgba(20,83,45,0.4))';
+      }
+    } else {
+      topBotText.innerText = '🤖 24s BOT: PASİF';
+      topBotDot.style.background = '#64748b';
+      topBotDot.style.boxShadow = 'none';
+      if (topBotBtn) {
+        topBotBtn.style.borderColor = '#ca8a04';
+        topBotBtn.style.color = '#facc15';
+        topBotBtn.style.background = 'linear-gradient(135deg, rgba(202,138,4,0.2), rgba(113,63,18,0.35))';
+      }
+    }
+  }
+
   // 🧙‍♂️ Akıllı Kral Danışmanı Canlı Güncellemesi
   updateRoyalAdvisorUI();
 
@@ -2159,6 +2187,32 @@ function openTownZoneModal(zoneId, zoneName) {
             <input type="radio" name="bot_silo_opt" value="sell" ${!isSiloAutoUpgrade ? 'checked' : ''} />
             <span><strong>Akıllı Satış (Döngü Kazancı + %5 Marj):</strong> Markette satış baskısı yaratmamak için ambarı boşaltmaz; yalnızca bir sonraki sefer döngüsünde kazanılacak miktar kadar (+%5 güvenlik payı ile) AMM pazarında satarak yer açar.</span>
           </label>
+        <!-- Canlı Otonom Sefer Durum Konsolu -->
+        <div style="background: rgba(0,0,0,0.5); border-radius: 8px; padding: 12px; margin-bottom: 10px; border: 1px solid ${isBotActive ? 'rgba(74,222,128,0.3)' : 'rgba(255,255,255,0.1)'};">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-weight:800; font-size:0.86rem; color:${isBotActive ? '#4ade80' : '#94a3b8'};">
+              ${isBotActive ? '🟢 Otonom Sefer & Tamir Konsolu (Canlı Çalışıyor)' : '⚪ Otonom Konsol (Bot Beklemede)'}
+            </span>
+            ${isBotActive ? `
+              <button id="btn-trigger-bot-cycle" class="btn-clean" style="width:auto; padding:4px 10px; font-size:0.75rem; background:rgba(34,197,94,0.2); border:1px solid #22c55e; color:#4ade80; cursor:pointer;" title="Tüm boştaki seferleri hemen şimdi tetikle">
+                ⚡ Boş Seferleri Şimdi Başlat
+              </button>
+            ` : ''}
+          </div>
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:8px; font-size:0.78rem;">
+            <div style="background:rgba(255,255,255,0.04); padding:8px; border-radius:6px; border-left:3px solid #22c55e;">
+              <div style="color:#94a3b8;">🌲 Odun Seferi:</div>
+              <div style="font-weight:700; color:#fff;">${gameState.state.activeExpeditions?.wood ? (gameState.state.activeExpeditions.wood.isCompleted ? '✅ Toplanıyor' : '⏳ Sürüyor') : '💤 Boşta (Otonom Başlatılır)'}</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.04); padding:8px; border-radius:6px; border-left:3px solid #38bdf8;">
+              <div style="color:#94a3b8;">⛏️ Demir Seferi:</div>
+              <div style="font-weight:700; color:#fff;">${gameState.state.activeExpeditions?.iron ? (gameState.state.activeExpeditions.iron.isCompleted ? '✅ Toplanıyor' : '⏳ Sürüyor') : '💤 Boşta (Otonom Başlatılır)'}</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.04); padding:8px; border-radius:6px; border-left:3px solid #facc15;">
+              <div style="color:#94a3b8;">🌾 Buğday Seferi:</div>
+              <div style="font-weight:700; color:#fff;">${gameState.state.activeExpeditions?.wheat ? (gameState.state.activeExpeditions.wheat.isCompleted ? '✅ Toplanıyor' : '⏳ Sürüyor') : '💤 Boşta (Otonom Başlatılır)'}</div>
+            </div>
+          </div>
         </div>
 
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
@@ -5391,6 +5445,11 @@ function initAppEvents() {
   const btnNavDash = document.getElementById('btn-nav-dashboard');
   if (btnNavDash) btnNavDash.addEventListener('click', openDashboardModal);
 
+  const btnTopBotStatus = document.getElementById('btn-top-taverna-bot-status');
+  if (btnTopBotStatus) {
+    btnTopBotStatus.addEventListener('click', () => openTownZoneModal('tavern', '🍺 Taverna & Otonom Bot'));
+  }
+
   const btnNavTreasury = document.getElementById('btn-nav-treasury');
   if (btnNavTreasury) btnNavTreasury.addEventListener('click', openTreasuryVaultModal);
 
@@ -6550,6 +6609,15 @@ function initAppEvents() {
       return;
     }
 
+    // Taverna: Canlı Boş Seferleri Başlat Konsol Butonu (#btn-trigger-bot-cycle)
+    if (e.target.closest('#btn-trigger-bot-cycle')) {
+      const res = gameState.runTavernaAutomationCycle();
+      showToast('🚀 Otonom seferler ve tamir döngüsü hemen tetiklendi!', 'success');
+      renderTopBar();
+      openTownZoneModal('tavern', '🍺 Taverna & Han');
+      return;
+    }
+
     // Karnaval: Sekme Geçişi (.carnival-tab-btn)
     const carnTabBtn = e.target.closest('.carnival-tab-btn');
     if (carnTabBtn) {
@@ -7546,6 +7614,7 @@ function uiGameLoop(currentTime) {
 
   gameState.regenerateStamina(deltaSeconds);
   gameState.updateExpeditions(deltaSeconds);
+  gameState.runTavernaAutomationCycle();
   gameState.processSoldierPassiveHealing(deltaSeconds);
   gameState.tickUpgradeCostBot(deltaSeconds);
   globalPool.simulateGlobalActivity(deltaSeconds);

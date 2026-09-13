@@ -757,32 +757,80 @@ export class GameStateManager {
 
           // 🤖 OTOMATİK TOPLAMA & OTOMATİK TAMİR BOTU (AUTO-COLLECTOR & AUTO-REPAIR)
           if (this.isAutoCollectorActive()) {
-            setTimeout(() => {
-              this.claimExpedition(nodeId);
-
-              const toolId = GAME_CONFIG.GLOBAL_RESOURCE_CAPS[nodeId].requiredTool;
-              const tool = this.state.tools[toolId];
-
-              // Eğer aletin dayanıklılığı sıfırlandıysa, depodaki hammaddelerle otomatik tamir et
-              if (tool && tool.durability <= 0) {
-                const repCost = this.calculateRepairCost(toolId);
-                const inv = this.state.inventory;
-
-                if (repCost && (inv.wood || 0) >= repCost.woodCost && (inv.iron || 0) >= repCost.ironCost && this.state.adAstraBalance >= repCost.adAstraCost) {
-                  this.repairTool(toolId);
-                }
-              }
-
-              // Alet sağlamsa ve stamina varsa yeniden başlat
-              if (this.state.tools[toolId] && this.state.tools[toolId].durability > 0 && this.state.stamina >= 25) {
-                this.startExpedition(nodeId);
-              }
-            }, 500);
+            this.runTavernaAutomationCycle();
           }
         }
       }
     }
     if (hasChanges) this.saveState();
+  }
+
+  // 🤖 24 SAATLİK TAVERNA OTONOM SEFER, HASAT, TAMİR & STAMİNA MOTORU
+  runTavernaAutomationCycle() {
+    if (!this.isAutoCollectorActive()) return { active: false, actions: [] };
+
+    const nodes = ['wood', 'iron', 'wheat'];
+    const actions = [];
+
+    // 1. Önce tamamlanan seferleri topla
+    for (const nodeId of nodes) {
+      const exp = this.state.activeExpeditions ? this.state.activeExpeditions[nodeId] : null;
+      if (exp && exp.isCompleted) {
+        const claimRes = this.claimExpedition(nodeId);
+        if (claimRes && claimRes.success) {
+          actions.push(`✅ ${GAME_CONFIG.GLOBAL_RESOURCE_CAPS[nodeId].name} seferi toplandı.`);
+        }
+      }
+    }
+
+    // 2. Kırık aletleri kontrol et ve depodaki kaynaklarla tamir et
+    for (const nodeId of nodes) {
+      const toolId = GAME_CONFIG.GLOBAL_RESOURCE_CAPS[nodeId].requiredTool;
+      const tool = this.state.tools ? this.state.tools[toolId] : null;
+      if (tool && tool.durability <= 0) {
+        const repCost = this.calculateRepairCost(toolId);
+        const inv = this.state.inventory || {};
+        if (repCost && (inv.wood || 0) >= repCost.woodCost && (inv.iron || 0) >= repCost.ironCost && (this.state.adAstraBalance || 0) >= repCost.adAstraCost) {
+          const repRes = this.repairTool(toolId);
+          if (repRes && repRes.success) {
+            actions.push(`🔨 ${GAME_CONFIG.TOOLS[toolId].name} otomatik tamir edildi.`);
+          }
+        }
+      }
+    }
+
+    // 3. Stamina kontrolü: 25'in altındaysa ve ambarda buğday varsa doldur
+    if ((this.state.stamina || 0) < 25 && ((this.state.inventory && this.state.inventory.wheat) || 0) > 0) {
+      const refRes = this.refillStaminaToMaxWithWheat();
+      if (refRes && refRes.success) {
+        actions.push('🍞 Stamina depodaki buğdayla yenilendi.');
+      }
+    }
+
+    // 4. Boşta olan (aktif olmayan) seferleri otomatik başlat
+    for (const nodeId of nodes) {
+      const hasExp = this.state.activeExpeditions && this.state.activeExpeditions[nodeId];
+      if (!hasExp) {
+        const toolId = GAME_CONFIG.GLOBAL_RESOURCE_CAPS[nodeId].requiredTool;
+        const tool = this.state.tools ? this.state.tools[toolId] : null;
+        const staminaCost = GAME_CONFIG.STAMINA_COST_PER_EXPEDITION || 25;
+
+        // Alet kırık değilse ve stamina yeterliyse başlat
+        if (tool && tool.durability > 0 && (this.state.stamina || 0) >= staminaCost) {
+          const startRes = this.startExpedition(nodeId);
+          if (startRes && startRes.success) {
+            actions.push(`🚀 ${GAME_CONFIG.GLOBAL_RESOURCE_CAPS[nodeId].name} seferi otonom başlatıldı.`);
+          }
+        }
+      }
+    }
+
+    if (actions.length > 0) {
+      this.state.lastBotActions = actions;
+      this.saveState();
+    }
+
+    return { active: true, actions };
   }
 
   isAutoCollectorActive() {
@@ -811,6 +859,22 @@ export class GameStateManager {
       }
     }
     return maxExp;
+  }
+
+  getAutoCollectorRemainingSeconds() {
+    const exp = this.getAutoCollectorExpiry();
+    return Math.max(0, Math.floor((exp - Date.now()) / 1000));
+  }
+
+  getAutoCollectorRemainingText() {
+    const sec = this.getAutoCollectorRemainingSeconds();
+    if (sec <= 0) return 'Pasif';
+    const hrs = Math.floor(sec / 3600);
+    const mins = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    if (hrs > 0) return `${hrs}s ${mins}d`;
+    if (mins > 0) return `${mins}d ${s}sn`;
+    return `${s}sn`;
   }
 
   // Belirli bir kaynak için dakika başına fix (sabit) üretim miktarı
@@ -2564,6 +2628,13 @@ export class GameStateManager {
     };
 
     this.saveState();
+
+    // 🚀 Bot satın alındığı saniye derhal ilk otonom döngüyü çalıştır (boştaki tüm seferleri anında başlat)
+    try {
+      this.runTavernaAutomationCycle();
+    } catch (e) {
+      console.warn('Bot initial cycle error:', e);
+    }
 
     return {
       success: true,
