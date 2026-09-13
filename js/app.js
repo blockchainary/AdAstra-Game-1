@@ -401,7 +401,8 @@ function renderRealmSidebar(state, maxStamina, staminaInt) {
   // 4. Kışla Yaralı Asker Rozeti
   const barracksBadge = document.getElementById('side-badge-barracks');
   if (barracksBadge) {
-    const injuredSoldiers = (state.army || []).filter(s => s.hp < s.maxHp).length;
+    const soldierList = Array.isArray(state.soldierUnits) ? state.soldierUnits : [];
+    const injuredSoldiers = soldierList.filter(s => s && s.hp != null && s.maxHp != null && s.hp < s.maxHp).length;
     if (injuredSoldiers > 0) {
       barracksBadge.classList.remove('hidden');
       barracksBadge.innerText = `${injuredSoldiers} Yaralı`;
@@ -7756,58 +7757,63 @@ function refreshLiveUpgradeCostUI(deltaSeconds = 1) {
 }
 
 function uiGameLoop(currentTime) {
-  const deltaMs = currentTime - lastTickTime;
-  lastTickTime = currentTime;
-  const deltaSeconds = (deltaMs / 1000) * speedMultiplier;
+  try {
+    const deltaMs = currentTime - lastTickTime;
+    lastTickTime = currentTime;
+    const deltaSeconds = (deltaMs / 1000) * speedMultiplier;
 
-  gameState.regenerateStamina(deltaSeconds);
-  gameState.updateExpeditions(deltaSeconds);
-  
-  const botPauseStatus = gameState.updateBotPauseState();
-  if (botPauseStatus && botPauseStatus.justResumed) {
-    showToast('🟢 Gerekli tüm kaynaklar tamamlandı! 24s Otomasyon Botu anında devreye girdi.', 'success');
-    sound.playLevelUp();
-  }
-
-  gameState.runTavernaAutomationCycle();
-  gameState.processSoldierPassiveHealing(deltaSeconds);
-  gameState.tickUpgradeCostBot(deltaSeconds);
-  globalPool.simulateGlobalActivity(deltaSeconds);
-  refreshBarracksLiveUI(deltaSeconds);
-  refreshLiveUpgradeCostUI(deltaSeconds);
-
-  // Canlı Açık Sefer Modalı Sayacı Güncelleme
-  ['wood', 'iron', 'wheat'].forEach(nodeId => {
-    const timeEl = document.getElementById(`modal-exp-time-${nodeId}`);
-    const pctEl = document.getElementById(`modal-exp-pct-${nodeId}`);
-    const fillEl = document.getElementById(`modal-exp-fill-${nodeId}`);
-    const accEl = document.getElementById(`modal-exp-accrued-${nodeId}`);
-    const partBtn = document.getElementById(`btn-modal-partial-${nodeId}`);
-    if (timeEl && fillEl) {
-      const acc = gameState.getAccruedExpeditionHarvest(nodeId);
-      timeEl.innerText = formatCountdown(acc.remainingSeconds);
-      if (pctEl) pctEl.innerText = `%${acc.pct}`;
-      fillEl.style.width = `${acc.pct}%`;
-      if (accEl) {
-        accEl.innerText = `+${acc.accruedAmount} ${GAME_CONFIG.GLOBAL_RESOURCE_CAPS[nodeId].name} (+${acc.accruedXp || 0} XP)`;
-      }
-      if (partBtn) {
-        partBtn.disabled = acc.accruedAmount <= 0;
-        partBtn.innerText = `⚡ ERKEN TOPLA (+${acc.accruedAmount} Al)`;
-      }
+    gameState.regenerateStamina(deltaSeconds);
+    gameState.updateExpeditions(deltaSeconds);
+    
+    const botPauseStatus = gameState.updateBotPauseState();
+    if (botPauseStatus && botPauseStatus.justResumed) {
+      showToast('🟢 Gerekli tüm kaynaklar tamamlandı! 24s Otomasyon Botu anında devreye girdi.', 'success');
+      sound.playLevelUp();
     }
-  });
 
-  // Zindan Üst Barındaki Dinamik Sayıcılar
-  const dkKeys = document.getElementById('dungeon-dock-keys');
-  if (dkKeys) dkKeys.innerText = gameState.state.arenaKeys || 0;
-  const dkBoxes = document.getElementById('dungeon-dock-boxes');
-  if (dkBoxes) dkBoxes.innerText = gameState.state.lockedBoxes || 0;
-  const dkFrags = document.getElementById('dungeon-dock-fragments');
-  if (dkFrags) dkFrags.innerText = gameState.state.inventory.fragments || 0;
+    gameState.runTavernaAutomationCycle();
+    gameState.processSoldierPassiveHealing(deltaSeconds);
+    gameState.tickUpgradeCostBot(deltaSeconds);
+    globalPool.simulateGlobalActivity(deltaSeconds);
+    refreshBarracksLiveUI(deltaSeconds);
+    refreshLiveUpgradeCostUI(deltaSeconds);
 
-  renderTopBar();
-  requestAnimationFrame(uiGameLoop);
+    // Canlı Açık Sefer Modalı Sayacı Güncelleme
+    ['wood', 'iron', 'wheat'].forEach(nodeId => {
+      const timeEl = document.getElementById(`modal-exp-time-${nodeId}`);
+      const pctEl = document.getElementById(`modal-exp-pct-${nodeId}`);
+      const fillEl = document.getElementById(`modal-exp-fill-${nodeId}`);
+      const accEl = document.getElementById(`modal-exp-accrued-${nodeId}`);
+      const partBtn = document.getElementById(`btn-modal-partial-${nodeId}`);
+      if (timeEl && fillEl) {
+        const acc = gameState.getAccruedExpeditionHarvest(nodeId);
+        timeEl.innerText = formatCountdown(acc.remainingSeconds);
+        if (pctEl) pctEl.innerText = `%${acc.pct}`;
+        fillEl.style.width = `${acc.pct}%`;
+        if (accEl) {
+          accEl.innerText = `+${acc.accruedAmount} ${GAME_CONFIG.GLOBAL_RESOURCE_CAPS[nodeId].name} (+${acc.accruedXp || 0} XP)`;
+        }
+        if (partBtn) {
+          partBtn.disabled = acc.accruedAmount <= 0;
+          partBtn.innerText = `⚡ ERKEN TOPLA (+${acc.accruedAmount} Al)`;
+        }
+      }
+    });
+
+    // Zindan Üst Barındaki Dinamik Sayıcılar
+    const dkKeys = document.getElementById('dungeon-dock-keys');
+    if (dkKeys) dkKeys.innerText = gameState.state.arenaKeys || 0;
+    const dkBoxes = document.getElementById('dungeon-dock-boxes');
+    if (dkBoxes) dkBoxes.innerText = gameState.state.lockedBoxes || 0;
+    const dkFrags = document.getElementById('dungeon-dock-fragments');
+    if (dkFrags) dkFrags.innerText = gameState.state.inventory.fragments || 0;
+
+    renderTopBar();
+  } catch (err) {
+    console.error('uiGameLoop error:', err);
+  } finally {
+    requestAnimationFrame(uiGameLoop);
+  }
 }
 
 function initPhaser() {
