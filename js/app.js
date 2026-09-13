@@ -1116,7 +1116,9 @@ function renderExpeditionActiveBox(nodeId) {
   const cap = gameState.getWarehouseCapacity();
   const limit = cap[nodeId];
   const currentInv = Number(gameState.state.inventory[nodeId]) || 0;
-  const isOverflow = limit != null && (currentInv + accrued.accruedAmount > limit);
+  const availableRoom = limit != null ? Math.max(0, limit - currentInv) : accrued.accruedAmount;
+  const isCompletelyFull = limit != null && availableRoom <= 0;
+  const isPartialRoom = limit != null && availableRoom > 0 && (availableRoom < accrued.accruedAmount);
   const resourceDisplayNames = { wood: 'odun', iron: 'demir', wheat: 'buğday' };
   const rLabel = resourceDisplayNames[nodeId] || nodeConfig.name;
 
@@ -1141,20 +1143,29 @@ function renderExpeditionActiveBox(nodeId) {
         <strong class="exp-accrued-val" id="modal-exp-accrued-${nodeId}">+${accrued.accruedAmount} ${nodeConfig.name} (+${accrued.accruedXp || 0} XP)</strong>
       </div>
 
-      ${isOverflow ? `
-        <div style="background: rgba(180, 83, 9, 0.25); border: 1px solid #f59e0b; border-radius: 6px; padding: 8px 10px; margin-top: 8px; font-size: 0.84rem; color: #fde047; text-align: center; font-weight: 700; line-height: 1.4;">
-          ⚠️ Silo'nuz dolu! Lütfen ${rLabel} seferini tamamlamak için silonuzu büyütün ve silonuzda yer açın.
-          <div style="font-size: 0.75rem; color: #cbd5e1; font-weight: 400; margin-top: 2px;">Mevcut: ${currentInv.toFixed(0)} / ${limit} | Sefer Mahsulü: +${accrued.accruedAmount} ${nodeConfig.name}</div>
+      ${isCompletelyFull ? `
+        <div style="background: rgba(185, 28, 28, 0.25); border: 1.5px solid #ef4444; border-radius: 8px; padding: 10px 12px; margin-top: 8px; font-size: 0.84rem; color: #fca5a5; text-align: center; font-weight: 800; line-height: 1.4;">
+          ⚠️ Silo'nuz tamamen dolu (${currentInv.toFixed(0)} / ${limit})!
+          <div style="font-size: 0.76rem; color: #fee2e2; font-weight: 400; margin-top: 3px;">Seferdeki +${accrued.accruedAmount} ${nodeConfig.name} mahsulünü almak için lütfen silonuzu büyütün veya silonuzda yer açın.</div>
+        </div>
+      ` : isPartialRoom ? `
+        <div style="background: rgba(30, 58, 138, 0.35); border: 1.5px solid #38bdf8; border-radius: 8px; padding: 10px 12px; margin-top: 8px; font-size: 0.84rem; color: #bae6fd; text-align: center; font-weight: 800; line-height: 1.4;">
+          📥 Siloda ${availableRoom.toFixed(0)} Adet Boş Yer Var (Mevcut: ${currentInv.toFixed(0)} / ${limit})
+          <div style="font-size: 0.76rem; color: #e0f2fe; font-weight: 400; margin-top: 3px;">Silonuzu dolduracak kadar (+${availableRoom.toFixed(0)} ${nodeConfig.name}) toplayabilirsiniz! Kalan ${(accrued.accruedAmount - availableRoom).toFixed(0)} ${nodeConfig.name} seferde bekletilecek, ambarınız %100 dolacağı için silonuzu hemen büyütebilirsiniz!</div>
         </div>
       ` : ''}
 
       <div class="exp-btn-row">
-        <button class="btn-clean btn-clean-purple btn-modal-partial-claim" data-node="${nodeId}" id="btn-modal-partial-${nodeId}" style="flex: 1;" ${accrued.accruedAmount <= 0 ? 'disabled' : ''}>
-          ⚡ ERKEN TOPLA (+${accrued.accruedAmount} Al)
+        <button class="btn-clean btn-clean-purple btn-modal-partial-claim" data-node="${nodeId}" id="btn-modal-partial-${nodeId}" style="flex: 1;" ${accrued.accruedAmount <= 0 || isCompletelyFull ? 'disabled' : ''}>
+          ${isPartialRoom ? `⚡ BOŞ YERİ DOLDUR (+${availableRoom.toFixed(0)} Al)` : `⚡ ERKEN TOPLA (+${accrued.accruedAmount} Al)`}
         </button>
         ${accrued.isCompleted ? `
-          <button class="btn-clean ${isOverflow ? 'btn-clean-amber' : 'btn-clean-green'} btn-modal-claim" data-node="${nodeId}" style="flex: 1; ${isOverflow ? 'background: #78350f; color: #fde047; border: 1px solid #f59e0b;' : ''}">
-            ${isOverflow ? `⚠️ SİLO DOLU: ${rLabel.toUpperCase()} İÇİN YER AÇIN` : '🏁 TAMAMLANDI - TÜMÜNÜ TOPLA'}
+          <button class="btn-clean ${isCompletelyFull ? 'btn-clean-amber' : isPartialRoom ? 'btn-clean-blue' : 'btn-clean-green'} btn-modal-claim" data-node="${nodeId}" style="flex: 1; ${isCompletelyFull ? 'background: #78350f; color: #fde047; border: 1px solid #f59e0b;' : isPartialRoom ? 'background: #0284c7; color: #fff; border: 1.5px solid #38bdf8; font-weight: 800;' : ''}">
+            ${isCompletelyFull 
+              ? `⚠️ SİLO TAMAMEN DOLU: YER AÇIN` 
+              : isPartialRoom 
+                ? `📥 SİLOYU DOLDUR (+${availableRoom.toFixed(0)} Al, Kalanı Beklet)` 
+                : '🏁 TAMAMLANDI - TÜMÜNÜ TOPLA'}
           </button>
         ` : ''}
       </div>
@@ -5565,14 +5576,18 @@ function initAppEvents() {
       return;
     }
 
-    // Sefer Toplama (Tam Claim)
+    // Sefer Toplama (Tam veya Kısmi Silo Doldurma Claim)
     const claimBtn = e.target.closest('.btn-modal-claim');
     if (claimBtn) {
       const node = claimBtn.dataset.node;
       const res = gameState.claimExpedition(node);
       if (res.success) {
-        showToast(`📦 +${res.amount} ${res.resourceName} & +${res.xpGained} XP kazanıldı!`, 'success');
-        closeModal();
+        showToast(res.message, 'success');
+        if (res.isPartialSiloFill) {
+          openTownZoneModal(node, GAME_CONFIG.GLOBAL_RESOURCE_CAPS[node]?.name || node);
+        } else {
+          closeModal();
+        }
       } else {
         showToast(res.message, res.isWarehouseFull ? 'warning' : 'error');
       }
@@ -5587,10 +5602,7 @@ function initAppEvents() {
       const res = gameState.claimPartialExpedition(node);
       if (res.success) {
         showToast(res.message, 'success');
-        const acc = gameState.getAccruedExpeditionHarvest(node);
-        const accEl = document.getElementById(`modal-exp-accrued-${node}`);
-        if (accEl) accEl.innerText = `+0 ${GAME_CONFIG.GLOBAL_RESOURCE_CAPS[node].name}`;
-        partialClaimBtn.disabled = true;
+        openTownZoneModal(node, GAME_CONFIG.GLOBAL_RESOURCE_CAPS[node]?.name || node);
       } else {
         showToast(res.message, res.isWarehouseFull ? 'warning' : 'error');
       }

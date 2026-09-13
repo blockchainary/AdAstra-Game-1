@@ -7,7 +7,7 @@
     "dev": "vite --host 0.0.0.0 --port 5173",
     "build": "vite build",
     "preview": "vite preview --port 5173",
-    "test": "node tests/test_weekly_reset_and_vanilla.mjs && node tests/test_amm_live_upgrade_cost_bot.mjs && node tests/test_weapon_durability_dungeon.mjs && node tests/test_unlimited_craft_armory.mjs && node tests/test_live_drop_rates_and_levelup_display.mjs && node tests/test_audit_fixes.mjs && node tests/test_new_mechanics_v106.mjs && node tests/test_carnival_wheel_and_scrolls.mjs && node tests/test_taverna_modal_render.mjs && node tests/test_bot_smart_silo_sell.mjs && node tests/test_wheel_reward_rates.mjs && node tests/test_dynamic_market_payments.mjs && node tests/test_announcement_ticker.mjs && node tests/test_24h_passive_heal_and_pause.mjs"
+    "test": "node tests/test_weekly_reset_and_vanilla.mjs && node tests/test_amm_live_upgrade_cost_bot.mjs && node tests/test_weapon_durability_dungeon.mjs && node tests/test_unlimited_craft_armory.mjs && node tests/test_live_drop_rates_and_levelup_display.mjs && node tests/test_audit_fixes.mjs && node tests/test_new_mechanics_v106.mjs && node tests/test_carnival_wheel_and_scrolls.mjs && node tests/test_taverna_modal_render.mjs && node tests/test_bot_smart_silo_sell.mjs && node tests/test_wheel_reward_rates.mjs && node tests/test_dynamic_market_payments.mjs && node tests/test_announcement_ticker.mjs && node tests/test_24h_passive_heal_and_pause.mjs && node tests/test_partial_expedition_silo_fill.mjs"
   },
   "devDependencies": {
     "playwright": "^1.62.1",

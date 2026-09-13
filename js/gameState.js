@@ -825,9 +825,15 @@ export class GameStateManager {
     const totalXp = Math.max(5, Math.floor(35 * durationHours));
 
     const progressRatio = Math.min(1, exp.elapsedSeconds / exp.durationSeconds);
-    const claimedRatio = Math.min(1, (exp.claimedSeconds || 0) / exp.durationSeconds);
-    const unclimedProgress = Math.max(0, progressRatio - claimedRatio);
-    const accruedAmount = Math.floor(totalYield * unclimedProgress);
+    let alreadyClaimed = 0;
+    if (exp.claimedAmount != null) {
+      alreadyClaimed = exp.claimedAmount;
+    } else if (exp.claimedSeconds) {
+      alreadyClaimed = Math.floor(totalYield * Math.min(1, exp.claimedSeconds / exp.durationSeconds));
+    }
+
+    const earnedSoFar = Math.floor(totalYield * progressRatio);
+    const accruedAmount = Math.max(0, earnedSoFar - alreadyClaimed);
     const accruedXp = exp.isCompleted ? totalXp : Math.max(1, Math.floor(totalXp * progressRatio));
     const pct = Math.min(100, Math.floor(progressRatio * 100));
     const remainingSeconds = Math.max(0, Math.ceil(exp.durationSeconds - exp.elapsedSeconds));
@@ -835,6 +841,7 @@ export class GameStateManager {
     return {
       accruedAmount,
       totalYield,
+      alreadyClaimed,
       accruedXp,
       totalXp,
       pct,
@@ -861,10 +868,12 @@ export class GameStateManager {
     const cap = this.getWarehouseCapacity();
     const limit = cap[nodeId];
     const currentAmount = Number(this.state.inventory[nodeId]) || 0;
+    const availableRoom = limit != null ? Math.max(0, limit - currentAmount) : accruedInfo.accruedAmount;
     const resourceDisplayNames = { wood: 'odun', iron: 'demir', wheat: 'buğday' };
     const rLabel = resourceDisplayNames[nodeId] || nodeConfig.name;
 
-    if (limit != null && (currentAmount + accruedInfo.accruedAmount > limit)) {
+    // 1. Durum: Depoda HİÇ boş yer yok
+    if (limit != null && availableRoom <= 0) {
       return {
         success: false,
         isWarehouseFull: true,
@@ -872,22 +881,33 @@ export class GameStateManager {
         currentAmount,
         limit,
         remainingToClaim: accruedInfo.accruedAmount,
-        message: `⚠️ Silo'nuz dolu! Lütfen ${rLabel} seferini tamamlamak için silonuzu büyütün ve silonuzda yer açın.`
+        message: `⚠️ Silo'nuz tamamen dolu (${currentAmount}/${limit})! Lütfen ${rLabel} seferini tamamlamak için silonuzu büyütün veya silonuzda yer açın.`
       };
     }
 
-    const requested = globalPool.harvest(nodeId, accruedInfo.accruedAmount);
+    // 2. Durum: Depoda yer var - boş yeri tam dolduracak kadarını al, kalanı seferde bırak
+    const amountToHarvest = Math.min(accruedInfo.accruedAmount, availableRoom);
+    const requested = globalPool.harvest(nodeId, amountToHarvest);
     const { stored: harvestedAmount, overflow } = this.storeResource(nodeId, requested);
     if (playerTool) {
       playerTool.totalGathered = (playerTool.totalGathered || 0) + harvestedAmount;
     }
 
-    const xpGained = accruedInfo.accruedXp || Math.max(1, Math.floor(35 * ((accruedInfo.elapsedSeconds || 60) / 3600)));
+    const xpGained = Math.max(1, Math.floor((accruedInfo.accruedXp || 1) * (harvestedAmount / accruedInfo.accruedAmount)));
     const levelResult = this.addXp(xpGained);
 
-    exp.claimedSeconds = exp.elapsedSeconds;
+    // Kısmi tahsilatı claimedAmount'a ekle
+    exp.claimedAmount = (exp.claimedAmount || accruedInfo.alreadyClaimed || 0) + harvestedAmount;
+    if (accruedInfo.totalYield > 0) {
+      exp.claimedSeconds = Math.min(exp.durationSeconds, Math.floor((exp.claimedAmount / accruedInfo.totalYield) * exp.durationSeconds));
+    } else {
+      exp.claimedSeconds = exp.elapsedSeconds;
+    }
+
     sound.playHarvest();
     this.saveState();
+
+    const stillWaiting = Math.max(0, accruedInfo.accruedAmount - harvestedAmount);
 
     return {
       success: true,
@@ -895,8 +915,10 @@ export class GameStateManager {
       overflow,
       xpGained,
       levelResult,
-      message: overflow > 0
-        ? `⚡ ${harvestedAmount} ${nodeConfig.name} toplandı, ${overflow} birim depoya sığmadı ve çürüdü! (+${xpGained} XP) — Depoyu yükselt.`
+      isPartialSiloFill: stillWaiting > 0,
+      stillRemaining: stillWaiting,
+      message: stillWaiting > 0
+        ? `📥 Silodaki boş alan kadar +${harvestedAmount} ${nodeConfig.name} erken toplandı ve ambar doldu (${this.state.inventory[nodeId]}/${limit})! Kalan ${stillWaiting} adet mahsul seferde bekletiliyor.`
         : `⚡ ${harvestedAmount} ${nodeConfig.name} erken toplandı! (+${xpGained} XP)`
     };
   }
@@ -904,10 +926,6 @@ export class GameStateManager {
   // ═══════════════════════════════════════════════════════════════════════
   // DEPO KAPASİTESİ — v2: ARTIK GERÇEKTEN UYGULANIYOR (F-16)
   // ═══════════════════════════════════════════════════════════════════════
-  // v1'de getWarehouseCapacity() hesaplanıp yüzde çubuğunda gösteriliyordu ama
-  // envantere ekleme yapan hiçbir yerde tavan kontrolü yoktu. Depo yükseltmesi
-  // (3.000 ADA'ya kadar) tamamen kozmetik bir harcamaydı ve oyunun en doğal
-  // hammadde sink'i olan taşma kaybı devre dışıydı.
   storeResource(resourceKey, amount) {
     if (!(amount > 0)) return { stored: 0, overflow: 0 };
     const cap = this.getWarehouseCapacity();
@@ -937,88 +955,117 @@ export class GameStateManager {
     const playerTool = this.state.tools[nodeConfig.requiredTool];
 
     // Matematiksel Sefer Verimi (Dakika Başı Fix Üretim * Dakika * Hız Çarpanı)
-    // Seviye arttıkça dakika başı üretim artmaz, her seviye için fix kalır; sadece sefer süresi uzar.
     const ratePm = this.getResourceRatePerMinute(nodeId);
     const speedMult = this.getExpeditionSpeedMultiplier();
     const durationMinutes = exp.durationMinutes || Math.round((exp.durationHours || 0.3) * 60) || Math.max(1, Math.round(exp.durationSeconds / 60));
     const totalYield = Math.floor(ratePm * durationMinutes * speedMult);
 
-    // Erken toplanan miktarı düş
-    const claimedRatio = Math.min(1, (exp.claimedSeconds || 0) / exp.durationSeconds);
-    const alreadyClaimed = Math.floor(totalYield * claimedRatio);
-    const remainingToClaim = Math.max(5, totalYield - alreadyClaimed);
+    // Erken veya kısmi toplanan miktarı düş
+    const alreadyClaimed = exp.claimedAmount != null
+      ? exp.claimedAmount
+      : Math.floor(totalYield * Math.min(1, (exp.claimedSeconds || 0) / exp.durationSeconds));
+    const remainingToClaim = Math.max(0, totalYield - alreadyClaimed);
+
+    if (remainingToClaim <= 0) {
+      delete this.state.activeExpeditions[nodeId];
+      this.saveState();
+      return { success: true, message: 'Tüm mahsul zaten toplandı.' };
+    }
 
     // SİLO / DEPO DOLULUK VE TAŞMA KONTROLÜ
-    // Kural: Sefer bitince eğer seferden gelecek olan kaynağı almak depoyu dolduruyor ve taşırıyorsa
-    // kaynak ziyan olmasın diye uyarı verilir:
-    // "silo'nuz dolu lütfen [ilgili kaynak] seferi tamamlamak için silonuzu büyütün ve silonuzda yer açın"
     const cap = this.getWarehouseCapacity();
     const limit = cap[nodeId];
-    const currentAmount = Number(this.state.inventory[nodeId]) || 0;
+    let currentAmount = Number(this.state.inventory[nodeId]) || 0;
+    let availableRoom = limit != null ? Math.max(0, limit - currentAmount) : remainingToClaim;
     const resourceDisplayNames = { wood: 'odun', iron: 'demir', wheat: 'buğday' };
     const rLabel = resourceDisplayNames[nodeId] || nodeId;
 
-    if (limit != null && (currentAmount + remainingToClaim > limit)) {
-      // 🤖 Otomasyon Botu Aktifse: Silo taşmasını otomatik çöz (Yükselt veya Döngü + %5 Marj Sat)
-      if (this.isAutoCollectorActive()) {
-        const botSpaceRes = this.handleBotSiloSpace(nodeId, remainingToClaim);
-        const updatedCurrent = Number(this.state.inventory[nodeId]) || 0;
-        const updatedCap = this.getWarehouseCapacity();
-        const updatedLimit = updatedCap[nodeId];
-        if (updatedLimit != null && (updatedCurrent + remainingToClaim > updatedLimit)) {
-          return {
-            success: false,
-            isWarehouseFull: true,
-            nodeId,
-            currentAmount: updatedCurrent,
-            limit: updatedLimit,
-            remainingToClaim,
-            message: `⚠️ Silo'nuz dolu! Bot yer açamadı: ${botSpaceRes?.reason || 'Kapasite aşıldı.'}`
-          };
-        }
-      } else {
+    // 🤖 Otomasyon Botu Aktifse: Depoda seferin tamamına yetecek yer yoksa otomatik yer aç
+    if (this.isAutoCollectorActive() && limit != null && (availableRoom < remainingToClaim)) {
+      const botSpaceRes = this.handleBotSiloSpace(nodeId, remainingToClaim);
+      currentAmount = Number(this.state.inventory[nodeId]) || 0;
+      const updatedCap = this.getWarehouseCapacity();
+      const updatedLimit = updatedCap[nodeId];
+      availableRoom = updatedLimit != null ? Math.max(0, updatedLimit - currentAmount) : remainingToClaim;
+      if (availableRoom <= 0) {
         return {
           success: false,
           isWarehouseFull: true,
           nodeId,
           currentAmount,
-          limit,
+          limit: updatedLimit,
           remainingToClaim,
-          message: `⚠️ Silo'nuz dolu! Lütfen ${rLabel} seferini tamamlamak için silonuzu büyütün ve silonuzda yer açın.`
+          message: `⚠️ Silo'nuz tamamen dolu! Bot yer açamadı: ${botSpaceRes?.reason || 'Kapasite aşıldı.'}`
         };
       }
     }
 
-    const fromPool = globalPool.harvest(nodeId, remainingToClaim);
-    const { stored: harvestedAmount, overflow } = this.storeResource(nodeId, fromPool);
+    // 1. Durum: Depoda HİÇ boş yer yok (0 yer var) (Manuel kullanıcı için):
+    if (limit != null && availableRoom <= 0) {
+      return {
+        success: false,
+        isWarehouseFull: true,
+        nodeId,
+        currentAmount,
+        limit,
+        remainingToClaim,
+        message: `⚠️ Silo'nuz tamamen dolu (${currentAmount}/${limit})! Lütfen ${rLabel} seferini tamamlamak için silonuzu büyütün veya silonuzda yer açın.`
+      };
+    }
 
-    // Sefer süresi kadar dakika başına 1 durability aşınması (72 saat = 4320 dk)
-    playerTool.durability = Math.max(0, (playerTool.durability != null ? playerTool.durability : 4320) - durationMinutes);
-    playerTool.totalGathered = (playerTool.totalGathered || 0) + harvestedAmount;
+    // 2. Durum: Depoda yer var! Boş yer kadarını topla, kalanı seferde bırak
+    const harvestAmount = Math.min(remainingToClaim, availableRoom);
+    const fromPool = globalPool.harvest(nodeId, harvestAmount);
+    const { stored: harvestedAmount } = this.storeResource(nodeId, fromPool);
 
-    // Sefer Başına XP Kazanımı (Sefer ekranındaki XP ile %100 aynı)
-    const durationHours = exp.durationHours || parseFloat((durationMinutes / 60).toFixed(2));
-    const xpGained = Math.max(5, Math.floor(35 * durationHours));
-    this.addXp(xpGained);
+    exp.claimedAmount = (exp.claimedAmount || alreadyClaimed) + harvestedAmount;
+    exp.claimedSeconds = exp.durationSeconds;
 
-    delete this.state.activeExpeditions[nodeId];
+    if (playerTool) {
+      playerTool.totalGathered = (playerTool.totalGathered || 0) + harvestedAmount;
+    }
 
-    if (playerTool.durability === 0) sound.playBreakWarning();
-    else sound.playHarvest();
+    const stillRemaining = Math.max(0, totalYield - exp.claimedAmount);
 
-    this.saveState();
+    // Eğer seferden kalan miktar tamamen bittiyse (0 kaldıysa): Seferi bitir ve temizle!
+    if (stillRemaining <= 0) {
+      playerTool.durability = Math.max(0, (playerTool.durability != null ? playerTool.durability : 4320) - durationMinutes);
 
-    return {
-      success: true,
-      amount: harvestedAmount,
-      overflow,
-      resourceName: nodeConfig.name,
-      icon: nodeConfig.icon,
-      durabilityLeft: playerTool.durability,
-      toolName: toolConfig.name,
-      xpGained,
-      isBroken: playerTool.durability === 0
-    };
+      const durationHours = exp.durationHours || parseFloat((durationMinutes / 60).toFixed(2));
+      const xpGained = Math.max(5, Math.floor(35 * durationHours));
+      this.addXp(xpGained);
+
+      delete this.state.activeExpeditions[nodeId];
+
+      if (playerTool.durability === 0) sound.playBreakWarning();
+      else sound.playHarvest();
+
+      this.saveState();
+
+      return {
+        success: true,
+        isPartialSiloFill: false,
+        amount: harvestedAmount,
+        harvestedAmount,
+        stillRemaining: 0,
+        message: `🌾 ${harvestedAmount} ${nodeConfig.name} başarıyla toplandı ve ambarınıza eklendi!`
+      };
+    } else {
+      // Depo doldu, kalan miktar seferde bekliyor!
+      sound.playHarvest();
+      this.saveState();
+
+      return {
+        success: true,
+        isPartialSiloFill: true,
+        amount: harvestedAmount,
+        harvestedAmount,
+        stillRemaining,
+        currentAmount: this.state.inventory[nodeId],
+        limit,
+        message: `📥 Silodaki boş alan kadar +${harvestedAmount} ${nodeConfig.name} depoya aktarıldı ve ambarınız doldu (${this.state.inventory[nodeId]}/${limit})! Kalan ${stillRemaining} ${nodeConfig.name} seferde bekletiliyor. Depoda yer açtığınızda veya silonuzu büyüttüğünüzde kalan mahsulü de toplayabilirsiniz.`
+      };
+    }
   }
 
   // ✨ 60+ YAŞ ÖZEL: TEK TIKLA TÜM KASABADAN MAHSUL & VERGİ TOPLA (SWEEP HARVEST)
