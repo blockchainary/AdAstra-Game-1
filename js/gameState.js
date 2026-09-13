@@ -2547,6 +2547,17 @@ export class GameStateManager {
 
   buyLotteryTickets(ticketCount = 1) {
     const count = Math.max(1, parseInt(ticketCount) || 1);
+    const maxAllowed = GAME_CONFIG.CARNIVAL?.LOTTERY?.MAX_TICKETS_PER_ACCOUNT || 100;
+    const currentTickets = this.state.lotteryTickets || 0;
+
+    if (currentTickets + count > maxAllowed) {
+      const remainingCanBuy = Math.max(0, maxAllowed - currentTickets);
+      return {
+        success: false,
+        message: `🚫 Balina İstifleme Kuralı: Bir hesap her hafta en fazla ${maxAllowed} bilet (10.000 ADA) satın alabilir! Mevcut biletin: ${currentTickets}, alabileceğin ek bilet: ${remainingCanBuy}.`
+      };
+    }
+
     const cost = count * (GAME_CONFIG.CARNIVAL?.LOTTERY?.TICKET_COST_ADA || 100);
 
     if (this.state.adAstraBalance < cost) {
@@ -2554,8 +2565,8 @@ export class GameStateManager {
     }
 
     this.state.adAstraBalance -= cost;
-    this.state.lotteryTickets = (this.state.lotteryTickets || 0) + count;
-    this.state.lotteryPool = (this.state.lotteryPool || 1000000) + cost;
+    this.state.lotteryTickets = currentTickets + count;
+    this.state.lotteryPool = (this.state.lotteryPool || 20000000) + cost;
 
     sound.playHarvest();
     this.saveState();
@@ -2565,18 +2576,15 @@ export class GameStateManager {
       ticketCount: count,
       totalTickets: this.state.lotteryTickets,
       lotteryPool: this.state.lotteryPool,
-      message: `🎟️ ${count} Adet Piyango Bileti satın alındı! (Toplam Biletin: ${this.state.lotteryTickets})`
+      message: `🎟️ ${count} Adet Piyango Bileti satın alındı! (Toplam Biletin: ${this.state.lotteryTickets} / Max ${maxAllowed})`
     };
   }
 
   drawWeeklyLottery() {
-    const pool = this.state.lotteryPool || 1000000;
-    const winnerShare = pool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.WEEKLY_WINNER_SHARE || 0.18);
-    const amortiShare = pool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.AMORTI_SHARE || 0.02);
-    const rolloverShare = pool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.ROLLOVER_SHARE || 0.80);
-
+    const pool = this.state.lotteryPool || 20000000;
+    const amortiShare = Math.round(pool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.AMORTI_SHARE || 0.02));
     this.state.lotteryAmortiPool = (this.state.lotteryAmortiPool || 0) + amortiShare;
-    this.state.lotteryPool = rolloverShare;
+    this.state.lotteryPool = Math.max(0, pool - amortiShare);
 
     const userTickets = this.state.lotteryTickets || 0;
     const totalTickets = Math.max(100, userTickets + 900);
@@ -2585,20 +2593,16 @@ export class GameStateManager {
 
     let burnedTickets = 0;
     let keptTickets = userTickets;
+    let wonAmount = 0;
 
     if (userWon && userTickets > 0) {
       const ticketCostTotal = userTickets * 100;
-      this.state.adAstraBalance += winnerShare;
-
-      if (winnerShare >= ticketCostTotal * 2) {
-        burnedTickets = userTickets;
-        keptTickets = 0;
-        this.state.lotteryTickets = 0;
-      } else {
-        burnedTickets = Math.min(userTickets, Math.floor((winnerShare / 2) / 100));
-        keptTickets = userTickets - burnedTickets;
-        this.state.lotteryTickets = keptTickets;
-      }
+      wonAmount = ticketCostTotal * 2; // Tam 2 katı (2x) kazanç!
+      this.state.adAstraBalance += wonAmount;
+      this.state.lotteryPool = Math.max(0, this.state.lotteryPool - wonAmount);
+      burnedTickets = userTickets;
+      keptTickets = 0;
+      this.state.lotteryTickets = 0;
       sound.playLevelUp();
     }
 
@@ -2606,10 +2610,10 @@ export class GameStateManager {
 
     return {
       userWon,
-      wonAmount: userWon ? winnerShare : 0,
-      winnerShare,
+      wonAmount,
+      winnerShare: wonAmount,
       amortiShare,
-      rolloverPool: rolloverShare,
+      rolloverPool: this.state.lotteryPool,
       userTicketsRemaining: keptTickets,
       burnedTickets
     };
@@ -2686,7 +2690,6 @@ export class GameStateManager {
       if (Math.random() < artifactChance) {
         artifactDiscovered = this.discoverArtifact(lvl);
       }
-      this.state.arenaKeys = (this.state.arenaKeys || 0) + 1;
     }
 
     // 📜 Zindan Zafer Ganimeti: Canavarlardan Düşen Parşömenler (Yalnızca Ordu İyileştirme & 100 Stamina)
@@ -2734,8 +2737,15 @@ export class GameStateManager {
     if ((this.state.lockedBoxes || 0) <= 0) {
       return { success: false, message: 'Açılacak Pandora Kutun yok!' };
     }
+    if ((this.state.arenaKeys || 0) <= 0) {
+      return {
+        success: false,
+        message: '🔑 Pandora Kutusu açmak için en az 1 Anahtar gerekir! (Anahtarlar yalnızca Kolezyum haftalık derecesinden, Şans Çarkından veya AMM Pazarından temin edilebilir).'
+      };
+    }
 
     this.state.lockedBoxes -= 1;
+    this.state.arenaKeys -= 1;
 
     // Rarity Ağırlıkları: Common (%50), Rare (%30), Epic (%15), Legendary (%5)
     const roll = Math.random();
@@ -3105,9 +3115,11 @@ export class GameStateManager {
     const burnRate = GAME_CONFIG.TOKEN_BURN_RATE || 0.22;
     const lotteryPool = state.lotteryPool != null ? state.lotteryPool : 20000000;
     const amortiPool = state.lotteryAmortiPool || 0;
-    const lotteryWinnerShare = Math.round(lotteryPool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.WEEKLY_WINNER_SHARE || 0.18));
+    const myTickets = state.lotteryTickets || 0;
+    const lotteryWinnerMultiplier = GAME_CONFIG.CARNIVAL?.LOTTERY?.WINNER_MULTIPLIER || 2.0;
+    const lotteryWinnerShare = myTickets > 0 ? myTickets * 100 * lotteryWinnerMultiplier : 200;
     const lotteryAmortiShare = Math.round(lotteryPool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.AMORTI_SHARE || 0.02));
-    const lotteryRolloverShare = Math.round(lotteryPool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.ROLLOVER_SHARE || 0.80));
+    const lotteryRolloverShare = Math.max(0, lotteryPool - lotteryAmortiShare);
 
     const burnedResources = state.burnedResources || { wood: 0, iron: 0, wheat: 0 };
     const lifetimeBurnedAda = Math.round((treasury.state?.lifetimeBurned || 0) + (globalPool.state?.totalBurned || 0));

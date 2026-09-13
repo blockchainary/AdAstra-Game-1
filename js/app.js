@@ -2954,12 +2954,12 @@ function renderCarnivalHtml(activeTab = 'wheel') {
   const costIron = Math.round(100 / pIron);
   const costWood = Math.round(100 / pWood);
 
-  const lotteryPool = state.lotteryPool || 1000000;
+  const lotteryPool = state.lotteryPool || 20000000;
   const amortiPool = state.lotteryAmortiPool || 0;
-  const winnerReward = Math.round(lotteryPool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.WEEKLY_WINNER_SHARE || 0.18));
-  const amortiShare = Math.round(lotteryPool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.AMORTI_SHARE || 0.02));
-  const rolloverShare = Math.round(lotteryPool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.ROLLOVER_SHARE || 0.80));
   const myTickets = state.lotteryTickets || 0;
+  const winnerReward = myTickets > 0 ? myTickets * 100 * 2 : 200;
+  const amortiShare = Math.round(lotteryPool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.AMORTI_SHARE || 0.02));
+  const rolloverShare = Math.max(0, lotteryPool - amortiShare);
   const totalTicketsEst = Math.max(100, myTickets + 900);
   const myChancePct = ((myTickets / totalTicketsEst) * 100).toFixed(2);
   const shards = state.wheelTicketShards || 0;
@@ -2969,7 +2969,7 @@ function renderCarnivalHtml(activeTab = 'wheel') {
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 14px;">
       <button class="phase2-tab-btn carnival-tab-btn ${activeTab === 'wheel' ? 'active' : ''}" data-carnival-tab="wheel" style="padding: 12px 14px; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; gap: 8px;">
         <span style="font-size: 1.3rem;">🎡</span>
-        <span>1. 14 ÖDÜLLÜ ŞANS ÇARKI</span>
+        <span>1. 15 ÖDÜLLÜ ŞANS ÇARKI</span>
       </button>
       <button class="phase2-tab-btn carnival-tab-btn ${activeTab === 'lottery' ? 'active' : ''}" data-carnival-tab="lottery" style="padding: 12px 14px; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; gap: 8px;">
         <span style="font-size: 1.3rem;">🎟️</span>
@@ -3122,41 +3122,49 @@ function renderCarnivalHtml(activeTab = 'wheel') {
 
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
           <div class="clean-card" style="text-align:center; padding:14px; border-color:#f59e0b;">
-            <div style="font-size:0.8rem; color:#94a3b8;">🏆 Bu Haftanın Büyük Ödülü (%18)</div>
-            <div style="font-size:1.4rem; font-weight:900; color:#fde047; margin-top:4px;">
-              ${winnerReward.toLocaleString('tr-TR')} $ADASTRA
+            <div style="font-size:0.8rem; color:#94a3b8;">🏆 Piyango Kazanç Oranı (Bilet x 2)</div>
+            <div style="font-size:1.35rem; font-weight:900; color:#fde047; margin-top:4px;">
+              2.0x (Net 2 Katı Nakit)
+            </div>
+            <div style="font-size:0.75rem; color:#4ade80; margin-top:3px;">
+              ${myTickets > 0 ? `Çıkarsa: +${(myTickets * 200).toLocaleString('tr-TR')} ADA` : 'Bilet tutarının 2 katı'}
             </div>
           </div>
           <div class="clean-card" style="text-align:center; padding:14px; border-color:#a855f7;">
             <div style="font-size:0.8rem; color:#94a3b8;">🏦 Toplam Piyango Kasası</div>
-            <div style="font-size:1.4rem; font-weight:900; color:#c084fc; margin-top:4px;">
+            <div style="font-size:1.35rem; font-weight:900; color:#c084fc; margin-top:4px;">
               ${lotteryPool.toLocaleString('tr-TR')} $ADASTRA
             </div>
+            <div style="font-size:0.75rem; color:#94a3b8; margin-top:3px;">Rollover ile sürekli büyür</div>
           </div>
           <div class="clean-card" style="text-align:center; padding:14px; border-color:#0284c7;">
             <div style="font-size:0.8rem; color:#94a3b8;">🛡️ Amorti Hazine Hesabı (%2)</div>
-            <div style="font-size:1.4rem; font-weight:900; color:#38bdf8; margin-top:4px;">
+            <div style="font-size:1.35rem; font-weight:900; color:#38bdf8; margin-top:4px;">
               ${amortiPool.toLocaleString('tr-TR')} $ADASTRA
             </div>
+            <div style="font-size:0.75rem; color:#94a3b8; margin-top:3px;">Çıkmayan bilet güvencesi</div>
           </div>
           <div class="clean-card" style="text-align:center; padding:14px; border-color:#10b981;">
             <div style="font-size:0.8rem; color:#94a3b8;">🎟️ Senin Biletlerin & Şansın</div>
             <div style="font-size:1.3rem; font-weight:900; color:#4ade80; margin-top:4px;">
-              ${myTickets} Bilet (%${myChancePct})
+              ${myTickets} / 100 Bilet (%${myChancePct})
+            </div>
+            <div style="font-size:0.75rem; color:#fde047; margin-top:3px;">
+              ${myTickets >= 100 ? '🚫 Haftalık Kota Dolu' : `Kalan Alım: ${100 - myTickets} Bilet`}
             </div>
           </div>
         </div>
 
         <div class="clean-card" style="border-left: 4px solid #22c55e; background: rgba(10,30,15,0.4); font-size:0.82rem; color:#cbd5e1; line-height:1.5;">
-          <strong>🛡️ AlphAvax 2x Kazanç Güvencesi:</strong> Eğer size piyango çıkar ancak kazandığınız ödül aldığınız bilet sayısının maliyetinin en az 2 katı etmezse, elinizdeki tüm biletler yakılmaz! Sadece kazandığınız ödülün yarısına denk gelecek kadar bilet yakılır, kalan tüm biletleriniz sonraki haftaki piyango çekilişine katılmaya devam eder.
+          <strong>🛡️ AlphAvax 2x Kazanç Sistemi & Balina Koruması:</strong> Piyango kazananı, satın aldığı bilet miktarının (1 Bilet = 100 ADA) <strong>tam 2 katını ($2\times$)</strong> havuzdan nakit kazanır ve biletleri yakılır! 20.000.000 ADA'lık devasa havuz tükenmez, bilet satışlarıyla büyüyerek sonraki haftaya devreder. Balina istiflemesini önlemek için <strong>hesap başı haftalık maksimum 100 bilet (10.000 ADA)</strong> sınırı konulmuştur.
         </div>
 
         <div class="clean-card" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; padding:16px;">
           <div style="display:flex; align-items:center; gap:10px;">
             <span style="font-size:0.88rem; font-weight:700; color:#fff;">Bilet Adedi:</span>
-            <input type="number" id="lottery-ticket-count" value="1" min="1" max="1000" style="width:80px; background:#1e293b; color:#fde047; border:1px solid #475569; padding:8px; border-radius:6px; font-weight:800; font-size:1rem; text-align:center;" />
-            <button id="btn-buy-lottery-action" class="btn-clean" style="width:auto; background:linear-gradient(135deg, #f59e0b, #d97706); color:#000; font-weight:900; padding:10px 18px;">
-              🎟️ Bilet Satın Al (100 ADA/Adet)
+            <input type="number" id="lottery-ticket-count" value="1" min="1" max="${Math.max(1, 100 - myTickets)}" style="width:80px; background:#1e293b; color:#fde047; border:1px solid #475569; padding:8px; border-radius:6px; font-weight:800; font-size:1rem; text-align:center;" ${myTickets >= 100 ? 'disabled' : ''} />
+            <button id="btn-buy-lottery-action" class="btn-clean" ${myTickets >= 100 ? 'disabled' : ''} style="width:auto; background:linear-gradient(135deg, #f59e0b, #d97706); color:#000; font-weight:900; padding:10px 18px;">
+              🎟️ ${myTickets >= 100 ? 'Haftalık Kota Doldu (100/100)' : `Bilet Satın Al (100 ADA/Adet) — Kalan: ${100 - myTickets}`}
             </button>
           </div>
 
@@ -3895,7 +3903,7 @@ function renderCollectionHtml() {
           <div class="card-title">📦 Pandora Kutuları</div>
           <span class="card-badge">🔑 ${arenaKeys} Anahtar</span>
         </div>
-        <div class="clean-desc">Her kutuyu açmak 1 🔑 Arena Anahtarı gerektirir. Anahtarları Zindan bosslarını yenerek veya Kolezyum Savaşını kazanarak topla!</div>
+        <div class="clean-desc">Her kutuyu açmak 1 🔑 Anahtar gerektirir. Anahtarlar yalnızca Kolezyum derecesinden, Şans Çarkından veya AMM Pazarından temin edilebilir. Koleksiyonu tamamlayanlar fazla kutularını AMM pazarında ~10.000 ADA gibi yüksek bir fiyata satabilir!</div>
       </div>
       ${revealHtml}
       <div class="mystery-box-grid">${boxesHtml}</div>
@@ -6612,12 +6620,11 @@ function initAppEvents() {
         return;
       }
       if ((st.arenaKeys || 0) <= 0) {
-        showToast('Pandora Kutusu açmak için en az 1 🔑 Arena Anahtarına ihtiyacın var! (Zindan bosslarını yen veya Kolezyum Savaşını kazan)', 'error');
+        showToast('🔑 Pandora Kutusu açmak için en az 1 Anahtar gerekir! (Anahtarlar yalnızca Kolezyum derecesinden, Şans Çarkından veya AMM Pazarından temin edilebilir)', 'error');
         return;
       }
       const res = gameState.unboxMysteryBox();
       if (res.success) {
-        st.arenaKeys -= 1;
         gameState.saveState();
         lastBoxResult = res;
         showToast(res.message, 'success');

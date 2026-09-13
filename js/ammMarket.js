@@ -28,8 +28,8 @@ const TARGET_PRICE_IMPACT = 0.07;
 // Kota bilgisi olmayan varlıklar için varsayılan haftalık arz tahmini
 const WEEKLY_SUPPLY_FALLBACK = {
   fragments: 9000,
-  boxes: 260,
-  keys: 900,
+  boxes: 15,
+  keys: 50,
   scroll_heal: 1500,
   scroll_stamina: 1000
 };
@@ -83,13 +83,13 @@ function buildDefaultPools() {
       name: 'Pandora Kutusu',
       icon: '📦',
       adAstraReserve: 2000000,
-      resourceReserve: 2222
+      resourceReserve: 200
     },
     keys: {
       name: 'Arena Anahtarı',
       icon: '🔑',
       adAstraReserve: 1000000,
-      resourceReserve: 2857
+      resourceReserve: 1000
     },
     scroll_heal: derivePool('scroll_heal', { name: 'Ordu İyileştirme Parşömeni', icon: '📜' }),
     scroll_stamina: derivePool('scroll_stamina', { name: '100 Stamina Doldurma Parşömeni', icon: '⚡' })
@@ -98,8 +98,8 @@ function buildDefaultPools() {
 
 export class AMMMarketEngine {
   constructor() {
-    // v9: 40M $ADASTRA Derin AMM Havuzları (40M Likidite, 40M Hazine, 20M Piyango = 100M Toplam)
-    this.storageKey = 'adastra_amm_pools_v9';
+    // v10: 40M $ADASTRA Derin AMM Havuzları (10k ADA Pandora Kutusu, 1k ADA Anahtar)
+    this.storageKey = 'adastra_amm_pools_v10';
     this.pools = this.loadPools();
     this.feeStats = this.loadFeeStats();
   }

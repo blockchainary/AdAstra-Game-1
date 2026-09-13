@@ -163,8 +163,8 @@ export const GAME_CONFIG = {
     iron:      { minPriceAda: 2.00, maxPriceAda: 9.00,  defaultPriceAda: 4.00 },
     wheat:     { minPriceAda: 0.45, maxPriceAda: 2.20,  defaultPriceAda: 0.90 },
     fragments: { minPriceAda: 20.0, maxPriceAda: 120.0, defaultPriceAda: 45.0 },
-    boxes:     { minPriceAda: 400,  maxPriceAda: 2500,  defaultPriceAda: 900 },
-    keys:           { minPriceAda: 150,  maxPriceAda: 900,   defaultPriceAda: 350 },
+    boxes:     { minPriceAda: 5000, maxPriceAda: 35000, defaultPriceAda: 10000 },
+    keys:      { minPriceAda: 500,  maxPriceAda: 3500,  defaultPriceAda: 1000 },
     scroll_heal:    { minPriceAda: 15.0, maxPriceAda: 90.0,  defaultPriceAda: 30.0 },
     scroll_stamina: { minPriceAda: 30.0, maxPriceAda: 180.0, defaultPriceAda: 60.0 }
   },
@@ -706,7 +706,7 @@ export const GAME_CONFIG = {
       { id: 'ada_200',       name: '200 $ADASTRA Nakit Ödül',         icon: '🟣', type: 'ada',      amount: 200,                    valAda: 200,  weight: 475 },
       { id: 'ada_1000',      name: '🏆 1.000 $ADASTRA BÜYÜK İKRAMİYE',icon: '👑', type: 'ada',      amount: 1000,                   valAda: 1000, weight: 10 },
       { id: 'ada_50',        name: '50 $ADASTRA Ödül',                icon: '🟣', type: 'ada',      amount: 50,                     valAda: 50,   weight: 2000 },
-      { id: 'box_key',       name: '1 Pandora Kutusu Anahtarı',       icon: '🔑', type: 'key',      amount: 1,                      valAda: 350,  weight: 8 },
+      { id: 'box_key',       name: '1 Pandora Kutusu Anahtarı',       icon: '🔑', type: 'key',      amount: 1,                      valAda: 1000, weight: 8 },
       { id: 'wheel_ticket_shard', name: 'Amorti Çark Bileti (10 Adet = 1 Çevirme)', icon: '🎟️', type: 'ticket_shard', amount: 1,  valAda: 10, weight: 3312 },
       { id: 'coin_analysis_code', name: 'AlphAvax Vercel App Özel Coin Analiz Bileti', icon: '🎫', type: 'analysis_code', amount: 1, valAda: 0, weight: 50 }
     ],
@@ -714,10 +714,10 @@ export const GAME_CONFIG = {
     LOTTERY: {
       TICKET_COST_ADA: 100,
       SEED_POOL_ADA: 20000000,     // 20.000.000 ADA AlphaVax Tohum Kasa
-      WEEKLY_WINNER_SHARE: 0.18,  // %18'i 1 Talihliye
-      AMORTI_SHARE: 0.02,         // %2 Amorti Hazinesine
-      ROLLOVER_SHARE: 0.80,       // %80 Sonraki Haftaya Devir
-      MAX_ROLLOVER_WEEKS: 4       // 4 Hafta boyunca çıkmayan bilet amorti/çarka dönüşür
+      MAX_TICKETS_PER_ACCOUNT: 100,// Balina istiflemesini önleme: Hesap başı haftalık max 100 bilet (10.000 ADA)
+      WINNER_MULTIPLIER: 2.0,      // Kazanan talihli bilet maliyetinin tam 2 katını (2x) nakit kazanır!
+      AMORTI_SHARE: 0.02,          // %2 Amorti Hazinesine
+      MAX_ROLLOVER_WEEKS: 4        // Çıkmayan biletler sonraki çekilişe devredebilir veya amorti alınabilir
     }
   },
 
@@ -843,6 +843,18 @@ export const GAME_CONFIG = {
         'Şans Çarkı ödül dağılımı 15 dilimle 10.000 taban ağırlığa ve kural yüzdelerine tam uyumlu olarak yeniden dengelendi.',
         '100 Milyon $ADASTRA tohum fonu: 40M AMM DEX Havuzları, 40M Hazine Kasaları, 20M Krallık Piyangosu olarak dağıtıldı.',
         'AMM çift taraflı derinlik mimarisiyle, haftalık kotalar hiç yakılmadan ful satılsa dahi havuzların aylar sonra bile %50-60 seviyesinde güvende kalması matematiksel olarak garanti edildi.'
+      ]
+    },
+    {
+      version: 'v1.13',
+      title: 'Pandora Kutusu & Anahtar AMM Havuzları ve Piyango 2x Kazanç Reformu',
+      date: 'Eylül 2026',
+      changes: [
+        'Pandora Kutusu (10.000 ADA) ve Anahtar (1.000 ADA) AMM DEX havuzları yüksek değerleme ve sanal derinlik modeliyle optimize edildi.',
+        'Pandora Kutularını açmak için Anahtar zorunluluğu getirildi. Anahtarların Zindan düşüşü kapatıldı; yalnızca Kolezyum sıralaması ve Şans Çarkından düşebilir hale getirildi.',
+        'Koleksiyonu tamamlayan gezginler, düşürdükleri Pandora Kutularını AMM havuzunda ~10.000 $ADASTRA gibi devasa bir bedelle satabilme imkanına kavuştu.',
+        'Piyango 2x Kazanç Sistemi: Kazanan kişi havuzun %18\'i yerine satın aldığı bilet tutarının tam 2 katını (2x) nakit kazanır, biletleri yakılır ve devasa 20M+ havuz devrederek büyümeye devam eder.',
+        'Balina İstiflemesini Önleme Kotası: Her hesabın haftalık satın alabileceği maksimum bilet sayısı 100 bilet (10.000 ADA) ile sınırlandırıldı.'
       ]
     }
   ],
