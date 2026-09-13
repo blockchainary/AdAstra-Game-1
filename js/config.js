@@ -804,6 +804,16 @@ export const GAME_CONFIG = {
         'Pandora Kutusu Anahtarı çıkma oranı %0.08 seviyesine (%0.1\'in altına) çekilerek nadir hazine statüsü pekiştirildi.',
         'AlphAvax Vercel App Özel Coin Analiz Kodu çıkma oranı %0.50 seviyesine (%1\'in altına) kalibre edildi.'
       ]
+    },
+    {
+      version: 'v1.09',
+      title: 'Şans Çarkı Arayüz Yüzdeleri Düzeltmesi & Dinamik Hesaplama',
+      date: 'Eylül 2026',
+      changes: [
+        'Karnaval Çarkı 18 Dilim Ödül Tablosundaki eski 1.000 tabanlı bölme hatası düzeltildi; tüm şans oranları 10.000 toplam havuz ağırlığı üzerinden dinamik ve kurallara (%1 altı, %0.1 altı) tam uyumlu olarak ekrana yansıtıldı.',
+        'Kutucuklardaki şans yüzdeleri (örn. Anahtar için %0.08, Bot için %0.60, Teçhizat Parçası için %0.60) net 2 basamaklı hassasiyetle gösterildi.',
+        'Çark RTP ve Kasa Garantisi metrikleri dinamik ağırlıklı formüle bağlanarak ekranda anlık doğru değer gösterimi sağlandı.'
+      ]
     }
   ],
 

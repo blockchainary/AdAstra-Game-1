@@ -2948,7 +2948,7 @@ function renderCarnivalHtml(activeTab = 'wheel') {
             <div>
               <div style="font-size: 1.1rem; font-weight: 900; color: #fff; display:flex; align-items:center; gap:8px;">
                 <span>🎡 14 Potansiyel Ödüllü Krallık Çarkı</span>
-                <span class="card-badge" style="background:#ec4899; color:#fff; border:none; font-weight:800;">RTP ~%78 • Kasa Garantili</span>
+                <span class="card-badge" style="background:#ec4899; color:#fff; border:none; font-weight:800;">RTP ~%${Math.round(wheelRewards.reduce((s, r) => s + ((r.weight / (wheelRewards.reduce((ws, wi) => ws + (wi.weight || 0), 0) || 10000)) * (r.valAda || 0)), 0))} • Kasa Garantili</span>
               </div>
               <div style="font-size: 0.85rem; color: #cbd5e1; margin-top:2px;">
                 100 ADA veya 100 ADA'ya denk gelen hammadde ile çevirebilir, ya da piyango biletini çark hakkına dönüştürebilirsin!
@@ -3027,16 +3027,23 @@ function renderCarnivalHtml(activeTab = 'wheel') {
         <div class="clean-card" style="border-color: rgba(255,255,255,0.1); background: rgba(10,10,18,0.6); padding:12px;">
           <div style="font-size:0.85rem; font-weight:800; color:#cbd5e1; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
             <span>📋 Çarktaki 18 Dilim Ödül Tablosu:</span>
-            <span style="font-size:0.75rem; color:#facc15;">RTP ~%78</span>
+            <span style="font-size:0.75rem; color:#facc15;">RTP ~%${Math.round(wheelRewards.reduce((s, r) => s + ((r.weight / (wheelRewards.reduce((ws, wi) => ws + (wi.weight || 0), 0) || 10000)) * (r.valAda || 0)), 0))}</span>
           </div>
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px;">
-            ${wheelRewards.map((r) => `
-              <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 6px 8px; text-align:center;">
-                <div style="font-size: 1.2rem;">${r.icon}</div>
-                <div style="font-size: 0.74rem; font-weight: 800; color: #fff; line-height: 1.2; margin-top:2px;">${r.name}</div>
-                <div style="font-size: 0.65rem; color: #facc15; margin-top: 2px;">Şans: %${((r.weight / 1000) * 100).toFixed(1)}</div>
-              </div>
-            `).join('')}
+            ${(() => {
+              const totalWeight = wheelRewards.reduce((s, r) => s + (r.weight || 0), 0) || 10000;
+              return wheelRewards.map((r) => {
+                const prob = (r.weight / totalWeight) * 100;
+                const probText = prob < 0.1 ? prob.toFixed(2) : (prob < 10 ? prob.toFixed(2) : prob.toFixed(1));
+                return `
+                  <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 6px 8px; text-align:center;">
+                    <div style="font-size: 1.2rem;">${r.icon}</div>
+                    <div style="font-size: 0.74rem; font-weight: 800; color: #fff; line-height: 1.2; margin-top:2px;">${r.name}</div>
+                    <div style="font-size: 0.65rem; color: #facc15; margin-top: 2px;">Şans: %${probText}</div>
+                  </div>
+                `;
+              }).join('');
+            })()}
           </div>
         </div>
 
