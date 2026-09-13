@@ -765,27 +765,66 @@ export class GameStateManager {
     for (const nodeId of Object.keys(this.state.activeExpeditions || {})) {
       const exp = this.state.activeExpeditions[nodeId];
       if (exp && !exp.isCompleted) {
-        // Gerçek zamanlı timestamp farkı (sekme arka planda kalsa da, sayfa yenilense de sayaç asla donmaz)
         let step = deltaSeconds || 0;
         if (exp.lastTickAt && exp.lastTickAt > 0) {
           const realDiff = (now - exp.lastTickAt) / 1000;
           if (realDiff > 0) {
-            step = Math.max(step, Math.min(realDiff, 86400)); // Aşırı büyük zıplamaları sınırla
+            step = Math.max(step, Math.min(realDiff, 86400)); // Aşırı büyük zıplamaları sınırla (maks 24 saat)
           }
         }
         exp.lastTickAt = now;
         if (!exp.startedAt) exp.startedAt = now - (exp.elapsedSeconds * 1000);
 
-        exp.elapsedSeconds = Math.min(exp.durationSeconds, (exp.elapsedSeconds || 0) + (step * speedMult));
-        hasChanges = true;
+        const isBot = this.isAutoCollectorActive() || this.hasPurchasedBot();
 
-        if (exp.elapsedSeconds >= exp.durationSeconds) {
-          exp.elapsedSeconds = exp.durationSeconds;
-          exp.isCompleted = true;
+        // 🤖 ÇOKLU DÖNGÜ & ÇEVRİMDIŞI / ARKA PLAN İLERLEME MOTORU (CATCH-UP ENGINE)
+        // Eğer kullanıcı 3 saat sekmeden ayrıldıysa veya tarayıcı arka plandaysa;
+        // bot boşa düşmez, geçen tüm süre boyunca ardışık sefer döngülerini tamamlar!
+        const remainingToComplete = Math.max(0, exp.durationSeconds - (exp.elapsedSeconds || 0));
+        if (isBot && step > remainingToComplete) {
+          let remainingStep = step;
+          let maxCycles = 50; // Sonsuz döngü koruması
+          while (remainingStep > 0 && maxCycles-- > 0) {
+            const currentExp = this.state.activeExpeditions[nodeId];
+            if (!currentExp) break;
 
-          // 🤖 OTOMATİK TOPLAMA & OTOMATİK TAMİR BOTU (AUTO-COLLECTOR & AUTO-REPAIR)
-          if (this.isAutoCollectorActive() || this.hasPurchasedBot()) {
-            this.runTavernaAutomationCycle();
+            const needed = Math.max(0, currentExp.durationSeconds - (currentExp.elapsedSeconds || 0));
+            if (remainingStep >= needed) {
+              remainingStep -= needed;
+              currentExp.elapsedSeconds = currentExp.durationSeconds;
+              currentExp.isCompleted = true;
+              currentExp.lastTickAt = now;
+              this.runTavernaAutomationCycle();
+              hasChanges = true;
+
+              // Eğer bot duraklatıldıysa veya yeni sefer başlatılamadıysa dur
+              if (this.isBotPaused() || !this.state.activeExpeditions[nodeId] || this.state.activeExpeditions[nodeId].isCompleted) {
+                break;
+              }
+            } else {
+              // Son döngüde kalan artık zamanı işlet
+              const activeExp = this.state.activeExpeditions[nodeId];
+              if (activeExp && !activeExp.isCompleted) {
+                activeExp.elapsedSeconds = Math.min(activeExp.durationSeconds, (activeExp.elapsedSeconds || 0) + (remainingStep * speedMult));
+                activeExp.lastTickAt = now;
+                hasChanges = true;
+              }
+              remainingStep = 0;
+            }
+          }
+        } else {
+          // Normal tek seferlik akış (veya bot aktif değilken)
+          exp.elapsedSeconds = Math.min(exp.durationSeconds, (exp.elapsedSeconds || 0) + (step * speedMult));
+          hasChanges = true;
+
+          if (exp.elapsedSeconds >= exp.durationSeconds) {
+            exp.elapsedSeconds = exp.durationSeconds;
+            exp.isCompleted = true;
+
+            // 🤖 OTOMATİK TOPLAMA & OTOMATİK TAMİR BOTU
+            if (isBot) {
+              this.runTavernaAutomationCycle();
+            }
           }
         }
       }
@@ -881,38 +920,29 @@ export class GameStateManager {
     }
 
     // =========================================================================
-    // 4. SİLO DURUMUNU KONTROL ET ("Siloyu Yükselt" veya "Akıllı Satış")
-    // Sefer gönderilmeden önce ambar kapasitesi değerlendirilir.
+    // 4. SİLO DURUMUNU KONTROL ET & SİLOYU YÜKSELT
+    // Kullanıcı "Siloyu Yükselt" (botSiloAutoUpgrade = true) seçtiyse her döngüde
+    // depoların %80 doluluğunu kontrol eder ve siloyu üst seviyeye taşır.
+    // Asla kaynakları AMM pazarında erken satıp harcamaz!
     // =========================================================================
-    if (readyToLaunchNodes.length > 0) {
+    if (this.state.botSiloAutoUpgrade) {
+      const upRes = this.upgradeWarehouse();
+      if (upRes && upRes.success) {
+        actions.push(`🏰 Silo otomatik Seviye ${this.state.warehouseLevel}'e yükseltildi! Yeni Kapasite açıldı.`);
+      }
+    } else {
+      // Kullanıcı açıkça "Akıllı Satış" seçtiyse: Ambarı taşıracak seviyede olan kaynakları satarak yer aç
       const cap = this.getWarehouseCapacity();
       for (const nodeId of readyToLaunchNodes) {
-        const ratePm = this.getResourceRatePerMinute(nodeId);
-        const durationMinutes = this.getExpeditionDurationMinutes();
-        const estYield = Math.floor(ratePm * durationMinutes * this.getExpeditionSpeedMultiplier());
         const curAmt = Number(this.state.inventory[nodeId]) || 0;
         const limit = cap[nodeId];
-
-        // Eğer mevcut miktar + gelecek tahmini hasat limiti aşıyorsa veya silo %85+ doluysa
-        if (limit != null && (curAmt + estYield > limit || curAmt >= limit * 0.85)) {
-          if (this.state.botSiloAutoUpgrade) {
-            // Kullanıcı "Siloyu Yükselt" seçtiyse
-            const upRes = this.upgradeWarehouse();
-            if (upRes && upRes.success) {
-              actions.push(`🏰 Silo otomatik Seviye ${this.state.warehouseLevel}'e yükseltildi.`);
-            } else {
-              // Yükseltme yapılamadıysa (%80 doluluk veya yetersiz ADA) taşmayı önlemek için akıllı satış yap
-              const spaceRes = this.handleBotSiloSpace(nodeId, estYield);
-              if (spaceRes && spaceRes.handled && spaceRes.action === 'sold') {
-                actions.push(`⚖️ Silo yükseltilemediği için ${spaceRes.amountSold} ${nodeId} satılarak yer açıldı.`);
-              }
-            }
-          } else {
-            // Kullanıcı "Akıllı Satış" seçtiyse
-            const spaceRes = this.handleBotSiloSpace(nodeId, estYield);
-            if (spaceRes && spaceRes.handled && spaceRes.action === 'sold') {
-              actions.push(`⚖️ Akıllı Satış: ${spaceRes.amountSold} ${nodeId} satılarak yer açıldı.`);
-            }
+        if (limit != null && curAmt >= limit * 0.9) {
+          const ratePm = this.getResourceRatePerMinute(nodeId);
+          const durationMinutes = this.getExpeditionDurationMinutes();
+          const estYield = Math.floor(ratePm * durationMinutes * this.getExpeditionSpeedMultiplier());
+          const spaceRes = this.handleBotSiloSpace(nodeId, estYield);
+          if (spaceRes && spaceRes.handled && spaceRes.action === 'sold') {
+            actions.push(`⚖️ Akıllı Satış: ${spaceRes.amountSold} ${nodeId} satılarak yer açıldı.`);
           }
         }
       }
@@ -2951,12 +2981,21 @@ export class GameStateManager {
           return { handled: true, action: 'upgraded', newCapacity: newCap };
         }
       }
-      // Silo yükseltilemediyse (yetersiz ADA, %80 kuralı veya max seviye),
-      // botun takılı kalmaması için otomatik olarak %5 marjlı Akıllı Satışa devret!
+      // Eğer ambar henüz tamamen dolmadıysa (currentAmount < limit):
+      // KESİNLİKLE kaynakları erken satma! Depo dolsun ki %80 barajına ulaşıp siloyu büyütebilsin.
+      if (currentAmount < limit) {
+        return {
+          handled: true,
+          action: 'upgrade_deferred',
+          reason: 'Silo yükseltme barajı (%80 doluluk) bekleniyor, kaynaklar korunuyor.'
+        };
+      }
+      // Eğer ambar %100 AĞZINA KADAR DOLMUŞSA (currentAmount >= limit) ve yükseltme yapılamadıysa (yetersiz ADA):
+      // Botun kilitlenmemesi ve hasadın kaybolmaması için yalnızca taşan miktar kadar Akıllı Satışa devret!
     }
 
-    // 2. Akıllı Satış (Döngü Kazancı + %5 Güvenlik Marjı)
-    // Gerekli alanı açmak için gereken açık (deficit) hesaplanır ve üzerine %5 güvenlik payı eklenir.
+    // 2. Akıllı Satış (SADECE kullanıcı "Akıllı Satış" seçeneğini seçtiyse çalışır)
+    // Döngü Kazancı + %5 Güvenlik Marjı kadar satış yaparak tam gerektiği kadar yer açar.
     const neededSpace = Math.max(1, (currentAmount + yieldAmount) - limit);
     const requiredFreeSpaceWithMargin = Math.ceil(yieldAmount * 1.05);
     const currentFreeSpace = Math.max(0, limit - currentAmount);
