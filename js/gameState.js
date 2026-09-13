@@ -1680,7 +1680,67 @@ export class GameStateManager {
       warehouse: this.getWarehouseUpgradeCost(),
       accountLevel: this.getNextLevelRequirement(),
       toolsRepair: this.getAllRepairCost(),
+      equipmentCraft: this.getAllEquipmentCraftCosts(),
+      equipmentRepair: this.getAllEquipmentRepairCostInKingdom(),
+      soldiersHeal: this.getAllSoldiersHealCost(),
       bot: this.calculateTavernaBotProfitAndCost()
+    };
+  }
+
+  // Tüm teçhizat yuvalarının anlık dövme (craft) maliyetlerini AMM DEX fiyatlarıyla hesaplar
+  getAllEquipmentCraftCosts() {
+    const slots = ['weapon', 'helmet', 'armor', 'legs', 'boots'];
+    const craftCosts = {};
+    slots.forEach(slot => {
+      craftCosts[slot] = this.calculateEquipmentCraftCost(slot);
+    });
+    return craftCosts;
+  }
+
+  // Krallıktaki (çanta, cephanelik ve ordudaki) tüm hasarlı teçhizatların anlık onarım maliyetini hesaplar
+  getAllEquipmentRepairCostInKingdom() {
+    const all = this.getAllArmoryEquipmentList ? this.getAllArmoryEquipmentList() : [];
+    let totalIron = 0, totalWood = 0, totalAda = 0, repairedCount = 0;
+    all.forEach(entry => {
+      if (entry && entry.item) {
+        const cost = this.calculateEquipmentRepairCost(entry.item);
+        if (cost && cost.missingDurability > 0) {
+          totalIron += cost.ironCost;
+          totalWood += cost.woodCost;
+          totalAda += cost.adaCost;
+          repairedCount++;
+        }
+      }
+    });
+    return {
+      count: repairedCount,
+      totalIron,
+      totalWood,
+      totalAda,
+      canAfford: (this.state.inventory?.iron || 0) >= totalIron &&
+                 (this.state.inventory?.wood || 0) >= totalWood &&
+                 (this.state.adAstraBalance || 0) >= totalAda
+    };
+  }
+
+  // Ordudaki tüm yaralı askerlerin anlık doyurma & iyileştirme maliyetini hesaplar
+  getAllSoldiersHealCost() {
+    const units = this.state.soldierUnits || [];
+    let totalWheat = 0, totalAda = 0, woundedCount = 0;
+    units.forEach((_, idx) => {
+      const info = this.getSoldierHealInfo(idx);
+      if (info && !info.isFull) {
+        totalWheat += info.wheatNeeded;
+        totalAda += info.adaCost;
+        woundedCount++;
+      }
+    });
+    return {
+      woundedCount,
+      totalWheat: Math.round(totalWheat * 100) / 100,
+      totalAda: Math.round(totalAda * 100) / 100,
+      canAfford: (this.state.inventory?.wheat || 0) >= totalWheat &&
+                 (this.state.adAstraBalance || 0) >= totalAda
     };
   }
 

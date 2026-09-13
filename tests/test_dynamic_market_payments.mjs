@@ -131,4 +131,66 @@ assert(tickResult.bot, 'tickUpgradeCostBot canlı bot verilerini taramalı');
 
 console.log('✅ [5. Test Başarılı] Genel dinamik ekonomi ve yükseltme maliyet botu başarıyla doğrulandı!');
 
+// 6. Teçhizat Dövme (Craft) AMM DEX Pazar Fiyatı Duyarlılığı Testi
+console.log('\n[6/8] Teçhizat Dövme (Craft) Anlık Market Fiyatı Test Ediliyor...');
+const initialWeaponCraft = gs.calculateEquipmentCraftCost('weapon');
+assert(initialWeaponCraft.woodCost > 0, 'Silah dövme odun istemeli');
+assert(initialWeaponCraft.ironCost > 0, 'Silah dövme demir istemeli');
+assert(initialWeaponCraft.adaCost > 0, 'Silah dövme ADA istemeli');
+
+// Piyasa fiyatını yükseltelim
+ammMarket.pools.wood.adAstraReserve = 25000000;
+ammMarket.pools.iron.adAstraReserve = 25000000;
+ammMarket.savePools();
+
+const highWeaponCraft = gs.calculateEquipmentCraftCost('weapon');
+assert(highWeaponCraft.adaCost > initialWeaponCraft.adaCost, 'Piyasa fiyatı artınca silah dövme ADA bedeli hemen artmalı');
+const expectedHighCraftAda = ammMarket.calculateResourcesAdAstraValue({
+  wood: highWeaponCraft.woodCost,
+  iron: highWeaponCraft.ironCost
+}).totalAda;
+assert.equal(highWeaponCraft.adaCost, expectedHighCraftAda, 'Dövme ADA bedeli anlık AMM DEX değerine tam eşit olmalı');
+console.log(`✅ [6. Test Başarılı] Silah Dövme ADA Bedeli ${initialWeaponCraft.adaCost} ADA -> ${highWeaponCraft.adaCost} ADA olarak canlı güncellendi!`);
+
+// 7. Teçhizat Yükseltme (Upgrade) ve Onarım (Repair) Anlık Market Fiyatı Testi
+console.log('\n[7/8] Teçhizat Yükseltme ve Onarımında Canlı Pazar Değeri Test Ediliyor...');
+ammMarket.resetPools(); // normal fiyatlar
+// Test için sahte bir kılıç oluşturalım
+const testSword = {
+  id: 'test_sword_1',
+  slot: 'weapon',
+  name: 'Test Kılıcı',
+  level: 1,
+  baseAtk: 25,
+  baseHp: 0,
+  durability: 8, // 13 üzerinden 8 (5 hasar)
+  maxDurability: 13
+};
+
+const normalUpgradeCost = gs.calculateEquipmentUpgradeCost(testSword);
+const normalRepairCost = gs.calculateEquipmentRepairCost(testSword);
+
+// Fiyatları yükseltelim
+ammMarket.pools.wood.adAstraReserve = 25000000;
+ammMarket.pools.iron.adAstraReserve = 25000000;
+ammMarket.savePools();
+
+const highUpgradeCost = gs.calculateEquipmentUpgradeCost(testSword);
+const highRepairCost = gs.calculateEquipmentRepairCost(testSword);
+
+assert(highUpgradeCost.adAstraCost > normalUpgradeCost.adAstraCost, 'Piyasa yükselince teçhizat yükseltme ADA bedeli anında artmalı');
+assert(highRepairCost.adaCost > normalRepairCost.adaCost, 'Piyasa yükselince teçhizat onarım ADA bedeli anında artmalı');
+
+console.log(`✅ [7. Test Başarılı] Teçhizat Yükseltme: ${normalUpgradeCost.adAstraCost} -> ${highUpgradeCost.adAstraCost} ADA, Onarım: ${normalRepairCost.adaCost} -> ${highRepairCost.adaCost} ADA!`);
+
+// 8. getDynamicEconomyRates Teçhizat & Asker İyileştirme Entegrasyonu Testi
+console.log('\n[8/8] getDynamicEconomyRates Teçhizat & Asker İyileştirme Taraması Test Ediliyor...');
+ammMarket.resetPools();
+const fullEco = gs.getDynamicEconomyRates();
+assert.ok(fullEco.equipmentCraft, 'equipmentCraft nesnesi bulunmalı');
+assert.ok(fullEco.equipmentCraft.weapon, 'weapon dövme maliyeti taranmalı');
+assert.ok(fullEco.equipmentRepair, 'equipmentRepair nesnesi bulunmalı');
+assert.ok(fullEco.soldiersHeal, 'soldiersHeal nesnesi bulunmalı');
+console.log('✅ [8. Test Başarılı] Tüm teçhizat craft, onarım ve asker iyileştirme dinamik fiyatlama motoruna bağlandı!');
+
 console.log('\n🎉 TÜM ANLIK AMM DEX VE DİNAMİK ÖDEME MEKANİZMASI TESTLERİ %100 BAŞARIYLA GEÇTİ! 🎉');

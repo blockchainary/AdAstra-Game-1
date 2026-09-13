@@ -7218,6 +7218,94 @@ function refreshLiveUpgradeCostUI(deltaSeconds = 1) {
       }
     }
   });
+
+  // 5. Demirci Teçhizat Dövme Butonları & Canlı AMM ADA Fiyatları
+  const craftBtns = dom.modalContainer.querySelectorAll('.btn-craft-equipment');
+  craftBtns.forEach(btn => {
+    const slot = btn.dataset.slot;
+    if (slot) {
+      const cost = gameState.calculateEquipmentCraftCost(slot);
+      if (cost) {
+        const canAfford = (inv.iron || 0) >= cost.ironCost &&
+                          (inv.wood || 0) >= cost.woodCost &&
+                          (inv.fragments || 0) >= cost.fragCost &&
+                          adAstra >= cost.adaCost;
+        btn.disabled = !canAfford;
+        const slotNames = { weapon: 'Silah', helmet: 'Miğfer', armor: 'Zırh', legs: 'Pantolon', boots: 'Çizme' };
+        btn.innerText = canAfford ? `🔨 ${slotNames[slot] || 'Teçhizat'} Döv (1 Adet)` : '⚠️ Yetersiz Hammadde';
+
+        // Ebeveyn kart içerisindeki ADA tutarını canlı güncelle
+        const card = btn.closest('.clean-card');
+        if (card) {
+          const spans = card.querySelectorAll('span');
+          spans.forEach(sp => {
+            if (sp.innerText.includes('ADA') && sp.innerText.includes('🟣')) {
+              sp.innerText = `🟣 ${cost.adaCost} ADA`;
+            }
+          });
+        }
+      }
+    }
+  });
+
+  // 6. Çanta / Cephanelik Teçhizat Yükseltme ve Onarma Butonları
+  const armoryUpgradeBtns = dom.modalContainer.querySelectorAll('.btn-armory-direct-upgrade');
+  armoryUpgradeBtns.forEach(btn => {
+    const slot = btn.dataset.slot;
+    const sIdx = btn.dataset.soldierIdx;
+    const upCost = gameState.calculateEquipmentUpgradeCost(slot, sIdx !== '' && sIdx !== undefined ? Number(sIdx) : null);
+    if (upCost && !upCost.isMaxLevel) {
+      const canAfford = (inv.iron || 0) >= upCost.ironCost &&
+                        (inv.wood || 0) >= upCost.woodCost &&
+                        (inv.fragments || 0) >= upCost.fragmentCost &&
+                        adAstra >= upCost.adAstraCost;
+      btn.disabled = !canAfford;
+      btn.innerText = `✨ Seviye ${upCost.nextLevel}'ye Yükselt`;
+    }
+  });
+
+  // 7. Teçhizat Onarım Butonları (Tekil ve Toplu)
+  const eqRepairBtns = dom.modalContainer.querySelectorAll('.btn-armory-repair, .btn-equip-repair, .btn-barracks-repair-item');
+  eqRepairBtns.forEach(btn => {
+    const slot = btn.dataset.slot;
+    const sIdx = btn.dataset.soldierIdx;
+    const repCost = gameState.calculateEquipmentRepairCost(slot, sIdx !== '' && sIdx !== undefined ? Number(sIdx) : null);
+    if (repCost && !repCost.isRepaired) {
+      const canAfford = (inv.iron || 0) >= repCost.ironCost &&
+                        (inv.wood || 0) >= repCost.woodCost &&
+                        adAstra >= repCost.adaCost;
+      btn.disabled = !canAfford;
+      btn.innerText = `🔧 Onar (${repCost.adaCost} ADA)`;
+    }
+  });
+
+  const repAllArmoryBtn = dom.modalContainer.querySelector('.btn-repair-all-armory');
+  if (repAllArmoryBtn) {
+    const allRepCost = gameState.getAllEquipmentRepairCostInKingdom();
+    repAllArmoryBtn.disabled = allRepCost.count === 0 || !allRepCost.canAfford;
+    repAllArmoryBtn.innerText = allRepCost.count === 0 
+      ? '✨ Tüm Eşyalar Sağlam' 
+      : `🔨 Tüm Hasarlı Eşyaları Onar (${allRepCost.totalWood}🌲 + ${allRepCost.totalIron}⛏️ + ${allRepCost.totalAda}🟣 ADA)`;
+  }
+
+  // 8. Kışla Asker Hızlı İyileştirme Butonları
+  const healBtns = dom.modalContainer.querySelectorAll('.btn-heal-soldier-instant');
+  healBtns.forEach(btn => {
+    const sIdx = btn.dataset.soldierIdx;
+    if (sIdx !== undefined && sIdx !== '') {
+      const hInfo = gameState.getSoldierHealInfo(Number(sIdx));
+      if (hInfo) {
+        if (hInfo.isFull) {
+          btn.disabled = true;
+          btn.innerText = '💚 Tam Can';
+        } else {
+          const canAfford = (inv.wheat || 0) >= hInfo.wheatNeeded && adAstra >= hInfo.adaCost;
+          btn.disabled = !canAfford;
+          btn.innerText = `⚡ Anında İyileştir (${hInfo.wheatNeeded}🌾 + ${hInfo.adaCost}🟣 ADA)`;
+        }
+      }
+    }
+  });
 }
 
 function uiGameLoop(currentTime) {
