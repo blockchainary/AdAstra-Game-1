@@ -50,7 +50,7 @@ export class GameStateManager {
       soldierUnits: this.mergeSoldierUnits(parsed.soldierUnits),
       dungeonMonsterCurrentHp: parsed.dungeonMonsterCurrentHp || {},
       lotteryTickets: parsed.lotteryTickets || 0,
-      lotteryPool: parsed.lotteryPool != null ? parsed.lotteryPool : 1000000,
+      lotteryPool: (parsed.lotteryPool != null && parsed.lotteryPool >= 20000000) ? parsed.lotteryPool : (GAME_CONFIG.LOTTERY?.SEED_POOL_ADA || 20000000),
       lotteryAmortiPool: parsed.lotteryAmortiPool || 0,
       wheelTicketShards: parsed.wheelTicketShards || 0,
       botSiloAutoUpgrade: parsed.botSiloAutoUpgrade !== undefined ? parsed.botSiloAutoUpgrade : true,
@@ -2539,29 +2539,7 @@ export class GameStateManager {
     }
 
     if (scrollType === 'scroll_repair') {
-      if (!this.state.tools) this.state.tools = this.mergeTools(null);
-      const tools = this.state.tools;
-      const axe = tools.axe || (tools.axe = { durability: 4320 });
-      const pick = tools.pickaxe || (tools.pickaxe = { durability: 4320 });
-      const sickle = tools.sickle || (tools.sickle = { durability: 4320 });
-
-      const missingAxe = 4320 - (axe.durability || 0);
-      const missingPick = 4320 - (pick.durability || 0);
-      const missingSickle = 4320 - (sickle.durability || 0);
-
-      if (missingAxe <= 0 && missingPick <= 0 && missingSickle <= 0) {
-        return { success: false, message: 'Tüm aletlerin (Balta, Kazma, Orak) zaten %100 sağlam durumda!' };
-      }
-
-      axe.durability = Math.min(4320, (axe.durability || 0) + 432);
-      pick.durability = Math.min(4320, (pick.durability || 0) + 432);
-      sickle.durability = Math.min(4320, (sickle.durability || 0) + 432);
-      inv.scroll_repair -= 1;
-      this.saveState();
-      return {
-        success: true,
-        message: `🔨 %10 Alet Onarım Parşömeni kullanıldı! Tüm aletlerine +%10 (432 dk) dayanıklılık eklendi.`
-      };
+      return { success: false, message: '🔨 Alet onarım parşömenleri oyundan kaldırılmıştır. Aletlerinizi Demirci aracılığıyla (Odun + Demir + ADA) tamir edebilirsiniz.' };
     }
 
     return { success: false, message: 'Bilinmeyen parşömen türü!' };
@@ -2711,10 +2689,24 @@ export class GameStateManager {
       this.state.arenaKeys = (this.state.arenaKeys || 0) + 1;
     }
 
+    // 📜 Zindan Zafer Ganimeti: Canavarlardan Düşen Parşömenler (Yalnızca Ordu İyileştirme & 100 Stamina)
+    let scrollGained = null;
+    const scrollChance = isMajorBoss ? 0.40 : 0.07;
+    if (Math.random() < scrollChance) {
+      const isHeal = Math.random() < 0.60;
+      const scrollType = isHeal ? 'scroll_heal' : 'scroll_stamina';
+      this.state.inventory[scrollType] = (this.state.inventory[scrollType] || 0) + 1;
+      scrollGained = {
+        type: scrollType,
+        name: isHeal ? 'Ordu İyileştirme Parşömeni (+10 HP)' : '100 Stamina Doldurma Parşömeni',
+        icon: isHeal ? '📜' : '⚡'
+      };
+    }
+
     sound.playLevelUp();
     this.saveState();
 
-    return { xpGained, adAstraGained, fragmentsGained, boxGained, artifactDiscovered, isBoss: isMajorBoss };
+    return { xpGained, adAstraGained, fragmentsGained, boxGained, artifactDiscovered, scrollGained, isBoss: isMajorBoss };
   }
 
   // Henüz Keşfedilmemiş Bir Koleksiyon Eserini Açığa Çıkarır (Varsa Zindan Seviyesine Uygun Olanı Önceliklendirir)
@@ -3032,7 +3024,7 @@ export class GameStateManager {
       armoryInventory: [],
       dungeonMonsterCurrentHp: {},
       lotteryTickets: 0,
-      lotteryPool: 1000000,
+      lotteryPool: (GAME_CONFIG.LOTTERY && GAME_CONFIG.LOTTERY.SEED_POOL_ADA) || 20000000,
       lotteryAmortiPool: 0,
       wheelTicketShards: 0,
       botSiloAutoUpgrade: true,
@@ -3103,15 +3095,15 @@ export class GameStateManager {
     const boss = this.getWorldBossInfo();
 
     const alloc = GAME_CONFIG.TREASURY_ALLOCATION || {
-      dungeon: 0.25,
-      arena: 0.15,
-      worldBoss: 0.15,
-      ammBuyback: 0.13,
+      dungeon: 0.35,
+      arena: 0.20,
+      worldBoss: 0.20,
+      ammBuyback: 0.15,
       carnival: 0.10
     };
 
     const burnRate = GAME_CONFIG.TOKEN_BURN_RATE || 0.22;
-    const lotteryPool = state.lotteryPool != null ? state.lotteryPool : 1000000;
+    const lotteryPool = state.lotteryPool != null ? state.lotteryPool : 20000000;
     const amortiPool = state.lotteryAmortiPool || 0;
     const lotteryWinnerShare = Math.round(lotteryPool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.WEEKLY_WINNER_SHARE || 0.18));
     const lotteryAmortiShare = Math.round(lotteryPool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.AMORTI_SHARE || 0.02));

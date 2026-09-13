@@ -31,8 +31,7 @@ const WEEKLY_SUPPLY_FALLBACK = {
   boxes: 260,
   keys: 900,
   scroll_heal: 1500,
-  scroll_stamina: 1000,
-  scroll_repair: 1200
+  scroll_stamina: 1000
 };
 
 function weeklySupplyOf(key) {
@@ -56,22 +55,51 @@ function derivePool(key, meta) {
 
 function buildDefaultPools() {
   return {
-    wood:           derivePool('wood',           { name: 'Odun', icon: '🌲' }),
-    iron:           derivePool('iron',           { name: 'Demir', icon: '⛏️' }),
-    wheat:          derivePool('wheat',          { name: 'Buğday', icon: '🌾' }),
-    fragments:      derivePool('fragments',      { name: 'Teçhizat Parçaları', icon: '🧩' }),
-    boxes:          derivePool('boxes',          { name: 'Pandora Kutusu', icon: '📦' }),
-    keys:           derivePool('keys',           { name: 'Arena Anahtarı', icon: '🔑' }),
-    scroll_heal:    derivePool('scroll_heal',    { name: 'Ordu İyileştirme Parşömeni', icon: '📜' }),
-    scroll_stamina: derivePool('scroll_stamina', { name: '100 Stamina Doldurma Parşömeni', icon: '⚡' }),
-    scroll_repair:  derivePool('scroll_repair',  { name: 'Alet Onarım Parşömeni', icon: '🔨' })
+    wheat: {
+      name: 'Buğday',
+      icon: '🌾',
+      adAstraReserve: 14000000,
+      resourceReserve: 15555556
+    },
+    wood: {
+      name: 'Odun',
+      icon: '🌲',
+      adAstraReserve: 10000000,
+      resourceReserve: 4000000
+    },
+    iron: {
+      name: 'Demir',
+      icon: '⛏️',
+      adAstraReserve: 10000000,
+      resourceReserve: 2500000
+    },
+    fragments: {
+      name: 'Teçhizat Parçaları',
+      icon: '🧩',
+      adAstraReserve: 3000000,
+      resourceReserve: 66667
+    },
+    boxes: {
+      name: 'Pandora Kutusu',
+      icon: '📦',
+      adAstraReserve: 2000000,
+      resourceReserve: 2222
+    },
+    keys: {
+      name: 'Arena Anahtarı',
+      icon: '🔑',
+      adAstraReserve: 1000000,
+      resourceReserve: 2857
+    },
+    scroll_heal: derivePool('scroll_heal', { name: 'Ordu İyileştirme Parşömeni', icon: '📜' }),
+    scroll_stamina: derivePool('scroll_stamina', { name: '100 Stamina Doldurma Parşömeni', icon: '⚡' })
   };
 }
 
 export class AMMMarketEngine {
   constructor() {
-    // v8: Yeni Parşömen AMM havuzları (%1 fee)
-    this.storageKey = 'adastra_amm_pools_v8';
+    // v9: 40M $ADASTRA Derin AMM Havuzları (40M Likidite, 40M Hazine, 20M Piyango = 100M Toplam)
+    this.storageKey = 'adastra_amm_pools_v9';
     this.pools = this.loadPools();
     this.feeStats = this.loadFeeStats();
   }

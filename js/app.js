@@ -883,7 +883,6 @@ function openInventoryModal() {
 
   const scrollHeal = state.inventory.scroll_heal || 0;
   const scrollStamina = state.inventory.scroll_stamina || 0;
-  const scrollRepair = state.inventory.scroll_repair || 0;
   const wheelShards = state.wheelTicketShards || 0;
   const lotteryTickets = state.lotteryTickets || 0;
   const arenaKeys = state.arenaKeys || 0;
@@ -1033,23 +1032,6 @@ function openInventoryModal() {
             ${scrollStamina > 0 ? '⚡ Parşömeni Kullan (+100 ⚡)' : 'Tükendi'}
           </button>
         </div>
-
-        <!-- Alet Onarım Parşömeni -->
-        <div class="inventory-scroll-card">
-          <div class="inventory-scroll-header">
-            <div class="inventory-scroll-title">
-              <span style="font-size: 1.3rem;">🔨</span>
-              <span>%10 Alet Onarımı</span>
-            </div>
-            <span class="inventory-scroll-count">${scrollRepair} Adet</span>
-          </div>
-          <div class="inventory-scroll-desc">
-            Tüm aletlerine (Balta, Kazma, Orak) anında <strong>+432 dk (%10)</strong> dayanıklılık ekler.
-          </div>
-          <button class="btn-clean btn-clean-outline inventory-scroll-btn btn-use-scroll" data-scroll="scroll_repair" ${scrollRepair <= 0 ? 'disabled' : ''}>
-            ${scrollRepair > 0 ? '🔨 Parşömeni Kullan (+%10 Tamir)' : 'Tükendi'}
-          </button>
-        </div>
       </div>
 
       <!-- Ek Özel Eşyalar & Biletler -->
@@ -1071,11 +1053,6 @@ function openInventoryModal() {
       <div class="card-title-row">
         <div class="card-title">🔨 Aletler & Dayanıklılık</div>
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-          ${scrollRepair > 0 ? `
-            <button class="btn-clean btn-clean-purple btn-use-scroll" data-scroll="scroll_repair" style="padding: 5px 12px; font-size: 0.8rem; font-weight: 800; width: auto;" title="Tüm aletlere anında +432 dk (%10) dayanıklılık ekler">
-              📜 Parşömen Kullan (${scrollRepair} Adet • +432 dk)
-            </button>
-          ` : ''}
           <span style="font-size: 0.85rem; color: #fde047; font-weight: 700;">Odun + Demir + ADA ile Onarım (Buğdaysız)</span>
         </div>
       </div>
@@ -1258,11 +1235,6 @@ function openTownZoneModal(zoneId, zoneName) {
           <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="axe" style="flex: 1; min-width: 160px;" ${axeCost.missingDurability <= 0 ? 'disabled' : ''}>
             ${axeCost.missingDurability <= 0 ? 'Balta Tamamen Sağlam' : `Baltayı Onar (${axeCost.woodCost}🌲 + ${axeCost.ironCost}⛏️ + ${axeCost.adAstraCost} 🪙)`}
           </button>
-          ${(state.inventory.scroll_repair || 0) > 0 ? `
-            <button class="btn-clean btn-clean-purple btn-use-scroll" data-scroll="scroll_repair" style="width: auto; padding: 8px 14px; font-weight: 800;" ${playerTool.durability >= 4320 ? 'disabled' : ''} title="%10 Alet Onarım Parşömeni Kullan">
-              📜 Parşömen Kullan (${state.inventory.scroll_repair} Adet)
-            </button>
-          ` : ''}
         </div>
       </div>
     `;
@@ -1322,11 +1294,6 @@ function openTownZoneModal(zoneId, zoneName) {
           <button class="btn-clean btn-clean-outline btn-modal-repair" data-tool="pickaxe" style="flex: 1; min-width: 160px;" ${pickCost.missingDurability <= 0 ? 'disabled' : ''}>
             ${pickCost.missingDurability <= 0 ? 'Kazma Tamamen Sağlam' : `Kazmayı Onar (${pickCost.woodCost}🌲 + ${pickCost.ironCost}⛏️ + ${pickCost.adAstraCost} 🪙)`}
           </button>
-          ${(state.inventory.scroll_repair || 0) > 0 ? `
-            <button class="btn-clean btn-clean-purple btn-use-scroll" data-scroll="scroll_repair" style="width: auto; padding: 8px 14px; font-weight: 800;" ${pickaxeTool.durability >= 4320 ? 'disabled' : ''} title="%10 Alet Onarım Parşömeni Kullan">
-              📜 Parşömen Kullan (${state.inventory.scroll_repair} Adet)
-            </button>
-          ` : ''}
         </div>
       </div>
     `;
@@ -2569,7 +2536,7 @@ function renderBarracksHtml() {
 }
 
 // =========================================================================
-// 4.4B KRALLIK KARNAVALI & ŞANS ÇARKI (14 ÖDÜL) & HAFTALIK PİYANGO
+// 4.4B KRALLIK KARNAVALI & ŞANS ÇARKI (15 ÖDÜL) & HAFTALIK PİYANGO
 // =========================================================================
 window.carnivalActiveTab = 'wheel';
 window.carnivalWheelRotation = 0;
@@ -2594,11 +2561,8 @@ const WHEEL_SHORT_LABELS = {
   'free_bot_24h': '24s Bot',
   'ada_200': '200 ADA',
   'ada_1000': '1K ADA 👑',
-  'scroll_heal': 'Can Parş.',
   'ada_50': '50 ADA',
   'box_key': 'Kutu Anahtarı',
-  'scroll_stamina': '100 Stamina P.',
-  'scroll_repair': 'Tamir P.',
   'wheel_ticket_shard': 'Bilet Parça',
   'coin_analysis_code': 'Coin Analiz'
 };
@@ -3027,7 +2991,7 @@ function renderCarnivalHtml(activeTab = 'wheel') {
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
             <div>
               <div style="font-size: 1.1rem; font-weight: 900; color: #fff; display:flex; align-items:center; gap:8px;">
-                <span>🎡 14 Potansiyel Ödüllü Krallık Çarkı</span>
+                <span>🎡 15 Potansiyel Ödüllü Krallık Çarkı</span>
                 <span class="card-badge" style="background:#ec4899; color:#fff; border:none; font-weight:800;">RTP ~%${Math.round(wheelRewards.reduce((s, r) => s + ((r.weight / (wheelRewards.reduce((ws, wi) => ws + (wi.weight || 0), 0) || 10000)) * (r.valAda || 0)), 0))} • Kasa Garantili</span>
               </div>
               <div style="font-size: 0.85rem; color: #cbd5e1; margin-top:2px;">
@@ -3103,10 +3067,10 @@ function renderCarnivalHtml(activeTab = 'wheel') {
           </div>
         </div>
 
-        <!-- 18 Ödül Listesi / Detaylı İnceleme Bölümü -->
+        <!-- 15 Ödül Listesi / Detaylı İnceleme Bölümü -->
         <div class="clean-card" style="border-color: rgba(255,255,255,0.1); background: rgba(10,10,18,0.6); padding:12px;">
           <div style="font-size:0.85rem; font-weight:800; color:#cbd5e1; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-            <span>📋 Çarktaki 18 Dilim Ödül Tablosu:</span>
+            <span>📋 Çarktaki 15 Dilim Ödül Tablosu:</span>
             <span style="font-size:0.75rem; color:#facc15;">RTP ~%${Math.round(wheelRewards.reduce((s, r) => s + ((r.weight / (wheelRewards.reduce((ws, wi) => ws + (wi.weight || 0), 0) || 10000)) * (r.valAda || 0)), 0))}</span>
           </div>
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px;">
@@ -3149,7 +3113,7 @@ function renderCarnivalHtml(activeTab = 'wheel') {
         <div class="clean-card" style="border-left: 4px solid #f59e0b; background: #1a150c;">
           <div class="card-title-row">
             <div class="card-title">🎟️ Haftalık Büyük AdAstra Piyangosu</div>
-            <span class="card-badge" style="background:#ca8a04; color:#000; font-weight:900;">1.000.000 ADA Tohum Kasa</span>
+            <span class="card-badge" style="background:#ca8a04; color:#000; font-weight:900;">20.000.000 ADA Tohum Kasa</span>
           </div>
           <div class="clean-desc" style="font-size:0.85rem; line-height:1.4;">
             Her hafta toplanan toplam ödül havuzunun <strong>%18'i şanslı bir kişiye</strong> verilir. %2'si Amorti Hazine Kasası'nda birikir, <strong>%80'i ise sonraki haftaya devreder</strong> (Rollover).
@@ -3212,13 +3176,13 @@ function renderCarnivalHtml(activeTab = 'wheel') {
   } else if (activeTab === 'pools') {
     const eData = eco || {
       burnRatePct: 22,
-      totalPoolsBalance: 1560000,
+      totalPoolsBalance: 40000000,
       lifetimeBurnedAda: 45000,
       solvencyPct: 100,
       totalDeposited: 180000,
       totalWithdrawn: 42000,
       burnedResources: { wood: 0, iron: 0, wheat: 0 },
-      lottery: { lotteryPool: 1000000, winnerShare: 180000, amortiShare: 20000, rolloverShare: 800000 },
+      lottery: { lotteryPool: 20000000, winnerShare: 3600000, amortiShare: 400000, rolloverShare: 16000000 },
       pools: []
     };
 
@@ -4168,7 +4132,6 @@ function openDashboardModal() {
 
   const scrollHeal = Number(gameState.state.inventory.scroll_heal) || 0;
   const scrollStamina = Number(gameState.state.inventory.scroll_stamina) || 0;
-  const scrollRepair = Number(gameState.state.inventory.scroll_repair) || 0;
 
   // 1-Click Top Actions Bar
   const quickActionsHtml = `
@@ -4192,11 +4155,6 @@ function openDashboardModal() {
         <button class="btn-1click btn-1click-repair-tools" ${repairCosts.count === 0 ? 'disabled' : ''} title="Tüm aşınmış aletleri tamir et">
           <span>🔨</span> <span>Tüm Aletleri Onar (${repairCosts.count === 0 ? 'Tam Sağlam' : `${repairCosts.totalWood} 🌲 ${repairCosts.totalIron} ⛏️ ${repairCosts.totalAda} 🟣`})</span>
         </button>
-        ${scrollRepair > 0 ? `
-          <button class="btn-1click btn-use-scroll" data-scroll="scroll_repair" ${repairCosts.count === 0 ? 'disabled' : ''} style="background: linear-gradient(135deg, rgba(88,28,135,0.4), rgba(59,7,100,0.6)); border-color: #a855f7; color: #f3e8ff;" title="%10 Alet Onarım Parşömeni Kullanarak Tüm Aletlere +432 dk Ekle">
-            <span>📜</span> <span>Parşömenle Aletleri Onar (${scrollRepair})</span>
-          </button>
-        ` : ''}
         <button class="btn-1click btn-1click-heal-army" ${healCosts.count === 0 ? 'disabled' : ''} title="Tüm yaralı askerleri doyur ve iyileştir">
           <span>🌾</span> <span>Tüm Orduyu Doyur (${healCosts.count === 0 ? 'Tam Sağlıklı' : `${healCosts.totalWheat} 🌾 ${healCosts.totalAda.toFixed(1)} 🟣`})</span>
         </button>

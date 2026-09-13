@@ -1,10 +1,10 @@
 import assert from 'node:assert';
 import { GAME_CONFIG } from '../js/config.js';
 
-console.log('--- 🎪 KARNAVAL ŞANS ÇARKI ÖDÜL ORANLARI DOĞRULAMA TESTİ (v1.08) ---');
+console.log('--- 🎪 KARNAVAL ŞANS ÇARKI ÖDÜL ORANLARI DOĞRULAMA TESTİ (v1.12) ---');
 
 const rewards = GAME_CONFIG.CARNIVAL.WHEEL_REWARDS;
-assert(Array.isArray(rewards) && rewards.length === 18, 'Çarkta tam 18 ödül dilimi bulunmalı');
+assert(Array.isArray(rewards) && rewards.length === 15, 'Çarkta tam 15 ödül dilimi bulunmalı (Parşömenler Çıkarıldı)');
 
 const totalWeight = rewards.reduce((sum, r) => sum + (r.weight || 0), 0);
 console.log(`Toplam Havuz Ağırlığı: ${totalWeight}`);
@@ -33,14 +33,11 @@ fragRewards.forEach(fr => {
 assert(fragRate < 0.01, `Teçhizat parçaları oranı %1'in altında olmalı: %${fragPct}`);
 console.log('   ✅ KURAL 2 SAĞLANDI: Teçhizat parçaları toplam oranı %1\'in altında (< %1.00)');
 
-// 3. Stamina parşömenlerinin gelme oranı %1'in altında olsun
-const staminaScroll = rewards.find(r => r.key === 'scroll_stamina' || r.id === 'scroll_stamina');
-assert(staminaScroll, '100 Stamina parşömeni bulunmalı');
-const staminaRate = staminaScroll.weight / totalWeight;
-const staminaPct = (staminaRate * 100).toFixed(2);
-console.log(`3. 100 Stamina Doldurma Parşömeni: %${staminaPct} (Ağırlık: ${staminaScroll.weight})`);
-assert(staminaRate < 0.01, `Stamina parşömeni oranı %1'in altında olmalı: %${staminaPct}`);
-console.log('   ✅ KURAL 3 SAĞLANDI: Stamina parşömeni oranı %1\'in altında (< %1.00)');
+// 3. Parşömenler Çarktan Tamamen Kaldırıldı (Ekonomi Güvencesi)
+const anyScrollReward = rewards.find(r => (r.key && r.key.startsWith('scroll_')) || (r.id && r.id.startsWith('scroll_')));
+assert(!anyScrollReward, 'Çarkta hiçbir parşömen bulunmamalı (Parşömenler zindana taşındı)');
+console.log('3. Parşömenler Çarktan Çıkarıldı: 0 Adet');
+console.log('   ✅ KURAL 3 SAĞLANDI: Çarkta hiçbir parşömen yok (Zindan ganimeti haline getirildi)');
 
 // 4. Anahtar gelme oranı %0.1'in altında olsun
 const keyReward = rewards.find(r => r.type === 'key' || r.id === 'box_key');
@@ -60,7 +57,7 @@ console.log(`5. AlphAvax Coin Analiz Kodu: %${analysisPct} (Ağırlık: ${analys
 assert(analysisRate < 0.01, `Coin analiz kodu oranı %1'in altında olmalı: %${analysisPct}`);
 console.log('   ✅ KURAL 5 SAĞLANDI: Coin analiz kodu oranı %1\'in altında (< %1.00)');
 
-console.log('\n--- 📋 TÜM 18 DİLİMİN GÜNCEL DAĞILIM TABLOSU ---');
+console.log('\n--- 📋 TÜM 15 DİLİMİN GÜNCEL DAĞILIM TABLOSU ---');
 let cumulativeProb = 0;
 rewards.forEach((r, idx) => {
   const p = (r.weight / totalWeight) * 100;

@@ -14,13 +14,13 @@ const POOL_IDS = ['dungeon', 'arena', 'worldBoss', 'ammBuyback', 'carnival'];
 
 export class TreasuryLedger {
   constructor() {
-    this.storageKey = 'adastra_treasury_ledger_v2';
+    this.storageKey = 'adastra_treasury_ledger_v3';
     this.state = this.load();
   }
 
   load() {
     const seed = () => ({
-      pools: { dungeon: 180000, arena: 120000, worldBoss: 110000, ammBuyback: 90000, carnival: 60000 },
+      pools: { dungeon: 14000000, arena: 8000000, worldBoss: 8000000, ammBuyback: 6000000, carnival: 4000000 },
       lifetimeDeposited: 0,
       lifetimeWithdrawn: 0,
       lifetimeBurned: 0,

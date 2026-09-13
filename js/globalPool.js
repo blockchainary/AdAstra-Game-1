@@ -102,17 +102,19 @@ export class GlobalResourceManager {
       contractAddress: CONTRACT_ADDRESS,
       totalSpent: prevState ? prevState.totalSpent || 54200 : 54200,
       totalBurned: prevState ? prevState.totalBurned || 18450 : 18450, // %18 Kalıcı Yakım
-      totalTreasury: prevState ? prevState.totalTreasury || 35750 : 35750, // %82 Hazine
+      totalTreasury: prevState ? prevState.totalTreasury || 40000000 : 40000000, // %78 Hazine
       treasury: prevState ? prevState.treasury || {
-        dungeon: 12512,      // %35 Zindan & Boss Zaferleri
-        ammBuyback: 10725,   // %30 AMM DEX Likidite Geri Alımı
-        arena: 8937,         // %25 18v18 Kolezyum Gladyatör Arenası
-        staking: 3575        // %10 Staking & Sadakat Rezervi
+        dungeon: 14000000,      // %35 Zindan & Boss Zaferleri
+        ammBuyback: 6000000,    // %15 AMM DEX Likidite Geri Alımı
+        arena: 8000000,         // %20 18v18 Kolezyum Gladyatör Arenası
+        worldBoss: 8000000,     // %20 Dünya Bossu
+        carnival: 4000000       // %10 Şans Çarkı Kasası
       } : {
-        dungeon: 12512,
-        ammBuyback: 10725,
-        arena: 8937,
-        staking: 3575
+        dungeon: 14000000,
+        ammBuyback: 6000000,
+        arena: 8000000,
+        worldBoss: 8000000,
+        carnival: 4000000
       },
       totalActiveMiners: 342,
       buybackFromBroadcasting: prevState ? prevState.buybackFromBroadcasting || 12500 : 12500 // %35 Avalanche Arena yayın buyback havuzu

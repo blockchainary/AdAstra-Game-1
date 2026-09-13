@@ -19,14 +19,15 @@ const gs = new GameStateManager();
 // Test 1: Çark ödülleri ve veri doğrulaması
 console.log('\n[1/4] Şans Çarkı Ödül Tablosu Denetleniyor...');
 const wheelRewards = GAME_CONFIG.CARNIVAL.WHEEL_REWARDS;
-assert(Array.isArray(wheelRewards) && wheelRewards.length === 18, 'Çarkta tam 18 ödül dilimi bulunmalı');
+assert(Array.isArray(wheelRewards) && wheelRewards.length === 15, 'Çarkta tam 15 ödül dilimi bulunmalı');
 wheelRewards.forEach((r, idx) => {
   assert(r.id, `Ödül #${idx} id içermeli`);
   assert(r.name, `Ödül #${idx} name içermeli`);
   assert(r.icon, `Ödül #${idx} icon içermeli`);
   assert(r.weight > 0, `Ödül #${idx} weight > 0 olmalı`);
+  assert(!r.key?.startsWith('scroll_') && !r.id?.startsWith('scroll_'), `Ödül #${idx} parşömen olmamalı`);
 });
-console.log('✅ 18 Dilimli Şans Çarkı konfigürasyonu eksiksiz.');
+console.log('✅ 15 Dilimli Şans Çarkı (parşömensiz) konfigürasyonu eksiksiz.');
 
 // Test 2: Ordu İyileştirme Parşömeni (scroll_heal)
 console.log('\n[2/4] Ordu İyileştirme Parşömeni (scroll_heal) Test Ediliyor...');
@@ -73,30 +74,25 @@ const fullStaminaRes = gs.useScroll('scroll_stamina');
 assert(!fullStaminaRes.success, 'Stamina doluyken veya parşömen yokken reddedilmeli');
 console.log('✅ 100 Stamina Doldurma Parşömeni mekaniği %100 doğrulandı.');
 
-// Test 4: %10 Alet Onarım Parşömeni (scroll_repair)
-console.log('\n[4/4] %10 Alet Onarım Parşömeni (scroll_repair) Test Ediliyor...');
-gs.state.tools.axe.durability = 3000;
-gs.state.tools.pickaxe.durability = 3500;
-gs.state.tools.sickle.durability = 4000;
+// Test 4: Alet Onarım Parşömeni (scroll_repair) Kaldırılma Güvencesi
+console.log('\n[4/4] Alet Onarım Parşömeni (scroll_repair) Kaldırılma Kontrolü...');
 gs.state.inventory.scroll_repair = 1;
-
 const repairRes = gs.useScroll('scroll_repair');
-assert(repairRes.success, 'scroll_repair başarılı olmalı');
-assert.equal(gs.state.tools.axe.durability, 3432, 'Baltaya +432 dk dayanıklılık eklenmeli');
-assert.equal(gs.state.tools.pickaxe.durability, 3932, 'Kazmaya +432 dk dayanıklılık eklenmeli');
-assert.equal(gs.state.tools.sickle.durability, 4320, 'Orak maksimum 4320 ile sınırlanmalı');
-assert.equal(gs.state.inventory.scroll_repair, 0, 'Parşömen tüketilmeli');
+assert(!repairRes.success, 'scroll_repair devre dışı olmalı');
+assert(repairRes.message.includes('Demirci'), 'scroll_repair oyuncuyu Demirciye yönlendirmeli');
+console.log('✅ Alet Onarım Parşömeni devreden çıkarıldı ve Demirciye yönlendirildi.');
 
-// Tüm aletler 4320 iken
-gs.state.tools.axe.durability = 4320;
-gs.state.tools.pickaxe.durability = 4320;
-gs.state.tools.sickle.durability = 4320;
-gs.state.inventory.scroll_repair = 1;
-const fullRepairRes = gs.useScroll('scroll_repair');
-assert(!fullRepairRes.success, 'Aletler tam sağlamken parşömen harcanmamalı');
-assert.equal(gs.state.inventory.scroll_repair, 1, 'Parşömen sayısı korunmalı');
-
-console.log('✅ %10 Alet Onarım Parşömeni mekaniği %100 doğrulandı.');
+// Test 4.5: Zindan Zaferlerinde Parşömen Düşme Mekaniği
+console.log('\n[4.5/4] Zindan Canavar & Boss Zaferlerinde Parşömen Düşme Kontrolü...');
+let droppedScrolls = 0;
+for (let i = 0; i < 50; i++) {
+  const drops = gs.addDungeonXpAndDrops(1, true); // boss fight
+  if (drops && drops.scrollGained) {
+    droppedScrolls++;
+  }
+}
+assert(droppedScrolls > 0, '50 Boss zaferinde en az bir parşömen düşmeli (%40 şans)');
+console.log(`✅ Boss zaferlerinde parşömen düşme mekaniği doğrulandı (${droppedScrolls}/50 düşüş).`);
 
 // Test 5: Karnaval Çarkında Demir, Odun ve Buğdayların Anında Yakılması & Sistemden Silinmesi
 console.log('\n[5/6] Karnaval Çarkında Demir, Odun ve Buğdayların Yakılması Test Ediliyor...');
@@ -178,11 +174,11 @@ console.log('\n[6/6] Krallık Hazinesi & Havuz Dağılımı ve Canlı Ödüller 
 const ecoSummary = gs.getEconomyAndPoolsSummary();
 assert(ecoSummary, 'Hazine ve havuz özeti oluşturulmalı');
 assert.equal(ecoSummary.burnRatePct, 22, 'Kalıcı yakım oranı %22 olmalı');
-assert.equal(ecoSummary.allocations.dungeon, 0.25, 'Zindan havuz payı %25 olmalı');
-assert.equal(ecoSummary.allocations.arena, 0.15, 'Kolezyum havuz payı %15 olmalı');
-assert.equal(ecoSummary.allocations.worldBoss, 0.15, 'World Boss havuz payı %15 olmalı');
-assert.equal(ecoSummary.allocations.ammBuyback, 0.13, 'AMM buyback havuz payı %13 olmalı');
-assert.equal(ecoSummary.allocations.carnival, 0.10, 'Karnaval havuz payı %10 olmalı');
+assert.equal(ecoSummary.allocations.dungeon, 0.35, 'Zindan havuz payı %35 (14M ADA) olmalı');
+assert.equal(ecoSummary.allocations.arena, 0.20, 'Kolezyum havuz payı %20 (8M ADA) olmalı');
+assert.equal(ecoSummary.allocations.worldBoss, 0.20, 'World Boss havuz payı %20 (8M ADA) olmalı');
+assert.equal(ecoSummary.allocations.ammBuyback, 0.15, 'AMM buyback havuz payı %15 (6M ADA) olmalı');
+assert.equal(ecoSummary.allocations.carnival, 0.10, 'Karnaval havuz payı %10 (4M ADA) olmalı');
 assert(ecoSummary.pools.length === 5, '5 ana hazine havuzu listelenmeli');
 
 ecoSummary.pools.forEach(p => {
@@ -191,7 +187,7 @@ ecoSummary.pools.forEach(p => {
   assert(p.actionType, `${p.name} aksiyon butonu tanımlı olmalı`);
 });
 
-assert(ecoSummary.lottery.lotteryPool >= 1000000, 'Piyango kasası 1.000.000+ ADA olmalı');
+assert(ecoSummary.lottery.lotteryPool >= 20000000, 'Piyango kasası 20.000.000+ ADA olmalı');
 assert.equal(ecoSummary.lottery.winnerShare, Math.round(ecoSummary.lottery.lotteryPool * 0.18), 'Piyango kazanan payı %18 olmalı');
 assert(ecoSummary.burnedResources.wood >= expectedWoodCost, 'Yakılan odun özette görünmeli');
 assert(ecoSummary.burnedResources.iron >= expectedIronCost, 'Yakılan demir özette görünmeli');

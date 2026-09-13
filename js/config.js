@@ -166,8 +166,7 @@ export const GAME_CONFIG = {
     boxes:     { minPriceAda: 400,  maxPriceAda: 2500,  defaultPriceAda: 900 },
     keys:           { minPriceAda: 150,  maxPriceAda: 900,   defaultPriceAda: 350 },
     scroll_heal:    { minPriceAda: 15.0, maxPriceAda: 90.0,  defaultPriceAda: 30.0 },
-    scroll_stamina: { minPriceAda: 30.0, maxPriceAda: 180.0, defaultPriceAda: 60.0 },
-    scroll_repair:  { minPriceAda: 25.0, maxPriceAda: 150.0, defaultPriceAda: 50.0 }
+    scroll_stamina: { minPriceAda: 30.0, maxPriceAda: 180.0, defaultPriceAda: 60.0 }
   },
 
   // Swap ücreti: yarısı yakılır, yarısı likiditeye kalır (Yeni Standart: %1.00)
@@ -635,9 +634,9 @@ export const GAME_CONFIG = {
   // ═══════════════════════════════════════════════════════════════════════
   // 🏦 HAZİNE DEFTERİ — YASA 1: ödül basılmaz, transfer edilir (F-05)
   // ═══════════════════════════════════════════════════════════════════════
-  // %22 Ebedi Yakım, Kalan %78'lik Gelirin 5 Ana Havuza Dağıtımı:
-  // %25 Zindan, %15 Kolezyum, %15 World Boss, %13 AMM Buyback & Likidite, %10 Karnaval
-  TREASURY_ALLOCATION: { dungeon: 0.25, arena: 0.15, worldBoss: 0.15, ammBuyback: 0.13, carnival: 0.10 },
+  // %22 Ebedi Yakım, Kalan %78'lik Gelirin 5 Ana Havuza Dağıtımı (Toplam 40 Milyon ADA Başlangıç Hazine Dağılımı):
+  // %35 Zindan (14M ADA), %20 Kolezyum (8M ADA), %20 World Boss (8M ADA), %15 AMM Buyback (6M ADA), %10 Karnaval (4M ADA)
+  TREASURY_ALLOCATION: { dungeon: 0.35, arena: 0.20, worldBoss: 0.20, ammBuyback: 0.15, carnival: 0.10 },
   TREASURY_POOL_NAMES: {
     dungeon: 'Zindan Ganimet Kasası',
     arena: 'Kolezyum Şampiyonluk Havuzu',
@@ -645,7 +644,7 @@ export const GAME_CONFIG = {
     ammBuyback: 'AMM Likidite & Buyback Rezervi',
     carnival: 'Sirk & Karnaval Ödül Havuzu'
   },
-  TREASURY_TARGET_RESERVE: { dungeon: 180000, arena: 120000, worldBoss: 110000, ammBuyback: 90000, carnival: 60000 },
+  TREASURY_TARGET_RESERVE: { dungeon: 14000000, arena: 8000000, worldBoss: 8000000, ammBuyback: 6000000, carnival: 4000000 },
   TREASURY_MIN_PAYOUT_RATIO: 0.15,   // havuz boşalsa bile ödül tamamen sıfırlanmaz
   TREASURY_SINGLE_DRAW_CAP: 0.02,    // tek ödül havuzun en fazla %2'sini çekebilir
 
@@ -700,24 +699,21 @@ export const GAME_CONFIG = {
       { id: 'raw_1000_wood', name: '1.000 ADA Değerinde Odun',        icon: '🌲', type: 'amm_raw',  key: 'wood',      adaVal: 1000, valAda: 1000, weight: 15 },
       { id: 'raw_1000_iron', name: '1.000 ADA Değerinde Demir',       icon: '⛏️', type: 'amm_raw',  key: 'iron',      adaVal: 1000, valAda: 1000, weight: 15 },
       { id: 'raw_1000_wheat',name: '1.000 ADA Değerinde Buğday',      icon: '🌾', type: 'amm_raw',  key: 'wheat',     adaVal: 1000, valAda: 1000, weight: 15 },
-      { id: 'raw_50_wood',   name: 'Amorti: 50 ADA Değerinde Odun',   icon: '🌲', type: 'amm_raw',  key: 'wood',      adaVal: 50,   valAda: 50,   weight: 1000 },
-      { id: 'raw_50_iron',   name: 'Amorti: 50 ADA Değerinde Demir',  icon: '⛏️', type: 'amm_raw',  key: 'iron',      adaVal: 50,   valAda: 50,   weight: 1000 },
-      { id: 'raw_50_wheat',  name: 'Amorti: 50 ADA Değerinde Buğday', icon: '🌾', type: 'amm_raw',  key: 'wheat',     adaVal: 50,   valAda: 50,   weight: 1000 },
+      { id: 'raw_50_wood',   name: 'Amorti: 50 ADA Değerinde Odun',   icon: '🌲', type: 'amm_raw',  key: 'wood',      adaVal: 50,   valAda: 50,   weight: 1320 },
+      { id: 'raw_50_iron',   name: 'Amorti: 50 ADA Değerinde Demir',  icon: '⛏️', type: 'amm_raw',  key: 'iron',      adaVal: 50,   valAda: 50,   weight: 1320 },
+      { id: 'raw_50_wheat',  name: 'Amorti: 50 ADA Değerinde Buğday', icon: '🌾', type: 'amm_raw',  key: 'wheat',     adaVal: 50,   valAda: 50,   weight: 1320 },
       { id: 'free_bot_24h',  name: '24 Saatlik Otomasyon Botu (Ücretsiz)', icon: '🤖', type: 'bot_free', hours: 24,                  valAda: 200,  weight: 60 },
-      { id: 'ada_200',       name: '200 $ADASTRA Nakit Ödül',         icon: '🟣', type: 'ada',      amount: 200,                    valAda: 200,  weight: 350 },
+      { id: 'ada_200',       name: '200 $ADASTRA Nakit Ödül',         icon: '🟣', type: 'ada',      amount: 200,                    valAda: 200,  weight: 475 },
       { id: 'ada_1000',      name: '🏆 1.000 $ADASTRA BÜYÜK İKRAMİYE',icon: '👑', type: 'ada',      amount: 1000,                   valAda: 1000, weight: 10 },
-      { id: 'scroll_heal',   name: 'Ordu İyileştirme Parşömeni (+10 HP)', icon: '📜', type: 'scroll', key: 'scroll_heal', amount: 1, valAda: 30, weight: 1200 },
-      { id: 'ada_50',        name: '50 $ADASTRA Ödül',                icon: '🟣', type: 'ada',      amount: 50,                     valAda: 50,   weight: 1500 },
+      { id: 'ada_50',        name: '50 $ADASTRA Ödül',                icon: '🟣', type: 'ada',      amount: 50,                     valAda: 50,   weight: 2000 },
       { id: 'box_key',       name: '1 Pandora Kutusu Anahtarı',       icon: '🔑', type: 'key',      amount: 1,                      valAda: 350,  weight: 8 },
-      { id: 'scroll_stamina',name: '100 Stamina Doldurma Parşömeni', icon: '⚡', type: 'scroll', key: 'scroll_stamina', amount: 1, valAda: 60, weight: 70 },
-      { id: 'scroll_repair', name: '%10 Alet Onarım Parşömeni',       icon: '🔨', type: 'scroll', key: 'scroll_repair', amount: 1, valAda: 50, weight: 1200 },
-      { id: 'wheel_ticket_shard', name: 'Amorti Çark Bileti (10 Adet = 1 Çevirme)', icon: '🎟️', type: 'ticket_shard', amount: 1,  valAda: 10, weight: 2427 },
+      { id: 'wheel_ticket_shard', name: 'Amorti Çark Bileti (10 Adet = 1 Çevirme)', icon: '🎟️', type: 'ticket_shard', amount: 1,  valAda: 10, weight: 3312 },
       { id: 'coin_analysis_code', name: 'AlphAvax Vercel App Özel Coin Analiz Bileti', icon: '🎫', type: 'analysis_code', amount: 1, valAda: 0, weight: 50 }
     ],
     // Haftalık Piyango Sistemi
     LOTTERY: {
       TICKET_COST_ADA: 100,
-      SEED_POOL_ADA: 1000000,     // 1.000.000 ADA AlphaVax Tohum Kasa
+      SEED_POOL_ADA: 20000000,     // 20.000.000 ADA AlphaVax Tohum Kasa
       WEEKLY_WINNER_SHARE: 0.18,  // %18'i 1 Talihliye
       AMORTI_SHARE: 0.02,         // %2 Amorti Hazinesine
       ROLLOVER_SHARE: 0.80,       // %80 Sonraki Haftaya Devir
@@ -835,6 +831,18 @@ export const GAME_CONFIG = {
         '100x aşırı çarpan kaldırılarak tek asker tam canı 300 Buğday + 100 ADA, 18 kişilik tüm ordu ise 5.400 Buğday + 1.800 ADA seviyesine kalibre edildi.',
         'Hızlı doyurmada harcanan tüm $ADASTRA anında Hazine Muhasebesine (%22 Kalıcı Yakım + %78 Hazine Havuzları) işlenerek deflasyonist token yakımı ve havuz sponsorluğu sağlandı.',
         '18 saatlik düşük maliyetli pasif doyurma (1 HP = 0.30 Buğday + 0.10 ADA) aynen korunarak sabırlı emek veren oyuncuların zindan kârlılığı teminat altına alındı.'
+      ]
+    },
+    {
+      version: 'v1.12',
+      title: '100M $ADASTRA Likidite & Hazine Reformu, Zindan Parşömenleri & Alet Tamir Dengelemesi',
+      date: 'Eylül 2026',
+      changes: [
+        'Alet Onarım Parşömeni (scroll_repair) oyundan tamamen kaldırılarak Demirci hammadde tamir ekonomisi güvenceye alındı.',
+        'Şans Çarkından tüm parşömenler çıkarıldı; ordu iyileştirme ve stamina parşömenleri yalnızca Zindan canavar & boss zaferlerinden düşen nadir ganimet haline getirildi.',
+        'Şans Çarkı ödül dağılımı 15 dilimle 10.000 taban ağırlığa ve kural yüzdelerine tam uyumlu olarak yeniden dengelendi.',
+        '100 Milyon $ADASTRA tohum fonu: 40M AMM DEX Havuzları, 40M Hazine Kasaları, 20M Krallık Piyangosu olarak dağıtıldı.',
+        'AMM çift taraflı derinlik mimarisiyle, haftalık kotalar hiç yakılmadan ful satılsa dahi havuzların aylar sonra bile %50-60 seviyesinde güvende kalması matematiksel olarak garanti edildi.'
       ]
     }
   ],
