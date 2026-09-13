@@ -1114,6 +1114,42 @@ export class GameStateManager {
     };
   }
 
+  sweepCompletedExpeditions() {
+    const nodes = ['wheat', 'wood', 'iron'];
+    let totalHarvested = 0;
+    let totalXp = 0;
+    const collectedDetails = [];
+
+    for (const nodeId of nodes) {
+      const exp = this.state.activeExpeditions[nodeId];
+      if (exp && exp.isCompleted) {
+        const res = this.claimExpedition(nodeId);
+        if (res && res.success) {
+          totalHarvested += (res.amount || 0);
+          totalXp += (res.xpGained || 0);
+          const nodeConfig = GAME_CONFIG.GLOBAL_RESOURCE_CAPS[nodeId];
+          collectedDetails.push(`+${res.amount} ${nodeConfig ? nodeConfig.name : nodeId}`);
+        }
+      }
+    }
+
+    if (totalHarvested > 0) {
+      sound.playLevelUp();
+      this.saveState();
+      return {
+        success: true,
+        totalHarvested,
+        totalXp,
+        message: `⚡ Biten Seferler Başarıyla Toplandı: ${collectedDetails.join(', ')} (+${totalXp} XP)`
+      };
+    }
+
+    return {
+      success: false,
+      message: 'Şu an tamamlanmış bir sefer bulunmuyor.'
+    };
+  }
+
   // 🧙‍♂️ KRAL DANIŞMANI (BİR CÜMLELİK REHBERLİK & TAVSİYE)
   getRoyalAdvisorAdvice() {
     const inv = this.state.inventory || {};
@@ -3679,6 +3715,10 @@ export class GameStateManager {
         }
       }
     }
+    results.success = results.repaired > 0;
+    results.message = results.success
+      ? `🔨 ${results.repaired} Adet Alet Başarıyla Onarıldı! (-${results.totalWood} Odun, -${results.totalIron} Demir, -${results.totalAda} ADA)`
+      : (results.messages.length > 0 ? results.messages[0] : 'Onarılacak hasarlı alet bulunamadı veya yetersiz kaynak.');
     return results;
   }
 

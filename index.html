@@ -171,35 +171,31 @@
 
   <aside id="realm-sidebar" class="realm-sidebar">
 
-    <!-- 1. BÖLÜM: AlphAvax Karakter & Cüzdan Kartı -->
-    <div id="sidebar-character-card" class="sidebar-section sidebar-character-card" title="Karakter Gelişimi & Envanter">
-      <div class="sidebar-avatar-frame">🧙‍♂️</div>
-      <div class="sidebar-char-info">
-        <div class="sidebar-char-name">AlphAvax <span id="sidebar-player-level" class="sidebar-lvl-badge">Lv.1</span></div>
-        <div class="sidebar-stamina-row">
-          <span>⚡ STAMINA</span>
-          <span id="sidebar-stamina-text">100/100</span>
+    <!-- 1. BÖLÜM: Üst Kompakt Durum Şeridi (Mini Karakter & Canlı Otomasyon Botu) -->
+    <div class="sidebar-top-bar">
+      <div id="sidebar-character-card" class="sidebar-user-pill" title="Karakter Detayları & İlerleme">
+        <span class="user-avatar-mini">🧙‍♂️</span>
+        <div class="user-meta-mini">
+          <span class="user-name-mini">AlphAvax</span>
+          <span id="sidebar-player-level" class="sidebar-lvl-badge">Lv.1</span>
         </div>
-        <div class="sidebar-stamina-track">
-          <div id="sidebar-stamina-fill" class="sidebar-stamina-fill" style="width: 100%;"></div>
-        </div>
-        <div class="sidebar-balance-row">
-          <span>🟣 $ADASTRA</span>
-          <span id="sidebar-adastra-balance">1,250.00</span>
-        </div>
-        <div class="sidebar-balance-row avax-row">
-          <span>🔺 AVAX</span>
-          <span id="sidebar-avax-balance">250.00</span>
-        </div>
+      </div>
+
+      <div id="sidebar-bot-pill" class="sidebar-bot-pill" title="24s Otomasyon Botu Durumu (Tıklayarak Yönet)">
+        <span class="bot-icon">🤖</span>
+        <span id="sidebar-bot-status-text" class="bot-status-text">Bot: Pasif</span>
       </div>
     </div>
 
-    <!-- 2. BÖLÜM: Aktif İşçi Seferleri Takipçisi -->
-    <div class="sidebar-section sidebar-expeditions">
-      <div class="sidebar-section-title">⏳ AKTİF İŞÇİ SEFERLERİ</div>
+    <!-- 2. BÖLÜM: Aktif İşçi Seferleri & Hızlı Hasat -->
+    <div class="sidebar-section sidebar-expeditions-box">
+      <div class="sidebar-section-title" style="display:flex; justify-content:space-between; align-items:center;">
+        <span>⏳ AKTİF İŞÇİ SEFERLERİ</span>
+        <span id="sidebar-exp-completed-count" class="sidebar-completed-badge hidden">0 Hazır</span>
+      </div>
 
       <!-- Demir Seferi -->
-      <div class="sidebar-exp-card" data-node="iron">
+      <div class="sidebar-exp-card" data-node="iron" id="side-card-iron" title="Demir Madeni Seferi (Tıkla ve Git)">
         <div class="sidebar-exp-header">
           <span class="exp-title">⛏️ Demir Madeni</span>
           <span id="exp-time-iron" class="sidebar-exp-time">BOŞTA</span>
@@ -208,7 +204,7 @@
       </div>
 
       <!-- Odun Seferi -->
-      <div class="sidebar-exp-card" data-node="wood">
+      <div class="sidebar-exp-card" data-node="wood" id="side-card-wood" title="Zümrüt Ormanı Seferi (Tıkla ve Git)">
         <div class="sidebar-exp-header">
           <span class="exp-title">🌲 Zümrüt Ormanı</span>
           <span id="exp-time-wood" class="sidebar-exp-time">BOŞTA</span>
@@ -217,76 +213,102 @@
       </div>
 
       <!-- Buğday Seferi -->
-      <div class="sidebar-exp-card" data-node="wheat">
+      <div class="sidebar-exp-card" data-node="wheat" id="side-card-wheat" title="Güneş Tarlası Seferi (Tıkla ve Git)">
         <div class="sidebar-exp-header">
           <span class="exp-title">🌾 Güneş Tarlası</span>
           <span id="exp-time-wheat" class="sidebar-exp-time">BOŞTA</span>
         </div>
         <div class="sidebar-exp-track"><div id="exp-fill-wheat" class="sidebar-exp-fill idle"></div></div>
       </div>
+
+      <!-- Hızlı Tümünü Topla Butonu -->
+      <button id="side-btn-sweep-harvest" class="sidebar-sweep-btn" disabled>
+        ⚡ BİTEN TÜM SEFERLERİ TOPLA
+      </button>
     </div>
 
-    <!-- 3. BÖLÜM: Global Haftalık Kaynak Çıkarma Limiti -->
-    <div class="sidebar-section sidebar-daily-limits">
+    <!-- 3. BÖLÜM: Kompakt Haftalık Kaynak Çıkarma Limiti -->
+    <div class="sidebar-section sidebar-weekly-box">
       <div class="sidebar-section-title" style="display: flex; justify-content: space-between; align-items: center;">
-        <span>📊 HAFTALIK ÇIKARMA LİMİTİ</span>
-        <span id="sidebar-reset-timer" style="font-size: 0.65rem; color: #94a3b8; font-weight: 600;">⏳ 6g 18s 0dk</span>
+        <span>📊 HAFTALIK KOTA</span>
+        <span id="sidebar-reset-timer" style="font-size: 0.7rem; color: #94a3b8; font-weight: 700;">⏳ 6g 18s</span>
       </div>
 
-      <!-- Demir Limiti -->
-      <div class="sidebar-limit-item">
-        <div class="sidebar-limit-label">
-          <span>⛏️ Demir</span>
-          <span id="sidebar-limit-text-iron">8,450 / 10,000</span>
+      <div class="sidebar-mini-quota-row">
+        <div class="mini-quota-item" title="Demir Haftalık Çıkarma Kotası">
+          <div class="mini-quota-label"><span>⛏️ Demir</span><span id="sidebar-limit-text-iron">0 / 0</span></div>
+          <div class="mini-quota-track"><div id="sidebar-limit-fill-iron" class="mini-quota-fill iron"></div></div>
         </div>
-        <div class="sidebar-limit-track">
-          <div id="sidebar-limit-fill-iron" class="sidebar-limit-fill iron" style="width: 84.5%;"></div>
+        <div class="mini-quota-item" title="Odun Haftalık Çıkarma Kotası">
+          <div class="mini-quota-label"><span>🌲 Odun</span><span id="sidebar-limit-text-wood">0 / 0</span></div>
+          <div class="mini-quota-track"><div id="sidebar-limit-fill-wood" class="mini-quota-fill wood"></div></div>
         </div>
-      </div>
-
-      <!-- Odun Limiti -->
-      <div class="sidebar-limit-item">
-        <div class="sidebar-limit-label">
-          <span>🌲 Odun</span>
-          <span id="sidebar-limit-text-wood">12,200 / 15,000</span>
-        </div>
-        <div class="sidebar-limit-track">
-          <div id="sidebar-limit-fill-wood" class="sidebar-limit-fill wood" style="width: 81.3%;"></div>
-        </div>
-      </div>
-
-      <!-- Buğday Limiti -->
-      <div class="sidebar-limit-item">
-        <div class="sidebar-limit-label">
-          <span>🌾 Buğday</span>
-          <span id="sidebar-limit-text-wheat">18,000 / 20,000</span>
-        </div>
-        <div class="sidebar-limit-track">
-          <div id="sidebar-limit-fill-wheat" class="sidebar-limit-fill wheat" style="width: 90%;"></div>
+        <div class="mini-quota-item" title="Buğday Haftalık Çıkarma Kotası">
+          <div class="mini-quota-label"><span>🌾 Buğday</span><span id="sidebar-limit-text-wheat">0 / 0</span></div>
+          <div class="mini-quota-track"><div id="sidebar-limit-fill-wheat" class="mini-quota-fill wheat"></div></div>
         </div>
       </div>
     </div>
 
-    <!-- 4. Hızlı Yönetim Butonları -->
-    <div class="sidebar-3d-btn-row">
-      <button id="side-btn-inventory" class="sidebar-3d-btn" title="Envanter">
-        🎒<span>ENVANTER</span>
-      </button>
-      <button id="side-btn-workers" class="sidebar-3d-btn" title="İşçiler">
-        🔨<span>İŞÇİLER</span>
-      </button>
-      <button id="side-btn-barracks" class="sidebar-3d-btn" title="Kışla: Ordu & Teçhizat Kuşanması">
-        ⚔️<span>KIŞLA</span>
-      </button>
-      <button id="side-btn-colosseum" class="sidebar-3d-btn" title="Kolezyum: 18v18 Gladyatör Arena Savaşı">
-        🏟️<span>KOLEZYUM</span>
-      </button>
-      <button id="side-btn-collection" class="sidebar-3d-btn" title="18 Parçalık NFT Koleksiyonu & Genesis Mühür">
-        👑<span>KOLEKSİYON</span>
-      </button>
-      <button id="side-btn-boxes" class="sidebar-3d-btn" title="Kilitli Kutular & Şans Sandıkları">
-        📦<span>KUTULAR</span>
-        <span id="sidebar-box-badge" class="sidebar-mini-badge hidden">0</span>
+    <!-- 4. BÖLÜM: Krallık Kontrol Paneli (Modern Glassmorphism 2x4 Grid) -->
+    <div class="sidebar-control-panel">
+      <div class="sidebar-control-title">🧭 KRALLIK KONTROL MERKEZİ</div>
+      <div class="sidebar-grid-menu">
+        <button id="side-btn-inventory" class="grid-menu-btn btn-grid-orange" title="Envanter ve Ekipman Çantası">
+          <span class="grid-btn-icon">🎒</span>
+          <span class="grid-btn-title">ENVANTER</span>
+          <span class="grid-btn-sub">Çanta & Eşyalar</span>
+        </button>
+
+        <button id="side-btn-barracks" class="grid-menu-btn btn-grid-red" title="Kışla & Şampiyon Askerler">
+          <span class="grid-btn-icon">⚔️</span>
+          <span class="grid-btn-title">KIŞLA</span>
+          <span class="grid-btn-sub">Ordu & Şampiyon</span>
+          <span id="side-badge-barracks" class="sidebar-badge-red hidden">1 Yaralı</span>
+        </button>
+
+        <button id="side-btn-dungeon" class="grid-menu-btn btn-grid-purple" title="Zindan & Kat Canavarları">
+          <span class="grid-btn-icon">🏰</span>
+          <span class="grid-btn-title">ZİNDAN</span>
+          <span class="grid-btn-sub">6 Kat & Bosslar</span>
+        </button>
+
+        <button id="side-btn-colosseum" class="grid-menu-btn btn-grid-yellow" title="Kolezyum Gladyatör Arena">
+          <span class="grid-btn-icon">🏟️</span>
+          <span class="grid-btn-title">KOLEZYUM</span>
+          <span class="grid-btn-sub">18v18 Gladyatör</span>
+        </button>
+
+        <button id="side-btn-carnival" class="grid-menu-btn btn-grid-gold" title="Krallık Karnavalı: Şans Çarkı & Piyango">
+          <span class="grid-btn-icon">🎪</span>
+          <span class="grid-btn-title">KARNAVAL</span>
+          <span class="grid-btn-sub">Çark & Piyango</span>
+        </button>
+
+        <button id="side-btn-market" class="grid-menu-btn btn-grid-green" title="AMM Pazar: Kaynak Al-Sat">
+          <span class="grid-btn-icon">🏪</span>
+          <span class="grid-btn-title">AMM PAZAR</span>
+          <span class="grid-btn-sub">Canlı Borsa</span>
+        </button>
+
+        <button id="side-btn-tavern" class="grid-menu-btn btn-grid-amber" title="Gece Kuşu Tavernası & 24s Bot">
+          <span class="grid-btn-icon">🍻</span>
+          <span class="grid-btn-title">TAVERNA</span>
+          <span class="grid-btn-sub">Bot & İksirler</span>
+        </button>
+
+        <button id="side-btn-boxes" class="grid-menu-btn btn-grid-blue" title="Sandıklar, Anahtarlar & NFT Koleksiyonu">
+          <span class="grid-btn-icon">📦</span>
+          <span class="grid-btn-title">SANDIKLAR</span>
+          <span class="grid-btn-sub">NFT & Mühür</span>
+          <span id="sidebar-box-badge" class="sidebar-badge-blue hidden">0</span>
+        </button>
+      </div>
+
+      <!-- Tek Tıkla Tüm Aletleri Onar Butonu -->
+      <button id="side-btn-repair-all" class="sidebar-repair-all-btn" title="Tüm Aletleri Anlık Pazar Değeriyle Onar">
+        <span>🔨 TÜM ALETLERİ ONAR</span>
+        <span id="side-repair-all-cost" class="repair-all-cost-sub">Tam Sağlam</span>
       </button>
     </div>
 

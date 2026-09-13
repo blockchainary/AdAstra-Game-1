@@ -1463,191 +1463,157 @@ body:not(.in-dungeon) .top-nav-menu {
 
 .realm-sidebar {
   position: fixed;
-  top: 56px;
+  top: 92px;
   right: 0;
-  width: 360px;
-  height: calc(100vh - 56px);
-  max-height: calc(100vh - 56px);
+  width: 380px;
+  height: calc(100vh - 92px);
+  max-height: calc(100vh - 92px);
   z-index: 1100;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 12px 10px;
+  gap: 10px;
+  padding: 12px 14px;
   box-sizing: border-box;
   overflow-y: auto;
   overflow-x: hidden;
-  background:
-    repeating-linear-gradient(180deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0.12) 26px, rgba(0,0,0,0) 52px),
-    linear-gradient(180deg, #2b180d 0%, #170d07 55%, #100905 100%);
-  border-left: 3px solid #ca8a04;
-  box-shadow: -10px 0 35px rgba(0, 0, 0, 0.92);
-  transform: translateX(100%); /* Varsayılan olarak kapalı */
+  background: linear-gradient(180deg, rgba(26, 15, 8, 0.98) 0%, rgba(18, 10, 5, 0.99) 100%);
+  border-left: 2px solid rgba(234, 179, 8, 0.4);
+  box-shadow: -8px 0 35px rgba(0, 0, 0, 0.92);
+  backdrop-filter: blur(12px);
+  transform: translateX(100%); /* Varsayılan kapalı */
   transition: transform 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
 }
 
 .realm-sidebar.open {
-  transform: translateX(0); /* Tıklandığında pürüzsüzce açılır */
+  transform: translateX(0);
 }
 
-.realm-sidebar::-webkit-scrollbar { width: 6px; }
-.realm-sidebar::-webkit-scrollbar-track { background: #150c06; }
-.realm-sidebar::-webkit-scrollbar-thumb { background: #ca8a04; border-radius: 6px; }
+.realm-sidebar::-webkit-scrollbar { width: 5px; }
+.realm-sidebar::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.3); }
+.realm-sidebar::-webkit-scrollbar-thumb { background: #ca8a04; border-radius: 4px; }
 
+/* 1. ÜST KOMPAKT DURUM ŞERİDİ */
+.sidebar-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.sidebar-user-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(43, 24, 13, 0.85);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  padding: 4px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sidebar-user-pill:hover {
+  background: rgba(69, 26, 3, 0.95);
+  border-color: #facc15;
+  transform: translateY(-1px);
+}
+
+.user-avatar-mini {
+  font-size: 1.15rem;
+}
+
+.user-meta-mini {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.user-name-mini {
+  font-family: var(--font-game);
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: #fff;
+}
+
+.sidebar-bot-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  padding: 4px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-family: var(--font-game);
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #94a3b8;
+  transition: all 0.2s ease;
+}
+
+.sidebar-bot-pill.active {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: #10b981;
+  color: #4ade80;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.25);
+}
+
+.sidebar-bot-pill:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+}
+
+/* KART & BÖLÜM ÇERÇEVELERİ */
 .sidebar-section {
   position: relative;
   flex-shrink: 0;
-  background: linear-gradient(180deg, #2b180d 0%, #180d06 100%);
-  border: 2px solid #ca8a04;
-  border-radius: 14px;
-  padding: 8px 10px;
-  box-shadow: inset 0 2px 0 rgba(255,255,255,0.15), 0 6px 12px rgba(0,0,0,0.7);
+  background: rgba(26, 16, 10, 0.75);
+  border: 1px solid rgba(202, 138, 4, 0.35);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 4px 12px rgba(0, 0, 0, 0.5);
 }
-
-.sidebar-section::before,
-.sidebar-section::after {
-  content: '✦';
-  position: absolute;
-  top: -9px;
-  width: 16px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.75rem;
-  color: #fde047;
-  background: #140b06;
-  border: 1.5px solid #ca8a04;
-  border-radius: 50%;
-}
-.sidebar-section::before { left: 10px; }
-.sidebar-section::after { right: 10px; }
 
 .sidebar-section-title {
   font-family: var(--font-game);
   font-weight: 800;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: #fde047;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.5px;
   margin-bottom: 6px;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
 }
 
-/* --- Üst Bölüm: AlphAvax Karakter Kartı --- */
-.sidebar-character-card {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  cursor: pointer;
-  transition: transform 0.15s ease, border-color 0.15s ease;
-}
-
-.sidebar-character-card:hover {
-  transform: translateY(-2px);
-  border-color: #facc15;
-  box-shadow: inset 0 2px 0 rgba(255,255,255,0.2), 0 8px 16px rgba(250, 204, 21, 0.25);
-}
-
-.sidebar-avatar-frame {
-  flex-shrink: 0;
-  width: 46px;
-  height: 46px;
-  background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%);
-  border: 2px solid #fef08a;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-  box-shadow: inset 0 2px 4px rgba(255,255,255,0.5), 0 3px 6px rgba(0,0,0,0.6);
-}
-
-.sidebar-char-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.sidebar-char-name {
-  font-family: var(--font-game);
-  font-weight: 800;
-  font-size: 0.88rem;
-  color: #ffffff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.sidebar-lvl-badge {
-  background: linear-gradient(180deg, #10b981 0%, #047857 100%);
-  border: 1.5px solid #6ee7b7;
-  color: #ffffff;
+.sidebar-completed-badge {
+  background: #15803d;
+  color: #bbf7d0;
+  border: 1px solid #4ade80;
   font-size: 0.65rem;
   font-weight: 800;
   padding: 1px 6px;
-  border-radius: 6px;
-  margin-left: 4px;
-}
-
-.sidebar-stamina-row {
-  display: flex;
-  justify-content: space-between;
-  font-family: var(--font-game);
-  font-size: 0.65rem;
-  font-weight: 700;
-  color: #38bdf8;
-}
-
-.sidebar-stamina-track {
-  width: 100%;
-  height: 7px;
-  background: #0c0a08;
-  border: 1px solid #075985;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.sidebar-stamina-fill {
-  height: 100%;
-  width: 100%;
-  background: linear-gradient(90deg, #38bdf8, #0ea5e9);
-  border-radius: 4px;
-  transition: width 0.3s ease;
-}
-
-.sidebar-balance-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-family: var(--font-game);
-  font-size: 0.72rem;
-  font-weight: 800;
-  color: #c084fc;
-  background: #140b06;
-  border: 1px solid #581c87;
-  padding: 2px 6px;
-  border-radius: 6px;
-  text-shadow: 0 0 8px rgba(192, 132, 252, 0.5);
-}
-
-.sidebar-balance-row.avax-row {
-  color: #f87171;
-  border-color: #7f1d1d;
-  text-shadow: 0 0 8px rgba(248, 113, 113, 0.5);
-}
-
-/* --- 2. Bölüm: Aktif İşçi Seferleri Kartları --- */
-.sidebar-exp-card {
-  background: #180e07;
-  border: 1.5px solid #451a03;
   border-radius: 10px;
+  animation: pulseGreen 1.5s infinite;
+}
+
+/* 2. AKTİF SEFER KARTLARI */
+.sidebar-exp-card {
+  background: rgba(15, 10, 6, 0.6);
+  border: 1px solid rgba(69, 26, 3, 0.6);
+  border-radius: 8px;
   padding: 6px 8px;
   margin-bottom: 5px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sidebar-exp-card:hover {
+  border-color: #ca8a04;
+  background: rgba(35, 20, 10, 0.8);
+}
+
+.sidebar-exp-card.is-ready {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.1);
 }
 
 .sidebar-exp-header {
@@ -1667,119 +1633,267 @@ body:not(.in-dungeon) .top-nav-menu {
   font-family: var(--font-game);
   font-weight: 800;
   font-size: 0.68rem;
-  color: #94a3b8;
+  color: #cbd5e1;
+}
+
+.sidebar-exp-header .sidebar-exp-time.ready-text {
+  color: #4ade80;
+  font-weight: 900;
 }
 
 .sidebar-exp-track {
   width: 100%;
-  height: 8px;
+  height: 6px;
   background: #0c0a08;
-  border: 1px solid #451a03;
-  border-radius: 4px;
+  border-radius: 3px;
   overflow: hidden;
+  margin-top: 4px;
 }
 
 .sidebar-exp-fill {
   height: 100%;
   width: 0%;
-  border-radius: 4px;
-  transition: width 0.4s ease;
+  border-radius: 3px;
+  transition: width 0.3s ease;
 }
 
 .sidebar-exp-fill.iron { background: linear-gradient(90deg, #38bdf8, #0284c7); }
 .sidebar-exp-fill.wood { background: linear-gradient(90deg, #4ade80, #16a34a); }
 .sidebar-exp-fill.wheat { background: linear-gradient(90deg, #facc15, #d97706); }
-.sidebar-exp-fill.done { background: linear-gradient(90deg, #fde047, #f59e0b); }
-.sidebar-exp-fill.idle { background: #292019; width: 0%; }
+.sidebar-exp-fill.done { background: linear-gradient(90deg, #4ade80, #22c55e); box-shadow: 0 0 8px rgba(74, 222, 128, 0.6); }
+.sidebar-exp-fill.idle { background: #261b14; width: 0%; }
 
-/* --- 3. Bölüm: Global Günlük Kaynak Çıkarma Limitleri --- */
-.sidebar-daily-limits {
+/* HIZLI HASAT BUTONU */
+.sidebar-sweep-btn {
+  width: 100%;
+  margin-top: 6px;
+  padding: 7px 10px;
+  font-family: var(--font-game);
+  font-size: 0.74rem;
+  font-weight: 900;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid rgba(74, 222, 128, 0.4);
+  background: linear-gradient(135deg, #15803d, #166534);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  transition: all 0.15s ease;
+}
+
+.sidebar-sweep-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(34, 197, 94, 0.35);
+}
+
+.sidebar-sweep-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: #2b1f16;
+  border-color: #451a03;
+  color: #78716c;
+}
+
+/* 3. KOMPAKT HAFTALIK KOTA */
+.sidebar-mini-quota-row {
   display: flex;
   flex-direction: column;
   gap: 5px;
-}
-
-.sidebar-limit-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.sidebar-limit-label {
-  display: flex;
-  justify-content: space-between;
-  font-family: var(--font-game);
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: #e2e8f0;
-}
-
-.sidebar-limit-track {
-  width: 100%;
-  height: 8px;
-  background: #0c0a08;
-  border: 1px solid #451a03;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.sidebar-limit-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.4s ease;
-}
-
-.sidebar-limit-fill.iron { background: linear-gradient(90deg, #38bdf8, #0284c7); }
-.sidebar-limit-fill.wood { background: linear-gradient(90deg, #4ade80, #16a34a); }
-.sidebar-limit-fill.wheat { background: linear-gradient(90deg, #facc15, #d97706); }
-
-/* --- 4. Bölüm: Hızlı Yönetim Butonları --- */
-.sidebar-3d-btn-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
   margin-top: 2px;
 }
 
-.sidebar-3d-btn {
-  border: none;
-  outline: none;
-  cursor: pointer;
-  font-family: var(--font-game);
-  font-weight: 800;
+.mini-quota-item {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
   gap: 2px;
-  padding: 7px 2px;
-  font-size: 1.1rem;
-  border-radius: 10px;
-  background: linear-gradient(180deg, #fbbf24 0%, #d97706 100%);
-  border: 1.5px solid #fef08a;
-  border-bottom: 3px solid #78350f;
-  color: #451a03;
-  box-shadow: inset 0 2px 0 rgba(255,255,255,0.35), 0 4px 8px rgba(0,0,0,0.6);
-  transition: all 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.sidebar-3d-btn span { font-size: 0.58rem; letter-spacing: 0.3px; }
-.sidebar-3d-btn:hover { transform: translateY(-2px) scale(1.02); }
-.sidebar-3d-btn:active { transform: translateY(1px) scale(0.97); }
-.sidebar-3d-btn { position: relative; }
+.mini-quota-label {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-game);
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: #94a3b8;
+}
 
-.sidebar-mini-badge {
+.mini-quota-track {
+  width: 100%;
+  height: 5px;
+  background: #0c0a08;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.mini-quota-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.mini-quota-fill.iron { background: #38bdf8; }
+.mini-quota-fill.wood { background: #4ade80; }
+.mini-quota-fill.wheat { background: #facc15; }
+
+/* 4. KRALLIK KONTROL MERKEZİ (2x4 MODERN GRID) */
+.sidebar-control-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.sidebar-control-title {
+  font-family: var(--font-game);
+  font-weight: 800;
+  font-size: 0.74rem;
+  color: #fde047;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sidebar-grid-menu {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.grid-menu-btn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(26, 16, 10, 0.75);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+  transition: all 0.15s ease;
+  overflow: hidden;
+  text-align: left;
+}
+
+.grid-menu-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.6);
+  filter: brightness(1.15);
+}
+
+.grid-btn-icon {
+  font-size: 1.25rem;
+  margin-bottom: 2px;
+}
+
+.grid-btn-title {
+  font-family: var(--font-game);
+  font-weight: 900;
+  font-size: 0.74rem;
+  letter-spacing: 0.3px;
+  color: #ffffff;
+}
+
+.grid-btn-sub {
+  font-size: 0.62rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+/* Renk kodlu buton bordür ve hafif arkaplan tonları */
+.btn-grid-orange { border-color: rgba(249, 115, 22, 0.4); background: linear-gradient(135deg, rgba(67, 20, 7, 0.7), rgba(26, 16, 10, 0.8)); }
+.btn-grid-orange:hover { border-color: #f97316; }
+
+.btn-grid-red { border-color: rgba(239, 68, 68, 0.4); background: linear-gradient(135deg, rgba(69, 10, 10, 0.7), rgba(26, 16, 10, 0.8)); }
+.btn-grid-red:hover { border-color: #ef4444; }
+
+.btn-grid-purple { border-color: rgba(168, 85, 247, 0.4); background: linear-gradient(135deg, rgba(59, 7, 100, 0.7), rgba(26, 16, 10, 0.8)); }
+.btn-grid-purple:hover { border-color: #a855f7; }
+
+.btn-grid-yellow { border-color: rgba(234, 179, 8, 0.4); background: linear-gradient(135deg, rgba(66, 40, 5, 0.7), rgba(26, 16, 10, 0.8)); }
+.btn-grid-yellow:hover { border-color: #eab308; }
+
+.btn-grid-gold { border-color: rgba(245, 158, 11, 0.4); background: linear-gradient(135deg, rgba(80, 45, 8, 0.8), rgba(26, 16, 10, 0.85)); }
+.btn-grid-gold:hover { border-color: #fbbf24; }
+
+.btn-grid-green { border-color: rgba(34, 197, 94, 0.4); background: linear-gradient(135deg, rgba(14, 55, 28, 0.7), rgba(26, 16, 10, 0.8)); }
+.btn-grid-green:hover { border-color: #22c55e; }
+
+.btn-grid-amber { border-color: rgba(217, 119, 6, 0.4); background: linear-gradient(135deg, rgba(60, 30, 8, 0.7), rgba(26, 16, 10, 0.8)); }
+.btn-grid-amber:hover { border-color: #f59e0b; }
+
+.btn-grid-blue { border-color: rgba(56, 189, 248, 0.4); background: linear-gradient(135deg, rgba(8, 47, 73, 0.7), rgba(26, 16, 10, 0.8)); }
+.btn-grid-blue:hover { border-color: #38bdf8; }
+
+/* Grid Buton Rozetleri */
+.sidebar-badge-red {
   position: absolute;
-  top: -5px;
-  right: -5px;
-  background: linear-gradient(180deg, #ef4444 0%, #b91c1c 100%);
-  border: 1.5px solid #fca5a5;
+  top: 6px;
+  right: 6px;
+  background: #dc2626;
   color: #fff;
+  border: 1px solid #fca5a5;
   font-size: 0.6rem;
   font-weight: 800;
   padding: 1px 5px;
+  border-radius: 6px;
+  animation: pulseRedAlert 2s infinite;
+}
+
+.sidebar-badge-blue {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: #0284c7;
+  color: #fff;
+  border: 1px solid #7dd3fc;
+  font-size: 0.62rem;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+
+/* TÜM ALETLERİ ONAR BUTONU */
+.sidebar-repair-all-btn {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(43, 24, 13, 0.9);
+  border: 1.5px solid #ca8a04;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.6);
+  font-family: var(--font-game);
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: #fde047;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.sidebar-repair-all-btn:hover:not(:disabled) {
+  background: #ca8a04;
+  color: #000;
+  transform: translateY(-1px);
+}
+
+.sidebar-repair-all-btn:disabled {
+  opacity: 0.6;
+  border-color: #57320c;
+  color: #a8a29e;
+  cursor: default;
+}
+
+.repair-all-cost-sub {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.sidebar-repair-all-btn:hover:not(:disabled) .repair-all-cost-sub {
+  color: #000;
 }
 
 .sidebar-mini-badge.hidden { display: none; }

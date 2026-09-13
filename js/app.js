@@ -253,14 +253,17 @@ function formatCountdown(remainingSeconds) {
 }
 
 function renderExpeditionTracker(nodeId, fillEl, timeEl) {
-  if (!fillEl || !timeEl) return;
+  if (!fillEl || !timeEl) return false;
   const exp = gameState.state.activeExpeditions[nodeId];
+  const cardEl = document.getElementById(`side-card-${nodeId}`);
 
   if (!exp) {
     fillEl.className = 'sidebar-exp-fill idle';
     fillEl.style.width = '0%';
     timeEl.innerText = 'BOŞTA';
-    return;
+    timeEl.className = 'sidebar-exp-time';
+    if (cardEl) cardEl.classList.remove('is-ready');
+    return false;
   }
 
   const pct = Math.min(100, Math.floor((exp.elapsedSeconds / exp.durationSeconds) * 100));
@@ -268,31 +271,59 @@ function renderExpeditionTracker(nodeId, fillEl, timeEl) {
 
   if (exp.isCompleted) {
     fillEl.className = 'sidebar-exp-fill done';
-    timeEl.innerText = 'HAZIR';
+    timeEl.innerText = '✅ HAZIR';
+    timeEl.className = 'sidebar-exp-time ready-text';
+    if (cardEl) cardEl.classList.add('is-ready');
+    return true;
   } else {
     fillEl.className = `sidebar-exp-fill ${nodeId}`;
     timeEl.innerText = formatCountdown(exp.durationSeconds - exp.elapsedSeconds);
+    timeEl.className = 'sidebar-exp-time';
+    if (cardEl) cardEl.classList.remove('is-ready');
+    return false;
   }
 }
 
 function renderRealmSidebar(state, maxStamina, staminaInt) {
   if (dom.sidebarPlayerLevel) dom.sidebarPlayerLevel.innerText = `Lv.${state.level}`;
-  if (dom.sidebarStaminaText) dom.sidebarStaminaText.innerText = `${staminaInt}/${maxStamina}`;
-  if (dom.sidebarStaminaFill) dom.sidebarStaminaFill.style.width = `${Math.max(0, Math.min(100, (staminaInt / maxStamina) * 100))}%`;
-  if (dom.sidebarAdAstraBalance) {
-    dom.sidebarAdAstraBalance.innerText = state.adAstraBalance.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // 1. Canlı Otomasyon Botu Rozeti
+  const botPill = document.getElementById('sidebar-bot-pill');
+  const botText = document.getElementById('sidebar-bot-status-text');
+  if (botPill && botText) {
+    const isBotActive = gameState.isAutoCollectorActive();
+    if (isBotActive) {
+      botPill.classList.add('active');
+      const remSec = gameState.getAutoCollectorRemainingSeconds();
+      botText.innerText = `Bot: ${formatCountdown(remSec)}`;
+    } else {
+      botPill.classList.remove('active');
+      botText.innerText = 'Bot: Pasif';
+    }
   }
-  if (dom.sidebarAvaxBalance) {
-    dom.sidebarAvaxBalance.innerText = (state.avaxBalance || 250).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // 2. Aktif Seferler & Tamamlanma Sayacı
+  let readyCount = 0;
+  if (renderExpeditionTracker('iron', dom.expFillIron, dom.expTimeIron)) readyCount++;
+  if (renderExpeditionTracker('wood', dom.expFillWood, dom.expTimeWood)) readyCount++;
+  if (renderExpeditionTracker('wheat', dom.expFillWheat, dom.expTimeWheat)) readyCount++;
+
+  const sweepBtn = document.getElementById('side-btn-sweep-harvest');
+  const readyBadge = document.getElementById('sidebar-exp-completed-count');
+  if (readyBadge) {
+    if (readyCount > 0) {
+      readyBadge.classList.remove('hidden');
+      readyBadge.innerText = `${readyCount} Hazır`;
+    } else {
+      readyBadge.classList.add('hidden');
+    }
+  }
+  if (sweepBtn) {
+    sweepBtn.disabled = (readyCount === 0);
+    sweepBtn.innerHTML = readyCount > 0 ? `⚡ ${readyCount} BİTEN SEFERİ TOPLA` : '⚡ BİTEN TÜM SEFERLERİ TOPLA';
   }
 
-
-  // 2. Aktif Seferler
-  renderExpeditionTracker('iron', dom.expFillIron, dom.expTimeIron);
-  renderExpeditionTracker('wood', dom.expFillWood, dom.expTimeWood);
-  renderExpeditionTracker('wheat', dom.expFillWheat, dom.expTimeWheat);
-
-  // 3. Global Günlük Çıkarma Limitleri (Gerçek kalan miktar globalPool.state.resources üzerinden okunur)
+  // 3. Global Haftalık Çıkarma Limitleri
   const getRem = (key) => {
     const info = globalPool.getResourceInfo(key);
     return { remaining: info.remaining, maxCap: info.totalCap, pct: Math.floor(parseFloat(info.percent)) };
@@ -316,7 +347,45 @@ function renderRealmSidebar(state, maxStamina, staminaInt) {
     const days = Math.floor(secToReset / 86400);
     const hrs = Math.floor((secToReset % 86400) / 3600);
     const mins = Math.floor((secToReset % 3600) / 60);
-    dom.sidebarResetTimer.innerText = days > 0 ? `⏳ ${days}g ${hrs}s ${mins}d` : `⏳ ${hrs}s ${mins}d`;
+    dom.sidebarResetTimer.innerText = days > 0 ? `⏳ ${days}g ${hrs}s` : `⏳ ${hrs}s ${mins}d`;
+  }
+
+  // 4. Kışla Yaralı Asker Rozeti
+  const barracksBadge = document.getElementById('side-badge-barracks');
+  if (barracksBadge) {
+    const injuredSoldiers = (state.army || []).filter(s => s.hp < s.maxHp).length;
+    if (injuredSoldiers > 0) {
+      barracksBadge.classList.remove('hidden');
+      barracksBadge.innerText = `${injuredSoldiers} Yaralı`;
+    } else {
+      barracksBadge.classList.add('hidden');
+    }
+  }
+
+  // 5. Sandık Rozeti
+  const boxBadge = document.getElementById('sidebar-box-badge');
+  if (boxBadge) {
+    const boxCount = (state.inventory?.lootbox || 0) + (state.lockedBoxes || 0);
+    if (boxCount > 0) {
+      boxBadge.classList.remove('hidden');
+      boxBadge.innerText = boxCount;
+    } else {
+      boxBadge.classList.add('hidden');
+    }
+  }
+
+  // 6. Tüm Aletleri Onar Butonu Canlı Maliyet
+  const repairAllBtn = document.getElementById('side-btn-repair-all');
+  const repairCostLabel = document.getElementById('side-repair-all-cost');
+  if (repairAllBtn && repairCostLabel) {
+    const rCosts = gameState.getAllRepairCost();
+    if (rCosts.count > 0) {
+      repairAllBtn.disabled = false;
+      repairCostLabel.innerText = `${rCosts.totalWood}🌲 ${rCosts.totalIron}⛏️ ${rCosts.totalAda}🟣`;
+    } else {
+      repairAllBtn.disabled = true;
+      repairCostLabel.innerText = 'Tam Sağlam';
+    }
   }
 }
 
@@ -5310,25 +5379,7 @@ function initAppEvents() {
   const pillCarnival = document.getElementById('btn-carnival-pill');
   if (pillCarnival) pillCarnival.addEventListener('click', () => openCarnivalModal('wheel'));
 
-  // Alt 3D Dock & Sağ Menü Butonları
-  const sideBtnInventory = document.getElementById('side-btn-inventory');
-  if (sideBtnInventory) sideBtnInventory.addEventListener('click', openInventoryModal);
-
-  const sideBtnWorkers = document.getElementById('side-btn-workers');
-  if (sideBtnWorkers) sideBtnWorkers.addEventListener('click', openInventoryModal);
-
-  const sideBtnBarracks = document.getElementById('side-btn-barracks');
-  if (sideBtnBarracks) sideBtnBarracks.addEventListener('click', openBarracksModal);
-
-  const sideBtnColosseum = document.getElementById('side-btn-colosseum');
-  if (sideBtnColosseum) sideBtnColosseum.addEventListener('click', openColosseumModal);
-
-  const sideBtnCollection = document.getElementById('side-btn-collection');
-  if (sideBtnCollection) sideBtnCollection.addEventListener('click', () => openCollectionModal('koleksiyon'));
-
-  const sideBtnBoxes = document.getElementById('side-btn-boxes');
-  if (sideBtnBoxes) sideBtnBoxes.addEventListener('click', () => openCollectionModal('kutular'));
-
+  // Alt 3D Dock Butonları
   if (dom.btnDockWorkers) dom.btnDockWorkers.addEventListener('click', openInventoryModal);
   if (dom.btnDockInventory) dom.btnDockInventory.addEventListener('click', openInventoryModal);
   if (dom.btnDockBarracks) dom.btnDockBarracks.addEventListener('click', openBarracksModal);
@@ -5364,14 +5415,63 @@ function initAppEvents() {
   }
 
   // Sağ Menü Paneli (Realm Sidebar) Butonları
-  if (dom.sidebarCharacterCard) dom.sidebarCharacterCard.addEventListener('click', openInventoryModal);
-  if (dom.sideBtnInventory) dom.sideBtnInventory.addEventListener('click', openInventoryModal);
-  if (dom.sideBtnWorkers) dom.sideBtnWorkers.addEventListener('click', openInventoryModal);
-  if (dom.sideBtnBarracks) dom.sideBtnBarracks.addEventListener('click', openBarracksModal);
-  if (dom.sideBtnColosseum) dom.sideBtnColosseum.addEventListener('click', openColosseumModal);
-  if (dom.sideBtnCollection) dom.sideBtnCollection.addEventListener('click', () => openCollectionModal('koleksiyon'));
-  if (dom.sideBtnBoxes) dom.sideBtnBoxes.addEventListener('click', () => openCollectionModal('kutular'));
+  const sideCharCard = document.getElementById('sidebar-character-card');
+  if (sideCharCard) sideCharCard.addEventListener('click', openInventoryModal);
 
+  const sideBotPill = document.getElementById('sidebar-bot-pill');
+  if (sideBotPill) sideBotPill.addEventListener('click', () => openTownZoneModal('tavern', '🍻 Gece Kuşu Tavernası'));
+
+  const sideSweepBtn = document.getElementById('side-btn-sweep-harvest');
+  if (sideSweepBtn) {
+    sideSweepBtn.addEventListener('click', () => {
+      const res = gameState.sweepCompletedExpeditions();
+      if (res.success) {
+        showToast(res.message, 'success');
+        sound.playHarvest();
+      } else {
+        showToast(res.message, 'info');
+      }
+      renderTopBar();
+    });
+  }
+
+  const sideBtnInv = document.getElementById('side-btn-inventory');
+  if (sideBtnInv) sideBtnInv.addEventListener('click', openInventoryModal);
+
+  const sideBtnBar = document.getElementById('side-btn-barracks');
+  if (sideBtnBar) sideBtnBar.addEventListener('click', openBarracksModal);
+
+  const sideBtnDun = document.getElementById('side-btn-dungeon');
+  if (sideBtnDun) sideBtnDun.addEventListener('click', enterDungeonScene);
+
+  const sideBtnCol = document.getElementById('side-btn-colosseum');
+  if (sideBtnCol) sideBtnCol.addEventListener('click', openColosseumModal);
+
+  const sideBtnCarnival = document.getElementById('side-btn-carnival');
+  if (sideBtnCarnival) sideBtnCarnival.addEventListener('click', () => openCarnivalModal('wheel'));
+
+  const sideBtnMarket = document.getElementById('side-btn-market');
+  if (sideBtnMarket) sideBtnMarket.addEventListener('click', () => openTownZoneModal('market', '🏪 AMM Pazar Alanı'));
+
+  const sideBtnTavern = document.getElementById('side-btn-tavern');
+  if (sideBtnTavern) sideBtnTavern.addEventListener('click', () => openTownZoneModal('tavern', '🍻 Gece Kuşu Tavernası'));
+
+  const sideBtnBoxes = document.getElementById('side-btn-boxes');
+  if (sideBtnBoxes) sideBtnBoxes.addEventListener('click', () => openCollectionModal('kutular'));
+
+  const sideBtnRepairAll = document.getElementById('side-btn-repair-all');
+  if (sideBtnRepairAll) {
+    sideBtnRepairAll.addEventListener('click', () => {
+      const res = gameState.repairAllTools();
+      if (res.success) {
+        showToast(res.message, 'success');
+        sound.playLevelUp();
+      } else {
+        showToast(res.message, 'error');
+      }
+      renderTopBar();
+    });
+  }
 
   // Sefer kartlarına tıklayınca ilgili kaynağın modalını aç
   document.querySelectorAll('.sidebar-exp-card').forEach(card => {
