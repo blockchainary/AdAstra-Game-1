@@ -169,6 +169,15 @@ html, body {
   opacity: 0.8;
 }
 
+@keyframes pulseRedAlert {
+  0%, 100% { box-shadow: 0 0 12px rgba(239, 68, 68, 0.4); border-color: #ef4444; }
+  50% { box-shadow: 0 0 24px rgba(239, 68, 68, 0.85); border-color: #fca5a5; }
+}
+
+.soldier-heal-blocked-alert {
+  animation: pulseRedAlert 2s infinite ease-in-out;
+}
+
 #phaser-game-container {
   position: absolute;
   top: 92px;

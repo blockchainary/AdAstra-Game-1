@@ -2227,6 +2227,21 @@ function renderBarracksHtml() {
         ice: { icon: '❄️', name: 'Buz', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.15)', border: '#0284c7' }
       };
 
+      const isHealBlocked = gameState.isArmyPassiveHealBlocked ? gameState.isArmyPassiveHealBlocked() : false;
+      const alertBannerHtml = isHealBlocked ? `
+        <div class="soldier-heal-blocked-alert" style="background: linear-gradient(90deg, rgba(153, 27, 27, 0.92) 0%, rgba(185, 28, 28, 0.98) 50%, rgba(153, 27, 27, 0.92) 100%); border: 1.5px solid #ef4444; border-radius: 12px; padding: 12px 18px; margin-bottom: 12px; display: flex; align-items: center; gap: 14px; box-shadow: 0 4px 20px rgba(239, 68, 68, 0.45);">
+          <span style="font-size: 1.9rem;">🚨</span>
+          <div>
+            <div style="font-size: 0.96rem; font-weight: 900; color: #ffffff; letter-spacing: 0.5px; text-shadow: 0 1px 4px rgba(0,0,0,0.8);">
+              HESABINIZDA YETERİ KADAR $ADASTRA VEYA BUĞDAY YOK! ASKERLERİN İYİLEŞMESİ DURDURULDU.
+            </div>
+            <div style="font-size: 0.82rem; color: #fee2e2; margin-top: 2px;">
+              Şampiyonların 24 saatlik pasif can yenilenmesini devam ettirebilmek için ambarınıza buğday ekleyin ve cüzdanınızda $ADASTRA bulundurun.
+            </div>
+          </div>
+        </div>
+      ` : '';
+
       const overviewHudHtml = `
         <div class="barracks-overview-hud">
           <div class="barracks-hud-pill">
@@ -2345,7 +2360,7 @@ function renderBarracksHtml() {
                   ${heal.isFull
                     ? `<span style="font-size: 0.62rem; color: #4ade80; font-weight: 700;">✅ Tam Can</span>`
                     : heal.isPaused
-                      ? `<span class="soldier-heal-badge-warning">⚠️ Buğday Yok</span>`
+                      ? `<span class="soldier-heal-badge-warning" style="background: rgba(220,38,38,0.35); border: 1px solid #ef4444; color: #fca5a5; font-size: 0.62rem; font-weight: 800; padding: 2px 6px; border-radius: 4px;">⛔ İyileşme Durdu</span>`
                       : `<span style="font-size: 0.62rem; color: #94a3b8;">⏳ İyileşiyor</span>`
                   }
                 </div>
@@ -2436,6 +2451,7 @@ function renderBarracksHtml() {
       const selClsIcon = BARRACKS_CLASS_ICONS[selectedSoldier.class] || selectedSoldier.icon || '🛡️';
 
       contentHtml = `
+        ${alertBannerHtml}
         ${overviewHudHtml}
         ${quickActionsHtml}
 
@@ -2500,12 +2516,17 @@ function renderBarracksHtml() {
 
             <div class="soldier-heal-status-row">
               <span style="color: ${heal.isFull ? '#4ade80' : '#f97316'};">
-                ${heal.isFull ? '✅ Tamamen İyileşti' : `⏳ Otomatik Tam Can (18 Saat): ${hh}s ${mm}dk`}
+                ${heal.isFull ? '✅ Tamamen İyileşti' : `⏳ Otomatik Tam Can (24 Saat): ${hh}s ${mm}dk`}
               </span>
-              <span style="color: #94a3b8;">🌾 18s Pasif Maliyet: ${heal.passiveWheatNeeded} 🌾 + ${heal.passiveAdaCost} 🟣 ADA</span>
+              <span style="color: #94a3b8;">🌾 24s Pasif Maliyet: ${heal.passiveWheatNeeded} 🌾 + ${heal.passiveAdaCost} 🟣 ADA</span>
             </div>
 
-            ${heal.isPaused ? `<div class="soldier-heal-badge-warning-full">⚠️ Depoda Yetersiz Buğday veya $ADASTRA! Otomatik İyileşme Durdu</div>` : ''}
+            ${heal.isPaused ? `
+              <div class="soldier-heal-badge-warning-full" style="background: linear-gradient(90deg, rgba(153,27,27,0.88) 0%, rgba(185,28,28,0.95) 100%); border: 1.5px solid #ef4444; color: #ffffff; font-weight: 800; padding: 10px 14px; border-radius: 8px; font-size: 0.84rem; margin-top: 8px; display: flex; align-items: center; gap: 10px; box-shadow: 0 3px 12px rgba(239,68,68,0.35); animation: pulseRedAlert 2s infinite ease-in-out;">
+                <span style="font-size: 1.3rem;">🚨</span>
+                <span>Hesabınızda yeteri kadar $ADASTRA veya Buğday yok! Askerlerin iyileşmesi durduruldu.</span>
+              </div>
+            ` : ''}
 
             <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
               <button class="btn-clean btn-clean-purple btn-soldier-instant-heal" data-soldier-idx="${actualSelectedIndex}" style="flex: 1; min-width: 180px;" ${heal.isFull ? 'disabled' : ''}>

@@ -290,22 +290,23 @@ export class GameStateManager {
     const hp = Math.min(maxHp, Math.max(0, soldier.hp != null ? soldier.hp : maxHp));
     const missingHp = Math.max(0, maxHp - hp);
 
-    // 18 Saatlik Otomatik Pasif İyileşme Oranları (1 HP = 0.30 Buğday + 0.10 ADA)
+    // 24 Saatlik Otomatik Pasif İyileşme Oranları (1 HP = 0.30 Buğday + 0.10 ADA)
     const passiveWheatRate = passiveCfg.wheatPerHp != null ? passiveCfg.wheatPerHp : 0.30;
     const passiveAdaRate = passiveCfg.adaPerHp != null ? passiveCfg.adaPerHp : 0.10;
     const passiveWheatNeeded = Math.round(missingHp * passiveWheatRate * 100) / 100;
     const passiveAdaCost = Math.round(missingHp * passiveAdaRate * 100) / 100;
 
-    // Hızlı Doldurma Oranları (18 Saatlik Formülün 10 Katı: 1 HP = 3 Buğday + 1 ADA)
+    // Hızlı Doldurma Oranları (24 Saatlik Formülün 10 Katı: 1 HP = 3 Buğday + 1 ADA)
     const fastWheatRate = fastCfg.wheatPerHp != null ? fastCfg.wheatPerHp : 3.0;
     const fastAdaRate = fastCfg.adAstraPerHp != null ? fastCfg.adAstraPerHp : 1.0;
     const wheatNeeded = Math.round(missingHp * fastWheatRate * 100) / 100;
     const adaCost = Math.round(missingHp * fastAdaRate * 100) / 100;
 
-    const fullHealSec = passiveCfg.FULL_HEAL_SECONDS || 64800;
+    const fullHealSec = passiveCfg.FULL_HEAL_SECONDS || 86400; // 24 Saat
     const secondsRemaining = missingHp > 0 ? Math.ceil((missingHp / maxHp) * fullHealSec) : 0;
-    const wheatInStock = Math.floor(this.state.inventory.wheat || 0);
+    const wheatInStock = Math.floor(this.state.inventory?.wheat || 0);
     const adaInBalance = Math.floor(this.state.adAstraBalance || 0);
+    const isPaused = missingHp > 0 && (wheatInStock <= 0 || adaInBalance <= 0 || wheatInStock < 0.30 || adaInBalance < 0.10);
 
     return {
       hp: Math.floor(hp),
@@ -313,8 +314,9 @@ export class GameStateManager {
       missingHp: Math.ceil(missingHp),
       hpPct: Math.floor((hp / maxHp) * 100),
       isFull: missingHp <= 0,
-      isPaused: missingHp > 0 && (wheatInStock <= 0 || adaInBalance <= 0),
-      // 18 Saatlik Otomatik Pasif İyileşme
+      isPaused,
+      pauseMessage: isPaused ? 'Hesabınızda yeteri kadar $ADASTRA veya Buğday yok! Askerlerin iyileşmesi durduruldu.' : null,
+      // 24 Saatlik Otomatik Pasif İyileşme
       passiveWheatRate,
       passiveAdaRate,
       passiveWheatNeeded,
@@ -332,62 +334,84 @@ export class GameStateManager {
     };
   }
 
-  // 18 Saatlik Otomatik Pasif Asker İyileşmesi:
-  // Her 1 HP için: 18 saat boyunca toplam 0.30 Buğday + 0.10 ADA tüketerek kendi kendine yavaş yavaş dolar.
+  // Orduda iyileşmesi gereken ancak kaynak yetersizliğinden durdurulan asker var mı?
+  isArmyPassiveHealBlocked() {
+    const units = this.state.soldierUnits || [];
+    const hasWounded = units.some(s => (s.hp != null ? s.hp : (s.maxHp || 100)) < (s.maxHp || 100));
+    if (!hasWounded) return false;
+
+    const wheat = this.state.inventory?.wheat || 0;
+    const ada = this.state.adAstraBalance || 0;
+    return wheat <= 0 || ada <= 0 || wheat < 0.30 || ada < 0.10;
+  }
+
+  // 24 Saatlik Otomatik Pasif Asker İyileşmesi:
+  // Her 1 HP için: 24 saat boyunca toplam 0.30 Buğday + 0.10 ADA tüketerek kendi kendine yavaş yavaş dolar.
+  // Kural: Hesapta yeteri kadar buğday VEYA $ADASTRA yoksa süreç tamamen durdurulur!
   processSoldierPassiveHealing(deltaSeconds) {
-    if (!deltaSeconds || deltaSeconds <= 0) return { wheatRanOut: false };
+    if (!deltaSeconds || deltaSeconds <= 0) return { wheatRanOut: false, isPaused: false };
 
     const cfg = GAME_CONFIG.SOLDIER_PASSIVE_HEAL || {};
-    const fullHealSec = cfg.FULL_HEAL_SECONDS || 64800; // 18 Saat
+    const fullHealSec = cfg.FULL_HEAL_SECONDS || 86400; // 24 Saat
     const wheatPerHp = cfg.wheatPerHp != null ? cfg.wheatPerHp : 0.30;
     const adaPerHp = cfg.adaPerHp != null ? cfg.adaPerHp : 0.10;
 
     const units = this.state.soldierUnits || [];
     let changed = false;
-    let wheatRanOut = false;
+    let anyWounded = false;
+
+    const availableWheat = this.state.inventory?.wheat || 0;
+    const availableAda = this.state.adAstraBalance || 0;
+
+    // Temel kural: Bakiye veya buğday yetersizse iyileşme süreci derhal durdurulur!
+    if (availableWheat <= 0 || availableAda <= 0) {
+      const hasWounded = units.some(s => (s.hp != null ? s.hp : (s.maxHp || 100)) < (s.maxHp || 100));
+      if (hasWounded) {
+        this.state.isPassiveHealPaused = true;
+        this.state.passiveHealPauseReason = 'insufficient_resources';
+      }
+      return { wheatRanOut: true, adaRanOut: true, isPaused: hasWounded };
+    }
 
     units.forEach(soldier => {
       const maxHp = soldier.maxHp || 100;
       const currentHp = soldier.hp != null ? soldier.hp : maxHp;
       if (currentHp >= maxHp) return;
+      anyWounded = true;
 
       const missingHp = maxHp - currentHp;
       const hpPerSecond = maxHp / fullHealSec;
-      let hpGain = Math.min(missingHp, hpPerSecond * deltaSeconds);
-      let wheatCost = hpGain * wheatPerHp;
-      let adaCost = hpGain * adaPerHp;
+      const hpGain = Math.min(missingHp, hpPerSecond * deltaSeconds);
+      const wheatCost = hpGain * wheatPerHp;
+      const adaCost = hpGain * adaPerHp;
 
-      const availableWheat = this.state.inventory.wheat || 0;
-      const availableAda = this.state.adAstraBalance || 0;
+      const curW = this.state.inventory?.wheat || 0;
+      const curA = this.state.adAstraBalance || 0;
 
-      if (availableWheat <= 0 || availableAda <= 0) {
-        wheatRanOut = true;
+      // Hesapta yeteri kadar buğday ve adastra yoksa hp doldurma süreci durdurulsun
+      if (wheatCost > curW || adaCost > curA) {
+        this.state.isPassiveHealPaused = true;
+        this.state.passiveHealPauseReason = 'insufficient_resources';
         return;
       }
 
-      if (wheatCost > availableWheat) {
-        hpGain = availableWheat / wheatPerHp;
-        wheatCost = availableWheat;
-        adaCost = hpGain * adaPerHp;
-        wheatRanOut = true;
-      }
-
-      if (adaCost > availableAda) {
-        hpGain = availableAda / adaPerHp;
-        adaCost = availableAda;
-        wheatCost = hpGain * wheatPerHp;
-      }
-
       if (hpGain > 0) {
-        this.state.inventory.wheat = Math.max(0, Math.round((availableWheat - wheatCost) * 100) / 100);
-        this.state.adAstraBalance = Math.max(0, Math.round((availableAda - adaCost) * 100) / 100);
+        this.state.inventory.wheat = Math.max(0, Math.round((curW - wheatCost) * 100) / 100);
+        this.state.adAstraBalance = Math.max(0, Math.round((curA - adaCost) * 100) / 100);
         soldier.hp = Math.min(maxHp, Math.round((currentHp + hpGain) * 100) / 100);
         changed = true;
       }
     });
 
+    if (anyWounded && !this.isArmyPassiveHealBlocked()) {
+      this.state.isPassiveHealPaused = false;
+    }
+
     if (changed) this.saveState();
-    return { wheatRanOut };
+    return { 
+      wheatRanOut: this.isArmyPassiveHealBlocked(),
+      isPaused: this.isArmyPassiveHealBlocked()
+    };
   }
 
   // '⚡ ANINDA DOYUR & İYİLEŞTİR': Kalan Buğday ihtiyacını + hızlı iyileştirme bedelini (ADA) anında harcayıp HP'yi MaxHP'ye tamamlar.

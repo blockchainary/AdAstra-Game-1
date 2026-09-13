@@ -197,27 +197,27 @@ export const GAME_CONFIG = {
   SOLDIER_BASE_ATK: 25,               // Fix Level 1 ATK
   SOLDIER_HP_PER_LEVEL: 25,           // Her seviye atlayışta +25 HP
   SOLDIER_ATK_PER_LEVEL: 6,           // Her seviye atlayışta +6 ATK
-  SOLDIER_HEAL_DURATION_MINUTES: 1080,
-  SOLDIER_HEAL_TICK_MINUTES: 18,
+  SOLDIER_HEAL_DURATION_MINUTES: 1440, // 24 Saat (1440 dk)
+  SOLDIER_HEAL_TICK_MINUTES: 24,
   SOLDIER_HEAL_HP_PER_TICK: 1.667,
 
-  // 18 Saatlik Otomatik Asker Doyurma (Pasif İyileşme) Kuralı:
-  // 18 saat (1080 dk / 64800 sn) içinde asker kendi kendini otomatik iyileştirirken:
-  // Her 1 HP için: 1 dakikada üretilen buğdayın %1'i (30 * 0.01 = 0.30 Buğday) + 0.10 ADA
+  // 24 Saatlik Otomatik Asker Doyurma (Pasif İyileşme) Kuralı:
+  // 24 saat (1440 dk / 86400 sn) içinde asker kendi kendini otomatik iyileştirirken:
+  // Her 1 HP için: 0.30 Buğday + 0.10 ADA tüketilir. Yetersiz bakiye veya buğdayda iyileşme durdurulur.
   SOLDIER_PASSIVE_HEAL: {
-    FULL_HEAL_SECONDS: 64800,     // 0 HP'den %100 cana kadar tam iyileşme süresi (18 saat)
-    wheatPerHp: 0.30,             // 18 saatte 1 HP başına 0.30 Buğday
+    FULL_HEAL_SECONDS: 86400,     // 0 HP'den %100 cana kadar tam iyileşme süresi (24 saat)
+    wheatPerHp: 0.30,             // 24 saatte 1 HP başına 0.30 Buğday
     WHEAT_PER_HP: 0.30,           // Geriye dönük uyumluluk
-    adaPerHp: 0.10,               // 18 saatte 1 HP başına 0.10 ADA
+    adaPerHp: 0.10,               // 24 saatte 1 HP başına 0.10 ADA
     ADA_PER_HP: 0.10
   },
 
   // Hızlı Asker Doyurma (Instant / Fast Heal) Kuralı:
-  // 18 saatlik otomatik formülün 10 katı (Deflasyonist Zaman Satın Alma & Hazine Besleme):
+  // 24 saatlik otomatik formülün 10 katı (Deflasyonist Zaman Satın Alma & Hazine Besleme):
   // Her 1 HP için: 3.0 Buğday (0.30 * 10) + 1.0 ADA (0.10 * 10)
   SOLDIER_FAST_HEAL: {
-    wheatPerHp: 3.0,             // 18 saatlik formülün 10 katı (3 Buğday / HP)
-    adAstraPerHp: 1.0            // 18 saatlik formülün 10 katı (1 ADA / HP)
+    wheatPerHp: 3.0,             // 24 saatlik formülün 10 katı (3 Buğday / HP)
+    adAstraPerHp: 1.0            // 24 saatlik formülün 10 katı (1 ADA / HP)
   },
 
   // =========================================================================
