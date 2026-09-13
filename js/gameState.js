@@ -613,16 +613,17 @@ export class GameStateManager {
     };
   }
 
-  // 1.5 Depodaki Buğday ile Staminayı Tek Seferde Tamamen Doldurma
+  // 1.5 Depodaki Buğday ile İhtiyaç Kadar Stamina Doldurma
   // Kural: 1 Stamina doldurmak için dakika başı çıkartılan buğdayın (15) %21'i (3.15 Buğday) gerekir.
-  refillStaminaToMaxWithWheat() {
+  refillStaminaExact(staminaNeeded) {
+    if (!staminaNeeded || staminaNeeded <= 0) return { success: true, wheatUsed: 0, gainedStamina: 0 };
     const inv = this.state.inventory;
     const maxStam = this.getMaxStamina();
-    const curStam = this.state.stamina;
-    const neededStamina = maxStam - curStam;
+    const curStam = this.state.stamina || 0;
+    const actualNeeded = Math.min(staminaNeeded, Math.max(0, maxStam - curStam));
 
-    if (neededStamina <= 0) {
-      return { success: false, message: 'Stamina zaten tamamen dolu!' };
+    if (actualNeeded <= 0) {
+      return { success: true, wheatUsed: 0, gainedStamina: 0, message: 'Stamina zaten yeterli.' };
     }
 
     const availableWheat = Math.floor(Number(inv.wheat) || 0);
@@ -631,7 +632,7 @@ export class GameStateManager {
     }
 
     const wheatPerStamina = GAME_CONFIG.WHEAT_PER_STAMINA || 3.15; // 3.15 Buğday / 1 Stamina
-    const exactWheatNeeded = Math.ceil(neededStamina * wheatPerStamina);
+    const exactWheatNeeded = Math.ceil(actualNeeded * wheatPerStamina);
     const wheatToUse = Math.min(availableWheat, exactWheatNeeded);
 
     if (wheatToUse <= 0) {
@@ -644,13 +645,23 @@ export class GameStateManager {
     sound.playStaminaRefill();
     this.saveState();
 
-    const isFull = this.state.stamina >= maxStam;
     return {
       success: true,
-      message: isFull
-        ? `⚡ ${wheatToUse} Buğday tüketildi! Stamina tamamen dolduruldu (${maxStam}/${maxStam} ⚡)`
-        : `⚡ ${wheatToUse} Buğday tüketildi! +${Math.round(gainedStamina)} Stamina yenilendi (${Math.floor(this.state.stamina)}/${maxStam} ⚡)`
+      wheatUsed: wheatToUse,
+      gainedStamina,
+      message: `⚡ ${wheatToUse} Buğday tüketildi! +${Math.round(gainedStamina)} Stamina yenilendi (${Math.floor(this.state.stamina)}/${maxStam} ⚡)`
     };
+  }
+
+  // Depodaki Buğday ile Staminayı Tek Seferde Tamamen Doldurma
+  refillStaminaToMaxWithWheat() {
+    const maxStam = this.getMaxStamina();
+    const curStam = this.state.stamina || 0;
+    const needed = maxStam - curStam;
+    if (needed <= 0) {
+      return { success: false, message: 'Stamina zaten tamamen dolu!' };
+    }
+    return this.refillStaminaExact(needed);
   }
 
   // 2. Tavernadan AdAstra Karşılığında Staminayı Fullleme
@@ -773,7 +784,7 @@ export class GameStateManager {
           exp.isCompleted = true;
 
           // 🤖 OTOMATİK TOPLAMA & OTOMATİK TAMİR BOTU (AUTO-COLLECTOR & AUTO-REPAIR)
-          if (this.isAutoCollectorActive()) {
+          if (this.isAutoCollectorActive() || this.hasPurchasedBot()) {
             this.runTavernaAutomationCycle();
           }
         }
@@ -789,18 +800,30 @@ export class GameStateManager {
     }
   }
 
-  // 🤖 24 SAATLİK TAVERNA OTONOM SEFER, HASAT, TAMİR & STAMİNA MOTORU
+  // 🤖 24 SAATLİK TAVERNA OTONOM SEFER, HASAT, TAMİR, STAMİNA & SİLO MOTORU
+  // Sıralama:
+  // 1. Önce sefer kaynaklarını topla (hasat depoya girsin, eksikler tamamlansın)
+  // 2. Aletleri onar
+  // 3. Staminayı sadece bir sonraki seferleri karşılayacak kadar doldur (buğdayı tüketmeden)
+  // 4. Silo durumunu kontrol et (kullanıcı seçimine göre "siloyu yükselt" veya "akıllı satış")
+  // 5. 50x Önkoşul kontrolü (eksik varsa dondur/pause)
+  // 6. Sonra tekrar seferi gönder
   runTavernaAutomationCycle() {
-    this.updateBotPauseState();
-    if (!this.isAutoCollectorActive() || this.isBotPaused()) return { active: false, paused: this.isBotPaused(), actions: [] };
+    const hasBot = this.hasPurchasedBot();
+    if (!hasBot) return { active: false, paused: false, actions: [] };
 
     const nodes = ['wood', 'iron', 'wheat'];
     const actions = [];
 
-    // 1. Önce tamamlanan seferleri topla
+    // =========================================================================
+    // 1. ÖNCE TAMAMLANAN SEFERLERİ TOPLA (Hasat)
+    // Sefer bitmişse veya süresi dolmuşsa derhal toplanır.
+    // Bu sayede ambara buğday, demir ve odun girer; yetersizlik çözülür.
+    // =========================================================================
     for (const nodeId of nodes) {
       const exp = this.state.activeExpeditions ? this.state.activeExpeditions[nodeId] : null;
-      if (exp && exp.isCompleted) {
+      if (exp && (exp.isCompleted || (exp.elapsedSeconds >= exp.durationSeconds))) {
+        exp.isCompleted = true;
         const claimRes = this.claimExpedition(nodeId);
         if (claimRes && claimRes.success) {
           actions.push(`✅ ${GAME_CONFIG.GLOBAL_RESOURCE_CAPS[nodeId].name} seferi toplandı.`);
@@ -808,7 +831,10 @@ export class GameStateManager {
       }
     }
 
-    // 2. Kırık aletleri kontrol et ve depodaki kaynaklarla tamir et
+    // =========================================================================
+    // 2. ALETLERİ ONAR
+    // Kırık veya sıfır dayanıklılığa sahip aletleri depodaki kaynaklarla tamir et
+    // =========================================================================
     for (const nodeId of nodes) {
       const toolId = GAME_CONFIG.GLOBAL_RESOURCE_CAPS[nodeId].requiredTool;
       const tool = this.state.tools ? this.state.tools[toolId] : null;
@@ -824,23 +850,97 @@ export class GameStateManager {
       }
     }
 
-    // 3. Stamina kontrolü: 25'in altındaysa ve ambarda buğday varsa doldur
-    if ((this.state.stamina || 0) < 25 && ((this.state.inventory && this.state.inventory.wheat) || 0) > 0) {
-      const refRes = this.refillStaminaToMaxWithWheat();
-      if (refRes && refRes.success) {
-        actions.push('🍞 Stamina depodaki buğdayla yenilendi.');
-      }
-    }
-
-    // 4. Boşta olan (aktif olmayan) seferleri otomatik başlat
+    // =========================================================================
+    // 3. STAMİNAYI DOLDUR (SADECE BİR SONRAKİ SEFERLERİ KARŞILAYACAK KADAR!)
+    // Asla tüm buğdayı tüketip staminayı full'lemez; sadece gönderilecek sefer kadar alır.
+    // =========================================================================
+    const staminaCostPerExp = this.getExpeditionStaminaCost ? this.getExpeditionStaminaCost() : (GAME_CONFIG.STAMINA_COST_PER_EXPEDITION || 25);
+    const readyToLaunchNodes = [];
     for (const nodeId of nodes) {
       const hasExp = this.state.activeExpeditions && this.state.activeExpeditions[nodeId];
       if (!hasExp) {
         const toolId = GAME_CONFIG.GLOBAL_RESOURCE_CAPS[nodeId].requiredTool;
         const tool = this.state.tools ? this.state.tools[toolId] : null;
-        const staminaCost = GAME_CONFIG.STAMINA_COST_PER_EXPEDITION || 25;
+        if (tool && tool.durability > 0) {
+          readyToLaunchNodes.push(nodeId);
+        }
+      }
+    }
 
-        // Alet kırık değilse ve stamina yeterliyse başlat
+    if (readyToLaunchNodes.length > 0) {
+      const totalStaminaNeeded = readyToLaunchNodes.length * staminaCostPerExp;
+      const currentStamina = this.state.stamina || 0;
+
+      if (totalStaminaNeeded > currentStamina) {
+        const staminaDeficit = totalStaminaNeeded - currentStamina;
+        const refRes = this.refillStaminaExact(staminaDeficit);
+        if (refRes && refRes.success && refRes.wheatUsed > 0) {
+          actions.push(`🍞 ${refRes.wheatUsed} Buğday ile seferler için +${Math.round(refRes.gainedStamina)} Stamina sağlandı.`);
+        }
+      }
+    }
+
+    // =========================================================================
+    // 4. SİLO DURUMUNU KONTROL ET ("Siloyu Yükselt" veya "Akıllı Satış")
+    // Sefer gönderilmeden önce ambar kapasitesi değerlendirilir.
+    // =========================================================================
+    if (readyToLaunchNodes.length > 0) {
+      const cap = this.getWarehouseCapacity();
+      for (const nodeId of readyToLaunchNodes) {
+        const ratePm = this.getResourceRatePerMinute(nodeId);
+        const durationMinutes = this.getExpeditionDurationMinutes();
+        const estYield = Math.floor(ratePm * durationMinutes * this.getExpeditionSpeedMultiplier());
+        const curAmt = Number(this.state.inventory[nodeId]) || 0;
+        const limit = cap[nodeId];
+
+        // Eğer mevcut miktar + gelecek tahmini hasat limiti aşıyorsa veya silo %85+ doluysa
+        if (limit != null && (curAmt + estYield > limit || curAmt >= limit * 0.85)) {
+          if (this.state.botSiloAutoUpgrade) {
+            // Kullanıcı "Siloyu Yükselt" seçtiyse
+            const upRes = this.upgradeWarehouse();
+            if (upRes && upRes.success) {
+              actions.push(`🏰 Silo otomatik Seviye ${this.state.warehouseLevel}'e yükseltildi.`);
+            } else {
+              // Yükseltme yapılamadıysa (%80 doluluk veya yetersiz ADA) taşmayı önlemek için akıllı satış yap
+              const spaceRes = this.handleBotSiloSpace(nodeId, estYield);
+              if (spaceRes && spaceRes.handled && spaceRes.action === 'sold') {
+                actions.push(`⚖️ Silo yükseltilemediği için ${spaceRes.amountSold} ${nodeId} satılarak yer açıldı.`);
+              }
+            }
+          } else {
+            // Kullanıcı "Akıllı Satış" seçtiyse
+            const spaceRes = this.handleBotSiloSpace(nodeId, estYield);
+            if (spaceRes && spaceRes.handled && spaceRes.action === 'sold') {
+              actions.push(`⚖️ Akıllı Satış: ${spaceRes.amountSold} ${nodeId} satılarak yer açıldı.`);
+            }
+          }
+        }
+      }
+    }
+
+    // =========================================================================
+    // 5. 50x ÖNKOŞUL KAYNAK KONTROLÜ VE DONDURMA/UYANMA (Pause/Freeze)
+    // Hasat, tamirat ve minimum stamina dolumundan sonra bakiye kontrolü
+    // =========================================================================
+    this.updateBotPauseState();
+    if (this.isBotPaused()) {
+      if (actions.length > 0) {
+        this.state.lastBotActions = actions;
+        this.saveState();
+      }
+      return { active: false, paused: true, actions };
+    }
+
+    // =========================================================================
+    // 6. TEKRAR SEFERLERİ GÖNDER (Otonom Başlatma)
+    // =========================================================================
+    for (const nodeId of readyToLaunchNodes) {
+      const hasExp = this.state.activeExpeditions && this.state.activeExpeditions[nodeId];
+      if (!hasExp) {
+        const toolId = GAME_CONFIG.GLOBAL_RESOURCE_CAPS[nodeId].requiredTool;
+        const tool = this.state.tools ? this.state.tools[toolId] : null;
+        const staminaCost = this.getExpeditionStaminaCost ? this.getExpeditionStaminaCost() : (GAME_CONFIG.STAMINA_COST_PER_EXPEDITION || 25);
+
         if (tool && tool.durability > 0 && (this.state.stamina || 0) >= staminaCost) {
           const startRes = this.startExpedition(nodeId);
           if (startRes && startRes.success) {
@@ -962,6 +1062,17 @@ export class GameStateManager {
 
   isBotPaused() {
     return !!this.state.botPaused;
+  }
+
+  hasPurchasedBot() {
+    const now = Date.now();
+    const isTavernaBot = (this.state.botActiveUntil && this.state.botActiveUntil > now) ||
+                         (this.state.tavernaBotActive && this.state.tavernaBotExpiresAt > now) ||
+                         (this.state.botPaused && (this.state.botPausedRemainingMs || 0) > 0);
+    return !!isTavernaBot ||
+           this.isBuffActive('auto_collector') ||
+           this.isBuffActive('auto_collector_weekly') ||
+           this.isBuffActive('auto_collector_monthly');
   }
 
   isAutoCollectorActive() {
@@ -1206,8 +1317,8 @@ export class GameStateManager {
     const resourceDisplayNames = { wood: 'odun', iron: 'demir', wheat: 'buğday' };
     const rLabel = resourceDisplayNames[nodeId] || nodeId;
 
-    // 🤖 Otomasyon Botu Aktifse: Depoda seferin tamamına yetecek yer yoksa otomatik yer aç
-    if (this.isAutoCollectorActive() && limit != null && (availableRoom < remainingToClaim)) {
+    // 🤖 Otomasyon Botu Satın Alınmışsa: Depoda seferin tamamına yetecek yer yoksa otomatik yer aç
+    if ((this.isAutoCollectorActive() || this.hasPurchasedBot()) && limit != null && (availableRoom < remainingToClaim)) {
       const botSpaceRes = this.handleBotSiloSpace(nodeId, remainingToClaim);
       currentAmount = Number(this.state.inventory[nodeId]) || 0;
       const updatedCap = this.getWarehouseCapacity();
