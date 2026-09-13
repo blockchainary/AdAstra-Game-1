@@ -183,8 +183,8 @@ export const GAME_CONFIG = {
     scroll_stamina: { minPriceAda: 30.0, maxPriceAda: 180.0, defaultPriceAda: 60.0 }
   },
 
-  // Swap ücreti: yarısı yakılır, yarısı likiditeye kalır (Yeni Standart: %1.00)
-  AMM_FEE_RATE: 0.01,
+  // Swap ücreti: %2.00 piyasa komisyonu (Hazine Ödül Kasaları, Kalıcı Yakım & UBI'ye aktarılır)
+  AMM_FEE_RATE: 0.02,
   AMM_FEE_BURN_SHARE: 0.5,
   // Fiyat koridoru dışına çıkan işlemler reddedilir; hazine buyback devreye girer
   AMM_MAX_SLIPPAGE_PER_TX: 0.12,

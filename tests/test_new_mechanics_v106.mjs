@@ -237,11 +237,11 @@ console.log('✅ Krallık Karnavalı Haftalık Piyango ve Kasa Devri %100 doğru
 // 8. AMM DEX & HAZİNE ANAYASASI (%1.00 FEE VE 3 PARŞÖMEN HAVUZU)
 // ══════════════════════════════════════════════════════════════════════════
 console.log('\n[Ek Denetim] AMM DEX & Hazine Anayasası Denetleniyor...');
-assert.equal(GAME_CONFIG.AMM_FEE_RATE, 0.01, 'AMM Swap komisyonu tam %1.00 (0.01) olmalı');
+assert.equal(GAME_CONFIG.AMM_FEE_RATE, 0.02, 'AMM Swap komisyonu tam %2.00 (0.02) olmalı');
 assert(ammMarket.pools.scroll_heal, 'scroll_heal AMM havuzu tanımlı olmalı');
 assert(ammMarket.pools.scroll_stamina, 'scroll_stamina AMM havuzu tanımlı olmalı');
 assert(!ammMarket.pools.scroll_repair, 'scroll_repair AMM havuzu v1.12 ile kaldırılmış olmalı');
 assert(treasury.state.pools.carnival != null, 'Hazine Defterinde carnival havuzu tanımlı olmalı');
-console.log('✅ AMM DEX %1 fee, 2 parşömen havuzu (scroll_repair kaldırıldı) ve Hazine Defteri Anayasası %100 doğrulandı.');
+console.log('✅ AMM DEX %2 fee, 2 parşömen havuzu (scroll_repair kaldırıldı) ve Hazine Defteri Anayasası %100 doğrulandı.');
 
 console.log('\n🎉🎉🎉 v1.06 TÜM SİSTEMLER, EKONOMİK VE OYUN MEKANİKLERİ TESTLERDEN %100 BAŞARIYLA GEÇTİ! 🎉🎉🎉\n');

@@ -21,6 +21,7 @@
 // ============================================================================
 
 import { GAME_CONFIG } from './config.js';
+import { globalPool } from './globalPool.js';
 
 // Haftalık küresel kotanın fiyatı ne kadar hareket ettireceği
 const TARGET_PRICE_IMPACT = 0.07;
@@ -300,13 +301,18 @@ export class AMMMarketEngine {
     const net = gross - fee;
     if (net <= 0) return { success: false, message: 'Kazanç hesaplanamadı!' };
 
-    // Havuz: hammadde girer, brüt ADA çıkar; ücretin likidite payı havuzda kalır
+    // Havuz: hammadde girer, brüt ADA çıkar
     pool.resourceReserve += resourceAmount;
     pool.adAstraReserve -= gross;
-    const feeToPool = fee * (1 - GAME_CONFIG.AMM_FEE_BURN_SHARE);
-    pool.adAstraReserve += feeToPool;
 
-    const burned = fee * GAME_CONFIG.AMM_FEE_BURN_SHARE;
+    // %2 Market Komisyonu: Doğrudan Ekosistem Token Harcama & Hazine Dağıtım Motoruna aktarılır:
+    // (%78 Hazine 5 Ödül Kasası + %13 Kalıcı Yakım + %6 UBI Temel Gelir + %3 Yapımcı)
+    let spendResult = null;
+    if (fee > 0 && typeof globalPool !== 'undefined' && typeof globalPool.recordTokenSpend === 'function') {
+      spendResult = globalPool.recordTokenSpend(fee);
+    }
+
+    const burned = spendResult ? spendResult.burned : (fee * 0.13);
     this.feeStats.collected += fee;
     this.feeStats.burned += burned;
     this.savePools();
@@ -314,6 +320,7 @@ export class AMMMarketEngine {
     return {
       success: true,
       adAstraReceived: net,
+      gross,
       fee,
       burned,
       newPrice: this.getPrice(resourceKey),
@@ -346,10 +353,14 @@ export class AMMMarketEngine {
 
     pool.adAstraReserve += net;
     pool.resourceReserve -= resourceAmount;
-    const feeToPool = fee * (1 - GAME_CONFIG.AMM_FEE_BURN_SHARE);
-    pool.adAstraReserve += feeToPool;
 
-    const burned = fee * GAME_CONFIG.AMM_FEE_BURN_SHARE;
+    // %2 Market Komisyonu: Doğrudan Ekosistem Token Harcama & Hazine Dağıtım Motoruna aktarılır
+    let spendResult = null;
+    if (fee > 0 && typeof globalPool !== 'undefined' && typeof globalPool.recordTokenSpend === 'function') {
+      spendResult = globalPool.recordTokenSpend(fee);
+    }
+
+    const burned = spendResult ? spendResult.burned : (fee * 0.13);
     this.feeStats.collected += fee;
     this.feeStats.burned += burned;
     this.savePools();
@@ -357,6 +368,7 @@ export class AMMMarketEngine {
     return {
       success: true,
       cost,
+      netCost: net,
       fee,
       burned,
       resourceReceived: resourceAmount,

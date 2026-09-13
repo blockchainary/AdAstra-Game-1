@@ -1955,7 +1955,7 @@ function openTownZoneModal(zoneId, zoneName) {
                 <input type="number" min="1" class="amm-number-input amm-buy-qty" data-res="${resKey}" value="${initialBuy}" placeholder="Adet..." />
               </div>
               <div class="amm-est-display">
-                <span style="color: #94a3b8;">Maliyet:</span>
+                <span style="color: #94a3b8;">Maliyet (%2 Harç Dahil):</span>
                 <strong class="amm-est-cost-text" data-res="${resKey}" style="color: #f87171;">
                   ${isFinite(buyCost) ? `~${buyCost.toFixed(2)} ADA` : 'Yetersiz Likidite'}
                 </strong>
@@ -1974,7 +1974,7 @@ function openTownZoneModal(zoneId, zoneName) {
                 <input type="number" min="1" class="amm-number-input amm-sell-qty" data-res="${resKey}" value="${initialSell}" placeholder="Adet..." />
               </div>
               <div class="amm-est-display">
-                <span style="color: #94a3b8;">Kazanç:</span>
+                <span style="color: #94a3b8;">Net Kazanç (%2 Harç Sonrası):</span>
                 <strong class="amm-est-gain-text" data-res="${resKey}" style="color: #4ade80;">
                   ~${sellGain.toFixed(2)} ADA
                 </strong>
@@ -6194,7 +6194,7 @@ function initAppEvents() {
 
         gameState.state.adAstraBalance += res.adAstraReceived;
         gameState.saveState();
-        showToast(`💰 ${qty} ${res.resourceName} başarıyla satıldı: +${res.adAstraReceived.toFixed(2)} $ADASTRA kazanıldı!`, 'success');
+        showToast(`💰 ${qty.toLocaleString('tr-TR')} ${res.resourceName} satıldı: +${res.adAstraReceived.toFixed(2)} ADA cüzdana eklendi! (%2 Harç: ${res.fee.toFixed(2)} ADA Hazine Kasalarına & UBI'ye aktarıldı)`, 'success');
         sound.playLevelUp();
         openTownZoneModal('market', '🏪 AMM Pazar Alanı');
       } else {
@@ -6234,7 +6234,7 @@ function initAppEvents() {
         else gameState.state.inventory[resKey] = (gameState.state.inventory[resKey] || 0) + res.resourceReceived;
 
         gameState.saveState();
-        showToast(`🛒 ${res.cost.toFixed(2)} ADA ödendi: +${res.resourceReceived} ${res.resourceName} satın alındı!`, 'success');
+        showToast(`🛒 ${res.cost.toFixed(2)} ADA ödendi: +${res.resourceReceived.toLocaleString('tr-TR')} ${res.resourceName} satın alındı! (%2 Harç: ${res.fee.toFixed(2)} ADA Hazine Kasalarına aktarıldı)`, 'success');
         sound.playLevelUp();
         openTownZoneModal('market', '🏪 AMM Pazar Alanı');
       } else {
