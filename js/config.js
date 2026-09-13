@@ -814,6 +814,17 @@ export const GAME_CONFIG = {
         'Kutucuklardaki şans yüzdeleri (örn. Anahtar için %0.08, Bot için %0.60, Teçhizat Parçası için %0.60) net 2 basamaklı hassasiyetle gösterildi.',
         'Çark RTP ve Kasa Garantisi metrikleri dinamik ağırlıklı formüle bağlanarak ekranda anlık doğru değer gösterimi sağlandı.'
       ]
+    },
+    {
+      version: 'v1.10',
+      title: 'Canlı Amorti Bilet Parçaları & Bilet Rozeti Anlık Senkronizasyonu',
+      date: 'Eylül 2026',
+      changes: [
+        'Karnaval Çarkı amorti bilet parçası (wheel_ticket_shard) kazanıldığında sayfanın veya modalın kapatılıp açılması gerekliliği ortadan kaldırıldı.',
+        'Kazanım anında "🎟️ Amorti Bilet Parçaları: X/10" rozeti canlı animasyon ve altın rengi vurgu ile anında güncellenir.',
+        '10 Parça tamamlanıp 1 Piyango/Çark Biletine dönüştüğünde, hem amorti sayacı hem de "🎟️ 1 Bilet İle Çevir" butonu anında canlı olarak senkronize edilir.',
+        'Kazanılan AlphAvax Vercel App analiz kodları modal açıkken anlık olarak listeye eklenir.'
+      ]
     }
   ],
 

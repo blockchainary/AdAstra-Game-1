@@ -2736,6 +2736,75 @@ function drawCarnivalWheel(ctx, angle = 0) {
   ctx.restore();
 }
 
+function updateCarnivalWheelUI(options = { updateShards: true }) {
+  const state = gameState.state;
+  const shards = state.wheelTicketShards || 0;
+  const myTickets = state.lotteryTickets || 0;
+
+  // 1. Amorti Bilet Parçaları Rozeti Canlı Güncelleme
+  if (options.updateShards) {
+    const shardsBadge = document.getElementById('carnival-shards-badge');
+    if (shardsBadge) {
+      shardsBadge.innerHTML = `🎟️ Amorti Bilet Parçaları: <strong>${shards}/10</strong> ${shards >= 10 ? '🎉 (+1 Bilet Eklendi!)' : ''}`;
+      shardsBadge.style.transform = 'scale(1.12)';
+      shardsBadge.style.borderColor = '#fde047';
+      shardsBadge.style.background = 'rgba(250,204,21,0.25)';
+      setTimeout(() => {
+        if (shardsBadge) {
+          shardsBadge.style.transform = 'scale(1)';
+          shardsBadge.style.borderColor = 'rgba(250,204,21,0.3)';
+          shardsBadge.style.background = 'rgba(0,0,0,0.4)';
+        }
+      }, 350);
+    }
+  }
+
+  // 2. Bilet ile Çevir Butonu Canlı Güncelleme
+  const ticketBtn = document.getElementById('btn-spin-wheel-ticket');
+  if (ticketBtn) {
+    ticketBtn.innerHTML = `🎟️ 1 Bilet İle Çevir (${myTickets} Bilet)`;
+    ticketBtn.disabled = myTickets <= 0;
+    ticketBtn.style.opacity = myTickets > 0 ? '1' : '0.5';
+    ticketBtn.style.cursor = myTickets > 0 ? 'pointer' : 'not-allowed';
+  }
+
+  // 3. AMM Fiyatlarına Göre Canlı Hammadde Maliyetleri
+  const pWheat = ammMarket.getPrice('wheat') || 1.0;
+  const pIron = ammMarket.getPrice('iron') || 1.0;
+  const pWood = ammMarket.getPrice('wood') || 1.0;
+  const costWheat = Math.round(100 / pWheat);
+  const costIron = Math.round(100 / pIron);
+  const costWood = Math.round(100 / pWood);
+
+  const btnWheat = document.querySelector('.btn-spin-wheel[data-pay="wheat"]');
+  if (btnWheat) btnWheat.innerHTML = `🌾 ${costWheat} Buğday İle Çevir`;
+  const btnIron = document.querySelector('.btn-spin-wheel[data-pay="iron"]');
+  if (btnIron) btnIron.innerHTML = `⛏️ ${costIron} Demir İle Çevir`;
+  const btnWood = document.querySelector('.btn-spin-wheel[data-pay="wood"]');
+  if (btnWood) btnWood.innerHTML = `🌲 ${costWood} Odun İle Çevir`;
+
+  // 4. Kazanılan Redeem Kodları Listesi Canlı Güncelleme
+  const redeemContainer = document.getElementById('carnival-redeem-codes-container');
+  const redeemCodes = state.redeemCodes || [];
+  if (redeemContainer) {
+    if (redeemCodes.length > 0) {
+      redeemContainer.innerHTML = `
+        <div class="clean-card" style="border-left: 4px solid #ca8a04;">
+          <div style="font-weight: 800; color: #fde047; font-size: 0.9rem; margin-bottom: 6px;">👑 Kazandığın AlphAvax Coin Analiz Kodları:</div>
+          ${redeemCodes.map(c => `
+            <div style="font-family: monospace; font-size: 0.85rem; color: #fff; background: rgba(0,0,0,0.5); padding: 6px 10px; border-radius: 4px; margin-top: 4px; display:flex; justify-content:space-between; align-items:center;">
+              <span>🎟️ Kod: <strong>${c.code}</strong></span>
+              <span style="color:#4ade80; font-size:0.75rem;">(Vercel App Redeem Aktif)</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    } else {
+      redeemContainer.innerHTML = '';
+    }
+  }
+}
+
 function initCarnivalWheelCanvas() {
   const canvas = document.getElementById('carnival-wheel-canvas');
   if (!canvas) return;
@@ -2746,9 +2815,7 @@ function initCarnivalWheelCanvas() {
 
   // Çarkı temel oryantasyonda (0 açısında) anında çiziyoruz
   drawCarnivalWheel(ctx, 0);
-
-  // Mevcut rotasyonu GPU CSS transformu ile uygula
-  window.carnivalWheelCurrentDeg = window.carnivalWheelCurrentDeg || 0;
+  window.carnivalWheelCurrentDeg = 0;
   canvas.style.transform = `rotate(${window.carnivalWheelCurrentDeg}deg)`;
 }
 
@@ -2767,6 +2834,10 @@ function spinCarnivalWheelAnimated(payMethod) {
     return;
   }
 
+  // Harcama anında yansıdı, bilet veya kaynak butonu güncellensin (shards henüz çark durana dek sürpriz kalır)
+  updateCarnivalWheelUI({ updateShards: false });
+  renderTopBar();
+
   const rewards = GAME_CONFIG.CARNIVAL?.WHEEL_REWARDS || [];
   const numSlices = rewards.length;
   if (!canvas || numSlices === 0) {
@@ -2782,6 +2853,7 @@ function spinCarnivalWheelAnimated(payMethod) {
       `;
     }
     renderTopBar();
+    updateCarnivalWheelUI({ updateShards: true });
     return;
   }
 
@@ -2791,37 +2863,39 @@ function spinCarnivalWheelAnimated(payMethod) {
 
   // Açı Hesaplaması (İbre 12 o'clock = 270 derece)
   // Dilim i'nin orta açısı saat yönünde (i + 0.5) * (360 / numSlices)
-  const arcDeg = 360 / numSlices;
-  const sliceMidDeg = (winIndex + 0.5) * arcDeg;
-  let targetDegMod = (270 - sliceMidDeg) % 360;
-  if (targetDegMod < 0) targetDegMod += 360;
+  // Canvas döndürüldüğünde ibrenin altına gelmesi için:
+  // wheelAngle = 270 - sliceCenterAngle (mod 360)
+  const sliceAngle = 360 / numSlices;
+  const sliceCenter = (winIndex + 0.5) * sliceAngle;
+  let targetAngleMod = (270 - sliceCenter) % 360;
+  if (targetAngleMod < 0) targetAngleMod += 360;
 
-  const startDeg = window.carnivalWheelCurrentDeg || 0;
-  let curMod = startDeg % 360;
-  if (curMod < 0) curMod += 360;
+  const currentDeg = window.carnivalWheelCurrentDeg || 0;
+  const fullRotations = (5 + Math.floor(Math.random() * 3)) * 360; // 5-7 tam tur
+  const currentMod = ((currentDeg % 360) + 360) % 360;
+  let delta = targetAngleMod - currentMod;
+  if (delta < 0) delta += 360;
 
-  let deltaDeg = targetDegMod - curMod;
-  if (deltaDeg < 0) deltaDeg += 360;
-
-  // 6 tam tur + hedef açı + dilim içi güvenli rastgele varyasyon
-  const jitterDeg = (Math.random() - 0.5) * (arcDeg * 0.35);
-  const totalSpinDeg = (6 * 360) + deltaDeg + jitterDeg;
-  const finalDeg = startDeg + totalSpinDeg;
+  const finalDeg = currentDeg + fullRotations + delta;
+  const duration = 4200; // 4.2 saniye akıcı dönüş
+  const startTime = performance.now();
 
   window.carnivalWheelIsSpinning = true;
-  if (statusEl) statusEl.innerHTML = '🎡 <span style="color:#f472b6;">Çark dönüyor... Şans seninle olsun!</span>';
-  if (resBox) resBox.innerHTML = '';
+  document.querySelectorAll('.btn-spin-wheel').forEach(b => b.disabled = true);
 
-  // Çevirme butonlarını devre dışı bırak
-  document.querySelectorAll('.btn-spin-wheel').forEach(b => {
-    b.disabled = true;
-    b.style.opacity = '0.5';
-    b.style.cursor = 'not-allowed';
-  });
+  if (statusEl) {
+    statusEl.innerHTML = `🌀 <span style="color:#fde047; font-weight:800;">Krallık Çarkı Dönüyor...</span> Şans seninle olsun!`;
+  }
+  if (resBox) {
+    resBox.innerHTML = '';
+  }
 
-  const duration = 4500; // 4.5 saniye ultra-akıcı GPU dönüş
-  const startTime = performance.now();
-  let prevDeg = startDeg;
+  // Akıcı Easing Fonksiyonu (Cubic Out)
+  function easeOutCubic(t) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  let lastClickSlice = -1;
 
   function animate(now) {
     // Modal kapanmışsa döngüyü kes
@@ -2832,22 +2906,23 @@ function spinCarnivalWheelAnimated(payMethod) {
 
     const elapsed = now - startTime;
     const progress = Math.min(1, elapsed / duration);
-    // easeOutQuart: Başta dinamik, sonra kademeli ve son derece pürüzsüz yavaşlama
-    const ease = 1 - Math.pow(1 - progress, 4);
+    const easeProgress = easeOutCubic(progress);
 
-    const curDeg = startDeg + totalSpinDeg * ease;
-    window.carnivalWheelCurrentDeg = curDeg;
+    const curAngle = currentDeg + (finalDeg - currentDeg) * easeProgress;
+    window.carnivalWheelCurrentDeg = curAngle;
+    canvas.style.transform = `rotate(${curAngle}deg)`;
 
-    // 🚀 %100 GPU Compositor Dönüşü (Canvas yeniden çizilmez, 60/120 FPS sıfır kasma)
-    canvas.style.transform = `rotate(${curDeg.toFixed(2)}deg)`;
-
-    // İbrenin gerçekçi fiziksel salınımı (DOM reflow ve setTimeout YOK)
-    const speed = curDeg - prevDeg;
-    prevDeg = curDeg;
-    if (pointer) {
-      const pegPhase = (curDeg % arcDeg) / arcDeg;
-      const deflection = Math.sin(pegPhase * Math.PI) * Math.min(15, Math.max(0, speed * 1.5));
-      pointer.style.transform = `translateX(-50%) rotate(${-deflection.toFixed(1)}deg)`;
+    // İbre çıt çıt efekti (her dilim geçişinde minik sallanma)
+    const normAngle = ((270 - curAngle) % 360 + 360) % 360;
+    const activeSlice = Math.floor(normAngle / sliceAngle);
+    if (activeSlice !== lastClickSlice) {
+      lastClickSlice = activeSlice;
+      if (pointer) {
+        pointer.style.transform = 'rotate(-18deg)';
+        setTimeout(() => {
+          if (pointer) pointer.style.transform = 'rotate(0deg)';
+        }, 40);
+      }
     }
 
     if (progress < 1) {
@@ -2855,15 +2930,19 @@ function spinCarnivalWheelAnimated(payMethod) {
     } else {
       // Çark durdu!
       window.carnivalWheelCurrentDeg = finalDeg;
-      canvas.style.transform = `rotate(${finalDeg.toFixed(2)}deg)`;
-      if (pointer) pointer.style.transform = 'translateX(-50%) rotate(0deg)';
+      canvas.style.transform = `rotate(${finalDeg}deg)`;
+      if (pointer) pointer.style.transform = 'rotate(0deg)';
       window.carnivalWheelIsSpinning = false;
 
       // Butonları tekrar aktif et
       document.querySelectorAll('.btn-spin-wheel').forEach(b => {
-        b.disabled = false;
-        b.style.opacity = '1';
-        b.style.cursor = 'pointer';
+        const pay = b.getAttribute('data-pay');
+        if (pay === 'ticket') {
+          const myT = gameState.state.lotteryTickets || 0;
+          b.disabled = myT <= 0;
+        } else {
+          b.disabled = false;
+        }
       });
 
       // Kazanan ödül görseli & kutlama
@@ -2891,6 +2970,7 @@ function spinCarnivalWheelAnimated(payMethod) {
       }
 
       renderTopBar();
+      updateCarnivalWheelUI({ updateShards: true });
     }
   }
 
@@ -2954,7 +3034,7 @@ function renderCarnivalHtml(activeTab = 'wheel') {
                 100 ADA veya 100 ADA'ya denk gelen hammadde ile çevirebilir, ya da piyango biletini çark hakkına dönüştürebilirsin!
               </div>
             </div>
-            <div style="font-size:0.82rem; color:#fde047; background:rgba(0,0,0,0.4); padding:6px 14px; border-radius:8px; border:1px solid rgba(250,204,21,0.3);">
+            <div id="carnival-shards-badge" style="font-size:0.82rem; color:#fde047; background:rgba(0,0,0,0.4); padding:6px 14px; border-radius:8px; border:1px solid rgba(250,204,21,0.3); transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease, border-color 0.2s ease;">
               🎟️ Amorti Bilet Parçaları: <strong>${shards}/10</strong> ${shards >= 10 ? '🎉 (+1 Bilet Eklendi!)' : ''}
             </div>
           </div>
@@ -3017,7 +3097,7 @@ function renderCarnivalHtml(activeTab = 'wheel') {
             <button class="btn-clean btn-spin-wheel" data-pay="wood" style="background:#14532d; border-color:#4ade80; font-weight:800; padding:10px;">
               🌲 ${costWood} Odun İle Çevir
             </button>
-            <button class="btn-clean btn-spin-wheel" data-pay="ticket" ${myTickets > 0 ? '' : 'disabled'} style="background:#db2777; border-color:#f472b6; font-weight:800; padding:10px;">
+            <button id="btn-spin-wheel-ticket" class="btn-clean btn-spin-wheel" data-pay="ticket" ${myTickets > 0 ? '' : 'disabled'} style="background:#db2777; border-color:#f472b6; font-weight:800; padding:10px;">
               🎟️ 1 Bilet İle Çevir (${myTickets} Bilet)
             </button>
           </div>
@@ -3047,17 +3127,19 @@ function renderCarnivalHtml(activeTab = 'wheel') {
           </div>
         </div>
 
-        ${redeemCodes.length > 0 ? `
-          <div class="clean-card" style="border-left: 4px solid #ca8a04;">
-            <div style="font-weight: 800; color: #fde047; font-size: 0.9rem; margin-bottom: 6px;">👑 Kazandığın AlphAvax Coin Analiz Kodları:</div>
-            ${redeemCodes.map(c => `
-              <div style="font-family: monospace; font-size: 0.85rem; color: #fff; background: rgba(0,0,0,0.5); padding: 6px 10px; border-radius: 4px; margin-top: 4px; display:flex; justify-content:space-between; align-items:center;">
-                <span>🎟️ Kod: <strong>${c.code}</strong></span>
-                <span style="color:#4ade80; font-size:0.75rem;">(Vercel App Redeem Aktif)</span>
-              </div>
-            `).join('')}
-          </div>
-        ` : ''}
+        <div id="carnival-redeem-codes-container">
+          ${redeemCodes.length > 0 ? `
+            <div class="clean-card" style="border-left: 4px solid #ca8a04;">
+              <div style="font-weight: 800; color: #fde047; font-size: 0.9rem; margin-bottom: 6px;">👑 Kazandığın AlphAvax Coin Analiz Kodları:</div>
+              ${redeemCodes.map(c => `
+                <div style="font-family: monospace; font-size: 0.85rem; color: #fff; background: rgba(0,0,0,0.5); padding: 6px 10px; border-radius: 4px; margin-top: 4px; display:flex; justify-content:space-between; align-items:center;">
+                  <span>🎟️ Kod: <strong>${c.code}</strong></span>
+                  <span style="color:#4ade80; font-size:0.75rem;">(Vercel App Redeem Aktif)</span>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+        </div>
 
       </div>
     `;
