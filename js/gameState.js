@@ -2980,18 +2980,25 @@ export class GameStateManager {
     this.saveState();
   }
 
-  // 🍦 VANILLA HESAP SIFIRLAMA:
-  // Oyuncunun kişisel hesabını başlangıç profiline döndürür ve
-  // haftalık kaynak çıkartma limitlerini de tam kapasiteye (%100) sıfırlar!
-  // AMM DEX pazar havuzlarını ve fiyatlarını korur.
+  // 🍦 VANILLA HESAP & 100M $ADASTRA İLK DAĞITIM TOHUM HAVUZLARI SIFIRLAMA:
+  // 1. Oyuncunun kişisel hesabını başlangıç profiline döndürür.
+  // 2. Haftalık kaynak çıkartma limitlerini tam kapasiteye (%100) sıfırlar.
+  // 3. AMM DEX Pazar Havuzlarını tam 40M $ADASTRA ilk tohum rezervlerine sıfırlar.
+  // 4. Krallık Hazinesi Kasalarını tam 40M $ADASTRA ilk tohum rezervlerine sıfırlar.
+  // 5. Krallık Piyango Havuzunu tam 20M $ADASTRA tohumuna sıfırlar.
+  // Toplam 100 Milyon $ADASTRA başlangıç fonu ilk anki oranlarıyla oyuna yeniden dağıtılır!
   vanillaReset() {
     if (typeof localStorage !== 'undefined') {
-      // SADECE oyuncu hesabının kaydını sil
       localStorage.removeItem(this.storageKey);
     }
-    // Kullanıcı kuralı: Vanilla sıfırlamada haftalık kaynak çıkartma limitleri de sıfırlansın!
     if (typeof globalPool !== 'undefined' && globalPool && globalPool.resetEpoch) {
       globalPool.resetEpoch();
+    }
+    if (typeof ammMarket !== 'undefined' && ammMarket && ammMarket.resetPools) {
+      ammMarket.resetPools();
+    }
+    if (typeof treasury !== 'undefined' && treasury && treasury.reset) {
+      treasury.reset();
     }
     this.state = {
       name: 'AlphAvax Gezgini',
@@ -3011,8 +3018,8 @@ export class GameStateManager {
         sickle: { durability: 4320, totalGathered: 0 }
       },
       army: {
-        infantry: 0,
-        archer: 0,
+        infantry: 2,
+        archer: 1,
         knight: 0
       },
       equipment: {
@@ -3030,7 +3037,7 @@ export class GameStateManager {
       activeExpeditions: {},
       dungeonProgress: 1,
       collectionArtifacts: this.mergeCollectionArtifacts([]),
-      soldierUnits: [],
+      soldierUnits: this.mergeSoldierUnits([]),
       armoryInventory: [],
       dungeonMonsterCurrentHp: {},
       lotteryTickets: 0,
@@ -3039,7 +3046,8 @@ export class GameStateManager {
       wheelTicketShards: 0,
       botSiloAutoUpgrade: true,
       botActiveUntil: 0,
-      redeemCodes: []
+      redeemCodes: [],
+      burnedResources: { wood: 0, iron: 0, wheat: 0 }
     };
     this.saveState();
   }
@@ -3132,7 +3140,7 @@ export class GameStateManager {
         color: '#06b6d4',
         sharePct: Math.round((alloc.dungeon || 0.25) * 100),
         balance: Math.round(treasury.getPool('dungeon')),
-        target: GAME_CONFIG.TREASURY_TARGET_RESERVE?.dungeon || 180000,
+        target: GAME_CONFIG.TREASURY_TARGET_RESERVE?.dungeon || 14000000,
         health: treasury.getPoolHealth('dungeon'),
         inflow: Math.round(treasury.state?.inflow?.dungeon || 0),
         outflow: Math.round(treasury.state?.outflow?.dungeon || 0),
@@ -3148,7 +3156,7 @@ export class GameStateManager {
         color: '#f59e0b',
         sharePct: Math.round((alloc.arena || 0.15) * 100),
         balance: Math.round(treasury.getPool('arena')),
-        target: GAME_CONFIG.TREASURY_TARGET_RESERVE?.arena || 120000,
+        target: GAME_CONFIG.TREASURY_TARGET_RESERVE?.arena || 8000000,
         health: treasury.getPoolHealth('arena'),
         inflow: Math.round(treasury.state?.inflow?.arena || 0),
         outflow: Math.round(treasury.state?.outflow?.arena || 0),
@@ -3164,7 +3172,7 @@ export class GameStateManager {
         color: '#ef4444',
         sharePct: Math.round((alloc.worldBoss || 0.15) * 100),
         balance: Math.round(treasury.getPool('worldBoss')),
-        target: GAME_CONFIG.TREASURY_TARGET_RESERVE?.worldBoss || 110000,
+        target: GAME_CONFIG.TREASURY_TARGET_RESERVE?.worldBoss || 8000000,
         health: treasury.getPoolHealth('worldBoss'),
         inflow: Math.round(treasury.state?.inflow?.worldBoss || 0),
         outflow: Math.round(treasury.state?.outflow?.worldBoss || 0),
@@ -3180,7 +3188,7 @@ export class GameStateManager {
         color: '#38bdf8',
         sharePct: Math.round((alloc.ammBuyback || 0.13) * 100),
         balance: Math.round(treasury.getPool('ammBuyback')),
-        target: GAME_CONFIG.TREASURY_TARGET_RESERVE?.ammBuyback || 90000,
+        target: GAME_CONFIG.TREASURY_TARGET_RESERVE?.ammBuyback || 6000000,
         health: treasury.getPoolHealth('ammBuyback'),
         inflow: Math.round(treasury.state?.inflow?.ammBuyback || 0),
         outflow: Math.round(treasury.state?.outflow?.ammBuyback || 0),
@@ -3196,7 +3204,7 @@ export class GameStateManager {
         color: '#ec4899',
         sharePct: Math.round((alloc.carnival || 0.10) * 100),
         balance: Math.round(treasury.getPool('carnival')),
-        target: GAME_CONFIG.TREASURY_TARGET_RESERVE?.carnival || 60000,
+        target: GAME_CONFIG.TREASURY_TARGET_RESERVE?.carnival || 4000000,
         health: treasury.getPoolHealth('carnival'),
         inflow: Math.round(treasury.state?.inflow?.carnival || 0),
         outflow: Math.round(treasury.state?.outflow?.carnival || 0),

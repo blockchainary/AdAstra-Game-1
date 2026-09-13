@@ -140,6 +140,18 @@ export class AMMMarketEngine {
     localStorage.setItem(this.storageKey + '_fees', JSON.stringify(this.feeStats));
   }
 
+  // 🏛️ AMM DEX Havuzlarını İlk 40M $ADASTRA Tohum Dağıtımına Sıfırla
+  resetPools() {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(this.storageKey);
+      localStorage.removeItem(this.storageKey + '_fees');
+    }
+    this.pools = buildDefaultPools();
+    this.feeStats = { collected: 0, burned: 0 };
+    this.savePools();
+    return this.pools;
+  }
+
   // ── Fiyatlandırma ───────────────────────────────────────────────────
   getPrice(resourceKey) {
     const pool = this.pools[resourceKey];

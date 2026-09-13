@@ -4014,7 +4014,7 @@ function openTestMenuModal() {
           <button class="btn-clean btn-clean-sm btn-test-action" data-action="enable_bot" style="background: #0284c7;">🤖 24 Saatlik Otomasyon Botunu Aktifleştir</button>
           <button class="btn-clean btn-clean-sm btn-test-action" data-action="enable_buffs" style="background: #0369a1;">⚡ Tüm Hız İksirlerini Aktifleştir</button>
           <button class="btn-clean btn-clean-sm btn-test-action" data-action="finish_expeditions" style="background: #0f766e;">⏳ Tüm Seferleri Anında Tamamla</button>
-          <button class="btn-clean btn-clean-sm btn-test-action" data-action="reset_state" style="background: #450a0a; border-color: #ef4444;">🧹 TÜM STATE'İ SIFIRLA (RESET)</button>
+          <button class="btn-clean btn-clean-sm btn-test-action" data-action="reset_state" style="background: #450a0a; border-color: #ef4444;">🏛️ 100M ADA TOHUMU & VANILLA SIFIRLA</button>
         </div>
       </div>
 
@@ -5924,6 +5924,7 @@ function initAppEvents() {
           toastMsg = '⏳ Tüm Sefer Zamanlayıcıları Anında Tamamlandı!';
           break;
         case 'reset_state':
+          if (!window.confirm('🏛️ 100M $ADASTRA İLK DAĞITIMINA & VANILLA HESABA SIFIRLA\n\nTüm hesap ilerlemeni ve ekonomiyi (AMM 40M havuzları, Hazine 40M kasaları, Piyango 20M havuzu ve haftalık limitleri) ilk 100 Milyon $ADASTRA tohum dağıtım anına sıfırlamak istiyor musun?')) return;
           gameState.vanillaReset();
           location.reload();
           return;
@@ -7070,11 +7071,19 @@ function initDevPanelEvents() {
 
       case 'vanilla-reset': {
         const confirmReset = window.confirm(
-          '🍦 EMİN MİSİN?\n\nBu işlem TÜM kişisel hesap ilerlemeni (seviye, XP, ordu, kaynaklar, envanter, teçhizat, zindan ilerlemesi ve aktif seferler) sıfırlayarak hesabını başlangıç profiline (Lv.1, 100 Stamina, 250 ADA) döndürecek.\n\n🌾 Haftalık kaynak çıkarma limitleri de %100 kapasiteye sıfırlanacaktır.\n🛡️ Not: AMM pazar havuzları ve fiyatları KORUNACAKTIR.\n\nDevam etmek istiyor musun?'
+          '🏛️ 100 MİLYON $ADASTRA BAŞLANGIÇ DAĞITIMI VE VANILLA HESAP SIFIRLAMA\n\n' +
+          'Bu işlem:\n' +
+          '1. Kişisel hesabını başlangıç profiline (Lv.1, 100 Stamina, 250 ADA) döndürür.\n' +
+          '2. Haftalık kaynak çıkarma limitlerini tam kapasiteye (%100) sıfırlar.\n' +
+          '3. AMM DEX Pazar Havuzlarını tam 40M $ADASTRA ilk tohum rezervlerine (14M Buğday, 10M Odun, 10M Demir, 3M Parça, 2M Kutu, 1M Anahtar) sıfırlar.\n' +
+          '4. Krallık Hazinesi Kasalarını tam 40M $ADASTRA ilk tohum rezervlerine (14M Zindan, 8M Arena, 8M World Boss, 6M Buyback, 4M Karnaval) sıfırlar.\n' +
+          '5. Krallık Piyango Havuzunu tam 20M $ADASTRA tohumuna sıfırlar.\n\n' +
+          'Toplam 100 Milyon $ADASTRA ilk dağıtım anındaki havuz oranlarına eksiksiz sıfırlanacaktır.\n\n' +
+          'Devam etmek istiyor musun?'
         );
         if (!confirmReset) break;
         gameState.vanillaReset();
-        showToast('🍦 Hesap ve haftalık kaynak limitleri sıfırlandı (AMM pazar havuzları korundu)! Sayfa yenileniyor...', 'success');
+        showToast('🏛️ 100M $ADASTRA başlangıç havuzları ve profil başarıyla ilk anki oranlarına sıfırlandı! Sayfa yenileniyor...', 'success');
         sound.playLevelUp();
         renderTopBar();
         setTimeout(() => location.reload(), 900);

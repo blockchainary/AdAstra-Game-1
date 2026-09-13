@@ -176,6 +176,12 @@ export class TreasuryLedger {
   reset() {
     if (typeof localStorage !== 'undefined') localStorage.removeItem(this.storageKey);
     this.state = this.load();
+    this.save();
+  }
+
+  // 🏛️ Krallık Hazinesi Kasalarını İlk 40M $ADASTRA Tohum Dağıtımına Sıfırla
+  resetToSeed() {
+    this.reset();
   }
 }
 

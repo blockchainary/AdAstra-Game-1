@@ -57,6 +57,9 @@ assert(woodBefore < GAME_CONFIG.GLOBAL_RESOURCE_CAPS.wood.totalCap, 'Odun limiti
 assert(wheatBefore < GAME_CONFIG.GLOBAL_RESOURCE_CAPS.wheat.totalCap, 'Buğday limiti eksilmiş olmalı');
 assert(ironBefore < GAME_CONFIG.GLOBAL_RESOURCE_CAPS.iron.totalCap, 'Demir limiti eksilmiş olmalı');
 
+import { ammMarket } from '../js/ammMarket.js';
+import { treasury } from '../js/treasury.js';
+
 // Şimdi vanillaReset() çağıralım
 gs.vanillaReset();
 
@@ -69,4 +72,46 @@ assert.equal(woodAfter, GAME_CONFIG.GLOBAL_RESOURCE_CAPS.wood.totalCap, 'Odun li
 assert.equal(wheatAfter, GAME_CONFIG.GLOBAL_RESOURCE_CAPS.wheat.totalCap, 'Buğday limiti %100 kapasiteye (490.000) sıfırlanmalı');
 assert.equal(ironAfter, GAME_CONFIG.GLOBAL_RESOURCE_CAPS.iron.totalCap, 'Demir limiti %100 kapasiteye (130.000) sıfırlanmalı');
 
-console.log('🎉 TÜM HAFTALIK RESET VE VANILLA SIFIRLAMA TESTLERİ BAŞARIYLA GEÇTİ!');
+// 3. 100 Milyon $ADASTRA Başlangıç Fonu Tohum Havuzları Doğrulaması
+console.log('\n--- 🏛️ 100 MİLYON $ADASTRA İLK DAĞITIM VE SIFIRLAMA HAVUZ KONTROLÜ ---');
+
+// A. AMM DEX Pazar Havuzları (Tam 40.000.000 $ADASTRA)
+const p = ammMarket.pools;
+console.log(`AMM Havuzları: Buğday: ${p.wheat.adAstraReserve}, Odun: ${p.wood.adAstraReserve}, Demir: ${p.iron.adAstraReserve}, Parça: ${p.fragments.adAstraReserve}, Kutu: ${p.boxes.adAstraReserve}, Anahtar: ${p.keys.adAstraReserve}`);
+assert.equal(p.wheat.adAstraReserve, 14000000, 'AMM Buğday Havuzu 14M ADA olmalı');
+assert.equal(p.wood.adAstraReserve, 10000000, 'AMM Odun Havuzu 10M ADA olmalı');
+assert.equal(p.iron.adAstraReserve, 10000000, 'AMM Demir Havuzu 10M ADA olmalı');
+assert.equal(p.fragments.adAstraReserve, 3000000, 'AMM Parça Havuzu 3M ADA olmalı');
+assert.equal(p.boxes.adAstraReserve, 2000000, 'AMM Pandora Kutusu Havuzu 2M ADA olmalı');
+assert.equal(p.keys.adAstraReserve, 1000000, 'AMM Arena Anahtarı Havuzu 1M ADA olmalı');
+
+const totalAmmAda = p.wheat.adAstraReserve + p.wood.adAstraReserve + p.iron.adAstraReserve + p.fragments.adAstraReserve + p.boxes.adAstraReserve + p.keys.adAstraReserve;
+assert.equal(totalAmmAda, 40000000, 'Toplam AMM DEX Havuzları tam 40.000.000 ADA olmalı');
+console.log(`✅ [1/3] AMM DEX Havuzları: ${totalAmmAda.toLocaleString()} $ADASTRA (%40.00) doğrulandı.`);
+
+// B. Krallık Hazinesi Kasaları (Tam 40.000.000 $ADASTRA)
+const t = treasury.state.pools;
+console.log(`Hazine Kasaları: Zindan: ${t.dungeon}, Arena: ${t.arena}, WorldBoss: ${t.worldBoss}, AMMBuyback: ${t.ammBuyback}, Karnaval: ${t.carnival}`);
+assert.equal(t.dungeon, 14000000, 'Hazine Zindan Kasası 14M ADA olmalı');
+assert.equal(t.arena, 8000000, 'Hazine Arena Kasası 8M ADA olmalı');
+assert.equal(t.worldBoss, 8000000, 'Hazine World Boss Kasası 8M ADA olmalı');
+assert.equal(t.ammBuyback, 6000000, 'Hazine AMM Buyback Kasası 6M ADA olmalı');
+assert.equal(t.carnival, 4000000, 'Hazine Karnaval Kasası 4M ADA olmalı');
+
+const totalTreasuryAda = t.dungeon + t.arena + t.worldBoss + t.ammBuyback + t.carnival;
+assert.equal(totalTreasuryAda, 40000000, 'Toplam Krallık Hazinesi Kasaları tam 40.000.000 ADA olmalı');
+console.log(`✅ [2/3] Krallık Hazinesi Kasaları: ${totalTreasuryAda.toLocaleString()} $ADASTRA (%40.00) doğrulandı.`);
+
+// C. Krallık Karnavalı Piyangosu (Tam 20.000.000 $ADASTRA)
+const lotteryPoolAda = gs.state.lotteryPool;
+console.log(`Piyango Havuzu: ${lotteryPoolAda} ADA`);
+assert.equal(lotteryPoolAda, 20000000, 'Krallık Piyango Havuzu tam 20M ADA olmalı');
+assert.equal(gs.state.lotteryTickets, 0, 'Sıfırlama sonrası piyango biletleri 0 olmalı');
+console.log(`✅ [3/3] Krallık Piyangosu: ${lotteryPoolAda.toLocaleString()} $ADASTRA (%20.00) doğrulandı.`);
+
+// D. Genel Toplam: 100.000.000 $ADASTRA
+const grandTotalAda = totalAmmAda + totalTreasuryAda + lotteryPoolAda;
+assert.equal(grandTotalAda, 100000000, 'GENEL TOPLAM TAM 100.000.000 $ADASTRA OLMALI');
+console.log(`🏛️ 100 MİLYON $ADASTRA BAŞLANGIÇ FONU KESİN DAĞILIMI: ${grandTotalAda.toLocaleString()} $ADASTRA %100 DOĞRULANDI!`);
+
+console.log('\n🎉 TÜM HAFTALIK RESET VE 100M ADA TOHUM DAĞITIM SIFIRLAMA TESTLERİ BAŞARIYLA GEÇTİ!');
