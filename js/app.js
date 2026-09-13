@@ -5113,17 +5113,88 @@ function executeMonsterBattle(monster, selectedIndices) {
 
       const lvlMsg = levelUpNotice.length > 0 ? ` • 🎉 ${levelUpNotice.join(', ')}` : '';
       const wearMsg = weaponsWorn.length > 0 ? ` • ⚔️ Silah Aşınması: ${weaponsWorn.join(', ')}` : '';
-      addNotification('🏆', `${monster.name} yenildi! +${adaReward} ADA kazandın. Savaşa katılan askerlerin +${monster.rewardXp} Asker XP kazandı.${lvlMsg}${wearMsg}`);
+      const scrollNotice = dropRes.scrollGained ? ` • 📜 ${dropRes.scrollGained.name} DÜŞTÜ!` : '';
+      addNotification('🏆', `${monster.name} yenildi! +${adaReward} ADA kazandın.${scrollNotice} Savaşa katılan askerlerin +${monster.rewardXp} Asker XP kazandı.${lvlMsg}${wearMsg}`);
 
       if (weaponsWorn.length > 0) {
         showToast(`⚔️ Silahların dayanıklılığı -1 azaldı: ${weaponsWorn.join(', ')}`, 'info');
       }
 
       let dropsMsg = [];
-      if (dropRes.fragmentsGained > 0) dropsMsg.push(`🧩 +${dropRes.fragmentsGained} Teçhizat Parçaları`);
-      if (dropRes.boxGained > 0) dropsMsg.push(`📦 +${dropRes.boxGained} Pandora Kutusu`);
-      if (dropRes.artifactDiscovered) dropsMsg.push(`${dropRes.artifactDiscovered.icon} ${dropRes.artifactDiscovered.name}`);
-      if (isBossMonster) dropsMsg.push(`🔑 +1 Arena Anahtarı`);
+      const visualDrops = [];
+
+      // 1. $ADASTRA Token Ödülü
+      visualDrops.push({
+        name: '$ADASTRA',
+        qty: `+${adaReward}`,
+        img: 'assets/loot_adastra.jpg',
+        border: 'gold-border',
+        desc: 'Krallık Para Birimi'
+      });
+
+      // 2. Parşömen Düşüşü (Ordu İyileştirme veya 100 Stamina)
+      if (dropRes.scrollGained) {
+        const isHeal = dropRes.scrollGained.type === 'scroll_heal';
+        dropsMsg.push(`${dropRes.scrollGained.icon} ${dropRes.scrollGained.name}`);
+        visualDrops.push({
+          name: isHeal ? 'İyileştirme Parşömeni' : 'Stamina Parşömeni',
+          qty: '+1',
+          img: isHeal ? 'assets/scroll_heal.jpg' : 'assets/scroll_stamina.jpg',
+          border: isHeal ? 'green-border' : 'cyan-border',
+          isScroll: true,
+          fullName: dropRes.scrollGained.name,
+          desc: isHeal ? 'Askerine anında +10 Can kazandırır.' : 'Enerjine anında +100 Stamina kazandırır.'
+        });
+        showToast(`🎉 MİSTİK PARŞÖMEN DÜŞTÜ: ${dropRes.scrollGained.name}!`, 'success');
+      }
+
+      // 3. Teçhizat Parçaları
+      if (dropRes.fragmentsGained > 0) {
+        dropsMsg.push(`🧩 +${dropRes.fragmentsGained} Teçhizat Parçaları`);
+        visualDrops.push({
+          name: 'Teçhizat Parçası',
+          qty: `+${dropRes.fragmentsGained}`,
+          img: 'assets/loot_fragments.jpg',
+          border: 'purple-border',
+          desc: 'Demirci Dövme Malzemesi'
+        });
+      }
+
+      // 4. Pandora Kutusu
+      if (dropRes.boxGained > 0) {
+        dropsMsg.push(`📦 +${dropRes.boxGained} Pandora Kutusu`);
+        visualDrops.push({
+          name: 'Pandora Sandığı',
+          qty: `+${dropRes.boxGained}`,
+          img: 'assets/loot_box.jpg',
+          border: 'purple-border',
+          desc: 'Mistik Hazine Sandığı'
+        });
+      }
+
+      // 5. Arena Anahtarı (Boss canavarlardan)
+      if (isBossMonster) {
+        dropsMsg.push(`🔑 +1 Arena Anahtarı`);
+        visualDrops.push({
+          name: 'Arena Anahtarı',
+          qty: '+1',
+          img: 'assets/loot_key.jpg',
+          border: 'gold-border',
+          desc: 'Kolezyum Giriş Bileti'
+        });
+      }
+
+      // 6. Koleksiyon Eseri
+      if (dropRes.artifactDiscovered) {
+        dropsMsg.push(`${dropRes.artifactDiscovered.icon} ${dropRes.artifactDiscovered.name}`);
+        visualDrops.push({
+          name: dropRes.artifactDiscovered.name,
+          qty: 'ESER',
+          icon: dropRes.artifactDiscovered.icon || '🏺',
+          border: 'gold-border',
+          desc: 'Kadim Krallık Eseri'
+        });
+      }
 
       // Canavar öldüğünde can kaydı sıfırlanır
       gameState.clearMonsterHp(monster.level);
@@ -5134,16 +5205,57 @@ function executeMonsterBattle(monster, selectedIndices) {
       }
 
       if (logEl) {
-        const dropsHtml = dropsMsg.length > 0 ? `<div style="text-align:center; color:#c084fc; margin-top:6px; font-weight:700; font-size:0.9rem;">🎁 Ganimet: ${dropsMsg.join(' • ')}</div>` : '';
+        // Eğer parşömen düşmüşse özel parıltılı rün bannerı
+        const scrollDrop = visualDrops.find(d => d.isScroll);
+        const scrollBannerHtml = scrollDrop ? `
+          <div class="dungeon-scroll-drop-banner">
+            <img src="${scrollDrop.img}" alt="${scrollDrop.fullName}" class="dungeon-scroll-thumb-large" />
+            <div class="dungeon-scroll-info">
+              <span class="dungeon-scroll-tag">✨ EFSANEVİ PARŞÖMEN DÜŞTÜ!</span>
+              <div class="dungeon-scroll-title">📜 ${scrollDrop.fullName}</div>
+              <div class="dungeon-scroll-desc">
+                ${scrollDrop.desc} <em>(Envanterden veya savaş öncesi formasyon ekranından hemen kullanabilirsin!)</em>
+              </div>
+            </div>
+          </div>
+        ` : '';
+
+        // Tüm ganimetlerin resimli vitrin kartları
+        const cardsHtml = visualDrops.map(item => `
+          <div class="dungeon-loot-card ${item.border}" title="${item.desc || item.name}">
+            <div class="dungeon-loot-thumb-wrap">
+              ${item.img 
+                ? `<img src="${item.img}" alt="${item.name}" class="dungeon-loot-thumb" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
+                   <div style="display:none; width:100%; height:100%; align-items:center; justify-content:center; font-size:1.5rem;">${item.icon || '🎁'}</div>`
+                : `<div style="display:flex; width:100%; height:100%; align-items:center; justify-content:center; font-size:1.5rem;">${item.icon || '🎁'}</div>`
+              }
+              <span class="dungeon-loot-qty">${item.qty}</span>
+            </div>
+            <div class="dungeon-loot-name">${item.name}</div>
+          </div>
+        `).join('');
+
+        const visualLootShowcaseHtml = `
+          <div class="dungeon-loot-container">
+            <div class="dungeon-loot-header">
+              <span>🎁 SAVAŞ GANİMETLERİ & KAZANILAN VARLIKLAR</span>
+            </div>
+            <div class="dungeon-loot-grid">
+              ${cardsHtml}
+            </div>
+            ${scrollBannerHtml}
+          </div>
+        `;
+
         logEl.innerHTML = `
-          <div style="color:#4ade80; font-weight:800; font-size:1.1rem; text-align:center;">
+          <div style="color:#4ade80; font-weight:800; font-size:1.15rem; text-align:center;">
             🏆 ZAFER! ${monster.name} yok edildi!
           </div>
-          <div style="text-align:center; color:#fde047; margin-top:4px;">
+          <div style="text-align:center; color:#fde047; margin-top:4px; font-weight:600;">
             +${adaReward} $ADASTRA • Savaşa katılan askerlerine +${monster.rewardXp} Asker XP! ${lvlMsg}
           </div>
-          ${dropsHtml}
-          <div style="text-align:center; font-size:0.8rem; margin-top:6px; color:${weaponsWorn.length > 0 ? '#fca5a5' : '#94a3b8'};">
+          ${visualLootShowcaseHtml}
+          <div style="text-align:center; font-size:0.8rem; margin-top:8px; color:${weaponsWorn.length > 0 ? '#fca5a5' : '#94a3b8'};">
             ${weaponsWorn.length > 0 
               ? `⚔️ Savaşta kullanılan silahların dayanıklılığı -1 azaldı: <strong>${weaponsWorn.join(', ')}</strong>` 
               : '⚔️ Savaşta silah aşınması gerçekleşmedi (Kuşanılmış silah yok).'}

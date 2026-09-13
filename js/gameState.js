@@ -3052,7 +3052,8 @@ export class GameStateManager {
       scrollGained = {
         type: scrollType,
         name: isHeal ? 'Ordu İyileştirme Parşömeni (+10 HP)' : '100 Stamina Doldurma Parşömeni',
-        icon: isHeal ? '📜' : '⚡'
+        icon: isHeal ? '📜' : '⚡',
+        image: isHeal ? 'assets/scroll_heal.jpg' : 'assets/scroll_stamina.jpg'
       };
     }
 
