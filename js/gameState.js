@@ -274,9 +274,9 @@ export class GameStateManager {
     const passiveWheatNeeded = Math.round(missingHp * passiveWheatRate * 100) / 100;
     const passiveAdaCost = Math.round(missingHp * passiveAdaRate * 100) / 100;
 
-    // Hızlı Doldurma Oranları (18 Saatlik Formülün 100 Katı: 1 HP = 30 Buğday + 10 ADA)
-    const fastWheatRate = fastCfg.wheatPerHp != null ? fastCfg.wheatPerHp : 30.0;
-    const fastAdaRate = fastCfg.adAstraPerHp != null ? fastCfg.adAstraPerHp : 10.0;
+    // Hızlı Doldurma Oranları (18 Saatlik Formülün 10 Katı: 1 HP = 3 Buğday + 1 ADA)
+    const fastWheatRate = fastCfg.wheatPerHp != null ? fastCfg.wheatPerHp : 3.0;
+    const fastAdaRate = fastCfg.adAstraPerHp != null ? fastCfg.adAstraPerHp : 1.0;
     const wheatNeeded = Math.round(missingHp * fastWheatRate * 100) / 100;
     const adaCost = Math.round(missingHp * fastAdaRate * 100) / 100;
 
@@ -297,7 +297,7 @@ export class GameStateManager {
       passiveAdaRate,
       passiveWheatNeeded,
       passiveAdaCost,
-      // Hızlı Doyurma (100x)
+      // Hızlı Doyurma (10x)
       fastWheatRate,
       fastAdaRate,
       wheatNeeded,
@@ -390,12 +390,18 @@ export class GameStateManager {
     this.state.adAstraBalance -= info.adaCost;
     soldier.hp = soldier.maxHp || 100;
 
+    // 🔥 Hazine Muhasebesi ve Deflasyonist Yakım Entegrasyonu
+    // Hızlı doyurulan askerin harcanan ADA bedeli: %22 kalıcı yakılır, %78 hazine havuzlarına aktarılır
+    if (info.adaCost > 0) {
+      globalPool.recordTokenSpend(info.adaCost);
+    }
+
     sound.playRepair();
     this.saveState();
 
     return {
       success: true,
-      message: `⚡ ${soldier.name} anında tam cana kavuştu! (-${info.wheatNeeded} 🌾 Buğday, -${info.adaCost} 🟣 ADA)`
+      message: `⚡ ${soldier.name} anında tam cana kavuştu! (-${info.wheatNeeded} 🌾 Buğday, -${info.adaCost} 🟣 ADA • 🔥 %22 Yakıldı)`
     };
   }
 
@@ -2474,6 +2480,7 @@ export class GameStateManager {
     return {
       success: true,
       reward: selectedReward,
+      slice: selectedReward,
       rewardSummaryText,
       burnedInfo,
       message: burnedInfo

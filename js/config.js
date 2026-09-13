@@ -214,11 +214,11 @@ export const GAME_CONFIG = {
   },
 
   // Hızlı Asker Doyurma (Instant / Fast Heal) Kuralı:
-  // 18 saatlik otomatik formülün tam 100 katı:
-  // Her 1 HP için: 30 Buğday (0.30 * 100) + 10 ADA (0.10 * 100)
+  // 18 saatlik otomatik formülün 10 katı (Deflasyonist Zaman Satın Alma & Hazine Besleme):
+  // Her 1 HP için: 3.0 Buğday (0.30 * 10) + 1.0 ADA (0.10 * 10)
   SOLDIER_FAST_HEAL: {
-    wheatPerHp: 30.0,             // 18 saatlik formülün 100 katı (30 Buğday / HP)
-    adAstraPerHp: 10.0            // 18 saatlik formülün 100 katı (10 ADA / HP)
+    wheatPerHp: 3.0,             // 18 saatlik formülün 10 katı (3 Buğday / HP)
+    adAstraPerHp: 1.0            // 18 saatlik formülün 10 katı (1 ADA / HP)
   },
 
   // =========================================================================
@@ -824,6 +824,17 @@ export const GAME_CONFIG = {
         'Kazanım anında "🎟️ Amorti Bilet Parçaları: X/10" rozeti canlı animasyon ve altın rengi vurgu ile anında güncellenir.',
         '10 Parça tamamlanıp 1 Piyango/Çark Biletine dönüştüğünde, hem amorti sayacı hem de "🎟️ 1 Bilet İle Çevir" butonu anında canlı olarak senkronize edilir.',
         'Kazanılan AlphAvax Vercel App analiz kodları modal açıkken anlık olarak listeye eklenir.'
+      ]
+    },
+    {
+      version: 'v1.11',
+      title: 'Ordu Hızlı Doyurma Deflasyonist Denge & Hazine Yakımı Reformu',
+      date: 'Eylül 2026',
+      changes: [
+        'Ordu hızlı doyurma (Instant Heal) maliyeti, zindan havuzunu korumak ve deflasyonist yapıyı beslemek amacıyla 10x altın orana (1 HP = 3.0 Buğday + 1.0 ADA) uyarlandı.',
+        '100x aşırı çarpan kaldırılarak tek asker tam canı 300 Buğday + 100 ADA, 18 kişilik tüm ordu ise 5.400 Buğday + 1.800 ADA seviyesine kalibre edildi.',
+        'Hızlı doyurmada harcanan tüm $ADASTRA anında Hazine Muhasebesine (%22 Kalıcı Yakım + %78 Hazine Havuzları) işlenerek deflasyonist token yakımı ve havuz sponsorluğu sağlandı.',
+        '18 saatlik düşük maliyetli pasif doyurma (1 HP = 0.30 Buğday + 0.10 ADA) aynen korunarak sabırlı emek veren oyuncuların zindan kârlılığı teminat altına alındı.'
       ]
     }
   ],

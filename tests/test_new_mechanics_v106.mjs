@@ -41,9 +41,9 @@ assert.equal(healInfo.missingHp, 50, '50 eksik HP tespit edilmeli');
 assert.equal(healInfo.passiveWheatNeeded, 15, '18 saatlik otomatik iyileşme: 50 HP için 15 Buğday (0.30 x 50)');
 assert.equal(healInfo.passiveAdaCost, 5, '18 saatlik otomatik iyileşme: 50 HP için 5 ADA (0.10 x 50)');
 
-// 2. Hızlı Doyurma (18 Saatlik Formülün Tam 100 Katı: 1 HP = 30 Buğday + 10 ADA)
-assert.equal(healInfo.wheatCost, 1500, 'Hızlı doyurma (100x): 50 HP için 1500 Buğday (30 x 50)');
-assert.equal(healInfo.adAstraCost, 500, 'Hızlı doyurma (100x): 50 HP için 500 ADA (10 x 50)');
+// 2. Hızlı Doyurma (18 Saatlik Formülün 10 Katı: 1 HP = 3 Buğday + 1 ADA)
+assert.equal(healInfo.wheatCost, 150, 'Hızlı doyurma (10x): 50 HP için 150 Buğday (3 x 50)');
+assert.equal(healInfo.adAstraCost, 50, 'Hızlı doyurma (10x): 50 HP için 50 ADA (1 x 50)');
 
 // 3. Pasif İyileşme Zaman Döngüsü (1 Saatlik Tik Simülasyonu)
 gs.state.inventory.wheat = 100;
@@ -52,14 +52,14 @@ const prevHp = soldier.hp;
 gs.processSoldierPassiveHealing(3600); // 1 saat
 assert(soldier.hp > prevHp, '18 saatlik pasif iyileşme zamanla can kazandırmalı');
 
-// 4. Anında Hızlı Doyurma Testi (100x Kaynak Harcayarak Saniyeler İçinde Tamamlama)
+// 4. Anında Hızlı Doyurma Testi (10x Kaynak Harcayarak Saniyeler İçinde Tamamlama)
 soldier.hp = 50;
 gs.state.inventory.wheat = 50000;
 gs.state.adAstraBalance = 50000;
 const healRes = gs.healSoldierInstantly(0);
-assert(healRes.success, 'Asker 100x formülüyle anında doyurulabilmeli');
+assert(healRes.success, 'Asker 10x formülüyle anında doyurulabilmeli');
 assert.equal(soldier.hp, 100, 'Hızlı doyurma sonrası asker tam canlı olmalı');
-console.log('✅ 18 saatlik otomatik pasif iyileşme (0.30 Buğday + 0.10 ADA) ve 100 katı hızlı doyurma (30 Buğday + 10 ADA) %100 doğrulandı.');
+console.log('✅ 18 saatlik otomatik pasif iyileşme (0.30 Buğday + 0.10 ADA) ve 10 katı hızlı doyurma (3 Buğday + 1 ADA) %100 doğrulandı.');
 
 // ══════════════════════════════════════════════════════════════════════════
 // 2. 1-CLICK SEFER TOPLAMA (BİTMEMİŞ SEFERLERDEN BİRİKENİ TOPLAMA)
