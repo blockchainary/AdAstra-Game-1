@@ -79,19 +79,25 @@ assert(claimRes.amount > 0, 'Odun toplanmış olmalı');
 assert(gs.state.inventory.wood <= woodLimit, 'Hasat sonrası odun siloyu taşırmamalı');
 console.log('✅ 3. Test Başarılı: claimExpedition bot aktifken silodaki taşmayı otomatik çözdü ve seferi kesintisiz tamamladı!');
 
-// 4. Silo Yükseltme Modu (botSiloAutoUpgrade = true) Başarısız Olunca Akıllı Satışa Devretme Fallback Kontrolü
+// 4. Silo Yükseltme Modu (botSiloAutoUpgrade = true) Kaynak Koruma Kontrolü
 gs.setBotSiloOption(true);
 assert.equal(gs.state.botSiloAutoUpgrade, true, 'Bot yükseltme moduna alındı');
-
-// ADA bakiyesini sıfırlayarak silo yükseltmesinin başarısız olmasını sağla
 gs.state.adAstraBalance = 0;
 gs.state.inventory.wood = woodLimit; // Silo ağzına kadar dolu
 
-const fallbackRes = gs.handleBotSiloSpace('wood', 100);
-assert.equal(fallbackRes.handled, true, 'Yükseltme başarısız olunca akıllı satış devreye girmeli');
-assert.equal(fallbackRes.action, 'sold', 'Fallback olarak satış gerçekleşmeli');
-assert.equal(fallbackRes.amountSold, 105, '100 odunluk hasat için %5 marj ile 105 odun satılmalı');
+const deferRes = gs.handleBotSiloSpace('wood', 100);
+assert.equal(deferRes.handled, true, 'Yükseltme beklenirken işlem ele alınmalı');
+assert.equal(deferRes.action, 'upgrade_deferred', 'Siloyu Yükselt modundayken erken satış KESİNLİKLE yapılmamalı, kaynaklar korunmalı');
+console.log('✅ 4. Test Başarılı: Siloyu Yükselt modundayken kaynaklar pazarda satılmadı, korunarak baraj beklendi!');
+
+// 5. Akıllı Satış Modu (botSiloAutoUpgrade = false) Aktif Satış Kontrolü
+gs.setBotSiloOption(false);
+assert.equal(gs.state.botSiloAutoUpgrade, false, 'Bot Akıllı Satış moduna alındı');
+const sellRes = gs.handleBotSiloSpace('wood', 100);
+assert.equal(sellRes.handled, true, 'Akıllı Satış devreye girmeli');
+assert.equal(sellRes.action, 'sold', 'Satış gerçekleşmeli');
+assert.equal(sellRes.amountSold, 105, '100 odunluk hasat için %5 marj ile 105 odun satılmalı');
 assert(gs.state.adAstraBalance > 0, 'Satıştan ADA kazanılmış olmalı');
-console.log('✅ 4. Test Başarılı: Yükseltme yapılamayınca bot durmadı, otomatik olarak %5 marjlı Akıllı Satış mekanizmasına devretti!');
+console.log('✅ 5. Test Başarılı: Kullanıcı Akıllı Satış seçtiğinde %5 marjlı Akıllı Satış kusursuz çalıştı!');
 
 console.log('🎉 TÜM 24s BOT AKILLI SİLO SATIŞ (%5 MARJ) TESTLERİ %100 BAŞARIYLA TAMAMLANDI!');

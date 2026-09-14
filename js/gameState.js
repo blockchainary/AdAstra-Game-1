@@ -761,7 +761,72 @@ export class GameStateManager {
     let hasChanges = false;
     const now = Date.now();
     const speedMult = this.getExpeditionSpeedMultiplier();
+    const isBot = this.isAutoCollectorActive() || this.hasPurchasedBot();
 
+    // 1. En büyük zaman farkını bul (çevrimdışı/arka plan süresi)
+    let maxDiff = deltaSeconds || 0;
+    for (const nodeId of Object.keys(this.state.activeExpeditions || {})) {
+      const exp = this.state.activeExpeditions[nodeId];
+      if (exp && !exp.isCompleted && exp.lastTickAt && exp.lastTickAt > 0) {
+        const diff = (now - exp.lastTickAt) / 1000;
+        if (diff > maxDiff) maxDiff = Math.min(diff, 86400); // En fazla 24 saat
+      }
+    }
+
+    // 🤖 ÇOKLU DÖNGÜ & ÇEVRİMDIŞI / ARKA PLAN İLERLEME MOTORU (PARALLEL CATCH-UP ENGINE)
+    // Eğer bot aktifse ve geçen süre 1 seferden (örn. 1080s) uzunsa:
+    // 3 sefer alanını (Odun, Demir, Buğday) paralel simüle ederek ardışık tüm döngüleri işlet!
+    if (isBot && maxDiff > 1080) {
+      let remainingTime = maxDiff;
+      let safetyCounter = 80; // Maksimum 80 sefer (~24 saat)
+      while (remainingTime > 0 && safetyCounter-- > 0) {
+        let minNeeded = remainingTime;
+        let anyActive = false;
+        for (const nodeId of ['wood', 'iron', 'wheat']) {
+          const exp = this.state.activeExpeditions ? this.state.activeExpeditions[nodeId] : null;
+          if (exp && !exp.isCompleted) {
+            anyActive = true;
+            const needed = Math.max(1, (exp.durationSeconds - (exp.elapsedSeconds || 0)) / speedMult);
+            if (needed < minNeeded) minNeeded = needed;
+          }
+        }
+
+        if (!anyActive) {
+          this.runTavernaAutomationCycle();
+          hasChanges = true;
+          const hasAny = Object.keys(this.state.activeExpeditions || {}).length > 0;
+          if (!hasAny || this.isBotPaused()) break;
+          continue;
+        }
+
+        const stepToApply = Math.min(remainingTime, minNeeded);
+        remainingTime -= stepToApply;
+
+        for (const nodeId of ['wood', 'iron', 'wheat']) {
+          const exp = this.state.activeExpeditions ? this.state.activeExpeditions[nodeId] : null;
+          if (exp && !exp.isCompleted) {
+            exp.elapsedSeconds = Math.min(exp.durationSeconds, (exp.elapsedSeconds || 0) + (stepToApply * speedMult));
+            exp.lastTickAt = now;
+            if (exp.elapsedSeconds >= exp.durationSeconds) {
+              exp.isCompleted = true;
+            }
+          }
+        }
+        hasChanges = true;
+
+        this.runTavernaAutomationCycle();
+        if (this.isBotPaused()) break;
+      }
+
+      for (const nodeId of Object.keys(this.state.activeExpeditions || {})) {
+        const exp = this.state.activeExpeditions[nodeId];
+        if (exp) exp.lastTickAt = now;
+      }
+      this.saveState();
+      return;
+    }
+
+    // Normal Frame Akışı (Realtime 60fps)
     for (const nodeId of Object.keys(this.state.activeExpeditions || {})) {
       const exp = this.state.activeExpeditions[nodeId];
       if (exp && !exp.isCompleted) {
@@ -769,62 +834,21 @@ export class GameStateManager {
         if (exp.lastTickAt && exp.lastTickAt > 0) {
           const realDiff = (now - exp.lastTickAt) / 1000;
           if (realDiff > 0) {
-            step = Math.max(step, Math.min(realDiff, 86400)); // Aşırı büyük zıplamaları sınırla (maks 24 saat)
+            step = Math.max(step, Math.min(realDiff, 86400));
           }
         }
         exp.lastTickAt = now;
         if (!exp.startedAt) exp.startedAt = now - (exp.elapsedSeconds * 1000);
 
-        const isBot = this.isAutoCollectorActive() || this.hasPurchasedBot();
+        exp.elapsedSeconds = Math.min(exp.durationSeconds, (exp.elapsedSeconds || 0) + (step * speedMult));
+        hasChanges = true;
 
-        // 🤖 ÇOKLU DÖNGÜ & ÇEVRİMDIŞI / ARKA PLAN İLERLEME MOTORU (CATCH-UP ENGINE)
-        // Eğer kullanıcı 3 saat sekmeden ayrıldıysa veya tarayıcı arka plandaysa;
-        // bot boşa düşmez, geçen tüm süre boyunca ardışık sefer döngülerini tamamlar!
-        const remainingToComplete = Math.max(0, exp.durationSeconds - (exp.elapsedSeconds || 0));
-        if (isBot && step > remainingToComplete) {
-          let remainingStep = step;
-          let maxCycles = 50; // Sonsuz döngü koruması
-          while (remainingStep > 0 && maxCycles-- > 0) {
-            const currentExp = this.state.activeExpeditions[nodeId];
-            if (!currentExp) break;
+        if (exp.elapsedSeconds >= exp.durationSeconds) {
+          exp.elapsedSeconds = exp.durationSeconds;
+          exp.isCompleted = true;
 
-            const needed = Math.max(0, currentExp.durationSeconds - (currentExp.elapsedSeconds || 0));
-            if (remainingStep >= needed) {
-              remainingStep -= needed;
-              currentExp.elapsedSeconds = currentExp.durationSeconds;
-              currentExp.isCompleted = true;
-              currentExp.lastTickAt = now;
-              this.runTavernaAutomationCycle();
-              hasChanges = true;
-
-              // Eğer bot duraklatıldıysa veya yeni sefer başlatılamadıysa dur
-              if (this.isBotPaused() || !this.state.activeExpeditions[nodeId] || this.state.activeExpeditions[nodeId].isCompleted) {
-                break;
-              }
-            } else {
-              // Son döngüde kalan artık zamanı işlet
-              const activeExp = this.state.activeExpeditions[nodeId];
-              if (activeExp && !activeExp.isCompleted) {
-                activeExp.elapsedSeconds = Math.min(activeExp.durationSeconds, (activeExp.elapsedSeconds || 0) + (remainingStep * speedMult));
-                activeExp.lastTickAt = now;
-                hasChanges = true;
-              }
-              remainingStep = 0;
-            }
-          }
-        } else {
-          // Normal tek seferlik akış (veya bot aktif değilken)
-          exp.elapsedSeconds = Math.min(exp.durationSeconds, (exp.elapsedSeconds || 0) + (step * speedMult));
-          hasChanges = true;
-
-          if (exp.elapsedSeconds >= exp.durationSeconds) {
-            exp.elapsedSeconds = exp.durationSeconds;
-            exp.isCompleted = true;
-
-            // 🤖 OTOMATİK TOPLAMA & OTOMATİK TAMİR BOTU
-            if (isBot) {
-              this.runTavernaAutomationCycle();
-            }
+          if (isBot) {
+            this.runTavernaAutomationCycle();
           }
         }
       }
@@ -1355,6 +1379,27 @@ export class GameStateManager {
       const updatedLimit = updatedCap[nodeId];
       availableRoom = updatedLimit != null ? Math.max(0, updatedLimit - currentAmount) : remainingToClaim;
       if (availableRoom <= 0) {
+        // Eğer kullanıcı Silo Otomatik Yükseltmeyi seçtiyse:
+        // Ambar bu kaynak için zaten %100 doludur. Botun kilitlenmemesi ve diğer kaynakların da
+        // dolup silonun bir sonraki döngüde seviye atlayabilmesi için seferi başarıyla tamamla!
+        if (this.state.botSiloAutoUpgrade) {
+          playerTool.durability = Math.max(0, (playerTool.durability != null ? playerTool.durability : 4320) - durationMinutes);
+          const durationHours = exp.durationHours || parseFloat((durationMinutes / 60).toFixed(2));
+          const xpGained = Math.max(5, Math.floor(35 * durationHours));
+          this.addXp(xpGained);
+          delete this.state.activeExpeditions[nodeId];
+          this.saveState();
+          return {
+            success: true,
+            isWarehouseFull: true,
+            amount: 0,
+            harvestedAmount: 0,
+            currentAmount,
+            limit: updatedLimit,
+            message: `📦 ${rLabel} ambarı tamamen dolu (${currentAmount}/${updatedLimit})! Silo yükseltme barajı (%80) için diğer depoların dolması bekleniyor.`
+          };
+        }
+
         return {
           success: false,
           isWarehouseFull: true,
@@ -2981,20 +3026,17 @@ export class GameStateManager {
           return { handled: true, action: 'upgraded', newCapacity: newCap };
         }
       }
-      // Eğer ambar henüz tamamen dolmadıysa (currentAmount < limit):
-      // KESİNLİKLE kaynakları erken satma! Depo dolsun ki %80 barajına ulaşıp siloyu büyütebilsin.
-      if (currentAmount < limit) {
-        return {
-          handled: true,
-          action: 'upgrade_deferred',
-          reason: 'Silo yükseltme barajı (%80 doluluk) bekleniyor, kaynaklar korunuyor.'
-        };
-      }
-      // Eğer ambar %100 AĞZINA KADAR DOLMUŞSA (currentAmount >= limit) ve yükseltme yapılamadıysa (yetersiz ADA):
-      // Botun kilitlenmemesi ve hasadın kaybolmaması için yalnızca taşan miktar kadar Akıllı Satışa devret!
+      // Kullanıcı "Siloyu Otomatik Yükselt" seçtiyse:
+      // KESİNLİKLE hiçbir koşulda pazarda satış yapma!
+      // Tüm kaynaklar depoda birikmeli ki %80 barajına ulaşıp siloyu büyütebilsin.
+      return {
+        handled: true,
+        action: 'upgrade_deferred',
+        reason: 'Silo yükseltme barajı (%80 doluluk) bekleniyor, kaynaklar pazarda satılmadan korunuyor.'
+      };
     }
 
-    // 2. Akıllı Satış (SADECE kullanıcı "Akıllı Satış" seçeneğini seçtiyse çalışır)
+    // 2. Akıllı Satış (YALNIZCA VE YALNIZCA kullanıcı açıkça "Akıllı Satış" seçeneğini seçtiyse çalışır)
     // Döngü Kazancı + %5 Güvenlik Marjı kadar satış yaparak tam gerektiği kadar yer açar.
     const neededSpace = Math.max(1, (currentAmount + yieldAmount) - limit);
     const requiredFreeSpaceWithMargin = Math.ceil(yieldAmount * 1.05);
