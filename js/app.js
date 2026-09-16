@@ -3464,6 +3464,10 @@ function renderCarnivalHtml(activeTab = 'wheel') {
               <strong style="color:#c084fc;">4. 20 Milyon ADA Tohum Kasası:</strong>
               Piyango havuzu 20.000.000 ADA'lık güçlü bir tohum fonuyla korunur ve bilet satışlarıyla her hafta devrederek büyümeye devam eder.
             </div>
+            <div>
+              <strong style="color:#f472b6;">5. %2 Amorti İade Kasası:</strong>
+              Her bilet alım bedelinin %2'si (bilet başı 2 ADA) doğrudan Amorti Kasasına aktarılır. Biletini yakarak amorti almak isteyen vatandaşlarımız anında nakit iadesi alabilir.
+            </div>
           </div>
         </div>
 
@@ -7948,7 +7952,7 @@ export function renderTopAnnouncementTicker() {
   const container = document.getElementById('ticker-marquee-inner');
   if (!container) return;
 
-  const tickerConfig = GAME_CONFIG.ANNOUNCEMENT_TICKER || {};
+  const tickerConfig = GAME_CONFIG.ANNOUNCEMENT_TICKER || GAME_CONFIG.TICKER_CONFIG || {};
   if (tickerConfig.enabled === false) {
     const parentTicker = document.getElementById('top-announcement-ticker');
     if (parentTicker) parentTicker.style.display = 'none';
@@ -7967,13 +7971,16 @@ export function renderTopAnnouncementTicker() {
   const buildItemsHtml = () => {
     return announcements
       .filter(a => a.active !== false)
-      .map(item => `
-        <span class="ticker-item">
-          <span class="ticker-item-badge">${item.badge || 'DUYURU'}</span>
-          <span class="ticker-item-text">${item.text}</span>
-          <span class="ticker-item-sep">${sep}</span>
-        </span>
-      `).join('');
+      .map(item => {
+        const badgeStyle = item.badgeColor ? `style="border-color: ${item.badgeColor}; color: ${item.badgeColor}; background: ${item.badgeColor}26;"` : '';
+        return `
+          <span class="ticker-item">
+            <span class="ticker-item-badge" ${badgeStyle}>${item.badge || 'DUYURU'}</span>
+            <span class="ticker-item-text">${item.text}</span>
+            <span class="ticker-item-sep">${sep}</span>
+          </span>
+        `;
+      }).join('');
   };
 
   // Kesintisiz sonsuz kaydırma (seamless marquee) için 2 döngü duplicate eklenir

@@ -199,6 +199,132 @@ html, body {
 }
 
 /* =========================================================================
+   0. TOP ANNOUNCEMENT & RISK WARNING TICKER (CANLI KAYAN DUYURU PANOSU)
+   ========================================================================= */
+.top-announcement-ticker {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 32px;
+  background: linear-gradient(90deg, rgba(20, 10, 15, 0.98) 0%, rgba(35, 12, 18, 0.95) 15%, rgba(18, 10, 25, 0.96) 50%, rgba(35, 12, 18, 0.95) 85%, rgba(20, 10, 15, 0.98) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(239, 68, 68, 0.35);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.8), inset 0 -1px 0 rgba(239, 68, 68, 0.2);
+  display: flex;
+  align-items: center;
+  z-index: 1002;
+  overflow: hidden;
+  user-select: none;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.ticker-badge {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.35) 0%, rgba(153, 27, 27, 0.5) 100%);
+  border-right: 1px solid rgba(239, 68, 68, 0.4);
+  padding: 0 14px;
+  height: 100%;
+  flex-shrink: 0;
+  z-index: 2;
+  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.6);
+}
+
+.ticker-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #ef4444;
+  box-shadow: 0 0 10px #ef4444, 0 0 20px #ef4444;
+  animation: tickerDotPulse 1.4s infinite ease-in-out;
+}
+
+@keyframes tickerDotPulse {
+  0%, 100% { transform: scale(0.9); opacity: 0.75; box-shadow: 0 0 6px #ef4444; }
+  50% { transform: scale(1.35); opacity: 1; box-shadow: 0 0 14px #ef4444, 0 0 22px #f87171; }
+}
+
+.ticker-badge-title {
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: #fca5a5;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+}
+
+.ticker-track {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 1) 2%, rgba(0, 0, 0, 1) 98%, transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 1) 2%, rgba(0, 0, 0, 1) 98%, transparent 100%);
+}
+
+.ticker-marquee-inner {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  animation: tickerMarquee 55s linear infinite;
+  will-change: transform;
+}
+
+.top-announcement-ticker:hover .ticker-marquee-inner {
+  animation-play-state: paused;
+}
+
+@keyframes tickerMarquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+}
+
+.ticker-item-badge {
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(239, 68, 68, 0.25);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #fca5a5;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.ticker-item-text {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #fed7aa;
+  letter-spacing: 0.015em;
+  line-height: 32px;
+}
+
+.ticker-item-sep {
+  color: #eab308;
+  font-size: 0.75rem;
+  opacity: 0.7;
+  padding: 0 14px;
+}
+
+/* =========================================================================
    1. SOLID TOP MENU BAR (HARİTADAN AYRI ÜST ŞERİT MENÜ)
    ========================================================================= */
 .top-nav-strip, .pixi-topbar, .pixi-top-bar {
@@ -224,6 +350,23 @@ html, body {
   user-select: none;
   box-sizing: border-box;
   overflow: hidden;
+}
+
+/* Phaser Game Canvas Positioning */
+#phaser-game-container, .phaser-game-container {
+  position: fixed;
+  top: 92px;
+  left: 0;
+  width: 100vw;
+  height: calc(100vh - 92px);
+  overflow: hidden;
+  z-index: 1;
+}
+
+#phaser-game-container canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 /* Sol Profil & Web3 Cüzdan Bölümü (Penpot Glassmorphic Profile Card) */

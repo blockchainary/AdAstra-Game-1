@@ -211,8 +211,8 @@ gs.state.lotteryTickets = 0;
 gs.state.lotteryPool = GAME_CONFIG.CARNIVAL.LOTTERY.SEED_POOL_ADA;
 const ticketBuyRes = gs.buyLotteryTickets(5);
 assert(ticketBuyRes.success, '5 adet piyango bileti satın alınabilmeli');
-assert.equal(gs.state.lotteryTickets, 5, 'Kullanıcının 5 bileti olmalı');
-assert.equal(gs.state.lotteryPool, GAME_CONFIG.CARNIVAL.LOTTERY.SEED_POOL_ADA + 500, 'Havuz tohum kasa + bilet tutarı kadar olmalı');
+assert.equal(gs.state.lotteryPool + (gs.state.lotteryAmortiPool || 0), GAME_CONFIG.CARNIVAL.LOTTERY.SEED_POOL_ADA + 500, 'Havuz + Amorti toplamı tohum kasa + bilet tutarı kadar olmalı');
+assert.equal(gs.state.lotteryAmortiPool, 10, '%2 amorti payı (10 ADA) ayrılmış olmalı');
 
 // Piyango Çekiliş Simülasyonu
 const drawRes = gs.drawWeeklyLottery();

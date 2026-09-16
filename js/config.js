@@ -973,8 +973,43 @@ export const GAME_CONFIG = {
     warehouseLevel: 1,
     lockedBoxes: 0,
     arenaKeys: 0,
-    genesisNftMinted: false,
     activeBuffs: {},
     activeExpeditions: {}
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 📢 CANLI KAYAN DUYURU & RİSK UYARI PANOSU (TOP MARQUEE TICKER)
+  // ═══════════════════════════════════════════════════════════════════════
+  ANNOUNCEMENTS: [
+    {
+      id: 'audit_risk_warning',
+      badge: '🚨 KRİTİK GÜVENLİK & RİSK UYARISI',
+      badgeColor: '#ef4444',
+      text: 'bu oyun tamamen antigravity ide gemini 3.8 flash botu ile yazılmıştır. hiçbir audit yapılmamıştır ve yazılım/kodlama bilmeyen tek bir kullanıcı tarafından geliştirilmektedir, bu sebepten bir çok güvenik açığı bulunabilir. bu güvenlik açıkları tamamen tespit edilip oyun audit edilene kadar lütfen oyuna ana web3 cüzdanınızla bağlanmayın. sadece bu oyunda kullancağınız yeni bir web3 cüzdan açın, yapacağınız yatırımlarda olası bir hacklenme veya güvenlik zaafında yatırımlarınızın gidebileceğini unutmayın. şuan bu oyun tamamen deneysel bir süreçtir lütfen riskinizi gözeterek yatırım yapın. eğer sürece ve şu anki duruma güvenmiyorsanız lütfen oyunu oynamayın, yatırıp yapmayın veya tamamen free to play olarak oynayın. anlayısınız ve ilginiz için teşekkür ederim',
+      active: true,
+      priority: 1
+    },
+    {
+      id: 'ecosystem-notice',
+      badge: '👑 ADASTRA REALM',
+      badgeColor: '#f59e0b',
+      text: 'AdAstra Krallığı v1.15 yayında! 100 Milyon $ADASTRA tohum fonu, AMM DEX canlı pazar entegrasyonu ve haftalık devreden ödül kasaları aktif.',
+      active: true,
+      priority: 2
+    }
+  ],
+  ANNOUNCEMENT_TICKER: {
+    enabled: true,
+    speedSeconds: 55,
+    pauseOnHover: true,
+    showPulseDot: true,
+    separator: '✦'
+  },
+  TICKER_CONFIG: {
+    enabled: true,
+    speedSeconds: 55,
+    pauseOnHover: true,
+    showPulseDot: true,
+    separator: '✦'
   }
 };

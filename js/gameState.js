@@ -10,6 +10,13 @@ export class GameStateManager {
     this.storageKey = 'adastra_player_save_v6';
     this.state = this.loadState();
     this.listeners = [];
+    // 🛡️ Amorti İade Havuzu Düzeltmesi: Bilet alınmışsa ve amorti kasası 0 kalmışsa %2 payını anında aktar
+    if (this.state.lotteryTickets > 0 && (!this.state.lotteryAmortiPool || this.state.lotteryAmortiPool === 0)) {
+      const ticketCost = (GAME_CONFIG.CARNIVAL?.LOTTERY?.TICKET_COST_ADA || 100);
+      const amortiRate = (GAME_CONFIG.CARNIVAL?.LOTTERY?.AMORTI_SHARE || 0.02);
+      this.state.lotteryAmortiPool = Math.round(this.state.lotteryTickets * ticketCost * amortiRate);
+      this.saveState();
+    }
     if (typeof ammMarket !== 'undefined' && ammMarket && ammMarket.subscribe) {
       ammMarket.subscribe(() => {
         this.tickUpgradeCostBot(0);
@@ -73,7 +80,9 @@ export class GameStateManager {
       dungeonMonsterCurrentHp: parsed.dungeonMonsterCurrentHp || {},
       lotteryTickets: parsed.lotteryTickets || 0,
       lotteryPool: (parsed.lotteryPool != null && parsed.lotteryPool >= 20000000) ? parsed.lotteryPool : (GAME_CONFIG.LOTTERY?.SEED_POOL_ADA || 20000000),
-      lotteryAmortiPool: parsed.lotteryAmortiPool || 0,
+      lotteryAmortiPool: (parsed.lotteryAmortiPool != null && parsed.lotteryAmortiPool > 0)
+        ? parsed.lotteryAmortiPool
+        : Math.round((parsed.lotteryTickets || 0) * (GAME_CONFIG.CARNIVAL?.LOTTERY?.TICKET_COST_ADA || 100) * (GAME_CONFIG.CARNIVAL?.LOTTERY?.AMORTI_SHARE || 0.02)),
       wheelTicketShards: parsed.wheelTicketShards || 0,
       botSiloAutoUpgrade: parsed.botSiloAutoUpgrade !== undefined ? parsed.botSiloAutoUpgrade : true,
       botActiveUntil: parsed.botActiveUntil || 0,
@@ -3479,9 +3488,14 @@ export class GameStateManager {
       return { success: false, message: `Yetersiz $ADASTRA! ${count} bilet için ${cost} ADA gereklidir.` };
     }
 
+    const amortiRate = GAME_CONFIG.CARNIVAL?.LOTTERY?.AMORTI_SHARE || 0.02;
+    const amortiAmount = Math.round(cost * amortiRate * 100) / 100;
+    const poolAmount = cost - amortiAmount;
+
     this.state.adAstraBalance -= cost;
     this.state.lotteryTickets = currentTickets + count;
-    this.state.lotteryPool = (this.state.lotteryPool || 20000000) + cost;
+    this.state.lotteryAmortiPool = (this.state.lotteryAmortiPool || 0) + amortiAmount;
+    this.state.lotteryPool = (this.state.lotteryPool || 20000000) + poolAmount;
 
     sound.playHarvest();
     this.saveState();
@@ -3491,7 +3505,9 @@ export class GameStateManager {
       ticketCount: count,
       totalTickets: this.state.lotteryTickets,
       lotteryPool: this.state.lotteryPool,
-      message: `🎟️ ${count} Adet Piyango Bileti satın alındı! (Toplam Biletin: ${this.state.lotteryTickets} / Max ${maxAllowed})`
+      lotteryAmortiPool: this.state.lotteryAmortiPool,
+      amortiAdded: amortiAmount,
+      message: `🎟️ ${count} Adet Piyango Bileti satın alındı! (+${amortiAmount} ADA Amorti İade Havuzuna aktarıldı, Toplam Biletin: ${this.state.lotteryTickets} / Max ${maxAllowed})`
     };
   }
 
@@ -3549,8 +3565,9 @@ export class GameStateManager {
       return { success: false, message: 'Amorti havuzunda henüz birikmiş $ADASTRA bulunmuyor.' };
     }
 
-    const sharePerTicket = Math.max(1, Math.floor(amortiPool / Math.max(100, userTickets + 400)));
-    const totalPayout = toBurn * sharePerTicket;
+    const baseAmortiPerTicket = (GAME_CONFIG.CARNIVAL?.LOTTERY?.TICKET_COST_ADA || 100) * (GAME_CONFIG.CARNIVAL?.LOTTERY?.AMORTI_SHARE || 0.02);
+    const calculatedPayout = Math.round(toBurn * baseAmortiPerTicket);
+    const totalPayout = Math.min(amortiPool, Math.max(1, calculatedPayout));
 
     this.state.lotteryTickets -= toBurn;
     this.state.lotteryAmortiPool = Math.max(0, amortiPool - totalPayout);
