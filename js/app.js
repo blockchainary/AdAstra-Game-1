@@ -4801,6 +4801,36 @@ function openPreBattleModal(monster) {
 
   const prediction = gameState.getBattlePrediction(monster.hp, monster.atk, preBattleSelectedSoldiers);
 
+  const selectedCount = preBattleSelectedSoldiers.length;
+  const staminaCost = gameState.getDungeonStaminaCost(monster.level, selectedCount);
+  const staminaCheck = gameState.canEnterDungeonBattle(monster.level, selectedCount);
+  const curStamina = Math.floor(state.stamina || 0);
+  const maxStamina = gameState.getMaxStamina();
+  const perSoldierCost = 5 + Number(monster.level);
+
+  const staminaInfoCardHtml = `
+    <div class="prebattle-stamina-card" style="margin-top:10px; padding:10px 12px; background:${staminaCheck.canEnter ? 'rgba(56,189,248,0.08)' : 'rgba(239,68,68,0.12)'}; border:1px solid ${staminaCheck.canEnter ? 'rgba(56,189,248,0.3)' : 'rgba(239,68,68,0.45)'}; border-radius:10px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-weight:700; color:${staminaCheck.canEnter ? '#38bdf8' : '#f87171'}; font-size:0.85rem;">⚡ Savaş Stamina Bedeli:</span>
+        <span style="font-weight:800; font-size:1rem; color:${staminaCheck.canEnter ? '#38bdf8' : '#ef4444'};">
+          ${selectedCount > 0 ? `${staminaCost} ⚡` : '0 ⚡'}
+        </span>
+      </div>
+      <div style="font-size:0.75rem; color:#94a3b8; margin-top:4px; display:flex; justify-content:space-between; align-items:center;">
+        <span>${selectedCount > 0 ? `${selectedCount} Asker × ${perSoldierCost} ⚡ (Lv.${monster.level} Katı)` : 'Asker seçilmedi'}</span>
+        <span>Mevcut: <strong>${curStamina}/${maxStamina} ⚡</strong></span>
+      </div>
+      ${!staminaCheck.canEnter && selectedCount > 0 ? `
+        <div style="margin-top:8px; padding-top:6px; border-top:1px dashed rgba(239,68,68,0.3); display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:0.75rem; color:#f87171; font-weight:700;">⚠️ ${staminaCheck.shortfall} ⚡ Stamina eksik!</span>
+          <button class="btn-clean btn-clean-gold" id="btn-prebattle-refill-stamina" style="padding:4px 10px; font-size:0.75rem; width:auto;">
+            🍞 Buğdayla Doldur
+          </button>
+        </div>
+      ` : ''}
+    </div>
+  `;
+
   const enemyCardHtml = `
     <div class="prebattle-enemy-card">
       <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
@@ -4829,6 +4859,8 @@ function openPreBattleModal(monster) {
           ${prediction.winChance >= 75 ? '🔥 Ordun ezici üstünlüğe sahip!' : (prediction.winChance >= 50 ? '⚖️ Dengeli bir savaş, yaralanmalar olabilir.' : '⚠️ Yüksek risk! Ordun yenilgiye uğrayabilir.')}
         </div>
       </div>
+
+      ${staminaInfoCardHtml}
     </div>
   `;
 
@@ -4901,6 +4933,14 @@ function openPreBattleModal(monster) {
     </div>
   `;
 
+  const isStaminaInsufficient = !staminaCheck.canEnter && selectedCount > 0;
+  const isStartDisabled = totalSoldiers === 0 || isArmyStaked || selectedCount === 0 || isStaminaInsufficient;
+  let startBtnText = '⚔️ SAVAŞA BAŞLA';
+  if (isArmyStaked) startBtnText = '🔒 ORDU KİLİTLİ';
+  else if (totalSoldiers === 0) startBtnText = '⚔️ ASKER YOK';
+  else if (selectedCount === 0) startBtnText = '⚔️ ASKER SEÇİN';
+  else if (isStaminaInsufficient) startBtnText = `⚡ YETERSİZ STAMİNA (${curStamina}/${staminaCost} ⚡)`;
+
   dom.modalBody.innerHTML = `
     <div class="prebattle-grid">
       ${enemyCardHtml}
@@ -4915,8 +4955,8 @@ function openPreBattleModal(monster) {
       <button class="btn-clean btn-clean-outline" id="btn-cancel-prebattle" style="width:auto; padding:10px 20px;">
         🏳️ Vazgeç
       </button>
-      <button class="btn-clean btn-clean-green" id="btn-start-tactical-battle" style="width:auto; padding:10px 28px; font-weight:800; font-size:0.95rem;" ${totalSoldiers === 0 || isArmyStaked ? 'disabled' : ''}>
-        ${isArmyStaked ? '🔒 ORDU KİLİTLİ' : '⚔️ SAVAŞA BAŞLA'}
+      <button class="btn-clean btn-clean-green" id="btn-start-tactical-battle" style="width:auto; padding:10px 28px; font-weight:800; font-size:0.95rem;" ${isStartDisabled ? 'disabled' : ''}>
+        ${startBtnText}
       </button>
     </div>
   `;
@@ -4930,6 +4970,21 @@ function openPreBattleModal(monster) {
   if (barracksBtn) {
     barracksBtn.addEventListener('click', () => {
       openTownZoneModal('barracks', '⚔️ KRALLIK KIŞLASI & ASKERİ KARARGAH');
+    });
+  }
+
+  const prebattleRefillBtn = document.getElementById('btn-prebattle-refill-stamina');
+  if (prebattleRefillBtn) {
+    prebattleRefillBtn.addEventListener('click', () => {
+      const refillNeeded = staminaCheck.shortfall || 20;
+      const res = gameState.refillStaminaExact(refillNeeded);
+      if (res.success) {
+        showToast(res.message, 'success');
+        renderTopBar();
+        openPreBattleModal(monster);
+      } else {
+        showToast(res.message, 'error');
+      }
     });
   }
 
@@ -4959,6 +5014,12 @@ function openPreBattleModal(monster) {
         showToast('En az 1 asker seçmelisin!', 'error');
         return;
       }
+      const check = gameState.canEnterDungeonBattle(monster.level, preBattleSelectedSoldiers.length);
+      if (!check.canEnter) {
+        showToast(`⚠️ Yetersiz Stamina! ${preBattleSelectedSoldiers.length} asker için ${check.cost} ⚡ Stamina gerekiyor (Mevcut: ${check.currentStamina} ⚡).`, 'error');
+        openPreBattleModal(monster);
+        return;
+      }
       executeMonsterBattle(monster, preBattleSelectedSoldiers);
     });
   }
@@ -4971,6 +5032,16 @@ function executeMonsterBattle(monster, selectedIndices) {
 
   const state = gameState.state;
   const soldiers = state.soldierUnits || [];
+
+  // ⚡ Savaş Başlangıcında Stamina Tahsilatı
+  const staminaCost = gameState.getDungeonStaminaCost(monster.level, selectedIndices.length);
+  const deductRes = gameState.deductDungeonStamina(monster.level, selectedIndices.length);
+  if (!deductRes.success) {
+    showToast(deductRes.message, 'error');
+    openPreBattleModal(monster);
+    return;
+  }
+  renderTopBar();
 
   let playerSquad = selectedIndices
     .filter(idx => soldiers[idx])
@@ -5022,7 +5093,7 @@ function executeMonsterBattle(monster, selectedIndices) {
     </div>
 
     <div id="dungeon-combat-log" class="clean-card arena-combat-log">
-      ⚔️ Savaş başlıyor... ${eCurHp < monster.hp ? `<span style="color:#fde047;">(Canavar önceki savaştan yaralı: ${eCurHp}/${monster.hp} HP)</span>` : ''}
+      ⚔️ Savaş başlıyor... <span style="color:#38bdf8;">(⚡ -${staminaCost} Stamina harcandı)</span> ${eCurHp < monster.hp ? `<span style="color:#fde047;">• Canavar önceki savaştan yaralı: ${eCurHp}/${monster.hp} HP</span>` : ''}
     </div>
   `;
 
@@ -5144,7 +5215,7 @@ function executeMonsterBattle(monster, selectedIndices) {
       const lvlMsg = levelUpNotice.length > 0 ? ` • 🎉 ${levelUpNotice.join(', ')}` : '';
       const wearMsg = weaponsWorn.length > 0 ? ` • ⚔️ Silah Aşınması: ${weaponsWorn.join(', ')}` : '';
       const scrollNotice = dropRes.scrollGained ? ` • 📜 ${dropRes.scrollGained.name} DÜŞTÜ!` : '';
-      addNotification('🏆', `${monster.name} yenildi! +${adaReward} ADA kazandın.${scrollNotice} Savaşa katılan askerlerin +${monster.rewardXp} Asker XP kazandı.${lvlMsg}${wearMsg}`);
+      addNotification('🏆', `${monster.name} yenildi! +${adaReward} ADA kazandın (⚡ -${staminaCost} Stamina).${scrollNotice} Savaşa katılan askerlerin +${monster.rewardXp} Asker XP kazandı.${lvlMsg}${wearMsg}`);
 
       if (weaponsWorn.length > 0) {
         showToast(`⚔️ Silahların dayanıklılığı -1 azaldı: ${weaponsWorn.join(', ')}`, 'info');

@@ -14,6 +14,15 @@ export const GAME_CONFIG = {
   WHEAT_REFILL_RATIO: 0.21,           // 1 Stamina = Dk başı buğday (15) * %21 = 3.15 Buğday
   WHEAT_PER_STAMINA: 3.15,            // 1 Stamina doldurmak için gereken buğday miktarı (Fix 3.15)
 
+  // ⚔️ ZİNDAN SAVAŞI STAMİNA MEKANİĞİ
+  // Formül: Asker Sayısı × (BASE_PER_SOLDIER + Zindan Seviyesi × LEVEL_SCALING_PER_SOLDIER)
+  // Dengeli RPG Modeli: Asker Başına 5 Stamina + Canavar Seviyesi Başına 1 Stamina
+  // Örn: Lv.1'de 2 asker = 12 Stamina; Lv.9 Ara Boss'ta 8 asker = 112 Stamina; Lv.18 Büyük Boss'ta 15 asker = 345 Stamina
+  DUNGEON_COMBAT_STAMINA: {
+    BASE_PER_SOLDIER: 5,
+    LEVEL_SCALING_PER_SOLDIER: 1
+  },
+
   // %13 Yakım, %3 Yapımcı/Geliştirici Telifi, %6 Evrensel Temel Gelir (UBI) Seviye Havuzu, %78 Hazine
   TOKEN_BURN_RATE: 0.13,
   CREATOR_ROYALTY_RATE: 0.03,
@@ -79,6 +88,29 @@ export const GAME_CONFIG = {
       costAdAstra: 45000,
       desc: '24 saat boyunca kaynak seferlerine 2.00x hız ve verim kazandırır.'
     }
+  },
+  // 🏰 ZİNDAN ORDU YORULMASI & STAMİNA MALİYETİ MATRİSİ
+  // Her kat için asker başına harcanan stamina: Taban (5) + Canavar Seviyesi (Level)
+  DUNGEON_STAMINA_COST_PER_SOLDIER: {
+    BASE_PER_SOLDIER: 5,
+    1: 6,   // Kat 1 (Bataklık Balçığı): 6 Stamina / asker
+    2: 7,   // Kat 2 (Mağara Goblini): 7 Stamina / asker
+    3: 8,   // Kat 3 (Gölge Kurdu): 8 Stamina / asker
+    4: 9,   // Kat 4 (Kemik Mahzeni İskeletleri): 9 Stamina / asker
+    5: 10,  // Kat 5 (Lanetli Kemik Büyücüsü): 10 Stamina / asker
+    6: 11,  // Kat 6 (Kemik Taht Muhafızı): 11 Stamina / asker
+    7: 12,  // Kat 7 (Karanlık Tarikatçı): 12 Stamina / asker
+    8: 13,  // Kat 8 (Cehennem Tazısı): 13 Stamina / asker
+    9: 14,  // Kat 9 (Kadim Taş Golyat - ARA BOSS): 14 Stamina / asker
+    10: 15, // Kat 10 (Sargılı Mumyalar): 15 Stamina / asker
+    11: 16, // Kat 11 (Gölge Hayaletler): 16 Stamina / asker
+    12: 17, // Kat 12 (Lanetli Firavun): 17 Stamina / asker
+    13: 18, // Kat 13 (Ateş İblisleri): 18 Stamina / asker
+    14: 19, // Kat 14 (Lav Elementalleri): 19 Stamina / asker
+    15: 20, // Kat 15 (Obsidyen Berserker): 20 Stamina / asker
+    16: 21, // Kat 16 (Kıyamet Şövalyesi): 21 Stamina / asker
+    17: 22, // Kat 17 (Kadim Gölge Lordu): 22 Stamina / asker
+    18: 23  // Kat 18 (Kıyamet Ejderhası IGNIS - BÜYÜK BOSS): 23 Stamina / asker
   },
 
   // Sefer Süreleri (Level 1: 18 Dakika, Level 81: 72 Saat)

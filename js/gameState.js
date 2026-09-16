@@ -550,6 +550,63 @@ export class GameStateManager {
     return Math.round(GAME_CONFIG.STAMINA_COST_PER_EXPEDITION + (level - 1) * GAME_CONFIG.STAMINA_COST_PER_LEVEL);
   }
 
+  // ⚔️ Zindan Savaşı Stamina Maliyeti Hesabı
+  // Formül: Asker Sayısı × (BASE_PER_SOLDIER + Zindan Seviyesi)
+  // Dengeli RPG Modeli: Asker Başına 5 Stamina + Canavar Seviyesi Başına 1 Stamina
+  getDungeonStaminaCost(monsterLevel = 1, soldierCount = 1) {
+    const numSoldiers = Number(soldierCount);
+    if (isNaN(numSoldiers) || numSoldiers <= 0) return 0;
+    const cfg = GAME_CONFIG.DUNGEON_STAMINA_COST_PER_SOLDIER || GAME_CONFIG.DUNGEON_COMBAT_STAMINA || { BASE_PER_SOLDIER: 5 };
+    const perSoldierCost = (cfg[monsterLevel] != null)
+      ? cfg[monsterLevel]
+      : ((cfg.BASE_PER_SOLDIER || 5) + (Number(monsterLevel) || 1));
+    return Math.round(numSoldiers * perSoldierCost);
+  }
+
+  // Zindan savaşına girmek için stamina yeterli mi kontrol et
+  canEnterDungeonBattle(monsterLevel = 1, soldierCount = 1) {
+    const cost = this.getDungeonStaminaCost(monsterLevel, soldierCount);
+    const curStamina = Math.floor(this.state.stamina || 0);
+    const shortfall = Math.max(0, cost - curStamina);
+    return {
+      canEnter: curStamina >= cost,
+      cost,
+      current: curStamina,
+      currentStamina: curStamina,
+      shortfall,
+      missing: shortfall
+    };
+  }
+
+  canEnterDungeon(monsterLevel = 1, soldierCount = 1) {
+    return this.canEnterDungeonBattle(monsterLevel, soldierCount);
+  }
+
+  // Zindan savaşı başladığında staminayı tahsil et
+  deductDungeonStamina(monsterLevel = 1, soldierCount = 1) {
+    const check = this.canEnterDungeonBattle(monsterLevel, soldierCount);
+    if (!check.canEnter) {
+      return {
+        success: false,
+        cost: check.cost,
+        currentStamina: check.currentStamina,
+        shortfall: check.shortfall,
+        missing: check.shortfall,
+        message: `⚠️ Yetersiz Stamina! Bu savaşa ${soldierCount} askerle girmek için ${check.cost} ⚡ Stamina gerekiyor (Mevcut: ${check.currentStamina} ⚡).`
+      };
+    }
+
+    this.state.stamina = Math.max(0, (this.state.stamina || 0) - check.cost);
+    this.saveState();
+
+    return {
+      success: true,
+      cost: check.cost,
+      remainingStamina: Math.floor(this.state.stamina),
+      message: `⚡ -${check.cost} Stamina harcandı. (Kalan: ${Math.floor(this.state.stamina)}/${this.getMaxStamina()} ⚡)`
+    };
+  }
+
   getFragmentDropRate(level = this.state.level) {
     const clampedLevel = Math.max(1, Math.min(81, level));
     const range = (GAME_CONFIG.FRAGMENT_DROP_MAX || 0.18) - (GAME_CONFIG.FRAGMENT_DROP_MIN || 0.0018);
