@@ -20,6 +20,7 @@ const woodLimit = cap.wood;
 console.log(`Mevcut Seviye 1 Silo Odun Kapasitesi: ${woodLimit}`);
 
 // 1. Silo Yeterli Olduğunda Satış Yapılmaması Kontrolü
+gs.setBotSiloOption(true);
 gs.state.inventory.wood = 200;
 const harvestYield1 = 300; // Toplam 500 <= woodLimit (1080)
 const res1 = gs.handleBotSiloSpace('wood', harvestYield1);
@@ -28,37 +29,30 @@ assert.equal(res1.neededSell, 0, 'Silo yeterli olunca satış yapılmamalı');
 assert.equal(gs.state.inventory.wood, 200, 'Envanter değişmemeli');
 console.log('✅ 1. Test Başarılı: Silo kapasitesi yeterliyken gereksiz satış yapılmadı.');
 
-// 2. Akıllı Satış (botSiloAutoUpgrade = false) & %5 Güvenlik Marjı Kontrolü
-gs.setBotSiloOption(false);
-assert.equal(gs.state.botSiloAutoUpgrade, false, 'Bot silo seçeneği Akıllı Satış olmalı');
+// 2. Silo Yükseltme Modunda (botSiloAutoUpgrade = true) Yetersiz Alanda Tam Hasat Kadar Yer Açma Kontrolü
+gs.setBotSiloOption(true);
+assert.equal(gs.state.botSiloAutoUpgrade, true, 'Bot silo seçeneği Silo Yükseltme olmalı');
 
 // Siloyu limite çok yaklaştırıyoruz: 1000 / 1080 (Boş yer: 80)
 gs.state.inventory.wood = 1000;
 const harvestYield2 = 200; // Gelecek hasat: 200
-// Gereken net boş alan: 200. Mevcut boş alan: 80. Açık: 120.
-// %5 Güvenlik Marjı ile gereken alan: Math.ceil(200 * 1.05) = 210.
-// Satılması gereken miktar: 210 - 80 = 130 (Açık olan 120'den %5 daha fazla!)
-
+// Boş yer 80, açık 120. Tam 120 odun satılmalı ki hasat 200 eklenince depo tam 1080 olsun!
 const initWood = gs.state.inventory.wood;
 const initAda = gs.state.adAstraBalance || 0;
 
 const res2 = gs.handleBotSiloSpace('wood', harvestYield2);
-assert.equal(res2.handled, true, 'Satış işlemi başarılı olmalı');
+assert.equal(res2.handled, true, 'İşlem başarılı olmalı');
 assert.equal(res2.action, 'sold', 'Aksiyon sold olmalı');
-assert.equal(res2.marginPercent, 5, 'Güvenlik marjı %5 olmalı');
-assert.equal(res2.amountSold, 130, `Satılan miktar tam 130 olmalı (Açık + %5 marj), gerçekleşen: ${res2.amountSold}`);
-assert.equal(gs.state.inventory.wood, initWood - 130, 'Envanterden tam 130 odun düşülmeli');
+assert.equal(res2.amountSold, 120, `Satılan miktar tam 120 olmalı, gerçekleşen: ${res2.amountSold}`);
+assert.equal(gs.state.inventory.wood, initWood - 120, 'Envanterden tam 120 odun düşülmeli');
 assert(gs.state.adAstraBalance > initAda, 'Satıştan ADA kazanılmış olmalı');
 
-// Şimdi hasat (200 odun) geldiğinde envanterin kapasiteyi aşmadığını ve %5 pay kaldığını doğrula:
+// Hasat eklendiğinde tam 1080 (100% kapasite) olmalı:
 const afterHarvestWood = gs.state.inventory.wood + harvestYield2;
-assert(afterHarvestWood <= woodLimit, `Hasat sonrası (${afterHarvestWood}) depo limitini (${woodLimit}) aşmamalı`);
-const remainingMargin = woodLimit - afterHarvestWood;
-assert.equal(remainingMargin, 10, `Kalan boşluk tam 10 olmalı (200'ün %5'i), gerçekleşen: ${remainingMargin}`);
-console.log('✅ 2. Test Başarılı: Akıllı Satış tüm ambarı boşaltmadı; tam döngü kazancı + %5 güvenlik marjı (130 odun) satarak 10 birimlik güvenlik payı bıraktı!');
+assert.equal(afterHarvestWood, woodLimit, `Hasat sonrası (${afterHarvestWood}) ambar tam %100 (${woodLimit}) olmalı!`);
+console.log('✅ 2. Test Başarılı: Siloyu Yükselt modunda sefer için tam gereken miktar (120) satıldı ve ambar %100 oldu!');
 
 // 3. claimExpedition İçinde Otomatik Tetiklenme Kontrolü
-// Aktif buff olarak 24 saatlik bot tanımla
 gs.state.activeBuffs['auto_collector'] = { expiresAt: Date.now() + 86400000 };
 assert(gs.isAutoCollectorActive(), 'Otomasyon botu aktif olmalı');
 
@@ -79,25 +73,15 @@ assert(claimRes.amount > 0, 'Odun toplanmış olmalı');
 assert(gs.state.inventory.wood <= woodLimit, 'Hasat sonrası odun siloyu taşırmamalı');
 console.log('✅ 3. Test Başarılı: claimExpedition bot aktifken silodaki taşmayı otomatik çözdü ve seferi kesintisiz tamamladı!');
 
-// 4. Silo Yükseltme Modu (botSiloAutoUpgrade = true) Kaynak Koruma Kontrolü
-gs.setBotSiloOption(true);
-assert.equal(gs.state.botSiloAutoUpgrade, true, 'Bot yükseltme moduna alındı');
-gs.state.adAstraBalance = 0;
-gs.state.inventory.wood = woodLimit; // Silo ağzına kadar dolu
-
-const deferRes = gs.handleBotSiloSpace('wood', 100);
-assert.equal(deferRes.handled, true, 'Yükseltme beklenirken işlem ele alınmalı');
-assert.equal(deferRes.action, 'upgrade_deferred', 'Siloyu Yükselt modundayken erken satış KESİNLİKLE yapılmamalı, kaynaklar korunmalı');
-console.log('✅ 4. Test Başarılı: Siloyu Yükselt modundayken kaynaklar pazarda satılmadı, korunarak baraj beklendi!');
-
-// 5. Akıllı Satış Modu (botSiloAutoUpgrade = false) Aktif Satış Kontrolü
+// 4. Kaynakları Sat Modu (botSiloAutoUpgrade = false): Silo Yarısı (%50) Rezerv Koruma
 gs.setBotSiloOption(false);
-assert.equal(gs.state.botSiloAutoUpgrade, false, 'Bot Akıllı Satış moduna alındı');
-const sellRes = gs.handleBotSiloSpace('wood', 100);
-assert.equal(sellRes.handled, true, 'Akıllı Satış devreye girmeli');
-assert.equal(sellRes.action, 'sold', 'Satış gerçekleşmeli');
-assert.equal(sellRes.amountSold, 105, '100 odunluk hasat için %5 marj ile 105 odun satılmalı');
-assert(gs.state.adAstraBalance > 0, 'Satıştan ADA kazanılmış olmalı');
-console.log('✅ 5. Test Başarılı: Kullanıcı Akıllı Satış seçtiğinde %5 marjlı Akıllı Satış kusursuz çalıştı!');
+assert.equal(gs.state.botSiloAutoUpgrade, false, 'Bot Kaynakları Sat moduna alındı');
+const halfCap = Math.floor(woodLimit * 0.5); // 540
+gs.state.inventory.wood = 700; // Yarısından fazla
+const sellModeRes = gs.handleBotSiloSpace('wood', 100);
+assert.equal(sellModeRes.handled, true, 'Kaynak Satış Modu devreye girmeli');
+assert.equal(sellModeRes.action, 'sold', 'Satış gerçekleşmeli');
+assert.equal(gs.state.inventory.wood, halfCap, `Envanter tam silo yarısına (${halfCap}) inmiş olmalı!`);
+console.log('✅ 4. Test Başarılı: Kaynakları Sat modunda silonun yarısı (%50) rezerv korundu, fazlalık satıldı!');
 
-console.log('🎉 TÜM 24s BOT AKILLI SİLO SATIŞ (%5 MARJ) TESTLERİ %100 BAŞARIYLA TAMAMLANDI!');
+console.log('🎉 TÜM 24s BOT AKILLI SİLO SATIŞ TESTLERİ %100 BAŞARIYLA TAMAMLANDI!');

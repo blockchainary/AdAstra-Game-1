@@ -949,25 +949,38 @@ export class GameStateManager {
     // depoların %80 doluluğunu kontrol eder ve siloyu üst seviyeye taşır.
     // Asla kaynakları AMM pazarında erken satıp harcamaz!
     // =========================================================================
+    // =========================================================================
+    // 4. SİLO DURUMUNU KONTROL ET & SİLOYU YÜKSELT (Veya Kaynakları Sat)
+    // =========================================================================
     if (this.state.botSiloAutoUpgrade) {
-      const upRes = this.upgradeWarehouse();
-      if (upRes && upRes.success) {
-        actions.push(`🏰 Silo otomatik Seviye ${this.state.warehouseLevel}'e yükseltildi! Yeni Kapasite açıldı.`);
+      const upCost = this.getWarehouseUpgradeCost();
+      if (upCost && upCost.canUpgrade) {
+        const upRes = this.upgradeWarehouse();
+        if (upRes && upRes.success) {
+          actions.push(`🏰 Silo otomatik Seviye ${this.state.warehouseLevel}'e yükseltildi! Yeni Kapasite açıldı.`);
+        }
+      } else if (upCost && upCost.is80PercentFull && !upCost.canAffordCost) {
+        // Tüm depolar %80 doluluğa ulaştı fakat silo yükseltmek için yeterli ADA yoksa:
+        // %80 barajı üzerindeki fazlalığı silo yükseltmeye yetecek ADA birikene kadar sat
+        for (const nid of nodes) {
+          const spaceRes = this.handleBotSiloSpace(nid, 1);
+          if (spaceRes && (spaceRes.action === 'sold_for_ada' || spaceRes.action === 'upgraded')) {
+            if (spaceRes.action === 'upgraded') {
+              actions.push(`🏰 Silo otomatik Seviye ${this.state.warehouseLevel}'e yükseltildi!`);
+            } else {
+              actions.push(`💰 Silo yükseltme için ADA finanse edildi: ${spaceRes.amountSold} ${nid} satıldı (+${spaceRes.adAstraReceived?.toFixed(1)} ADA).`);
+            }
+            break;
+          }
+        }
       }
     } else {
-      // Kullanıcı açıkça "Akıllı Satış" seçtiyse: Ambarı taşıracak seviyede olan kaynakları satarak yer aç
-      const cap = this.getWarehouseCapacity();
-      for (const nodeId of readyToLaunchNodes) {
-        const curAmt = Number(this.state.inventory[nodeId]) || 0;
-        const limit = cap[nodeId];
-        if (limit != null && curAmt >= limit * 0.9) {
-          const ratePm = this.getResourceRatePerMinute(nodeId);
-          const durationMinutes = this.getExpeditionDurationMinutes();
-          const estYield = Math.floor(ratePm * durationMinutes * this.getExpeditionSpeedMultiplier());
-          const spaceRes = this.handleBotSiloSpace(nodeId, estYield);
-          if (spaceRes && spaceRes.handled && spaceRes.action === 'sold') {
-            actions.push(`⚖️ Akıllı Satış: ${spaceRes.amountSold} ${nodeId} satılarak yer açıldı.`);
-          }
+      // Kullanıcı açıkça "Kaynakları Sat" seçtiyse:
+      // Silonun yarısını (%50) rezerve koru, fazlasını sürekli AMM'de sat
+      for (const nid of nodes) {
+        const spaceRes = this.handleBotSiloSpace(nid, 1);
+        if (spaceRes && spaceRes.action === 'sold') {
+          actions.push(`⚖️ Satış Modu (%50 Rezerve): ${spaceRes.amountSold} ${nid} satıldı (+${spaceRes.adAstraReceived?.toFixed(1)} ADA).`);
         }
       }
     }
@@ -1371,49 +1384,20 @@ export class GameStateManager {
     const resourceDisplayNames = { wood: 'odun', iron: 'demir', wheat: 'buğday' };
     const rLabel = resourceDisplayNames[nodeId] || nodeId;
 
-    // 🤖 Otomasyon Botu Satın Alınmışsa: Depoda seferin tamamına yetecek yer yoksa otomatik yer aç
-    if ((this.isAutoCollectorActive() || this.hasPurchasedBot()) && limit != null && (availableRoom < remainingToClaim)) {
-      const botSpaceRes = this.handleBotSiloSpace(nodeId, remainingToClaim);
+    // 🤖 Otomasyon Botu Aktifse: Kullanıcı tercihlerine göre (Siloyu Yükselt veya Kaynakları Sat) önce yer aç veya yükselt
+    if (this.isAutoCollectorActive() || this.hasPurchasedBot()) {
+      this.handleBotSiloSpace(nodeId, remainingToClaim);
       currentAmount = Number(this.state.inventory[nodeId]) || 0;
       const updatedCap = this.getWarehouseCapacity();
       const updatedLimit = updatedCap[nodeId];
       availableRoom = updatedLimit != null ? Math.max(0, updatedLimit - currentAmount) : remainingToClaim;
-      if (availableRoom <= 0) {
-        // Eğer kullanıcı Silo Otomatik Yükseltmeyi seçtiyse:
-        // Ambar bu kaynak için zaten %100 doludur. Botun kilitlenmemesi ve diğer kaynakların da
-        // dolup silonun bir sonraki döngüde seviye atlayabilmesi için seferi başarıyla tamamla!
-        if (this.state.botSiloAutoUpgrade) {
-          playerTool.durability = Math.max(0, (playerTool.durability != null ? playerTool.durability : 4320) - durationMinutes);
-          const durationHours = exp.durationHours || parseFloat((durationMinutes / 60).toFixed(2));
-          const xpGained = Math.max(5, Math.floor(35 * durationHours));
-          this.addXp(xpGained);
-          delete this.state.activeExpeditions[nodeId];
-          this.saveState();
-          return {
-            success: true,
-            isWarehouseFull: true,
-            amount: 0,
-            harvestedAmount: 0,
-            currentAmount,
-            limit: updatedLimit,
-            message: `📦 ${rLabel} ambarı tamamen dolu (${currentAmount}/${updatedLimit})! Silo yükseltme barajı (%80) için diğer depoların dolması bekleniyor.`
-          };
-        }
-
-        return {
-          success: false,
-          isWarehouseFull: true,
-          nodeId,
-          currentAmount,
-          limit: updatedLimit,
-          remainingToClaim,
-          message: `⚠️ Silo'nuz tamamen dolu! Bot yer açamadı: ${botSpaceRes?.reason || 'Kapasite aşıldı.'}`
-        };
-      }
     }
 
-    // 1. Durum: Depoda HİÇ boş yer yok (0 yer var) (Manuel kullanıcı için):
+    // 1. Durum: Depoda HİÇ boş yer yok (0 yer var): Sefer silinmez, ambarda yer açılana kadar bekletilir
     if (limit != null && availableRoom <= 0) {
+      exp.isCompleted = true;
+      exp.stillRemaining = remainingToClaim;
+      this.saveState();
       return {
         success: false,
         isWarehouseFull: true,
@@ -1421,7 +1405,8 @@ export class GameStateManager {
         currentAmount,
         limit,
         remainingToClaim,
-        message: `⚠️ Silo'nuz tamamen dolu (${currentAmount}/${limit})! Lütfen ${rLabel} seferini tamamlamak için silonuzu büyütün veya silonuzda yer açın.`
+        stillRemaining: remainingToClaim,
+        message: `⚠️ Silo'nuz tamamen dolu (${currentAmount}/${limit})! Kalan ${remainingToClaim} ${rLabel} seferde bekletiliyor. Depoda yer açıldığında veya silonuz büyüdüğünde toplanacaktır.`
       };
     }
 
@@ -2996,13 +2981,15 @@ export class GameStateManager {
   }
 
   /**
-   * 🤖 24 Saatlik Otomasyon Botu - Akıllı Silo Alanı Yönetimi
-   * Seferden gelecek kaynağın siloyu taşırmasını önler:
-   * - botSiloAutoUpgrade === true ise önce siloyu yükseltmeyi dener.
-   * - Yükseltme yapılamazsa veya botSiloAutoUpgrade === false ise:
-   *   Markette satış baskısı yaratmamak için ambarın %50'sini satmak yerine;
-   *   yalnızca sefer döngüsünde kazanılacak miktar kadar (+%5 güvenlik payı ile)
-   *   satış yaparak tam gerektiği kadar yer açar.
+   * 🤖 24 Saatlik Otomasyon Botu - Kapsamlı Akıllı Silo Alanı Yönetimi
+   * Kullanıcı Talimatları Doğrultusunda:
+   * 1. Silonun yükseltilebilip yükseltilemeyeceğini kontrol eder; botSiloAutoUpgrade === true ise HER ZAMAN ÖNCE SİLOYU YÜKSELTİR.
+   * 2. Yükseltme için tüm depolar %80 doluluğa ulaşmış fakat yeterli ADA yoksa:
+   *    Silonun %80 doluluğunu korur, %80 üzerindeki fazlalığı silo yükseltmek için gereken ADA birikene kadar AMM'de satar!
+   * 3. Silonun yükseltilemediği durumlarda:
+   *    Seferden elde edilecek kaynak miktarı kadar siloda yer açacak kadar AMM'den satış yapar (tam gereken yer açılır).
+   * 4. botSiloAutoUpgrade === false (Kaynakları Sat Modu) ise:
+   *    Silonun yarısını (%50) rezerve korur, fazlasını sürekli AMM'de satarak ADA'ya dönüştürür.
    */
   handleBotSiloSpace(nodeId, harvestYield) {
     const capMap = this.getWarehouseCapacity();
@@ -3011,78 +2998,146 @@ export class GameStateManager {
 
     const currentAmount = Number(this.state.inventory[nodeId]) || 0;
     const yieldAmount = Math.max(1, Number(harvestYield) || 0);
+    const availableRoom = Math.max(0, limit - currentAmount);
 
-    // Eğer ambar taşmıyorsa işlem yapmaya gerek yok
-    if (currentAmount + yieldAmount <= limit) {
-      return { handled: true, neededSell: 0, reason: 'space_sufficient' };
-    }
-
-    // 1. Tercih: Otomatik Silo Yükseltme Modu
+    // KURAL 0: Her sefer sonlandığında silonun yükseltilip yükseltilemeyeceğini kontrol et.
+    // Yükseltilebiliyorsa ve kullanıcı "silo yükseltme" seçeneğini seçmişse HER ZAMAN ÖNCE SİLOYU YÜKSELT!
     if (this.state.botSiloAutoUpgrade) {
-      const upRes = this.upgradeWarehouse();
-      if (upRes && upRes.success) {
-        const newCap = this.getWarehouseCapacity()[nodeId];
-        if (currentAmount + yieldAmount <= newCap) {
+      const upCost = this.getWarehouseUpgradeCost();
+      if (upCost && upCost.canUpgrade) {
+        const upRes = this.upgradeWarehouse();
+        if (upRes && upRes.success) {
+          const newCap = this.getWarehouseCapacity()[nodeId];
           return { handled: true, action: 'upgraded', newCapacity: newCap };
         }
       }
-      // Kullanıcı "Siloyu Otomatik Yükselt" seçtiyse:
-      // KESİNLİKLE hiçbir koşulda pazarda satış yapma!
-      // Tüm kaynaklar depoda birikmeli ki %80 barajına ulaşıp siloyu büyütebilsin.
-      return {
-        handled: true,
-        action: 'upgrade_deferred',
-        reason: 'Silo yükseltme barajı (%80 doluluk) bekleniyor, kaynaklar pazarda satılmadan korunuyor.'
-      };
     }
 
-    // 2. Akıllı Satış (YALNIZCA VE YALNIZCA kullanıcı açıkça "Akıllı Satış" seçeneğini seçtiyse çalışır)
-    // Döngü Kazancı + %5 Güvenlik Marjı kadar satış yaparak tam gerektiği kadar yer açar.
-    const neededSpace = Math.max(1, (currentAmount + yieldAmount) - limit);
-    const requiredFreeSpaceWithMargin = Math.ceil(yieldAmount * 1.05);
-    const currentFreeSpace = Math.max(0, limit - currentAmount);
-    const spaceShortfall = Math.max(Math.ceil(neededSpace * 1.05), requiredFreeSpaceWithMargin - currentFreeSpace);
-    const amountToSell = Math.max(1, Math.min(currentAmount, spaceShortfall));
+    // KURAL 1 & 2: Kişi "Siloyu Yükselt" (botSiloAutoUpgrade = true) seçmişse:
+    if (this.state.botSiloAutoUpgrade) {
+      const upCost = this.getWarehouseUpgradeCost();
 
-    if (amountToSell <= 0) {
-      return { handled: false, reason: 'no_inventory_to_sell' };
+      // KURAL 2: Eğer siloyu yükseltmek için yeterli adastra yoksa:
+      // Silonun %80 dolacağı kadar kaynak bıraksın sadece siloda,
+      // geri kalan kaynağı silo yükseltmek için yeterli adastra birikene kadar satsın marketten!
+      if (upCost && upCost.is80PercentFull && !upCost.canAffordCost) {
+        const reqFill = Math.round(limit * 0.8);
+        const surplus = Math.max(0, currentAmount - reqFill);
+        const adaDeficit = Math.max(0, upCost.adAstra - (this.state.adAstraBalance || 0));
+
+        if (surplus > 0 && adaDeficit > 0 && typeof ammMarket !== 'undefined' && ammMarket.executeSell) {
+          const price = (ammMarket.getPrice && ammMarket.getPrice(nodeId)) ? ammMarket.getPrice(nodeId) : 1;
+          const neededUnits = Math.max(1, Math.ceil(adaDeficit / price));
+          const amountToSell = Math.min(surplus, neededUnits);
+
+          if (amountToSell > 0) {
+            const sellRes = ammMarket.executeSell(nodeId, amountToSell);
+            if (sellRes && sellRes.success) {
+              this.state.inventory[nodeId] = Math.max(0, (this.state.inventory[nodeId] || 0) - amountToSell);
+              this.state.adAstraBalance = (this.state.adAstraBalance || 0) + (sellRes.adAstraReceived || 0);
+              this.state.lastBotSiloAction = {
+                timestamp: Date.now(),
+                nodeId,
+                amountSold: amountToSell,
+                adAstraEarned: sellRes.adAstraReceived,
+                reason: 'silo_upgrade_ada_deficit'
+              };
+              this.saveState();
+
+              // Satış sonrası ADA tamamlandıysa anında yükseltmeyi dene!
+              const freshCost = this.getWarehouseUpgradeCost();
+              if (freshCost && freshCost.canUpgrade) {
+                const freshUp = this.upgradeWarehouse();
+                if (freshUp && freshUp.success) {
+                  return { handled: true, action: 'upgraded', newCapacity: this.getWarehouseCapacity()[nodeId] };
+                }
+              }
+
+              return {
+                handled: true,
+                action: 'sold_for_ada',
+                amountSold: amountToSell,
+                adAstraReceived: sellRes.adAstraReceived,
+                message: `🤖 Silo yükseltme ADA açığını kapatmak için %80 barajı üzerindeki ${amountToSell} ${nodeId} satıldı (+${sellRes.adAstraReceived.toFixed(1)} ADA).`
+              };
+            }
+          }
+        }
+      }
+
+      // KURAL 1: Sefer bittiğinde ilgili kaynağın silodaki yerine baksın.
+      // Siloda yer varsa kaynağı toplayıp siloya göndersin.
+      // Eğer siloda yeteri kadar yer yoksa, seferden elde edilecek kaynak miktarı kadar
+      // siloda yer açacak kadar AMM'den satış yapsın!
+      // (Örneğin sefer bitti ve 300 odun toplanması lazım. Ama siloda 200 odunluk yer var,
+      // o zaman 100 odun marketten satsın ve 300 odunluk yer açsın).
+      if (availableRoom < yieldAmount) {
+        const shortfall = yieldAmount - availableRoom;
+        const amountToSell = Math.min(currentAmount, shortfall);
+
+        if (amountToSell > 0 && typeof ammMarket !== 'undefined' && ammMarket.executeSell) {
+          const sellRes = ammMarket.executeSell(nodeId, amountToSell);
+          if (sellRes && sellRes.success) {
+            this.state.inventory[nodeId] = Math.max(0, (this.state.inventory[nodeId] || 0) - amountToSell);
+            this.state.adAstraBalance = (this.state.adAstraBalance || 0) + (sellRes.adAstraReceived || 0);
+            this.state.lastBotSiloAction = {
+              timestamp: Date.now(),
+              nodeId,
+              amountSold: amountToSell,
+              adAstraEarned: sellRes.adAstraReceived,
+              reason: 'make_room_for_expedition_yield'
+            };
+            this.saveState();
+
+            return {
+              handled: true,
+              action: 'sold',
+              amountSold: amountToSell,
+              adAstraReceived: sellRes.adAstraReceived,
+              message: `🤖 Sefer hasadı için tam gereken yer açıldı: ${amountToSell} ${nodeId} AMM'de satıldı (+${sellRes.adAstraReceived.toFixed(1)} ADA).`
+            };
+          }
+        }
+      }
+
+      return { handled: true, reason: 'space_sufficient', neededSell: 0, amountSold: 0 };
     }
 
-    // AMM Pazarında Satış Gerçekleştir
-    if (typeof ammMarket !== 'undefined' && ammMarket.executeSell) {
-      const sellRes = ammMarket.executeSell(nodeId, amountToSell);
-      if (sellRes && sellRes.success) {
-        this.state.inventory[nodeId] = Math.max(0, (this.state.inventory[nodeId] || 0) - amountToSell);
-        this.state.adAstraBalance = (this.state.adAstraBalance || 0) + (sellRes.adAstraReceived || 0);
-        this.state.lastBotSiloAction = {
-          timestamp: Date.now(),
-          nodeId,
-          amountSold: amountToSell,
-          adAstraEarned: sellRes.adAstraReceived,
-          marginPercent: 5
-        };
-        this.saveState();
+    // KURAL 3: Kişi bot seçeneklerinde kaynakların marketten satılması seçeneğini seçmişse (botSiloAutoUpgrade = false):
+    // O zaman elde edilen kaynakların hepsini sürekli satsın, sadece silonun YARISI (%50) dolu olacak kadar kaynağı biriktirsin!
+    const halfCap = Math.floor(limit * 0.5);
+    const projectedTotal = currentAmount + yieldAmount;
+    if (projectedTotal > halfCap) {
+      const surplusAboveHalf = Math.max(0, currentAmount - halfCap);
+      const neededSpace = Math.max(0, projectedTotal - limit);
+      const amountToSell = Math.min(currentAmount, Math.max(surplusAboveHalf, neededSpace));
 
-        const resourceNames = { wood: 'Odun', iron: 'Demir', wheat: 'Buğday' };
-        const rName = resourceNames[nodeId] || nodeId;
-        return {
-          handled: true,
-          action: 'sold',
-          amountSold: amountToSell,
-          adAstraReceived: sellRes.adAstraReceived,
-          marginPercent: 5,
-          message: `🤖 Bot Akıllı Satış Yaptı (+%5 Marj): ${amountToSell} ${rName} AMM'de satılarak yer açıldı (+${sellRes.adAstraReceived.toFixed(1)} ADA).`
-        };
-      } else {
-        return {
-          handled: false,
-          action: 'sell_failed',
-          reason: sellRes?.message || 'AMM satışı gerçekleştirilemedi.'
-        };
+      if (amountToSell > 0 && typeof ammMarket !== 'undefined' && ammMarket.executeSell) {
+        const sellRes = ammMarket.executeSell(nodeId, amountToSell);
+        if (sellRes && sellRes.success) {
+          this.state.inventory[nodeId] = Math.max(0, (this.state.inventory[nodeId] || 0) - amountToSell);
+          this.state.adAstraBalance = (this.state.adAstraBalance || 0) + (sellRes.adAstraReceived || 0);
+          this.state.lastBotSiloAction = {
+            timestamp: Date.now(),
+            nodeId,
+            amountSold: amountToSell,
+            adAstraEarned: sellRes.adAstraReceived,
+            reason: 'sell_mode_keep_half_cap'
+          };
+          this.saveState();
+
+          return {
+            handled: true,
+            action: 'sold',
+            amountSold: amountToSell,
+            adAstraReceived: sellRes.adAstraReceived,
+            message: `🤖 Kaynak Satış Modu: Silo yarısı (%50) korunup ${amountToSell} ${nodeId} satıldı (+${sellRes.adAstraReceived.toFixed(1)} ADA).`
+          };
+        }
       }
     }
 
-    return { handled: false, reason: 'amm_market_unavailable' };
+    return { handled: true, reason: 'space_sufficient', neededSell: 0 };
   }
 
   // ═══════════════════════════════════════════════════════════════════════
