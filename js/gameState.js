@@ -4024,6 +4024,9 @@ export class GameStateManager {
       worldBoss: {
         name: 'Kadim Kıyamet Behemoth\'u (WORLD BOSS)',
         icon: '🌋',
+        totalVaultPool: (typeof treasury !== 'undefined' && treasury.getPool) ? Math.round(treasury.getPool('worldBoss')) : 8000000,
+        weeklyDistributionRate: (GAME_CONFIG.WORLD_BOSS && GAME_CONFIG.WORLD_BOSS.WEEKLY_DISTRIBUTION_RATE) || 0.10,
+        weeklyDistributionPool: Math.round(((typeof treasury !== 'undefined' && treasury.getPool) ? Math.round(treasury.getPool('worldBoss')) : 8000000) * 0.10),
         weeklyAdaPool: (typeof treasury !== 'undefined' && treasury.getPool) ? Math.round(treasury.getPool('worldBoss')) : 8000000,
         bossHp: 1000000,
         maxBossHp: 1000000,

@@ -2,6 +2,26 @@
 export const GAME_CONFIG = {
   EPOCH_DURATION_SECONDS: 24 * 3600, // 24 Saatlik Günlük Havuz
   
+  // 📢 CANLI DUYURU & RİSK BİLDİRİM PANELİ KONFİGÜRASYONU
+  ANNOUNCEMENT_TICKER: {
+    enabled: true,
+    speedSeconds: 55, // 55 saniyede akış hızı (okunabilir pürüzsüz marquee)
+    pauseOnHover: true,
+    separator: '✦'
+  },
+
+  // 🚨 CANLI MARQUEE DUYURU & UYARI METİNLERİ LİSTESİ
+  ANNOUNCEMENTS: [
+    {
+      id: 'audit_risk_warning',
+      badge: '🚨 GÜVENLİK & RİSK UYARISI',
+      badgeColor: '#ef4444',
+      text: 'bu oyun tamamen antigravity ide gemini 3.8 flash botu ile yazılmıştır. hiçbir audit yapılmamıştır ve yazılım/kodlama bilmeyen tek bir kullanıcı tarafından geliştirilmektedir, bu sebepten bir çok güvenik açığı bulunabilir. bu güvenlik açıkları tamamen tespit edilip oyun audit edilene kadar lütfen oyuna ana web3 cüzdanınızla bağlanmayın. sadece bu oyunda kullancağınız yeni bir web3 cüzdan açın, yapacağınız yatırımlarda olası bir hacklenme veya güvenlik zaafında yatırımlarınızın gidebileceğini unutmayın. şuan bu oyun tamamen deneysel bir süreçtir lütfen riskinizi gözeterek yatırım yapın. eğer sürece ve şu anki duruma güvenmiyorsanız lütfen oyunu oynamayın, yatırıp yapmayın veya tamamen free to play olarak oynayın. anlayısınız ve ilginiz için teşekkür ederim',
+      active: true,
+      timestamp: 1726488000000
+    }
+  ],
+  
   // Stamina — v2: 3 paralel sefer HER seviyede mümkün olacak şekilde kalibre edildi.
   // v1'de max = 100+20(L-1) iken maliyet = 25+12(L-1) idi; 3 sefer Lv.3'ten itibaren
   // imkânsız hâle geliyordu (bkz. denetim bulgusu F-14).
@@ -674,6 +694,8 @@ export const GAME_CONFIG = {
     BATTLE_HOUR_UTC: 15,        // 15:00 UTC = 18:00 TSİ
     BASE_HP: 1000000,
     HP_GROWTH_ON_SURVIVE: 1.25, // öldürülemezse boss güçlenir, havuz devreder
+    WEEKLY_DISTRIBUTION_RATE: 0.10, // Kasa ne kadar olursa olsun haftalık World Boss etkinliğinde kasanın sadece %10'u o haftaki etkinlikte dağıtılır
+    SEED_VAULT_ADA: 8000000,
     // Stake edilen ordu Pazar'a kadar zindanda ve arenada KULLANILAMAZ
     LOCK_UNTIL_BATTLE: true,
     // Rol katkısı: dengeli kadro tek tip ordudan daha çok hasar üretir
