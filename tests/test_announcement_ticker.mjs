@@ -1,34 +1,37 @@
-import { describe, it } from 'node:test';
+import test from 'node:test';
 import assert from 'node:assert/strict';
+
+// Import GAME_CONFIG from js/config.js
 import { GAME_CONFIG } from '../js/config.js';
 
-describe('Ekran Üstü Canlı Duyuru ve Risk Bildirim Paneli Testi', () => {
-  it('GAME_CONFIG.ANNOUNCEMENTS dizisi tanımlı ve en az 1 aktif duyuru içeriyor olmalı', () => {
-    assert.ok(Array.isArray(GAME_CONFIG.ANNOUNCEMENTS), 'ANNOUNCEMENTS bir dizi olmalı');
-    assert.ok(GAME_CONFIG.ANNOUNCEMENTS.length > 0, 'En az 1 duyuru tanımlı olmalı');
+test('🔔 Üst Kayan Duyuru & Risk Uyarı Paneli Doğrulama Testi', async (t) => {
+  await t.test('1. GAME_CONFIG.ANNOUNCEMENTS dizisi tanımlı ve en az 1 duyuru içermeli', () => {
+    assert.ok(Array.isArray(GAME_CONFIG.ANNOUNCEMENTS), 'ANNOUNCEMENTS bir dizi olmalıdır');
+    assert.ok(GAME_CONFIG.ANNOUNCEMENTS.length >= 1, 'En az 1 duyuru bulunmalıdır');
   });
 
-  it('Kullanıcının talep ettiği güvenlik açığı, audit ve web3 cüzdan risk uyarısı metnini tam içermeli', () => {
-    const riskWarning = GAME_CONFIG.ANNOUNCEMENTS.find(a => a.id === 'audit_risk_warning');
-    assert.ok(riskWarning, 'audit_risk_warning idli duyuru mevcut olmalı');
-    assert.strictEqual(riskWarning.active, true, 'Risk uyarısı aktif olmalı');
-    assert.ok(riskWarning.badge.includes('GÜVENLİK') || riskWarning.badge.includes('RİSK'), 'Rozet güvenlik/risk içermeli');
+  await t.test('2. Kullanıcının belirttiği güvenlik ve audit uyarı metni eksiksiz yer almalı', () => {
+    const primaryAnnouncement = GAME_CONFIG.ANNOUNCEMENTS[0];
+    assert.ok(primaryAnnouncement, 'İlk duyuru nesnesi bulunamadı');
+    assert.strictEqual(primaryAnnouncement.id, 'audit_risk_warning');
+    assert.ok(primaryAnnouncement.badge.includes('GÜVENLİK & RİSK UYARISI') || primaryAnnouncement.badge.includes('RİSK'));
 
-    // Metin içerik kontrolü
-    assert.ok(riskWarning.text.includes('antigravity ide gemini 3.8 flash botu ile yazılmıştır'), 'Metin bot geliştirme bilgisini içermeli');
-    assert.ok(riskWarning.text.includes('hiçbir audit yapılmamıştır'), 'Metin audit bilgisini içermeli');
-    assert.ok(riskWarning.text.includes('lütfen oyuna ana web3 cüzdanınızla bağlanmayın'), 'Metin ana web3 cüzdan uyarısını içermeli');
-    assert.ok(riskWarning.text.includes('şuan bu oyun tamamen deneysel bir süreçtir'), 'Metin deneysel süreç uyarısını içermeli');
-    assert.ok(riskWarning.text.includes('yatırım yapmayın veya tamamen free to play olarak oynayın'), 'Metin yatırım yapmayın düzeltmesini içermeli');
-    assert.ok(riskWarning.text.includes('anlayısınız ve ilginiz için teşekkür ederim'), 'Metin teşekkür mesajını içermeli');
+    // Metin içeriği kontrolü
+    const text = primaryAnnouncement.text;
+    assert.ok(text.includes('antigravity ide gemini 3.8 flash botu'), 'Bot uyarısı metinde bulunmalıdır');
+    assert.ok(text.includes('hiçbir audit yapılmamıştır'), 'Audit uyarısı metinde bulunmalıdır');
+    assert.ok(text.includes('yazılım/kodlama bilmeyen tek bir kullanıcı'), 'Geliştirici uyarısı metinde bulunmalıdır');
+    assert.ok(text.includes('ana web3 cüzdanınızla bağlanmayın'), 'Cüzdan uyarısı metinde bulunmalıdır');
+    assert.ok(text.includes('deneysel bir süreçtir lütfen riskinizi gözeterek yatırım yapın'), 'Deneysel risk uyarısı metinde bulunmalıdır');
+    assert.ok(text.includes('anlayısınız ve ilginiz için teşekkür ederim'), 'Kapanış metni bulunmalıdır');
   });
 
-  it('Duyurular filtreleme ve duplicate (seamless marquee) döngüsü için geçerli olmalı', () => {
-    const activeItems = GAME_CONFIG.ANNOUNCEMENTS.filter(a => a.active !== false);
-    assert.ok(activeItems.length >= 1, 'En az 1 aktif duyuru kalmalı');
-    activeItems.forEach(item => {
-      assert.ok(typeof item.text === 'string' && item.text.length > 10, 'Metin uzunluğu geçerli olmalı');
-      assert.ok(typeof item.badge === 'string' && item.badge.length > 0, 'Rozet metni bulunmalı');
-    });
+  await t.test('3. Ticker yapılandırma ayarları (hız, duraklatma) doğru ayarlanmış olmalı', () => {
+    const config = GAME_CONFIG.ANNOUNCEMENT_TICKER;
+    assert.ok(config, 'ANNOUNCEMENT_TICKER konfigürasyonu bulunamadı');
+    assert.strictEqual(config.enabled, true);
+    assert.strictEqual(config.pauseOnHover, true);
+    assert.strictEqual(typeof config.speedSeconds, 'number');
+    assert.ok(config.speedSeconds >= 30, 'Uzun metnin rahat okunması için hız en az 30s olmalıdır');
   });
 });

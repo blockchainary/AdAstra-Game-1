@@ -2819,6 +2819,22 @@ const WHEEL_COLORS = [
   '#8b5cf6', '#f59e0b', '#06b6d4'
 ];
 
+function getResourceNameTr(key) {
+  if (!key) return '';
+  const map = {
+    wood: 'Odun',
+    iron: 'Demir',
+    wheat: 'Buğday',
+    ada: 'ADA',
+    adastra: '$ADASTRA',
+    ticket: 'Bilet',
+    fragments: 'Teçhizat Parçası',
+    boxes: 'Pandora Kutusu',
+    keys: 'Anahtar'
+  };
+  return map[String(key).toLowerCase()] || (window.gameState?.getResourceNameTr ? window.gameState.getResourceNameTr(key) : key);
+}
+
 const WHEEL_SHORT_LABELS = {
   'frag_1': '1 Parça',
   'frag_10': '10 Parça',
@@ -3180,19 +3196,20 @@ function spinCarnivalWheelAnimated(payMethod) {
       });
 
       // Kazanan ödül görseli & kutlama
+      const burnedNameTr = res.burnedInfo ? (res.burnedInfo.resourceNameTr || getResourceNameTr(res.burnedInfo.resource)) : '';
       if (res.burnedInfo) {
-        showToast(`🔥 ${res.burnedInfo.amount} ${res.burnedInfo.resource.toUpperCase()} anında yakıldı ve sistemden silindi!`, 'warning');
+        showToast(`🔥 ${res.burnedInfo.amount} ${burnedNameTr} anında yakıldı ve sistemden silindi!`, 'warning');
       }
       showToast(`🎉 Çarktan Kazandın: ${res.rewardSummaryText}`, 'success');
       sound.playLevelUp();
 
       if (statusEl) {
-        const burnedTxt = res.burnedInfo ? `<div style="color:#f97316; font-size:0.8rem; margin-top:2px;">🔥 ${res.burnedInfo.amount} ${res.burnedInfo.resource.toUpperCase()} kalıcı olarak yakıldı ve sistemden silindi.</div>` : '';
+        const burnedTxt = res.burnedInfo ? `<div style="color:#f97316; font-size:0.8rem; margin-top:2px;">🔥 ${res.burnedInfo.amount} ${burnedNameTr} kalıcı olarak yakıldı ve sistemden silindi.</div>` : '';
         statusEl.innerHTML = `🏆 <span style="color:#4ade80; font-size:0.92rem;">Harika! Kazandın: <strong>${res.rewardSummaryText}</strong></span>${burnedTxt}`;
       }
 
       if (resBox) {
-        const burnedBoxTxt = res.burnedInfo ? `<div style="font-size:0.82rem; color:#f97316; margin-top:4px;">🔥 ${res.burnedInfo.amount} ${res.burnedInfo.resource.toUpperCase()} anında yakılarak kalıcı silindi.</div>` : '';
+        const burnedBoxTxt = res.burnedInfo ? `<div style="font-size:0.82rem; color:#f97316; margin-top:4px;">🔥 ${res.burnedInfo.amount} ${burnedNameTr} anında yakılarak kalıcı silindi.</div>` : '';
         resBox.innerHTML = `
           <div class="clean-card" style="border:2px solid #ec4899; background:linear-gradient(135deg, rgba(236,72,153,0.35), rgba(168,85,247,0.35)); text-align:center; padding:16px; margin-top:10px; animation: pulse 1s infinite alternate;">
             <div style="font-size:3rem; filter: drop-shadow(0 0 12px #fde047);">${res.reward?.icon || '🎁'}</div>
@@ -7931,8 +7948,21 @@ export function renderTopAnnouncementTicker() {
   const container = document.getElementById('ticker-marquee-inner');
   if (!container) return;
 
+  const tickerConfig = GAME_CONFIG.ANNOUNCEMENT_TICKER || {};
+  if (tickerConfig.enabled === false) {
+    const parentTicker = document.getElementById('top-announcement-ticker');
+    if (parentTicker) parentTicker.style.display = 'none';
+    return;
+  }
+
   const announcements = GAME_CONFIG.ANNOUNCEMENTS || [];
   if (!announcements || announcements.length === 0) return;
+
+  if (tickerConfig.speedSeconds) {
+    container.style.animationDuration = `${tickerConfig.speedSeconds}s`;
+  }
+
+  const sep = tickerConfig.separator || '✦';
 
   const buildItemsHtml = () => {
     return announcements
@@ -7941,7 +7971,7 @@ export function renderTopAnnouncementTicker() {
         <span class="ticker-item">
           <span class="ticker-item-badge">${item.badge || 'DUYURU'}</span>
           <span class="ticker-item-text">${item.text}</span>
-          <span class="ticker-item-sep">✦</span>
+          <span class="ticker-item-sep">${sep}</span>
         </span>
       `).join('');
   };

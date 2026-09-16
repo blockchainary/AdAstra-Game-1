@@ -913,6 +913,15 @@ export const GAME_CONFIG = {
     }
   ],
 
+  // 📢 EKRAN ÜSTÜ CANLI KAYAN DUYURU & RİSK UYARI ŞERİDİ (TICKER)
+  ANNOUNCEMENT_TICKER: {
+    enabled: true,
+    speedSeconds: 65,         // Akış hızı (saniye) - uzun metinler için rahat okunabilir süre
+    pauseOnHover: true,       // Fare imleci üzerine geldiğinde kaymayı duraklat
+    showLiveBadge: true,      // Sol tarafta yanıp sönen 'CANLI DUYURU' etiketi
+    separator: '✦'           // Duyurular arası görsel ayraç
+  },
+
   // 📢 Canlı Gösterge Paneli / Marquee Uyarı ve Duyurular
   ANNOUNCEMENTS: [
     {

@@ -3284,6 +3284,26 @@ export class GameStateManager {
     return { success: false, reason: 'conditions_not_met' };
   }
 
+  // Türkçe Kaynak İsimleri Çevirici
+  getResourceNameTr(key) {
+    if (!key) return '';
+    const map = {
+      wood: 'Odun',
+      iron: 'Demir',
+      wheat: 'Buğday',
+      ada: 'ADA',
+      adastra: '$ADASTRA',
+      ticket: 'Bilet',
+      fragments: 'Teçhizat Parçası',
+      boxes: 'Pandora Kutusu',
+      keys: 'Anahtar',
+      scroll_heal: 'Şifa Parşömeni',
+      scroll_stamina: 'Stamina Parşömeni',
+      scroll_teleport: 'Işınlanma Parşömeni'
+    };
+    return map[String(key).toLowerCase()] || key;
+  }
+
   // ═══════════════════════════════════════════════════════════════════════
   // 🎪 KRALLIK KARNAVALI: 14 ÖDÜLLÜ ŞANS ÇARKI & HAFTALIK PİYANGO
   // ═══════════════════════════════════════════════════════════════════════
@@ -3307,8 +3327,9 @@ export class GameStateManager {
     } else if (['wood', 'iron', 'wheat'].includes(paymentMethod)) {
       const price = ammMarket.getPrice(paymentMethod) || 1.0;
       const requiredAmount = Math.ceil(costAda / price);
+      const resNameTr = this.getResourceNameTr(paymentMethod);
       if ((inv[paymentMethod] || 0) < requiredAmount) {
-        return { success: false, message: `Yetersiz ${paymentMethod.toUpperCase()}! 100 ADA değerinde hammadde için ${requiredAmount} adet gereklidir.` };
+        return { success: false, message: `Yetersiz ${resNameTr}! 100 ADA değerinde hammadde için ${requiredAmount} adet gereklidir.` };
       }
       inv[paymentMethod] -= requiredAmount;
       // 🔥 HAMMADDE ANINDA YAKILIR VE SİSTEMDEN SİLİNİR (AMM havuzuna aktarılmaz, kalıcı yakım)
@@ -3316,7 +3337,7 @@ export class GameStateManager {
         this.state.burnedResources = { wood: 0, iron: 0, wheat: 0 };
       }
       this.state.burnedResources[paymentMethod] = (this.state.burnedResources[paymentMethod] || 0) + requiredAmount;
-      burnedInfo = { resource: paymentMethod, amount: requiredAmount };
+      burnedInfo = { resource: paymentMethod, resourceNameTr: resNameTr, amount: requiredAmount };
 
       // Hazine defteri ve tokenomics muhasebesi: 100 ADA eşdeğeri harcama kaydı (%22 Kalıcı Yakım, %78 Hazine Havuzları)
       globalPool.recordTokenSpend(costAda);
@@ -3346,7 +3367,8 @@ export class GameStateManager {
       const p = ammMarket.getPrice(selectedReward.key) || 1.0;
       const grantAmount = Math.round(selectedReward.adaVal / p);
       inv[selectedReward.key] = (inv[selectedReward.key] || 0) + grantAmount;
-      rewardSummaryText = `${grantAmount} ${selectedReward.key.toUpperCase()} (${selectedReward.name})`;
+      const grantResNameTr = this.getResourceNameTr(selectedReward.key);
+      rewardSummaryText = `${grantAmount} ${grantResNameTr} (${selectedReward.name})`;
     } else if (selectedReward.type === 'bot_free') {
       this.buyTavernaAutomationBot(true);
     } else if (selectedReward.type === 'key') {
@@ -3377,7 +3399,7 @@ export class GameStateManager {
       rewardSummaryText,
       burnedInfo,
       message: burnedInfo
-        ? `🔥 ${burnedInfo.amount} ${burnedInfo.resource.toUpperCase()} anında yakıldı ve sistemden silindi! Çarktan kazandın: ${rewardSummaryText}`
+        ? `🔥 ${burnedInfo.amount} ${this.getResourceNameTr(burnedInfo.resource)} anında yakıldı ve sistemden silindi! Çarktan kazandın: ${rewardSummaryText}`
         : `🎉 Tebrikler! Çarktan kazandın: ${rewardSummaryText}`
     };
   }
