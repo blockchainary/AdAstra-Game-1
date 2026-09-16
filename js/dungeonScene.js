@@ -129,7 +129,7 @@ const PAGES = [
   }
 ];
 
-const TOP_BAR_HEIGHT = 56;
+const TOP_BAR_HEIGHT = 92;
 function getViewportSize() {
   return {
     w: window.innerWidth,
@@ -288,14 +288,17 @@ export class DungeonScene extends Phaser.Scene {
 
   createMonsterZone(m, chamberIndex = 0) {
     // Şeffaf İnteraktif Tıklama Alanı (Görseldeki taş kartların üzerine %100 oturur)
-    const zone = this.add.rectangle(m.x, m.y, m.bw, m.bh, 0x000000, 0)
-      .setInteractive({ useHandCursor: true });
+    const zone = this.add.rectangle(m.x, m.y, m.bw, m.bh, 0x000000, 0.001)
+      .setInteractive({ cursor: 'pointer', useHandCursor: true });
 
     if (!this.activeZones) this.activeZones = [];
     this.activeZones.push(zone);
 
     // Hover esnasında dinamik kontrol ile tooltip göster
     zone.on('pointerover', (pointer) => {
+      if (this.input) this.input.setDefaultCursor('pointer');
+      if (this.game && this.game.canvas) this.game.canvas.style.cursor = 'pointer';
+
       const currentLevel = gameState.state.dungeonProgress || 1;
       const isCleared = currentLevel > m.level;
       const isCurrent = currentLevel === m.level;
@@ -304,6 +307,7 @@ export class DungeonScene extends Phaser.Scene {
       const tooltipEl = document.getElementById('realm-hover-tooltip');
       const titleEl = document.getElementById('realm-tooltip-title');
       const subEl = document.getElementById('realm-tooltip-sub');
+      const canvasTop = (this.game && this.game.canvas) ? this.game.canvas.getBoundingClientRect().top : 92;
       if (tooltipEl && titleEl && subEl) {
         titleEl.textContent = `Chamber ${chamberIndex + 1} — Lv.${m.level}: ${m.name}`;
         titleEl.style.color = isCurrent ? '#fde047' : (isCleared ? '#4ade80' : '#a8a29e');
@@ -311,19 +315,22 @@ export class DungeonScene extends Phaser.Scene {
         tooltipEl.classList.remove('hidden');
         tooltipEl.classList.add('visible');
         tooltipEl.style.left = `${pointer.x}px`;
-        tooltipEl.style.top = `${pointer.y - 45}px`;
+        tooltipEl.style.top = `${pointer.y + canvasTop - 45}px`;
       }
     });
 
     zone.on('pointermove', (pointer) => {
       const tooltipEl = document.getElementById('realm-hover-tooltip');
+      const canvasTop = (this.game && this.game.canvas) ? this.game.canvas.getBoundingClientRect().top : 92;
       if (tooltipEl && tooltipEl.classList.contains('visible')) {
         tooltipEl.style.left = `${pointer.x}px`;
-        tooltipEl.style.top = `${pointer.y - 45}px`;
+        tooltipEl.style.top = `${pointer.y + canvasTop - 45}px`;
       }
     });
 
     zone.on('pointerout', () => {
+      if (this.input) this.input.setDefaultCursor('default');
+      if (this.game && this.game.canvas) this.game.canvas.style.cursor = 'default';
       const tooltipEl = document.getElementById('realm-hover-tooltip');
       if (tooltipEl) {
         tooltipEl.classList.remove('visible');
@@ -363,16 +370,19 @@ export class DungeonScene extends Phaser.Scene {
     if (targetFloor > 6) return;
 
     // Şeffaf Portal Tıklama Alanı (Sağ alttaki Floor N taş kartının üzerine %100 oturur)
-    const portalZone = this.add.rectangle(portalCoord.x, portalCoord.y, portalCoord.bw, portalCoord.bh, 0x000000, 0)
-      .setInteractive({ useHandCursor: true });
+    const portalZone = this.add.rectangle(portalCoord.x, portalCoord.y, portalCoord.bw, portalCoord.bh, 0x000000, 0.001)
+      .setInteractive({ cursor: 'pointer', useHandCursor: true });
 
     if (!this.activeZones) this.activeZones = [];
     this.activeZones.push(portalZone);
 
     portalZone.on('pointerover', (pointer) => {
+      if (this.input) this.input.setDefaultCursor('pointer');
+      if (this.game && this.game.canvas) this.game.canvas.style.cursor = 'pointer';
       const tooltipEl = document.getElementById('realm-hover-tooltip');
       const titleEl = document.getElementById('realm-tooltip-title');
       const subEl = document.getElementById('realm-tooltip-sub');
+      const canvasTop = (this.game && this.game.canvas) ? this.game.canvas.getBoundingClientRect().top : 92;
       if (tooltipEl && titleEl && subEl) {
         titleEl.textContent = `🌀 ${targetFloor}. KAT PORTALI`;
         titleEl.style.color = '#c084fc';
@@ -381,20 +391,23 @@ export class DungeonScene extends Phaser.Scene {
         tooltipEl.classList.add('visible');
         const posX = Math.min(window.innerWidth - 130, Math.max(130, pointer.x));
         tooltipEl.style.left = `${posX}px`;
-        tooltipEl.style.top = `${pointer.y - 45}px`;
+        tooltipEl.style.top = `${pointer.y + canvasTop - 45}px`;
       }
     });
 
     portalZone.on('pointermove', (pointer) => {
       const tooltipEl = document.getElementById('realm-hover-tooltip');
+      const canvasTop = (this.game && this.game.canvas) ? this.game.canvas.getBoundingClientRect().top : 92;
       if (tooltipEl && tooltipEl.classList.contains('visible')) {
         const posX = Math.min(window.innerWidth - 130, Math.max(130, pointer.x));
         tooltipEl.style.left = `${posX}px`;
-        tooltipEl.style.top = `${pointer.y - 45}px`;
+        tooltipEl.style.top = `${pointer.y + canvasTop - 45}px`;
       }
     });
 
     portalZone.on('pointerout', () => {
+      if (this.input) this.input.setDefaultCursor('default');
+      if (this.game && this.game.canvas) this.game.canvas.style.cursor = 'default';
       const tooltipEl = document.getElementById('realm-hover-tooltip');
       if (tooltipEl) {
         tooltipEl.classList.remove('visible');
@@ -403,6 +416,8 @@ export class DungeonScene extends Phaser.Scene {
     });
 
     portalZone.on('pointerup', () => {
+      if (this.input) this.input.setDefaultCursor('default');
+      if (this.game && this.game.canvas) this.game.canvas.style.cursor = 'default';
       const tooltipEl = document.getElementById('realm-hover-tooltip');
       if (tooltipEl) {
         tooltipEl.classList.remove('visible');

@@ -210,7 +210,7 @@ export class GrandTownScene extends Phaser.Scene {
 
   layoutScreen() {
     const w = window.innerWidth;
-    const h = Math.max(300, window.innerHeight - 56);
+    const h = Math.max(300, window.innerHeight - 92);
 
     try {
       if (this.scale && (this.scale.width !== w || this.scale.height !== h)) {
@@ -240,8 +240,8 @@ export class GrandTownScene extends Phaser.Scene {
       const cy = def.py * h;
       const radius = Math.min(def.pr * w, 150);
 
-      const zoneCircle = this.add.circle(cx, cy, radius, 0x000000, 0)
-        .setInteractive({ useHandCursor: true });
+      const zoneCircle = this.add.circle(cx, cy, radius, 0x000000, 0.001)
+        .setInteractive({ cursor: 'pointer', useHandCursor: true });
 
       const isAnyModalActive = () => {
         const rpgModal = document.getElementById('rpg-modal');
@@ -252,7 +252,7 @@ export class GrandTownScene extends Phaser.Scene {
       };
 
       zoneCircle.on('pointerover', (pointer) => {
-        if (!tooltipEl || isAnyModalActive()) return;
+        if (isAnyModalActive()) return;
 
         // Menü açıksa veya fare menü bölgesindeyse arka plan hoverını engelle
         const sidebar = document.getElementById('realm-sidebar');
@@ -260,7 +260,16 @@ export class GrandTownScene extends Phaser.Scene {
         if (isSidebarOpen && pointer.x > w - 380) return;
         if (pointer.y < 70 && (pointer.x > w - 140 || (isSidebarOpen && pointer.x > w - 420))) return;
 
+        // Fare imlecini el (pointer) yap
+        if (this.input) this.input.setDefaultCursor('pointer');
+        if (this.game && this.game.canvas) this.game.canvas.style.cursor = 'pointer';
+
+        if (!tooltipEl) return;
+
         const clampedX = Phaser.Math.Clamp(cx, 190, w - 190);
+
+        // Canvas'ın viewport üzerindeki başlangıcı (Marquee Ticker + Header = 92px)
+        const canvasTop = (this.game && this.game.canvas) ? this.game.canvas.getBoundingClientRect().top : 92;
 
         // dungeon, mine, carnival için yukarıda; forest için ise menünün altında (aşağıda) göster
         const forceAbove = def.id === 'dungeon' || def.id === 'mine' || def.id === 'carnival';
@@ -271,7 +280,7 @@ export class GrandTownScene extends Phaser.Scene {
         subEl.textContent = def.sub;
         tooltipEl.style.borderColor = def.colorHex;
         tooltipEl.style.left = `${clampedX}px`;
-        tooltipEl.style.top = `${tooltipCy}px`;
+        tooltipEl.style.top = `${tooltipCy + canvasTop}px`;
 
         if (isForest || (!forceAbove && (def.flipDown || cy < 160))) {
           tooltipEl.classList.add('flip-down');
@@ -284,6 +293,9 @@ export class GrandTownScene extends Phaser.Scene {
       });
 
       zoneCircle.on('pointerout', () => {
+        if (this.input) this.input.setDefaultCursor('default');
+        if (this.game && this.game.canvas) this.game.canvas.style.cursor = 'default';
+
         if (tooltipEl) {
           tooltipEl.classList.remove('visible');
           tooltipEl.classList.add('hidden');
@@ -291,6 +303,9 @@ export class GrandTownScene extends Phaser.Scene {
       });
 
       zoneCircle.on('pointerup', (pointer) => {
+        if (this.input) this.input.setDefaultCursor('default');
+        if (this.game && this.game.canvas) this.game.canvas.style.cursor = 'default';
+
         if (tooltipEl) {
           tooltipEl.classList.remove('visible');
           tooltipEl.classList.add('hidden');
