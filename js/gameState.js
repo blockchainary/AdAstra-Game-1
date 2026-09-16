@@ -953,26 +953,9 @@ export class GameStateManager {
     // 4. SİLO DURUMUNU KONTROL ET & SİLOYU YÜKSELT (Veya Kaynakları Sat)
     // =========================================================================
     if (this.state.botSiloAutoUpgrade) {
-      const upCost = this.getWarehouseUpgradeCost();
-      if (upCost && upCost.canUpgrade) {
-        const upRes = this.upgradeWarehouse();
-        if (upRes && upRes.success) {
-          actions.push(`🏰 Silo otomatik Seviye ${this.state.warehouseLevel}'e yükseltildi! Yeni Kapasite açıldı.`);
-        }
-      } else if (upCost && upCost.is80PercentFull && !upCost.canAffordCost) {
-        // Tüm depolar %80 doluluğa ulaştı fakat silo yükseltmek için yeterli ADA yoksa:
-        // %80 barajı üzerindeki fazlalığı silo yükseltmeye yetecek ADA birikene kadar sat
-        for (const nid of nodes) {
-          const spaceRes = this.handleBotSiloSpace(nid, 1);
-          if (spaceRes && (spaceRes.action === 'sold_for_ada' || spaceRes.action === 'upgraded')) {
-            if (spaceRes.action === 'upgraded') {
-              actions.push(`🏰 Silo otomatik Seviye ${this.state.warehouseLevel}'e yükseltildi!`);
-            } else {
-              actions.push(`💰 Silo yükseltme için ADA finanse edildi: ${spaceRes.amountSold} ${nid} satıldı (+${spaceRes.adAstraReceived?.toFixed(1)} ADA).`);
-            }
-            break;
-          }
-        }
+      const upgradeRes = this.tryAutoUpgradeWarehouseWithAdaFinancing();
+      if (upgradeRes && upgradeRes.upgraded) {
+        actions.push(`🏰 Silo otomatik Seviye ${this.state.warehouseLevel}'e yükseltildi!`);
       }
     } else {
       // Kullanıcı açıkça "Kaynakları Sat" seçtiyse:
@@ -1384,17 +1367,24 @@ export class GameStateManager {
     const resourceDisplayNames = { wood: 'odun', iron: 'demir', wheat: 'buğday' };
     const rLabel = resourceDisplayNames[nodeId] || nodeId;
 
-    // 🤖 Otomasyon Botu Aktifse: Kullanıcı tercihlerine göre (Siloyu Yükselt veya Kaynakları Sat) önce yer aç veya yükselt
-    if (this.isAutoCollectorActive() || this.hasPurchasedBot()) {
-      this.handleBotSiloSpace(nodeId, remainingToClaim);
+    // 🤖 Otomasyon Botu Aktifse:
+    let botSurplusSold = 0;
+    let botSurplusAdaEarned = 0;
+    const isBotActive = this.isAutoCollectorActive() || this.hasPurchasedBot();
+    if (isBotActive) {
+      const spaceRes = this.handleBotSiloSpace(nodeId, remainingToClaim);
+      if (spaceRes && spaceRes.action === 'sold') {
+        botSurplusSold = spaceRes.amountSold || 0;
+        botSurplusAdaEarned = spaceRes.adAstraReceived || 0;
+      }
       currentAmount = Number(this.state.inventory[nodeId]) || 0;
       const updatedCap = this.getWarehouseCapacity();
       const updatedLimit = updatedCap[nodeId];
       availableRoom = updatedLimit != null ? Math.max(0, updatedLimit - currentAmount) : remainingToClaim;
     }
 
-    // 1. Durum: Depoda HİÇ boş yer yok (0 yer var): Sefer silinmez, ambarda yer açılana kadar bekletilir
-    if (limit != null && availableRoom <= 0) {
+    // 1. Durum: Depoda HİÇ boş yer yok (0 yer var) VE bot artanı satamadıysa / manuel kullanıcıysa:
+    if (limit != null && availableRoom <= 0 && botSurplusSold <= 0) {
       exp.isCompleted = true;
       exp.stillRemaining = remainingToClaim;
       this.saveState();
@@ -1410,16 +1400,21 @@ export class GameStateManager {
       };
     }
 
-    // 2. Durum: Depoda yer var! Boş yer kadarını topla, kalanı seferde bırak
+    // 2. Durum: Depoda yer var veya bot artanı markette sattı!
     const harvestAmount = Math.min(remainingToClaim, availableRoom);
-    const fromPool = globalPool.harvest(nodeId, harvestAmount);
-    const { stored: harvestedAmount } = this.storeResource(nodeId, fromPool);
+    let harvestedAmount = 0;
+    if (harvestAmount > 0) {
+      const fromPool = globalPool.harvest(nodeId, harvestAmount);
+      const storedRes = this.storeResource(nodeId, fromPool);
+      harvestedAmount = storedRes.stored;
+    }
 
-    exp.claimedAmount = (exp.claimedAmount || alreadyClaimed) + harvestedAmount;
+    const totalClaimedThisStep = harvestedAmount;
+    exp.claimedAmount = (exp.claimedAmount || alreadyClaimed) + totalClaimedThisStep;
     exp.claimedSeconds = exp.durationSeconds;
 
     if (playerTool) {
-      playerTool.totalGathered = (playerTool.totalGathered || 0) + harvestedAmount;
+      playerTool.totalGathered = (playerTool.totalGathered || 0) + totalClaimedThisStep;
     }
 
     const stillRemaining = Math.max(0, totalYield - exp.claimedAmount);
@@ -1430,22 +1425,34 @@ export class GameStateManager {
 
       const durationHours = exp.durationHours || parseFloat((durationMinutes / 60).toFixed(2));
       const xpGained = Math.max(5, Math.floor(35 * durationHours));
-      this.addXp(xpGained);
+      this.state.characterXp = (this.state.characterXp || 0) + xpGained;
 
       delete this.state.activeExpeditions[nodeId];
 
       if (playerTool.durability === 0) sound.playBreakWarning();
       else sound.playHarvest();
 
+      // 🤖 KURAL 2 (Adım 4 A Seçeneği 2. Bölüm): Her sefer bitiminde tetikle ve olabiliyorsa yap!
+      if (isBotActive && this.state.botSiloAutoUpgrade) {
+        this.tryAutoUpgradeWarehouseWithAdaFinancing();
+      }
+
       this.saveState();
+
+      let msg = `🌾 ${harvestedAmount} ${nodeConfig.name} başarıyla toplandı ve ambarınıza eklendi!`;
+      if (botSurplusSold > 0) {
+        msg = `🤖 Ambar doldu: ${harvestedAmount} ${nodeConfig.name} depolandı (%100 silo). Fazla gelen ${botSurplusSold} ${nodeConfig.name} AMM'de satıldı (+${botSurplusAdaEarned.toFixed(1)} ADA). Sefer tamamlandı!`;
+      }
 
       return {
         success: true,
         isPartialSiloFill: false,
-        amount: harvestedAmount,
+        amount: totalClaimedThisStep,
         harvestedAmount,
+        botSurplusSold,
+        botSurplusAdaEarned,
         stillRemaining: 0,
-        message: `🌾 ${harvestedAmount} ${nodeConfig.name} başarıyla toplandı ve ambarınıza eklendi!`
+        message: msg
       };
     } else {
       // Depo doldu, kalan miktar seferde bekliyor!
@@ -3065,12 +3072,12 @@ export class GameStateManager {
         }
       }
 
-      // KURAL 1: Sefer bittiğinde ilgili kaynağın silodaki yerine baksın.
+      // KURAL 1 (Adım 1): Sefer bittiğinde ilgili kaynağın silodaki yerine baksın.
       // Siloda yer varsa kaynağı toplayıp siloya göndersin.
       // Eğer siloda yeteri kadar yer yoksa, seferden elde edilecek kaynak miktarı kadar
-      // siloda yer açacak kadar AMM'den satış yapsın!
-      // (Örneğin sefer bitti ve 300 odun toplanması lazım. Ama siloda 200 odunluk yer var,
-      // o zaman 100 odun marketten satsın ve 300 odunluk yer açsın).
+      // siloda yer açacak kadar (artan miktar kadar) AMM'den satış yapsın!
+      // (Örneğin sefer bitti ve 324 odun toplanacak, siloda 200 yer var: 124 odun markette satılır,
+      // 324 odunun hepsi depolanır ve ambar tam 1080 ile %100 dolar, sefer sıfırlanıp biter).
       if (availableRoom < yieldAmount) {
         const shortfall = yieldAmount - availableRoom;
         const amountToSell = Math.min(currentAmount, shortfall);
@@ -3138,6 +3145,86 @@ export class GameStateManager {
     }
 
     return { handled: true, reason: 'space_sufficient', neededSell: 0 };
+  }
+
+  /**
+   * 🤖 Silo Yükseltme & %80 Barajında ADA Finansmanı (Adım 4 A Seçeneği 2. Bölüm)
+   * Her sefer bitiminde tetiklenir:
+   * 1. Tüm depolar %80 doluluğa ulaşmış mı kontrol eder.
+   * 2. Gerekli hammadde (odun, demir, buğday) yeterliyse fakat ADA eksikse:
+   *    Depolardaki %80 güvenlik barajının üstünde kalan fazlalık kaynakları AMM DEX'te satarak
+   *    yükseltme için gereken ADA'yı finanse eder.
+   * 3. ADA tamamlandığında siloyu derhal Seviye Atlatır!
+   */
+  tryAutoUpgradeWarehouseWithAdaFinancing() {
+    if (!this.state.botSiloAutoUpgrade) return { success: false, reason: 'auto_upgrade_disabled' };
+
+    let cost = this.getWarehouseUpgradeCost();
+    if (!cost) return { success: false, reason: 'max_level' };
+
+    // Eğer zaten yükseltilebiliyorsa doğrudan yükselt!
+    if (cost.canUpgrade) {
+      const upRes = this.upgradeWarehouse();
+      if (upRes && upRes.success) {
+        return { success: true, upgraded: true, newLevel: this.state.warehouseLevel };
+      }
+    }
+
+    // %80 Barajında ADA Finansmanı:
+    // Depolar %80 dolu mu?
+    if (cost.is80PercentFull && !cost.canAffordCost) {
+      const inv = this.state.inventory || {};
+      const hasWood = (inv.wood || 0) >= cost.wood;
+      const hasIron = (inv.iron || 0) >= cost.iron;
+      const hasWheat = (inv.wheat || 0) >= cost.wheat;
+
+      // Hammaddeler yeterli, sadece ADA eksikse:
+      if (hasWood && hasIron && hasWheat) {
+        let adaDeficit = Math.max(0, cost.adAstra - (this.state.adAstraBalance || 0));
+        if (adaDeficit > 0 && typeof ammMarket !== 'undefined' && ammMarket.executeSell) {
+          const cap = cost.currentCap || this.getWarehouseCapacity();
+          const nodes = ['wood', 'iron', 'wheat'];
+          let totalSoldAda = 0;
+
+          for (const node of nodes) {
+            if (adaDeficit <= 0) break;
+            const baraj = Math.round((cap[node] || 0) * 0.8);
+            const cur = Number(inv[node]) || 0;
+            const surplus = Math.max(0, cur - baraj);
+
+            if (surplus > 0) {
+              const price = (ammMarket.getPrice && ammMarket.getPrice(node)) ? ammMarket.getPrice(node) : 1;
+              const neededUnits = Math.max(1, Math.ceil(adaDeficit / price));
+              const amountToSell = Math.min(surplus, neededUnits);
+
+              if (amountToSell > 0) {
+                const sellRes = ammMarket.executeSell(node, amountToSell);
+                if (sellRes && sellRes.success) {
+                  this.state.inventory[node] = Math.max(0, (this.state.inventory[node] || 0) - amountToSell);
+                  const earned = sellRes.adAstraReceived || 0;
+                  this.state.adAstraBalance = (this.state.adAstraBalance || 0) + earned;
+                  totalSoldAda += earned;
+                  adaDeficit = Math.max(0, adaDeficit - earned);
+                }
+              }
+            }
+          }
+
+          this.saveState();
+
+          // ADA tamamlandıysa siloyu derhal seviye atlat!
+          const freshCost = this.getWarehouseUpgradeCost();
+          if (freshCost && freshCost.canUpgrade) {
+            const freshUp = this.upgradeWarehouse();
+            if (freshUp && freshUp.success) {
+              return { success: true, upgraded: true, newLevel: this.state.warehouseLevel, totalSoldAda };
+            }
+          }
+        }
+      }
+    }
+
+    return { success: false, reason: 'conditions_not_met' };
   }
 
   // ═══════════════════════════════════════════════════════════════════════
