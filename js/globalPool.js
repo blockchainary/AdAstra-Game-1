@@ -82,6 +82,9 @@ export class GlobalResourceManager {
         if (!parsed.creatorWallet) {
           parsed.creatorWallet = GAME_CONFIG.CREATOR_WALLET_ADDRESS;
         }
+        if (!parsed.totalBurnedResources) {
+          parsed.totalBurnedResources = { wood: 0, iron: 0, wheat: 0 };
+        }
         return parsed;
       } catch (e) {
         console.error('Global state parse error, resetting:', e);
@@ -131,12 +134,40 @@ export class GlobalResourceManager {
         carnival: 4000000
       },
       totalActiveMiners: 342,
-      buybackFromBroadcasting: prevState ? prevState.buybackFromBroadcasting || 12500 : 12500 // %35 Avalanche Arena yayın buyback havuzu
+      buybackFromBroadcasting: prevState ? prevState.buybackFromBroadcasting || 12500 : 12500, // %35 Avalanche Arena yayın buyback havuzu
+      totalBurnedResources: prevState ? prevState.totalBurnedResources || { wood: 0, iron: 0, wheat: 0 } : { wood: 0, iron: 0, wheat: 0 }
     };
 
     this.state = state;
     this.saveState();
     return state;
+  }
+
+  // 🔥 HAMMADDE KALICI YAKIMI (BURN) VE TOTAL ARZDAN DÜŞÜLMESİ
+  // Oyunda nerede bir odun, demir veya buğday harcanırsa bu metotla yakılır ve total arzdan (totalCap & remaining) kalıcı silinir.
+  recordResourceBurn(resourceKey, amount) {
+    const qty = Number(amount) || 0;
+    if (qty <= 0) return { burned: 0 };
+
+    if (!this.state.totalBurnedResources) {
+      this.state.totalBurnedResources = { wood: 0, iron: 0, wheat: 0 };
+    }
+    this.state.totalBurnedResources[resourceKey] = (this.state.totalBurnedResources[resourceKey] || 0) + qty;
+
+    const res = this.state.resources && this.state.resources[resourceKey];
+    if (res) {
+      // Total Cap (Küresel Toplam Arz) kalıcı olarak düşürülür:
+      res.totalCap = Math.max(0, (res.totalCap || 0) - qty);
+      // Kalan arz da güncellenir:
+      res.remaining = Math.max(0, Math.min(res.remaining, res.totalCap));
+      if (res.totalCap <= 0 || res.remaining <= 0) {
+        res.remaining = 0;
+        res.depleted = true;
+      }
+    }
+
+    this.saveState();
+    return { resourceKey, amount: qty, remainingCap: res ? res.totalCap : 0, remaining: res ? res.remaining : 0 };
   }
 
   saveState() {

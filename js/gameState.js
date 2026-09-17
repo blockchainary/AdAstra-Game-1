@@ -204,6 +204,33 @@ export class GameStateManager {
     });
   }
 
+  // 🔥 HAMMADDE KALICI YAKIMI (BURN) VE TOTAL ARZDAN DÜŞÜLMESİ
+  // Oyunda bir odun, demir veya buğday harcandığında anında yakılır, sayacı artar ve küresel total arzdan silinir.
+  burnResource(resourceKey, amount) {
+    const qty = Number(amount) || 0;
+    if (qty <= 0) return 0;
+
+    if (!this.state.burnedResources) {
+      this.state.burnedResources = { wood: 0, iron: 0, wheat: 0 };
+    }
+    this.state.burnedResources[resourceKey] = (this.state.burnedResources[resourceKey] || 0) + qty;
+
+    try {
+      if (typeof globalPool !== 'undefined' && globalPool && typeof globalPool.recordResourceBurn === 'function') {
+        globalPool.recordResourceBurn(resourceKey, qty);
+      }
+    } catch (e) {
+      console.warn('globalPool recordResourceBurn error:', e);
+    }
+    return qty;
+  }
+
+  burnResources({ wood = 0, iron = 0, wheat = 0 } = {}) {
+    if (wood > 0) this.burnResource('wood', wood);
+    if (iron > 0) this.burnResource('iron', iron);
+    if (wheat > 0) this.burnResource('wheat', wheat);
+  }
+
   // Asker satın alma maliyeti: İlk asker 5.000 $ADASTRA, 18. asker 1.800.000 $ADASTRA kademeli artan model
   getSoldierCost(index = (this.state.soldierUnits || []).length + 1) {
     const n = Math.max(1, index);
@@ -418,6 +445,7 @@ export class GameStateManager {
 
       if (hpGain > 0) {
         this.state.inventory.wheat = Math.max(0, Math.round((curW - wheatCost) * 100) / 100);
+        this.burnResource('wheat', wheatCost);
         this.state.adAstraBalance = Math.max(0, Math.round((curA - adaCost) * 100) / 100);
         soldier.hp = Math.min(maxHp, Math.round((currentHp + hpGain) * 100) / 100);
         changed = true;
@@ -454,6 +482,7 @@ export class GameStateManager {
     }
 
     inv.wheat -= info.wheatNeeded;
+    this.burnResource('wheat', info.wheatNeeded);
     this.state.adAstraBalance -= info.adaCost;
     soldier.hp = soldier.maxHp || 100;
 
@@ -682,6 +711,7 @@ export class GameStateManager {
     }
 
     inv.wheat = Math.max(0, inv.wheat - requiredWheat);
+    this.burnResource('wheat', requiredWheat);
     this.state.stamina = Math.min(maxStam, curStam + actualGain);
     sound.playStaminaRefill();
     this.saveState();
@@ -719,6 +749,7 @@ export class GameStateManager {
 
     const gainedStamina = wheatToUse / wheatPerStamina;
     inv.wheat = Math.max(0, inv.wheat - wheatToUse);
+    this.burnResource('wheat', wheatToUse);
     this.state.stamina = Math.min(maxStam, curStam + gainedStamina);
     sound.playStaminaRefill();
     this.saveState();
@@ -1999,6 +2030,7 @@ export class GameStateManager {
     inv.wood -= req.wood;
     inv.iron -= req.iron;
     inv.wheat -= req.wheat;
+    this.burnResources({ wood: req.wood, iron: req.iron, wheat: req.wheat });
     this.state.adAstraBalance -= req.adAstra;
     globalPool.recordTokenSpend(req.adAstra);
 
@@ -2183,6 +2215,7 @@ export class GameStateManager {
 
     inv.wood -= cost.woodCost;
     inv.iron -= cost.ironCost;
+    this.burnResources({ wood: cost.woodCost, iron: cost.ironCost });
     this.state.adAstraBalance -= cost.adAstraCost;
     globalPool.recordTokenSpend(cost.adAstraCost);
 
@@ -2347,6 +2380,7 @@ export class GameStateManager {
     inv.wood -= cost.wood;
     inv.iron -= cost.iron;
     inv.wheat -= cost.wheat;
+    this.burnResources({ wood: cost.wood, iron: cost.iron, wheat: cost.wheat });
     this.state.adAstraBalance -= cost.adAstra;
     globalPool.recordTokenSpend(cost.adAstra);
 
@@ -2582,6 +2616,7 @@ export class GameStateManager {
     inv.fragments = (inv.fragments || 0) - cost.fragments;
     inv.iron -= cost.iron;
     inv.wood -= cost.wood;
+    this.burnResources({ wood: cost.wood, iron: cost.iron });
     this.state.adAstraBalance -= cost.adAstra;
     globalPool.recordTokenSpend(cost.adAstra);
 
@@ -2683,6 +2718,7 @@ export class GameStateManager {
     inv.fragments = (inv.fragments || 0) - cost.fragmentCost;
     inv.iron -= cost.ironCost;
     inv.wood -= cost.woodCost;
+    this.burnResources({ wood: cost.woodCost, iron: cost.ironCost });
     this.state.adAstraBalance -= cost.adAstraCost;
     globalPool.recordTokenSpend(cost.adAstraCost);
 
@@ -2765,6 +2801,7 @@ export class GameStateManager {
 
     inv.iron -= cost.ironCost;
     inv.wood -= cost.woodCost;
+    this.burnResources({ wood: cost.woodCost, iron: cost.ironCost });
     if (cost.fragCost > 0) inv.fragments = (inv.fragments || 0) - cost.fragCost;
     this.state.adAstraBalance -= cost.adaCost;
     globalPool.recordTokenSpend(cost.adaCost);
@@ -3019,6 +3056,7 @@ export class GameStateManager {
 
     inv.iron -= totalIron;
     inv.wood -= totalWood;
+    this.burnResources({ wood: totalWood, iron: totalIron });
     this.state.adAstraBalance -= totalAda;
     globalPool.recordTokenSpend(totalAda);
 
@@ -3499,11 +3537,8 @@ export class GameStateManager {
         return { success: false, message: `Yetersiz ${resNameTr}! 100 ADA değerinde hammadde için ${requiredAmount} adet gereklidir.` };
       }
       inv[paymentMethod] -= requiredAmount;
-      // 🔥 HAMMADDE ANINDA YAKILIR VE SİSTEMDEN SİLİNİR (AMM havuzuna aktarılmaz, kalıcı yakım)
-      if (!this.state.burnedResources) {
-        this.state.burnedResources = { wood: 0, iron: 0, wheat: 0 };
-      }
-      this.state.burnedResources[paymentMethod] = (this.state.burnedResources[paymentMethod] || 0) + requiredAmount;
+      // 🔥 HAMMADDE ANINDA YAKILIR VE TOTAL ARZDAN SİLİNİR (AMM havuzuna aktarılmaz, kalıcı yakım)
+      this.burnResource(paymentMethod, requiredAmount);
       burnedInfo = { resource: paymentMethod, resourceNameTr: resNameTr, amount: requiredAmount };
 
       // Hazine defteri ve tokenomics muhasebesi: 100 ADA eşdeğeri harcama kaydı (%22 Kalıcı Yakım, %78 Hazine Havuzları)
