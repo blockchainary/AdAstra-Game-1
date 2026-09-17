@@ -1980,9 +1980,10 @@ function openTownZoneModal(zoneId, zoneName) {
   else if (zoneId === 'market') {
     const marketTabsHtml = `
       <div class="phase2-tab-row">
-        <button class="phase2-tab-btn market-tab-btn ${marketActiveTab === 'resources' ? 'active' : ''}" data-tab="resources">🪙 Hammadde & Pandora Kutusu Havuzları</button>
-        <button class="phase2-tab-btn market-tab-btn ${marketActiveTab === 'fragments' ? 'active' : ''}" data-tab="fragments">🧩 Teçhizat Parçaları Ticareti</button>
-        <button class="phase2-tab-btn market-tab-btn ${marketActiveTab === 'p2p_collection' ? 'active' : ''}" data-tab="p2p_collection">👑 P2P Koleksiyon Pazarı</button>
+        <button class="phase2-tab-btn market-tab-btn ${marketActiveTab === 'resources' ? 'active' : ''}" data-tab="resources">🪙 Hammadde & Pandora Havuzları</button>
+        <button class="phase2-tab-btn market-tab-btn ${marketActiveTab === 'fragments' ? 'active' : ''}" data-tab="fragments">🧩 Teçhizat Parçaları</button>
+        <button class="phase2-tab-btn market-tab-btn ${marketActiveTab === 'p2p_collection' ? 'active' : ''}" data-tab="p2p_collection">👑 P2P Koleksiyon</button>
+        <button class="phase2-tab-btn market-tab-btn ${marketActiveTab === 'buyback_vault' ? 'active' : ''}" data-tab="buyback_vault" style="${marketActiveTab === 'buyback_vault' ? 'border-color:#38bdf8; color:#38bdf8;' : ''}">🛡️ Otonom Buyback & Yakım</button>
       </div>
     `;
 
@@ -2162,6 +2163,116 @@ function openTownZoneModal(zoneId, zoneName) {
         <div>
           ${listings.length > 0 ? listingCards : '<div class="clean-card" style="text-align:center; color:#94a3b8;">Pazarda henüz açık ilan bulunmuyor.</div>'}
         </div>
+      `;
+
+      dom.modalBody.innerHTML = html;
+      displayModal();
+      return;
+    }
+
+    if (marketActiveTab === 'buyback_vault') {
+      const analysis = ammMarket.getBuybackAnalysis(0.10);
+      const lastReport = ammMarket.getLastBuybackReport();
+
+      html += `
+        <div class="clean-card" style="border-color: #38bdf8; background: rgba(15, 23, 42, 0.85); margin-bottom: 12px; padding: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <div style="font-weight: 800; font-size: 1.05rem; color: #38bdf8; display: flex; align-items: center; gap: 8px;">
+                <span>🛡️</span> <span>AMM Hazine Rezervi & Otonom Buyback-Burn Motoru</span>
+              </div>
+              <div style="font-size: 0.78rem; color: #94a3b8; margin-top: 4px; max-width: 580px; line-height: 1.4;">
+                Oyundaki <strong>tüm $ADASTRA harcamalarının %18'i</strong> doğrudan bu kasaya akar. Varlıklar başlangıç fiyatından düştükçe üstel katsayıyla (döngü başına %10 tavan) piyasadan malzeme satın alınıp kalıcı yakılır.
+              </div>
+            </div>
+            <div style="text-align: right; background: rgba(30,41,59,0.6); padding: 8px 14px; border-radius: 8px; border: 1px solid rgba(56,189,248,0.2);">
+              <div style="font-size: 0.72rem; color: #94a3b8;">AMM Kasası Mevcut Bakiye:</div>
+              <div style="font-size: 1.25rem; font-weight: 900; color: #facc15;">${analysis.availableTreasury.toLocaleString('tr-TR')} $ADASTRA</div>
+              <div style="font-size: 0.72rem; color: #38bdf8; margin-top: 2px;">Döngü Başına Müdahale Tavanı (%10): <strong>${analysis.maxCycleFund.toLocaleString('tr-TR')} ADA</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 6 Varlık Analiz Tablosu -->
+        <div class="clean-card" style="margin-bottom: 12px; padding: 12px;">
+          <div style="font-weight: 800; font-size: 0.9rem; color: #fde047; margin-bottom: 8px; display:flex; justify-content:space-between; align-items:center;">
+            <span>📊 6 Varlık Piyasa Durumu & Hazine Tahsis Matrisi (%75 Hammadde Ağırlığı)</span>
+            <span style="font-size:0.75rem; color:#94a3b8;">Aciliyet Katsayısı: %${(analysis.maxUrgency * 100).toFixed(2)}</span>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">
+              <thead>
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: #94a3b8;">
+                  <th style="padding: 6px 8px;">Varlık</th>
+                  <th style="padding: 6px 8px;">Genesis Fiyat</th>
+                  <th style="padding: 6px 8px;">Anlık Fiyat</th>
+                  <th style="padding: 6px 8px;">Düşüş (Δ)</th>
+                  <th style="padding: 6px 8px;">Hazine Ağırlığı</th>
+                  <th style="padding: 6px 8px;">Ayrılan Bütçe</th>
+                  <th style="padding: 6px 8px;">Yakılacak Adet</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${analysis.assets.map(a => {
+                  const isCrashed = a.dropPct >= 50;
+                  const isDrop = a.dropPct > 0;
+                  const dropColor = isCrashed ? '#ef4444' : isDrop ? '#f97316' : '#22c55e';
+                  return `
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                      <td style="padding: 8px; font-weight: 700; color: #fff;">${a.icon} ${a.name}</td>
+                      <td style="padding: 8px; color: #94a3b8;">${a.genesisPrice.toLocaleString('tr-TR')} ADA</td>
+                      <td style="padding: 8px; font-weight: 700; color: #facc15;">${a.currentPrice >= 100 ? a.currentPrice.toLocaleString('tr-TR', { maximumFractionDigits: 1 }) : a.currentPrice.toFixed(3)} ADA</td>
+                      <td style="padding: 8px; font-weight: 800; color: ${dropColor};">
+                        ${isDrop ? `-%${a.dropPct}` : '✅ Sağlıklı'}
+                      </td>
+                      <td style="padding: 8px; color: #38bdf8;">%${Math.round(a.weight * 100)}</td>
+                      <td style="padding: 8px; font-weight: 700; color: ${a.allocatedBudget > 0 ? '#f87171' : '#94a3b8'};">
+                        ${a.allocatedBudget > 0 ? `${a.allocatedBudget.toLocaleString('tr-TR')} ADA` : '0 ADA'}
+                      </td>
+                      <td style="padding: 8px; font-weight: 800; color: ${a.estimatedUnitsToBurn > 0 ? '#4ade80' : '#94a3b8'};">
+                        ${a.estimatedUnitsToBurn > 0 ? `🔥 ~${a.estimatedUnitsToBurn.toLocaleString('tr-TR')} Adet` : '-'}
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.08);">
+            <div>
+              <span style="font-size: 0.82rem; color: #94a3b8;">Bu Döngü Kullanılacak Fon:</span>
+              <strong style="font-size: 1.05rem; color: ${analysis.totalFundToSpend > 0 ? '#f87171' : '#4ade80'}; margin-left: 6px;">
+                ${analysis.totalFundToSpend.toLocaleString('tr-TR')} ADA
+              </strong>
+            </div>
+            <button id="btn-run-amm-buyback" class="btn-clean btn-clean-gold" style="padding: 8px 18px; font-weight: 800; font-size: 0.85rem; width: auto;" ${analysis.totalFundToSpend <= 1 ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>
+              ⚡ OTONOM BUYBACK & YAKIM ÇALIŞTIR
+            </button>
+          </div>
+        </div>
+
+        ${lastReport ? `
+          <div class="clean-card" style="background: rgba(30, 41, 59, 0.4); border-color: rgba(255,255,255,0.08); padding: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="font-weight: 800; font-size: 0.85rem; color: #4ade80;">✅ Son Buyback Operasyonu Raporu</span>
+              <span style="font-size: 0.72rem; color: #94a3b8;">${new Date(lastReport.timestamp).toLocaleString('tr-TR')}</span>
+            </div>
+            <div style="font-size: 0.78rem; color: #cbd5e1; margin-bottom: 8px;">
+              Hazine Kasasından Toplam <strong>${lastReport.totalSpent.toLocaleString('tr-TR')} ADA</strong> harcandı ve malzemeler yakılarak total arzdan silindi:
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+              ${lastReport.items.map(item => `
+                <div style="background: rgba(15,23,42,0.6); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); font-size: 0.75rem;">
+                  <span>${item.icon} ${item.name}:</span>
+                  <strong style="color: #4ade80;">-${item.unitsBurned.toLocaleString('tr-TR')} Adet</strong>
+                  <span style="color: #fde047;">(${item.budgetSpent.toLocaleString('tr-TR')} ADA)</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
       `;
 
       dom.modalBody.innerHTML = html;
@@ -7311,11 +7422,25 @@ function initAppEvents() {
       return;
     }
 
-    // AMM Pazar: Sekme Geçişi (Hammadde / Parça Ticareti)
+    // AMM Pazar: Sekme Geçişi (Hammadde / Parça Ticareti / Buyback)
     const marketTabBtn = e.target.closest('.market-tab-btn');
     if (marketTabBtn) {
       marketActiveTab = marketTabBtn.dataset.tab;
       openTownZoneModal('market', '🏪 AMM Pazar Alanı');
+      return;
+    }
+
+    // 🛡️ AMM Hazine Otonom Buyback & Yakım Çalıştır
+    if (e.target.closest('#btn-run-amm-buyback')) {
+      const res = gameState.executeAmmTreasuryBuyback(0.10);
+      if (res.success) {
+        sound.playLevelUp();
+        showToast(res.message, 'success');
+        openTownZoneModal('market', '🏪 AMM Pazar Alanı');
+      } else {
+        showToast(res.message || 'Hazine müdahalesi gerekmiyor.', 'info');
+      }
+      renderTopBar();
       return;
     }
 

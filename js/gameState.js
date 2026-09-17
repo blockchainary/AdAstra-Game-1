@@ -4714,6 +4714,23 @@ export class GameStateManager {
     };
   }
 
+  // 🛡️ AMM DEX Otonom Buyback & Yakım Operasyonu (Döngü Başına)
+  executeAmmTreasuryBuyback(cycleBudgetCap = 0.10) {
+    if (typeof ammMarket !== 'undefined' && typeof ammMarket.executeAutonomousBuyback === 'function') {
+      const res = ammMarket.executeAutonomousBuyback(cycleBudgetCap);
+      this.saveState();
+      return res;
+    }
+    return { success: false, message: 'AMM Market motoru bulunamadı.' };
+  }
+
+  getAmmBuybackAnalysis(cycleBudgetCap = 0.10) {
+    if (typeof ammMarket !== 'undefined' && typeof ammMarket.getBuybackAnalysis === 'function') {
+      return ammMarket.getBuybackAnalysis(cycleBudgetCap);
+    }
+    return null;
+  }
+
   claimAndRestartAllExpeditions() {
     const results = { claimed: 0, partialClaimed: 0, restarted: 0, totalHarvest: 0, messages: [] };
     const allActive = Object.keys(this.state.activeExpeditions || {});

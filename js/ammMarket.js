@@ -10,6 +10,27 @@
 
 import { GAME_CONFIG } from './config.js';
 import { globalPool } from './globalPool.js';
+import { treasury } from './treasury.js';
+
+// 🏛️ Lansman / Genesis Değişmez Başlangıç Fiyatları (Tüm düşüşler buna göre hesaplanır)
+export const GENESIS_PRICES = {
+  wheat: 0.90,       // 🌾 Buğday
+  iron: 4.00,        // ⛏️ Demir
+  wood: 2.50,        // 🌲 Odun
+  fragments: 45.00,  // 🧩 Teçhizat Parçası
+  keys: 1000.0,      // 🔑 Arena Anahtarı
+  boxes: 10000.0     // 📦 Pandora Kutusu
+};
+
+// ⚖️ Hazine Dağıtım Öncelik Ağırlıkları (Ana hammadde üçlüsüne %75 aslan payı)
+export const BUYBACK_ASSET_WEIGHTS = {
+  wheat: 0.30,       // %30 Aslan Payı (Stamina & Can tüketimi)
+  iron: 0.25,        // %25 Ağır Sanayi (Teçhizat & Tamirat)
+  wood: 0.20,        // %20 Temel Hammadde (İnşaat & Aletler)
+  fragments: 0.10,   // %10 Teçhizat Parçaları
+  keys: 0.08,        // %8 Arena Anahtarları
+  boxes: 0.07        // %7 Pandora Kutuları
+};
 
 // Haftalık küresel kotanın fiyatı ne kadar hareket ettireceği
 const TARGET_PRICE_IMPACT = 0.07;
@@ -409,6 +430,190 @@ export class AMMMarketEngine {
         tvlAda: pool.adAstraReserve * 2
       };
     });
+  }
+
+  // ── 6 Varlıklı Dinamik Buyback & Burn Analiz Raporu ───────────────────
+  // Düşüşler değişmez Genesis Başlangıç Fiyatlarına ($P_{genesis}$) göre hesaplanır.
+  // Ağırlık %75 ana hammadde üçlüsüne (Buğday %30, Demir %25, Odun %20), %25 diğerlerine verilir.
+  getBuybackAnalysis(cycleBudgetCap = 0.10) {
+    const availableTreasury = (typeof treasury !== 'undefined' && treasury.getPool)
+      ? (treasury.getPool('ammBuyback') || 0)
+      : 6000000;
+
+    const maxCycleFund = availableTreasury * cycleBudgetCap;
+    const assets = ['wheat', 'iron', 'wood', 'fragments', 'keys', 'boxes'];
+    const details = [];
+    let totalScore = 0;
+    let maxUrgency = 0;
+
+    for (const key of assets) {
+      const pool = this.pools[key];
+      if (!pool) continue;
+      const curPrice = this.getPrice(key);
+      const genPrice = GENESIS_PRICES[key] || 1.0;
+      // Düşüş oranı: sadece başlangıç fiyatının altına indiğinde devreye girer
+      const dropRatio = Math.max(0, (genPrice - curPrice) / genPrice);
+      // Kuvvet Yasası: %10 düşüşte binde 3, %90 düşüşte %76.8 harcama yoğunluğu
+      const urgency = Math.pow(dropRatio, 2.5);
+      const weight = BUYBACK_ASSET_WEIGHTS[key] || 0.1;
+      const score = weight * urgency;
+
+      totalScore += score;
+      if (urgency > maxUrgency) maxUrgency = urgency;
+
+      details.push({
+        key,
+        name: pool.name,
+        icon: pool.icon,
+        currentPrice: curPrice,
+        genesisPrice: genPrice,
+        dropRatio,
+        dropPct: Math.round(dropRatio * 1000) / 10,
+        urgency,
+        weight,
+        score
+      });
+    }
+
+    // Toplam harcanacak bütçe: krizin aciliyetiyle dinamik ölçeklenir
+    const totalFundToSpend = totalScore > 0 ? (maxCycleFund * maxUrgency) : 0;
+
+    // Her varlığa düşen pay ve tahmini yakılacak fiziksel adet
+    for (const d of details) {
+      const share = totalScore > 0 ? (d.score / totalScore) : 0;
+      const budget = totalFundToSpend * share;
+      let estUnits = 0;
+      if (budget > 0 && this.pools[d.key]) {
+        estUnits = this.getEstimatedResourceForBuy(d.key, budget);
+      }
+      d.sharePct = Math.round(share * 1000) / 10;
+      d.allocatedBudget = Math.round(budget * 100) / 100;
+      d.estimatedUnitsToBurn = Math.round(estUnits * 10) / 10;
+    }
+
+    return {
+      availableTreasury: Math.round(availableTreasury),
+      cycleBudgetCap,
+      maxCycleFund: Math.round(maxCycleFund),
+      maxUrgency: Math.round(maxUrgency * 10000) / 10000,
+      totalFundToSpend: Math.round(totalFundToSpend * 100) / 100,
+      assets: details
+    };
+  }
+
+  // ── Otonom Buyback & Burn Yürütücü (Döngü Başına) ───────────────────
+  executeAutonomousBuyback(cycleBudgetCap = 0.10) {
+    const analysis = this.getBuybackAnalysis(cycleBudgetCap);
+    if (!analysis.totalFundToSpend || analysis.totalFundToSpend <= 1) {
+      return {
+        success: false,
+        executed: false,
+        message: 'Tüm varlıklar başlangıç fiyatında veya üzerinde, hazine müdahalesine gerek yok.',
+        analysis
+      };
+    }
+
+    const availableTreasury = (typeof treasury !== 'undefined' && treasury.getPool)
+      ? (treasury.getPool('ammBuyback') || 0)
+      : 0;
+
+    if (availableTreasury < analysis.totalFundToSpend) {
+      return {
+        success: false,
+        executed: false,
+        message: 'Hazine AMM kasasında yeterli bakiye bulunmuyor.',
+        analysis
+      };
+    }
+
+    const reportItems = [];
+    let totalActualSpent = 0;
+    let totalUnitsBurned = 0;
+
+    for (const item of analysis.assets) {
+      if (item.allocatedBudget <= 0) continue;
+      const pool = this.pools[item.key];
+      if (!pool) continue;
+
+      const budget = item.allocatedBudget;
+      const oldPrice = this.getPrice(item.key);
+
+      // Hazineden fon tahsis edilir (treasury.drawBuyback doğrudan sayı döndürür)
+      let withdrawn = budget;
+      if (typeof treasury !== 'undefined') {
+        if (typeof treasury.drawBuyback === 'function') {
+          withdrawn = treasury.drawBuyback(budget);
+        } else if (typeof treasury.withdraw === 'function') {
+          const wRes = treasury.withdraw('ammBuyback', budget);
+          withdrawn = typeof wRes === 'object' && wRes ? (wRes.granted || 0) : Number(wRes) || 0;
+        }
+      }
+      if (withdrawn <= 0) continue;
+
+      // AMM Havuzundan satın alınır ($x \cdot y = k$)
+      const net = withdrawn / (1 + GAME_CONFIG.AMM_FEE_RATE);
+      const unitsToBuy = (pool.resourceReserve * net) / (pool.adAstraReserve + net);
+
+      pool.adAstraReserve += net;
+      pool.resourceReserve -= unitsToBuy;
+
+      // 🔥 Kalıcı Yakım (Burn):
+      if (!this.feeStats.burnedResources) this.feeStats.burnedResources = {};
+      this.feeStats.burnedResources[item.key] = (this.feeStats.burnedResources[item.key] || 0) + unitsToBuy;
+
+      if (typeof globalPool !== 'undefined' && globalPool && typeof globalPool.recordResourceBurn === 'function') {
+        globalPool.recordResourceBurn(item.key, unitsToBuy);
+      }
+      if (typeof window !== 'undefined' && window.gameState && typeof window.gameState.burnResource === 'function') {
+        window.gameState.burnResource(item.key, unitsToBuy);
+      }
+
+      totalActualSpent += withdrawn;
+      totalUnitsBurned += unitsToBuy;
+
+      reportItems.push({
+        key: item.key,
+        name: item.name,
+        icon: item.icon,
+        budgetSpent: Math.round(withdrawn * 100) / 100,
+        unitsBurned: Math.round(unitsToBuy * 10) / 10,
+        oldPrice: Math.round(oldPrice * 1000) / 1000,
+        newPrice: Math.round(this.getPrice(item.key) * 1000) / 1000,
+        dropPct: item.dropPct
+      });
+    }
+
+    this.savePools();
+
+    const report = {
+      timestamp: Date.now(),
+      totalSpent: Math.round(totalActualSpent * 100) / 100,
+      totalUnitsBurned: Math.round(totalUnitsBurned * 10) / 10,
+      remainingTreasury: (typeof treasury !== 'undefined' && treasury.getPool) ? Math.round(treasury.getPool('ammBuyback')) : 0,
+      items: reportItems
+    };
+
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(this.storageKey + '_last_buyback', JSON.stringify(report));
+    }
+    this.lastBuybackReport = report;
+
+    return {
+      success: true,
+      executed: true,
+      message: `🎯 Otonom Buyback & Yakım Tamamlandı: ${report.totalSpent.toLocaleString('tr-TR')} ADA ile piyasadan malzemeler alınıp kalıcı olarak yakıldı!`,
+      report
+    };
+  }
+
+  getLastBuybackReport() {
+    if (this.lastBuybackReport) return this.lastBuybackReport;
+    if (typeof localStorage === 'undefined') return null;
+    try {
+      return JSON.parse(localStorage.getItem(this.storageKey + '_last_buyback')) || null;
+    } catch (_) {
+      return null;
+    }
   }
 }
 
