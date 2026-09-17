@@ -44,29 +44,26 @@ assert.strictEqual(typeof soldier1.cooldowns.shieldWall, 'number');
 console.log('  ✅ Askerler sınıf kısıtlaması olmadan bağımsız yetenek yükü ve mevzi taşıyor.');
 
 // --------------------------------------------------------------------------
-// TEST 2: Mevzi (Row) ve Ön Saf Koruma Mekanizması (selectTarget)
+// TEST 2: Safsız Serbest Hedef Seçimi (selectTarget) & Taunt / Piercing Mekanizması
 // --------------------------------------------------------------------------
-console.log('\n▶ TEST 2: Ön Saf Koruma & selectTarget');
+console.log('\n▶ TEST 2: Safsız Serbest Hedef Seçimi & selectTarget');
 const enemies = [
-  createUnit({ name: 'Canavar 1', side: 'enemy', maxHp: 100, hp: 100, atk: 20, row: 'front' }),
-  createUnit({ name: 'Canavar 2', side: 'enemy', maxHp: 100, hp: 100, atk: 20, row: 'back' })
+  createUnit({ name: 'Canavar 1', side: 'enemy', maxHp: 100, hp: 100, atk: 20 }),
+  createUnit({ name: 'Canavar 2', side: 'enemy', maxHp: 100, hp: 60, atk: 20 })
 ];
 
-const attackerDummy = createUnit({ name: 'Saldırgan', side: 'ally', atk: 25, row: 'front' });
+const attackerDummy = createUnit({ name: 'Saldırgan', side: 'ally', atk: 25 });
 
-// Ön saf canlıyken hedef daima ön saftan seçilmeli
-let frontTargetCount = 0;
-for (let i = 0; i < 20; i++) {
-  const target = selectTarget(attackerDummy, enemies, () => 0.1); // 0.1 < FRONTLINE_COVER
-  if (target.name === 'Canavar 1') frontTargetCount++;
-}
-assert.ok(frontTargetCount > 0, 'Ön saf canlıyken ön saftaki hedef seçilmeli');
+// Saf kısıtlaması olmadan herhangi bir canlı hedef seçilebilmeli
+const target1 = selectTarget(attackerDummy, enemies, () => 0.1);
+const target2 = selectTarget(attackerDummy, enemies, () => 0.9);
+assert.ok(target1 && target2, 'Canlı hedefler başarıyla seçilmeli');
 
-// Ön saf öldüğünde arka saf hedeflenmeli
-enemies[0].hp = 0;
-const targetAfterFrontDeath = selectTarget(attackerDummy, enemies, () => 0.5);
-assert.strictEqual(targetAfterFrontDeath.name, 'Canavar 2', 'Ön saf ölünce arka saf hedeflenmeli');
-console.log('  ✅ Ön saf (front row) arkadaki birimleri başarıyla koruyor.');
+// Delici/İnfazcı saldırı en düşük can oranına sahip olanı seçmeli (Canavar 2: %60 HP vs Canavar 1: %100 HP)
+const piercingTarget = selectTarget(attackerDummy, enemies, () => 0.1, { piercing: true });
+assert.strictEqual(piercingTarget.name, 'Canavar 2', 'Piercing saldırı en düşük canlıyı hedeflemeli');
+
+console.log('  ✅ Ön/arka saf kısıtlaması olmadan serbest hedef seçimi ve piercing başarıyla doğrulandı.');
 
 // --------------------------------------------------------------------------
 // TEST 3: Sıra Tabanlı Savaş & Müttefik Yetenek Tetiklenmesi

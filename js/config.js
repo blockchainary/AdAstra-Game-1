@@ -386,7 +386,7 @@ export const GAME_CONFIG = {
       costAdAstra: 30,
       hp: 120,
       atk: 25,
-      desc: 'Yüksek can havuzuyla ön safta düşman darbelerini karşılar.'
+      desc: 'Yüksek can havuzuyla düşman darbelerini karşılar.'
     },
     archer: {
       id: 'archer',

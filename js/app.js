@@ -2729,9 +2729,6 @@ function renderBarracksHtml() {
               </div>
             </div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-              <button class="btn-clean btn-toggle-soldier-row" data-soldier-idx="${actualSelectedIndex}" style="padding: 6px 12px; font-size: 0.8rem; font-weight: 800; background: ${selectedSoldier.row === 'back' ? 'rgba(56,189,248,0.2)' : 'rgba(245,158,11,0.2)'}; border: 1.5px solid ${selectedSoldier.row === 'back' ? '#38bdf8' : '#f59e0b'}; color: ${selectedSoldier.row === 'back' ? '#38bdf8' : '#fde047'}; cursor: pointer;">
-                ${selectedSoldier.row === 'back' ? '🏹 Arka Saf (Tıkla: Öne Al)' : '🛡️ Ön Saf (Tıkla: Arkaya Al)'}
-              </button>
               <span class="card-badge" style="color: #ef4444; font-size: 0.82rem; padding: 4px 10px;">⚔️ ${soldierStats.totalAtk} Toplam ATK</span>
               <span class="card-badge" style="color: #22c55e; font-size: 0.82rem; padding: 4px 10px;">❤️ ${soldierStats.totalMaxHp} Toplam HP</span>
             </div>
@@ -2743,9 +2740,6 @@ function renderBarracksHtml() {
               <div style="font-weight: 800; font-size: 0.86rem; color: #c084fc; display: flex; align-items: center; gap: 6px;">
                 <span>⚡ Taktiksel Yetenek Yükü (Skill Loadout)</span>
                 <span style="font-size: 0.72rem; color: #94a3b8; font-weight: normal;">(Max 3 Aktif + 1 Pasif)</span>
-              </div>
-              <div style="font-size: 0.72rem; color: #38bdf8;">
-                Mevzi: <strong>${selectedSoldier.row === 'back' ? 'Arka Saf' : 'Ön Saf'}</strong>
               </div>
             </div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -5184,7 +5178,6 @@ function openPreBattleModal(monster) {
         ${soldiers.map((sol, idx) => {
           const stats = gameState.getSoldierFullStats(idx);
           const isChecked = preBattleSelectedSoldiers.includes(idx);
-          const isBackRow = sol.row === 'back';
           const skillIcons = (sol.skills || ['shieldWall']).map(skId => (PLAYER_SKILLS[skId]?.icon || '⚡')).join(' ');
           return `
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; background:rgba(30,41,59,0.5); padding:6px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
@@ -5196,9 +5189,6 @@ function openPreBattleModal(monster) {
                   <div style="font-size:0.7rem; color:#94a3b8;">${sol.hp || 100} HP • <span style="color:#fde047;">${stats?.totalAtk || 20} ATK</span> • <span title="Yetenekler">${skillIcons}</span></div>
                 </div>
               </label>
-              <button type="button" class="btn-clean btn-toggle-prebattle-row" data-idx="${idx}" style="padding:4px 8px; font-size:0.72rem; width:auto; font-weight:700; background:${isBackRow ? 'rgba(56,189,248,0.2)' : 'rgba(245,158,11,0.2)'}; border:1px solid ${isBackRow ? '#38bdf8' : '#f59e0b'}; color:${isBackRow ? '#38bdf8' : '#fde047'};" title="Mevziyi Değiştir">
-                ${isBackRow ? '🏹 Arka Saf' : '🛡️ Ön Saf'}
-              </button>
             </div>
           `;
         }).join('')}
@@ -5270,20 +5260,6 @@ function openPreBattleModal(monster) {
         preBattleSelectedSoldiers = preBattleSelectedSoldiers.filter(i => i !== idx);
       }
       openPreBattleModal(monster);
-    });
-  });
-
-  document.querySelectorAll('.btn-toggle-prebattle-row').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      const idx = parseInt(btn.dataset.idx, 10);
-      const sol = (gameState.state.soldierUnits || [])[idx];
-      if (sol) {
-        const nextRow = sol.row === 'back' ? 'front' : 'back';
-        gameState.setSoldierRow(idx, nextRow);
-        openPreBattleModal(monster);
-      }
     });
   });
 
@@ -6474,22 +6450,6 @@ function initAppEvents() {
         showToast(res.message, 'error');
       }
       renderTopBar();
-      return;
-    }
-
-    // 🛡️ Asker Formasyon Mevzisi Değiştirme (Ön Saf / Arka Saf)
-    const toggleSoldierRowBtn = e.target.closest('.btn-toggle-soldier-row');
-    if (toggleSoldierRowBtn) {
-      const sIdx = parseInt(toggleSoldierRowBtn.dataset.soldierIdx, 10);
-      const soldier = (gameState.state.soldierUnits || [])[sIdx];
-      if (soldier) {
-        const nextRow = soldier.row === 'back' ? 'front' : 'back';
-        const res = gameState.setSoldierRow(sIdx, nextRow);
-        if (res.success) {
-          showToast(`🛡️ ${soldier.name} mevzisi: ${nextRow === 'back' ? '🏹 Arka Saf' : '🛡️ Ön Saf'} olarak ayarlandı.`, 'info');
-          openBarracksModal();
-        }
-      }
       return;
     }
 
