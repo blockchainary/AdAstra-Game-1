@@ -2795,6 +2795,33 @@ function renderBarracksHtml() {
         ${overviewHudHtml}
         ${quickActionsHtml}
 
+        ${(() => {
+          const combatPresets = gameState.getCombatPresets();
+          const activePresetId = combatPresets?.activePresetId || 1;
+          const curPresetObj = combatPresets?.presets?.[activePresetId] || { name: `Taktik ${activePresetId}` };
+          return `
+            <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(15,23,42,0.7); padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); margin-bottom:10px; flex-wrap:wrap; gap:6px;">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-size:0.8rem; font-weight:800; color:#38bdf8;">🎯 Taktiksel Savaş Preseti:</span>
+                <div style="display:flex; gap:4px;">
+                  ${[1, 2, 3].map(pid => {
+                    const p = combatPresets.presets?.[pid] || { name: `Taktik ${pid}` };
+                    const isActive = pid === activePresetId;
+                    return `
+                      <button type="button" class="btn-clean btn-barracks-preset ${isActive ? 'btn-clean-gold' : 'btn-clean-outline'}" data-preset="${pid}" style="padding:4px 9px; font-size:0.75rem; font-weight:800; width:auto; border-radius:6px;" title="${p.name}">
+                        ${pid === 1 ? '🛡️' : pid === 2 ? '⚔️' : '🏹'} P${pid}: ${p.name}
+                      </button>
+                    `;
+                  }).join('')}
+                </div>
+              </div>
+              <button type="button" id="btn-save-barracks-preset" class="btn-clean btn-clean-sm" style="padding:4px 10px; font-size:0.75rem; width:auto; background:rgba(34,197,94,0.18); border:1px solid #22c55e; color:#4ade80; font-weight:700;" title="Mevcut ordu dizilimini P${activePresetId}'e kaydet">
+                💾 P${activePresetId}'e Kaydet
+              </button>
+            </div>
+          `;
+        })()}
+
         <div class="clean-card" style="border-color: #38bdf8; margin-bottom: 12px;">
           <div class="card-title-row">
             <div class="card-title">🛡️ Ordu Kadrosu (Asker Seç & Donat)</div>
@@ -2840,6 +2867,9 @@ function renderBarracksHtml() {
               </div>
             </div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+              <button class="btn-clean btn-toggle-soldier-row" data-soldier-idx="${actualSelectedIndex}" style="padding: 6px 12px; font-size: 0.8rem; font-weight: 800; background: ${selectedSoldier.row === 'back' ? 'rgba(56,189,248,0.2)' : 'rgba(245,158,11,0.2)'}; border: 1.5px solid ${selectedSoldier.row === 'back' ? '#38bdf8' : '#f59e0b'}; color: ${selectedSoldier.row === 'back' ? '#38bdf8' : '#fde047'}; cursor: pointer;">
+                ${selectedSoldier.row === 'back' ? '🏹 Arka Saf (Tıkla: Öne Al)' : '🛡️ Ön Saf (Tıkla: Arkaya Al)'}
+              </button>
               <span class="card-badge" style="color: #ef4444; font-size: 0.82rem; padding: 4px 10px;">⚔️ ${soldierStats.totalAtk} Toplam ATK</span>
               <span class="card-badge" style="color: #22c55e; font-size: 0.82rem; padding: 4px 10px;">❤️ ${soldierStats.totalMaxHp} Toplam HP</span>
             </div>
@@ -4421,6 +4451,36 @@ function openColosseumModal() {
     const champ = soldiers[selectedColosseumChampionIdx] || soldiers[0];
     const stats = champ ? gameState.getSoldierFullStats(selectedColosseumChampionIdx) : null;
     const isWounded = champ && (champ.hp || champ.maxHp || 100) < (champ.maxHp || 100);
+    const isBackRow = champ && champ.row === 'back';
+
+    const combatPresets = gameState.getCombatPresets();
+    const activePresetId = combatPresets?.activePresetId || 1;
+    const curPresetObj = combatPresets?.presets?.[activePresetId] || { name: `Taktik ${activePresetId}` };
+
+    const colosseumPresetHtml = `
+      <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(15,23,42,0.6); padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); margin-bottom:10px; flex-wrap:wrap; gap:6px;">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-size:0.75rem; font-weight:800; color:#cbd5e1;">🎯 Taktiksel Preset:</span>
+          <div style="display:flex; gap:4px;">
+            ${[1, 2, 3].map(pid => {
+              const p = combatPresets.presets?.[pid] || { name: `Taktik ${pid}` };
+              const isActive = pid === activePresetId;
+              return `
+                <button type="button" class="btn-clean btn-colosseum-preset ${isActive ? 'btn-clean-gold' : 'btn-clean-outline'}" data-preset="${pid}" style="padding:3px 8px; font-size:0.72rem; font-weight:800; width:auto; border-radius:6px;" title="${p.name}">
+                  ${pid === 1 ? '🛡️' : pid === 2 ? '⚔️' : '🏹'} P${pid}
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-size:0.72rem; color:#fde047; font-weight:700;">${curPresetObj.name}</span>
+          <button type="button" id="btn-save-colosseum-preset" class="btn-clean btn-clean-sm" style="padding:3px 8px; font-size:0.7rem; width:auto; background:rgba(34,197,94,0.18); border:1px solid #22c55e; color:#4ade80; font-weight:700;" title="Mevcut dizilimi P${activePresetId}'e kaydet">
+            💾 P${activePresetId}'e Kaydet
+          </button>
+        </div>
+      </div>
+    `;
 
     contentHtml = `
       <div class="clean-card" style="border-color: #ef4444; background: #1c1012;">
@@ -4432,6 +4492,8 @@ function openColosseumModal() {
           En güçlü şampiyonunu kuşanmış 5 parça teçhizatıyla sahaya sür! 'Kolezyuma Çık' düğmesine bastığında sistem canlı eşleşme yapar ve 1v1 savaş başlar. Savaşta yaralanan şampiyonların canı depodaki buğday ile 18 saatlik tedavi sürecinde iyileşir.
         </div>
       </div>
+
+      ${colosseumPresetHtml}
 
       ${isArmyStaked ? `
         <div class="clean-card" style="background: #1c0a0a; border: 1px solid #ef4444; padding: 20px; text-align: center;">
@@ -4447,15 +4509,20 @@ function openColosseumModal() {
       ` : hasSoldiers ? `
         <!-- Şampiyon Seçim Kartı -->
         <div class="clean-card" style="background: #140e08; border-color: #ca8a04;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap:wrap; gap:6px;">
             <div style="font-weight: 800; font-size: 0.95rem; color: #fde047;">🛡️ Arenaya Çıkacak Şampiyonun:</div>
-            <select id="colosseum-champion-select" style="background: #24140b; color: #fff; border: 1.5px solid #ca8a04; padding: 5px 10px; border-radius: 6px; font-family: var(--font-game); font-size: 0.85rem;">
-              ${soldiers.map((s, idx) => `
-                <option value="${idx}" ${idx === selectedColosseumChampionIdx ? 'selected' : ''}>
-                  ${s.name} (Lv.${s.level} - HP: ${s.hp || s.maxHp || 100}/${s.maxHp || 100})
-                </option>
-              `).join('')}
-            </select>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <select id="colosseum-champion-select" style="background: #24140b; color: #fff; border: 1.5px solid #ca8a04; padding: 5px 10px; border-radius: 6px; font-family: var(--font-game); font-size: 0.85rem;">
+                ${soldiers.map((s, idx) => `
+                  <option value="${idx}" ${idx === selectedColosseumChampionIdx ? 'selected' : ''}>
+                    ${s.name} (Lv.${s.level} - HP: ${s.hp || s.maxHp || 100}/${s.maxHp || 100})
+                  </option>
+                `).join('')}
+              </select>
+              <button type="button" id="btn-toggle-colosseum-champ-row" class="btn-clean" style="padding: 4px 8px; font-size: 0.72rem; width: auto; font-weight: 700; background: ${isBackRow ? 'rgba(56,189,248,0.2)' : 'rgba(245,158,11,0.2)'}; border: 1px solid ${isBackRow ? '#38bdf8' : '#f59e0b'}; color: ${isBackRow ? '#38bdf8' : '#fde047'}; cursor: pointer;" title="Şampiyonun Mevzisini Değiştir">
+                ${isBackRow ? '🏹 Arka Saf' : '🛡️ Ön Saf'}
+              </button>
+            </div>
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px;">
@@ -4468,8 +4535,8 @@ function openColosseumModal() {
               <div style="font-size: 1.1rem; font-weight: 800; color: ${champ.hp <= 25 ? '#ef4444' : '#38bdf8'};">❤️ ${champ.hp || champ.maxHp || 100}/${champ.maxHp || 100}</div>
             </div>
             <div style="background: #0f0a06; padding: 8px 10px; border-radius: 6px; border: 1px solid #4a250a; text-align: center;">
-              <div style="font-size: 0.75rem; color: #94a3b8;">Set Bonusu</div>
-              <div style="font-size: 1.1rem; font-weight: 800; color: #facc15;">🛡️ ${stats ? stats.setCount : 0}/5 Dövme</div>
+              <div style="font-size: 0.75rem; color: #94a3b8;">Mevzi / Saf</div>
+              <div style="font-size: 1.05rem; font-weight: 800; color: ${isBackRow ? '#38bdf8' : '#fde047'};">${isBackRow ? '🏹 Arka Saf' : '🛡️ Ön Saf'}</div>
             </div>
           </div>
 
@@ -4504,6 +4571,50 @@ function openColosseumModal() {
   const battlefieldColBtn = document.getElementById('btn-goto-battlefield-colosseum');
   if (battlefieldColBtn) {
     battlefieldColBtn.addEventListener('click', openBattlefieldModal);
+  }
+
+  // 🎯 Kolezyum Preset Seçimi (P1, P2, P3)
+  document.querySelectorAll('.btn-colosseum-preset').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const pid = parseInt(btn.dataset.preset, 10);
+      const res = gameState.applyCombatPreset(pid);
+      if (res.success) {
+        showToast(res.message, 'info');
+        openColosseumModal();
+      }
+    });
+  });
+
+  // 💾 Kolezyum Presete Kaydetme
+  const colSaveBtn = document.getElementById('btn-save-colosseum-preset');
+  if (colSaveBtn) {
+    colSaveBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const activeId = gameState.state.combatPresets?.activePresetId || 1;
+      const res = gameState.saveCombatPreset(activeId);
+      if (res.success) {
+        showToast(res.message, 'success');
+        openColosseumModal();
+      }
+    });
+  }
+
+  // 🛡️ Şampiyon Mevzi Değiştirme (Ön Saf / Arka Saf)
+  const champRowBtn = document.getElementById('btn-toggle-colosseum-champ-row');
+  if (champRowBtn) {
+    champRowBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const sol = (gameState.state.soldierUnits || [])[selectedColosseumChampionIdx];
+      if (sol) {
+        const nextRow = sol.row === 'back' ? 'front' : 'back';
+        gameState.setSoldierRow(selectedColosseumChampionIdx, nextRow);
+        openColosseumModal();
+      }
+    });
   }
 
   // Şampiyon Seçimi Değişince
@@ -5337,35 +5448,69 @@ function openPreBattleModal(monster) {
         🌋 Savaş Alanı & World Boss'a Git
       </button>
     </div>
-  ` : `
-    <div class="prebattle-army-panel">
-      <div style="font-weight:800; font-size:0.9rem; color:#34d399; margin-bottom:6px; display:flex; justify-content:space-between;">
-        <span>🛡️ Savaşa Girecek Askerler (${preBattleSelectedSoldiers.length}/${totalSoldiers})</span>
-      </div>
+  ` : (() => {
+    const combatPresets = gameState.getCombatPresets();
+    const activePresetId = combatPresets?.activePresetId || 1;
+    const curPresetObj = combatPresets?.presets?.[activePresetId] || { name: `Taktik ${activePresetId}` };
 
-      ${activeWeaponsPreviewHtml}
-
-      <div style="max-height:260px; overflow-y:auto; padding-right:4px;">
-        ${soldiers.map((sol, idx) => {
-          const stats = gameState.getSoldierFullStats(idx);
-          const isChecked = preBattleSelectedSoldiers.includes(idx);
-          const skillIcons = (sol.skills || ['shieldWall']).map(skId => (PLAYER_SKILLS[skId]?.icon || '⚡')).join(' ');
-          return `
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; background:rgba(30,41,59,0.5); padding:6px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
-              <label style="display:flex; align-items:center; gap:8px; flex:1; cursor:pointer; margin:0;">
-                <input type="checkbox" class="prebattle-sol-check" data-idx="${idx}" ${isChecked ? 'checked' : ''}>
-                <span style="font-size:1.1rem;">${sol.icon || '⚔️'}</span>
-                <div style="flex:1;">
-                  <div style="font-weight:700; font-size:0.82rem; color:#fff;">#${idx+1} ${sol.name}</div>
-                  <div style="font-size:0.7rem; color:#94a3b8;">${sol.hp || 100} HP • <span style="color:#fde047;">${stats?.totalAtk || 20} ATK</span> • <span title="Yetenekler">${skillIcons}</span></div>
-                </div>
-              </label>
-            </div>
-          `;
-        }).join('')}
+    const presetSelectorHtml = `
+      <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(15,23,42,0.6); padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-size:0.75rem; font-weight:800; color:#cbd5e1;">🎯 Taktik:</span>
+          <div style="display:flex; gap:4px;">
+            ${[1, 2, 3].map(pid => {
+              const p = combatPresets.presets?.[pid] || { name: `Taktik ${pid}` };
+              const isActive = pid === activePresetId;
+              return `
+                <button type="button" class="btn-clean btn-prebattle-preset ${isActive ? 'btn-clean-gold' : 'btn-clean-outline'}" data-preset="${pid}" style="padding:3px 8px; font-size:0.72rem; font-weight:800; width:auto; border-radius:6px;" title="${p.name}">
+                  ${pid === 1 ? '🛡️' : pid === 2 ? '⚔️' : '🏹'} P${pid}
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </div>
+        <button type="button" id="btn-save-prebattle-preset" class="btn-clean btn-clean-sm" style="padding:3px 8px; font-size:0.7rem; width:auto; background:rgba(34,197,94,0.18); border:1px solid #22c55e; color:#4ade80; font-weight:700;" title="Mevcut ön/arka saf dizilimini P${activePresetId}'e kaydet">
+          💾 P${activePresetId}'e Kaydet
+        </button>
       </div>
-    </div>
-  `;
+    `;
+
+    return `
+      <div class="prebattle-army-panel">
+        <div style="font-weight:800; font-size:0.9rem; color:#34d399; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+          <span>🛡️ Savaşa Girecek Askerler (${preBattleSelectedSoldiers.length}/${totalSoldiers})</span>
+          <span style="font-size:0.75rem; color:#fde047; font-weight:700;">${curPresetObj.name}</span>
+        </div>
+
+        ${presetSelectorHtml}
+        ${activeWeaponsPreviewHtml}
+
+        <div style="max-height:260px; overflow-y:auto; padding-right:4px;">
+          ${soldiers.map((sol, idx) => {
+            const stats = gameState.getSoldierFullStats(idx);
+            const isChecked = preBattleSelectedSoldiers.includes(idx);
+            const isBackRow = sol.row === 'back';
+            const skillIcons = (sol.skills || ['shieldWall']).map(skId => (PLAYER_SKILLS[skId]?.icon || '⚡')).join(' ');
+            return `
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; background:rgba(30,41,59,0.5); padding:6px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
+                <label style="display:flex; align-items:center; gap:8px; flex:1; cursor:pointer; margin:0;">
+                  <input type="checkbox" class="prebattle-sol-check" data-idx="${idx}" ${isChecked ? 'checked' : ''}>
+                  <span style="font-size:1.1rem;">${sol.icon || '⚔️'}</span>
+                  <div style="flex:1;">
+                    <div style="font-weight:700; font-size:0.82rem; color:#fff;">#${idx+1} ${sol.name}</div>
+                    <div style="font-size:0.7rem; color:#94a3b8;">${sol.hp || 100} HP • <span style="color:#fde047;">${stats?.totalAtk || 20} ATK</span> • <span title="Yetenekler">${skillIcons}</span></div>
+                  </div>
+                </label>
+                <button type="button" class="btn-clean btn-toggle-prebattle-row" data-idx="${idx}" style="padding:4px 8px; font-size:0.72rem; width:auto; font-weight:700; background:${isBackRow ? 'rgba(56,189,248,0.2)' : 'rgba(245,158,11,0.2)'}; border:1px solid ${isBackRow ? '#38bdf8' : '#f59e0b'}; color:${isBackRow ? '#38bdf8' : '#fde047'}; cursor:pointer;" title="Mevziyi Değiştir (Ön Saf / Arka Saf)">
+                  ${isBackRow ? '🏹 Arka Saf' : '🛡️ Ön Saf'}
+                </button>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  })()
 
   const isStaminaInsufficient = !staminaCheck.canEnter && selectedCount > 0;
   const isStartDisabled = totalSoldiers === 0 || isArmyStaked || selectedCount === 0 || isStaminaInsufficient;
@@ -5431,6 +5576,50 @@ function openPreBattleModal(monster) {
         preBattleSelectedSoldiers = preBattleSelectedSoldiers.filter(i => i !== idx);
       }
       openPreBattleModal(monster);
+    });
+  });
+
+  // 🎯 Preset Seçimi (P1, P2, P3)
+  document.querySelectorAll('.btn-prebattle-preset').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const pid = parseInt(btn.dataset.preset, 10);
+      const res = gameState.applyCombatPreset(pid);
+      if (res.success) {
+        showToast(res.message, 'info');
+        openPreBattleModal(monster);
+      }
+    });
+  });
+
+  // 💾 Mevcut Dizilimi Presete Kaydetme
+  const preSaveBtn = document.getElementById('btn-save-prebattle-preset');
+  if (preSaveBtn) {
+    preSaveBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const activeId = gameState.state.combatPresets?.activePresetId || 1;
+      const res = gameState.saveCombatPreset(activeId);
+      if (res.success) {
+        showToast(res.message, 'success');
+        openPreBattleModal(monster);
+      }
+    });
+  }
+
+  // 🛡️ Tekil Asker Safı Değiştirme (Ön Saf / Arka Saf)
+  document.querySelectorAll('.btn-toggle-prebattle-row').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const idx = parseInt(btn.dataset.idx, 10);
+      const sol = (gameState.state.soldierUnits || [])[idx];
+      if (sol) {
+        const nextRow = sol.row === 'back' ? 'front' : 'back';
+        gameState.setSoldierRow(idx, nextRow);
+        openPreBattleModal(monster);
+      }
     });
   });
 
@@ -6621,6 +6810,46 @@ function initAppEvents() {
         showToast(res.message, 'error');
       }
       renderTopBar();
+      return;
+    }
+
+    // 🛡️ Asker Formasyon Mevzisi Değiştirme (Ön Saf / Arka Saf)
+    const toggleSoldierRowBtn = e.target.closest('.btn-toggle-soldier-row');
+    if (toggleSoldierRowBtn) {
+      const sIdx = parseInt(toggleSoldierRowBtn.dataset.soldierIdx, 10);
+      const soldier = (gameState.state.soldierUnits || [])[sIdx];
+      if (soldier) {
+        const nextRow = soldier.row === 'back' ? 'front' : 'back';
+        const res = gameState.setSoldierRow(sIdx, nextRow);
+        if (res.success) {
+          showToast(`🛡️ ${soldier.name} mevzisi: ${nextRow === 'back' ? '🏹 Arka Saf' : '🛡️ Ön Saf'} olarak ayarlandı.`, 'info');
+          openBarracksModal();
+        }
+      }
+      return;
+    }
+
+    // 🎯 Kışla Preset Seçimi (P1, P2, P3)
+    const barracksPresetBtn = e.target.closest('.btn-barracks-preset');
+    if (barracksPresetBtn) {
+      const pid = parseInt(barracksPresetBtn.dataset.preset, 10);
+      const res = gameState.applyCombatPreset(pid);
+      if (res.success) {
+        showToast(res.message, 'info');
+        openBarracksModal();
+      }
+      return;
+    }
+
+    // 💾 Kışla Presete Kaydetme
+    const barracksSavePresetBtn = e.target.closest('#btn-save-barracks-preset');
+    if (barracksSavePresetBtn) {
+      const activeId = gameState.state.combatPresets?.activePresetId || 1;
+      const res = gameState.saveCombatPreset(activeId);
+      if (res.success) {
+        showToast(res.message, 'success');
+        openBarracksModal();
+      }
       return;
     }
 

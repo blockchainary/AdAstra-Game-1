@@ -566,6 +566,7 @@ export const GAME_CONFIG = {
     // Alan hasarı en fazla 4 hedef vurur. Sınırsız bırakılırsa "yarma" saldırısı
     // ordu büyüklüğüyle doğrusal ölçeklenir ve 18 kişilik kadro cezalandırılır.
     MAX_AOE_TARGETS: 4,
+    FRONTLINE_COVER: 0.85,      // Ön saf ayaktayken %85 ön safa, %15 arka safa sızma koruması
     RAGE_AFTER_ROUND: 12,       // 12. turdan sonra düşman her tur güçlenir
     RAGE_PER_ROUND: 0.18,
     // Yenilgi bedeli: ölüm yok ama "yaralı" durumu var
@@ -978,6 +979,18 @@ export const GAME_CONFIG = {
         'Böylece hesap seviyesi kaç olursa olsun, silo yükseltildiğinde botun hammadde yetersizliğinden durma problemi kökünden çözüldü.',
         'Yeni seviye bazlı dinamik tamirat rezervi bağımsız birim testleriyle (test_bot_dual_auto_buy_resource_deficit.mjs) %100 başarıyla doğrulandı.'
       ]
+    },
+    {
+      version: 'v1.22',
+      title: '🛡️ Zindan & Kolezyum Ön Saf / Arka Saf Mevzi Sistemi & 3 Farklı Taktiksel Savaş Preseti',
+      date: 'Eylül 2026',
+      changes: [
+        'Zindan ve Kolezyum savaşlarındaki Ön Saf / Arka Saf (Frontline / Backline) mevzi mekanizması taktiksel derinliği artırmak üzere tam kapasite geri getirildi.',
+        'Ön saf ayaktayken arka safı koruyan siper mekanizması devrede: düşman normal saldırılarının %85\'i ön safa yönelir, ön saf çöktüğünde arka saf açığa çıkar; delici saldırılar doğrudan arka safı hedefler.',
+        '3 Farklı Taktiksel Savaş Preseti (Preset 1, Preset 2, Preset 3): Oyuncular hangi savaşçıların önde hangi savaşçıların arkada duracağını bir kere belirleyip kaydedebilir.',
+        'Hazır Taktik Kolaylığı: İster Zindan ister Kolezyum öncesi tek tıkla Preset 1, 2 veya 3 seçilerek savaşlara zahmetsizce girilebilir.',
+        'Kışla, Zindan savaş hazırlık ve Kolezyum arayüzlerine dinamik ön/arka saf değiştiriciler ve preset yönetim butonları entegre edildi.'
+      ]
     }
   ],
 
@@ -992,6 +1005,13 @@ export const GAME_CONFIG = {
 
   // 📢 Canlı Gösterge Paneli / Marquee Uyarı ve Duyurular
   ANNOUNCEMENTS: [
+    {
+      id: 'v122_combat_presets',
+      badge: '🛡️ v1.22 YAYINDA',
+      text: 'Zindan ve Kolezyum savaşlarında Ön Saf / Arka Saf mevzi sistemi geri döndü! 3 Adet Taktiksel Savaş Preseti ile ordu dizilimini kaydet, zindan ve kolezyumda tek tıkla hazır taktiklerinle savaşa gir!',
+      active: true,
+      priority: 1
+    },
     {
       id: 'audit_risk_warning',
       badge: '🚨 GÜVENLİK & RİSK UYARISI',

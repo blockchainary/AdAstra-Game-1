@@ -60,9 +60,10 @@ export const DEFAULT_BOSS_PHASES = {
     {
       atPct: 0.25,
       name: 'Kıyamet Alevi',
-      text: 'IGNIS son nefesinde tüm savaş alanını alevlere boğdu! (Sersemletme Darbesi)',
+      text: 'IGNIS son nefesinde tüm ön safı alevlere boğdu! (Sersemletme Darbesi)',
       onEnter({ allies, log, rng }) {
-        const targets = allies.filter(isAlive);
+        const front = allies.filter(isAlive).filter(u => u.row === 'front');
+        const targets = front.length > 0 ? front : allies.filter(isAlive);
         targets.forEach(a => {
           if (rng() < 0.75) {
             addStatus(a, { type: 'stun', turns: 1, stackable: false });
@@ -161,7 +162,9 @@ function effectiveSpeed(unit) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Hedef seçimi (Saf / Sıra kısıtlaması kaldırıldı, tüm hedefler serbest)
+// Hedef seçimi — ÖN SAF / ARKA SAF MEVZİ MEKANİZMASI
+// Ön saf ayaktayken arka saf korunur (%85 ön safa yönelme, %15 sızma).
+// Ön saf çöktüğünde arka saf açığa çıkar; delici saldırılar doğrudan arka safı hedefler.
 // ─────────────────────────────────────────────────────────────────────────
 export function selectTarget(attacker, enemies, rng = Math.random, { piercing = false } = {}) {
   const alive = enemies.filter(isAlive);
@@ -171,12 +174,25 @@ export function selectTarget(attacker, enemies, rng = Math.random, { piercing = 
   const taunters = alive.filter(u => hasStatus(u, 'taunt'));
   if (taunters.length > 0) return taunters[Math.floor(rng() * taunters.length)];
 
-  // Delici saldırılar en düşük canlıyı hedefler (infazcı davranışı)
+  // Delici saldırılar doğrudan arka safı vurur / en düşük canlıyı hedefler (infazcı davranışı)
   if (piercing) {
-    return alive.reduce((a, b) => (a.hp / a.maxHp <= b.hp / b.maxHp ? a : b));
+    const back = alive.filter(u => u.row === 'back');
+    const pool = back.length > 0 ? back : alive;
+    return pool.reduce((a, b) => (a.hp / a.maxHp <= b.hp / b.maxHp ? a : b));
   }
 
-  // Tüm canlı düşmanlar eşit şekilde hedeflenir
+  // Ön saf ayaktayken arka saf korunur (%85 ön saf, %15 sızma)
+  const front = alive.filter(u => u.row === 'front');
+  if (front.length > 0) {
+    const coverRate = (GAME_CONFIG.COMBAT && GAME_CONFIG.COMBAT.FRONTLINE_COVER != null)
+      ? GAME_CONFIG.COMBAT.FRONTLINE_COVER
+      : 0.85;
+    if (rng() < coverRate) {
+      return front[Math.floor(rng() * front.length)];
+    }
+  }
+
+  // Ön saf yoksa veya %15 sızma gerçekleştiyse tüm canlı düşmanlar serbest hedeflenir
   return alive[Math.floor(rng() * alive.length)];
 }
 
@@ -296,10 +312,12 @@ export const PLAYER_SKILLS = {
     icon: '⚡',
     role: 'AoE Temizleme',
     cooldown: 3,
-    desc: 'Düşmanlardan en fazla 3 hedefe alan hasarı vurur.',
+    desc: 'Ön saftaki en fazla 3 hedefe alan hasarı vurur.',
     execute(self, allies, enemies, rng, log) {
       const alive = enemies.filter(isAlive);
-      const targets = alive.slice(0, 3);
+      const front = alive.filter(u => u.row === 'front');
+      const pool = front.length > 0 ? front : alive;
+      const targets = pool.slice(0, 3);
       if (targets.length === 0) return false;
       log.push({
         type: 'ability', ability: 'Şok Dalgası', icon: '⚡',
@@ -445,10 +463,13 @@ const MONSTER_ABILITIES = {
   // seviyeye zıplar (kalabalık kadro cezalandırılır, tek hedefli boss ezilir).
   cleave(self, allies, enemies, rng, log) {
     const alive = enemies.filter(isAlive);
-    const targets = alive.slice(0, GAME_CONFIG.COMBAT.MAX_AOE_TARGETS);
+    const front = alive.filter(u => u.row === 'front');
+    const pool = front.length > 0 ? front : alive;
+    const rest = alive.filter(u => !pool.includes(u));
+    const targets = [...pool, ...rest].slice(0, GAME_CONFIG.COMBAT.MAX_AOE_TARGETS || 4);
     if (targets.length === 0) return false;
     log.push({ type: 'ability', ability: 'Yarma Darbesi', icon: '💥', actor: self.name, actorIcon: self.icon, actorSide: self.side,
-      text: `${self.name} geniş bir yay çizerek ${targets.length} birimi biçti!` });
+      text: `${self.name} geniş bir yay çizerek ön safta ${targets.length} birimi biçti!` });
     targets.forEach(t => applyDamage(self, t, effectiveAtk(self) * 0.62, rng, log, { label: 'Yarma Darbesi' }));
     return true;
   },
@@ -479,12 +500,12 @@ const MONSTER_ABILITIES = {
     addStatus(t, { type: 'stun', turns: 1, stackable: false });
     return true;
   },
-  // En zayıf hedefi hedefler
+  // Arka safı hedefler
   swoop(self, allies, enemies, rng, log) {
     const t = selectTarget(self, enemies, rng, { piercing: true });
     if (!t) return false;
     log.push({ type: 'ability', ability: 'Kanat Dalışı', icon: '🦅', actor: self.name, actorIcon: self.icon, actorSide: self.side,
-      text: `${self.name} hızla süzülerek ${t.name}'e daldı!` });
+      text: `${self.name} ön safı aşıp arka safa daldı!` });
     applyDamage(self, t, effectiveAtk(self) * 1.35, rng, log, { label: 'Kanat Dalışı' });
     return true;
   }

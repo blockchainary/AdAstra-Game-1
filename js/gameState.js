@@ -78,6 +78,7 @@ export class GameStateManager {
       armoryInventory: Array.isArray(parsed.armoryInventory) ? parsed.armoryInventory : [],
       collectionArtifacts: this.mergeCollectionArtifacts(parsed.collectionArtifacts),
       soldierUnits: this.mergeSoldierUnits(parsed.soldierUnits),
+      combatPresets: this.mergeCombatPresets(parsed.combatPresets),
       dungeonMonsterCurrentHp: parsed.dungeonMonsterCurrentHp || {},
       lotteryTickets: parsed.lotteryTickets || 0,
       lotteryPool: (parsed.lotteryPool != null && parsed.lotteryPool >= 20000000) ? parsed.lotteryPool : (GAME_CONFIG.LOTTERY?.SEED_POOL_ADA || 20000000),
@@ -91,6 +92,32 @@ export class GameStateManager {
       burnedResources: parsed.burnedResources || { wood: 0, iron: 0, wheat: 0 },
       carnivalBurnedResources: parsed.carnivalBurnedResources || { wood: 0, iron: 0, wheat: 0 }
     };
+  }
+
+  // 🛡️ 3 Adet Taktiksel Savaş Preseti (Frontline / Backline Mevzileri)
+  mergeCombatPresets(saved) {
+    const defaultPresets = {
+      activePresetId: 1,
+      presets: {
+        1: { id: 1, name: 'Taktik 1: Dengeli', positions: {} },
+        2: { id: 2, name: 'Taktik 2: Savunma Hattı', positions: {} },
+        3: { id: 3, name: 'Taktik 3: Arka Saf Baskını', positions: {} }
+      }
+    };
+    if (!saved || typeof saved !== 'object') return defaultPresets;
+    const activePresetId = (saved.activePresetId && [1, 2, 3].includes(Number(saved.activePresetId)))
+      ? Number(saved.activePresetId)
+      : 1;
+    const presets = {};
+    [1, 2, 3].forEach(id => {
+      const p = saved.presets?.[id];
+      presets[id] = {
+        id,
+        name: p?.name || defaultPresets.presets[id].name,
+        positions: (p?.positions && typeof p.positions === 'object') ? { ...p.positions } : {}
+      };
+    });
+    return { activePresetId, presets };
   }
 
   // 18 Koleksiyon Eserinin Kayıtlı Keşif Durumunu GAME_CONFIG Listesiyle Birleştirir
@@ -4748,6 +4775,7 @@ export class GameStateManager {
       dungeonProgress: 1,
       collectionArtifacts: this.mergeCollectionArtifacts([]),
       soldierUnits: this.mergeSoldierUnits([]),
+      combatPresets: this.mergeCombatPresets(null),
       armoryInventory: [],
       dungeonMonsterCurrentHp: {},
       lotteryTickets: 0,
@@ -5998,7 +6026,93 @@ export class GameStateManager {
     return newlyUnlocked;
   }
 
-  // 🛡️ Asker Formasyonu (Ön Saf / Arka Saf) Ayarlama
+  // 🛡️ 3 Adet Taktiksel Savaş Preseti (Preset 1, 2, 3) Yönetimi
+  getCombatPresets() {
+    if (!this.state.combatPresets) {
+      this.state.combatPresets = this.mergeCombatPresets(null);
+    }
+    return this.state.combatPresets;
+  }
+
+  // 💾 Mevcut Ordu Formasyonunu Presete Kaydetme (1, 2 veya 3)
+  saveCombatPreset(presetId = 1, customName = null) {
+    const id = Number(presetId) || 1;
+    if (![1, 2, 3].includes(id)) {
+      return { success: false, message: 'Geçersiz preset numarası (1, 2 veya 3 olmalıdır).' };
+    }
+    if (!this.state.combatPresets) {
+      this.state.combatPresets = this.mergeCombatPresets(null);
+    }
+
+    const positions = {};
+    const soldiers = this.state.soldierUnits || [];
+    soldiers.forEach((s, idx) => {
+      const key = s.id || `soldier_${idx}`;
+      positions[key] = s.row === 'back' ? 'back' : 'front';
+    });
+
+    if (!this.state.combatPresets.presets[id]) {
+      this.state.combatPresets.presets[id] = { id, name: `Taktik ${id}`, positions: {} };
+    }
+
+    this.state.combatPresets.presets[id].positions = positions;
+    if (customName && typeof customName === 'string' && customName.trim()) {
+      this.state.combatPresets.presets[id].name = customName.trim().slice(0, 32);
+    }
+    this.state.combatPresets.activePresetId = id;
+
+    this.saveState();
+    return {
+      success: true,
+      message: `✅ ${this.state.combatPresets.presets[id].name} başarıyla kaydedildi!`,
+      preset: this.state.combatPresets.presets[id],
+      activePresetId: id
+    };
+  }
+
+  // ⚡ Kayıtlı Preseti Orduya Tek Tıkla Uygulama
+  applyCombatPreset(presetId = 1) {
+    const id = Number(presetId) || 1;
+    if (![1, 2, 3].includes(id)) {
+      return { success: false, message: 'Geçersiz preset numarası.' };
+    }
+    if (!this.state.combatPresets) {
+      this.state.combatPresets = this.mergeCombatPresets(null);
+    }
+
+    const p = this.state.combatPresets.presets[id];
+    if (!p) return { success: false, message: 'Preset bulunamadı.' };
+
+    const soldiers = this.state.soldierUnits || [];
+    soldiers.forEach((s, idx) => {
+      const key = s.id || `soldier_${idx}`;
+      if (p.positions && p.positions[key]) {
+        s.row = p.positions[key] === 'back' ? 'back' : 'front';
+      } else {
+        // Önceden bu askerin pozisyonu kaydedilmemişse mantıklı varsayılan
+        if (id === 2) {
+          s.row = 'front'; // Savunma / Hücum Hattı
+        } else if (id === 3) {
+          s.row = idx === 0 ? 'front' : 'back'; // Arka Saf Ağırlıklı
+        } else {
+          s.row = idx < 2 ? 'front' : 'back'; // Dengeli
+        }
+        if (!p.positions) p.positions = {};
+        p.positions[key] = s.row;
+      }
+    });
+
+    this.state.combatPresets.activePresetId = id;
+    this.saveState();
+    return {
+      success: true,
+      message: `🎯 ${p.name} aktif edildi!`,
+      preset: p,
+      activePresetId: id
+    };
+  }
+
+  // 🛡️ Tekil Asker Formasyonu (Ön Saf / Arka Saf) Ayarlama
   setSoldierRow(soldierIdx, row) {
     const s = (this.state.soldierUnits || [])[soldierIdx];
     if (!s) return { success: false, message: 'Asker bulunamadı!' };
