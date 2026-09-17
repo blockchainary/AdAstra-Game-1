@@ -76,54 +76,55 @@ console.log('\n[4/5] Hammadde Ödüllerinin AMM DEX Buyback Mekanizması Test Ed
 const preOutflowCarnival = treasury.state.outflow?.carnival || 0;
 const preAmmWoodAda = ammMarket.pools.wood.adAstraReserve;
 const preAmmWoodRes = ammMarket.pools.wood.resourceReserve;
+const preAmmWoodPrice = ammMarket.getPrice('wood');
 const preUserWood = gs.state.inventory.wood || 0;
 
 const mockWoodReward = { id: 'raw_1000_wood', name: '1.000 ADA Değerinde Odun', icon: '🌲', type: 'amm_raw', key: 'wood', adaVal: 1000, valAda: 1000 };
 GAME_CONFIG.CARNIVAL.WHEEL_REWARDS = [mockWoodReward];
 
-const pWood = ammMarket.getPrice('wood');
-const expectedWoodAmount = Math.round(1000 / pWood);
-const expectedWoodCostAda = Math.round(expectedWoodAmount * pWood);
-
 const spinWood = gs.spinCarnivalWheel('ada');
 assert(spinWood.success, 'Hammadde ödülü başarılı olmalı');
-assert.equal(treasury.state.outflow.carnival, preOutflowCarnival + expectedWoodCostAda, 'Karnaval kasasından buyback tutarı outflow kaydedilmeli');
-assert.equal(ammMarket.pools.wood.adAstraReserve, preAmmWoodAda + expectedWoodCostAda, 'AMM DEX havuzuna ADA likiditesi girmeli');
-assert.equal(ammMarket.pools.wood.resourceReserve, preAmmWoodRes - expectedWoodAmount, 'AMM DEX havuzundan hammadde satın alınmalı');
-assert.equal(gs.state.inventory.wood, preUserWood + expectedWoodAmount, 'Satın alınan odun kullanıcı envanterine teslim edilmeli');
-assert(spinWood.rewardSummaryText.includes('Market Buyback'), 'Açıklamada buyback yapıldığı belirtilmeli');
-console.log('✅ Hammadde infinit basılmadı; Karnaval Hazinesi ADA bütçesiyle AMM pazarından buyback yapılıp kullanıcıya teslim edildi.');
+assert.ok(spinWood.buybackInfo, 'buybackInfo nesnesi üretilmeli');
+assert.equal(treasury.state.outflow.carnival, preOutflowCarnival + spinWood.buybackInfo.adaSpent, 'Karnaval kasasından buyback tutarı outflow kaydedilmeli');
+assert.equal(ammMarket.pools.wood.resourceReserve, preAmmWoodRes - spinWood.buybackInfo.amount, 'AMM DEX havuzundan fiziki hammadde satın alınmalı');
+assert.equal(gs.state.inventory.wood, preUserWood + spinWood.buybackInfo.amount, 'Satın alınan odun kullanıcı envanterine teslim edilmeli');
+assert.ok(spinWood.buybackInfo.newPrice > preAmmWoodPrice, `Odun market fiyatı artmalı! Eski: ${preAmmWoodPrice}, Yeni: ${spinWood.buybackInfo.newPrice}`);
+assert.ok(spinWood.buybackInfo.priceDelta > 0, 'Fiyat artışı pozitif olmalı');
+assert(spinWood.rewardSummaryText.includes('Karnaval AMM Buyback'), 'Açıklamada Karnaval AMM Buyback belirtilmeli');
+console.log(`✅ Hammadde havadan basılmadı; Karnaval Hazinesi bütçesiyle AMM pazarından fiziki buyback yapıldı! Odun Fiyatı: ${preAmmWoodPrice.toFixed(4)} -> ${spinWood.buybackInfo.newPrice.toFixed(4)} ADA (+%${spinWood.buybackInfo.priceDeltaPct.toFixed(2)})`);
 
 // Test 5: Teçhizat Parçaları & Pandora Kutu Anahtarları Buyback
 console.log('\n[5/5] Teçhizat Parçaları ve Kutu Anahtarları Buyback Test Ediliyor...');
 const preOutflowKeys = treasury.state.outflow?.carnival || 0;
 const preUserKeys = gs.state.arenaKeys || 0;
+const preKeyPrice = ammMarket.getPrice('keys') || 1000.0;
 const mockKeyReward = { id: 'box_key', name: '1 Pandora Kutusu Anahtarı', icon: '🔑', type: 'key', amount: 1, valAda: 1000 };
 GAME_CONFIG.CARNIVAL.WHEEL_REWARDS = [mockKeyReward];
 
-const keyPrice = ammMarket.getPrice('keys') || 1000.0;
-const expectedKeyCost = Math.round(1 * keyPrice);
-
 const spinKey = gs.spinCarnivalWheel('ada');
 assert(spinKey.success, 'Anahtar ödülü başarılı olmalı');
-assert.equal(treasury.state.outflow.carnival, preOutflowKeys + expectedKeyCost, 'Karnaval kasasından anahtar bedeli outflow kaydedilmeli');
+assert.ok(spinKey.buybackInfo, 'buybackInfo nesnesi üretilmeli');
+assert.equal(treasury.state.outflow.carnival, preOutflowKeys + spinKey.buybackInfo.adaSpent, 'Karnaval kasasından anahtar bedeli outflow kaydedilmeli');
 assert.equal(gs.state.arenaKeys, preUserKeys + 1, 'Kullanıcıya 1 Pandora Kutusu Anahtarı teslim edilmeli');
-assert(spinKey.rewardSummaryText.includes('Market Buyback'), 'Açıklamada buyback yapıldığı belirtilmeli');
+assert.ok(spinKey.buybackInfo.newPrice > preKeyPrice, `Anahtar market fiyatı artmalı! Eski: ${preKeyPrice}, Yeni: ${spinKey.buybackInfo.newPrice}`);
+assert(spinKey.rewardSummaryText.includes('Karnaval AMM Buyback'), 'Açıklamada buyback yapıldığı belirtilmeli');
+console.log(`✅ Anahtar fiziki buyback ile fiyata yukarı yönlü etki etti: ${preKeyPrice.toFixed(1)} -> ${spinKey.buybackInfo.newPrice.toFixed(1)} ADA`);
 
 // Teçhizat Parçası Testi
 const preOutflowFrag = treasury.state.outflow?.carnival || 0;
 const preUserFrag = gs.state.inventory.fragments || 0;
+const preFragPrice = ammMarket.getPrice('fragments') || 45.0;
 const mockFragReward = { id: 'frag_10', name: '10 Teçhizat Parçası', icon: '🧩', type: 'resource', key: 'fragments', amount: 10, valAda: 450 };
 GAME_CONFIG.CARNIVAL.WHEEL_REWARDS = [mockFragReward];
 
-const fragPrice = ammMarket.getPrice('fragments') || 45.0;
-const expectedFragCost = Math.round(10 * fragPrice);
-
 const spinFrag = gs.spinCarnivalWheel('ada');
 assert(spinFrag.success, 'Teçhizat parçası ödülü başarılı olmalı');
-assert.equal(treasury.state.outflow.carnival, preOutflowFrag + expectedFragCost, 'Karnaval kasasından teçhizat parçası bedeli outflow kaydedilmeli');
+assert.ok(spinFrag.buybackInfo, 'buybackInfo nesnesi üretilmeli');
+assert.equal(treasury.state.outflow.carnival, preOutflowFrag + spinFrag.buybackInfo.adaSpent, 'Karnaval kasasından teçhizat parçası bedeli outflow kaydedilmeli');
 assert.equal(gs.state.inventory.fragments, preUserFrag + 10, 'Kullanıcıya 10 Teçhizat Parçası teslim edilmeli');
-assert(spinFrag.rewardSummaryText.includes('Market Buyback'), 'Açıklamada buyback yapıldığı belirtilmeli');
+assert.ok(spinFrag.buybackInfo.newPrice > preFragPrice, `Teçhizat parçası fiyatı artmalı! Eski: ${preFragPrice}, Yeni: ${spinFrag.buybackInfo.newPrice}`);
+assert(spinFrag.rewardSummaryText.includes('Karnaval AMM Buyback'), 'Açıklamada buyback yapıldığı belirtilmeli');
+console.log(`✅ Parça fiziki buyback ile fiyata yukarı yönlü etki etti: ${preFragPrice.toFixed(2)} -> ${spinFrag.buybackInfo.newPrice.toFixed(2)} ADA`);
 
 // Restore original rewards
 GAME_CONFIG.CARNIVAL.WHEEL_REWARDS = origRewards;

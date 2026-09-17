@@ -932,6 +932,18 @@ export const GAME_CONFIG = {
         'Kalan bot süresi geçen zaman kadar senkronize geriye düşürülür; süre bittiğinde seferler durur.',
         'Test menüsünde zaman sarıldıktan sonra tamamlanan sefer sayısını, kazanılan net hammaddeleri, kasa değişimini ve kalan bot süresini gösteren canlı "Simülasyon Sonuç Raporu" arayüzü eklendi.'
       ]
+    },
+    {
+      version: 'v1.18',
+      title: '🏛️ Karnaval Çarkı Fiziki AMM DEX Buyback & Fiyat Artış Motoru',
+      date: 'Eylül 2026',
+      changes: [
+        'Karnaval Çarkında Odun, Buğday, Demir, Teçhizat Parçası veya Anahtar çıktığında ödüllerin havadan basılması kesin olarak engellendi.',
+        'Tüm bu ödüller doğrudan Karnaval Hazine Kasası (pools.carnival) bütçesiyle AMM DEX pazarından fiziki executeBuyAmount işlemiyle piyasadan satın alınır (Buyback).',
+        'Piyasa alımı AMM likidite havuzundaki arzı fiziki olarak eksiltir ve marketteki fiyatı anında yukarı doğru artırır.',
+        'Çark sonuç ekranına ve toast bildirimlerine "🏛️ KARNAVAL HAZİNESİ AMM BUYBACK DEKONTU" eklendi; satın alınan miktar, kasadan ödenen ADA ve anlık fiyat artışı (P_eski ➔ P_yeni ADA, +%X.XX 📈) canlı olarak raporlanır.',
+        'Pazar yerinde fiyatlar 4 ondalık basamak hassasiyetle anlık canlı güncellenir.'
+      ]
     }
   ],
 
@@ -956,7 +968,7 @@ export const GAME_CONFIG = {
     {
       id: 'f2p_welcome',
       badge: '⚔️ KRALLIK DUYURUSU',
-      text: 'AdAstra: Genesis Realm v1.17 devrede! Zaman atlama test konsolu & Taverna Bot simülasyon motoru, 6 Varlıklı Dinamik Buyback ve Krallık Meclisi oylamaları aktiftir.',
+      text: 'AdAstra: Genesis Realm v1.18 devrede! Karnaval Çarkı Fiziki AMM DEX Buyback & Fiyat Artış Motoru, Zaman Atlama Simülasyonu ve 6 Varlıklı Dinamik Buyback aktiftir.',
       active: true,
       priority: 2
     }

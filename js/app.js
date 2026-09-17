@@ -3240,15 +3240,45 @@ function spinCarnivalWheelAnimated(payMethod) {
     // Failsafe: Canvas yoksa doğrudan sonucu göster
     showToast(`🎉 Çarktan Kazandın: ${res.rewardSummaryText}`, 'success');
     if (resBox) {
+      const buybackReceiptHtml = res.buybackInfo ? `
+        <div style="background:rgba(15,23,42,0.92); border:1px solid #22c55e; border-radius:8px; padding:10px 14px; margin-top:12px; text-align:left; font-size:0.82rem; box-shadow:0 4px 14px rgba(34,197,94,0.15);">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(34,197,94,0.3); padding-bottom:6px; margin-bottom:8px;">
+            <span style="font-weight:900; color:#4ade80;">🏛️ KARNAVAL HAZİNESİ AMM BUYBACK DEKONTU</span>
+            <span style="color:#38bdf8; font-weight:800; font-size:0.75rem;">FİZİKİ PİYASA EMRİ</span>
+          </div>
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap:6px; margin-bottom:8px;">
+            <div style="background:rgba(255,255,255,0.04); padding:6px 8px; border-radius:6px;">
+              <div style="color:#94a3b8; font-size:0.72rem;">🛒 Piyasadan Alınan:</div>
+              <div style="font-weight:800; color:#fff;">+${res.buybackInfo.amount.toLocaleString('tr-TR')} ${res.buybackInfo.poolIcon} ${res.buybackInfo.poolName}</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.04); padding:6px 8px; border-radius:6px;">
+              <div style="color:#94a3b8; font-size:0.72rem;">💰 Karnaval Kasası Ödedi:</div>
+              <div style="font-weight:800; color:#facc15;">-${res.buybackInfo.adaSpent.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} $ADASTRA</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.04); padding:6px 8px; border-radius:6px;">
+              <div style="color:#94a3b8; font-size:0.72rem;">📈 Canlı AMM Fiyatı:</div>
+              <div style="font-weight:800; color:#4ade80;">
+                ${res.buybackInfo.oldPrice.toFixed(4)} ➔ ${res.buybackInfo.newPrice.toFixed(4)} ADA <span style="font-size:0.72rem; color:#22c55e;">(+%${res.buybackInfo.priceDeltaPct.toFixed(2)})</span>
+              </div>
+            </div>
+          </div>
+          <div style="font-size:0.73rem; color:#cbd5e1; line-height:1.4;">
+            ℹ️ Bu ödül havadan basılmadı; Karnaval Kasasındaki tohum bütçesiyle doğrudan AMM DEX likidite havuzundan satın alınarak satış baskısı kırıldı ve fiziki olarak hesabınıza teslim edildi.
+          </div>
+        </div>
+      ` : '';
+
       resBox.innerHTML = `
         <div class="clean-card" style="border:2px solid #ec4899; background:linear-gradient(135deg, rgba(236,72,153,0.3), rgba(168,85,247,0.3)); text-align:center; padding:16px; margin-top:10px;">
           <div style="font-size:2.5rem;">${res.reward?.icon || '🎁'}</div>
           <div style="font-size:1.15rem; font-weight:900; color:#fff; margin-top:4px;">🎉 TEBRİKLER KAZANDINIZ!</div>
           <div style="font-size:1.05rem; font-weight:800; color:#fde047; margin-top:4px;">${res.rewardSummaryText}</div>
+          ${buybackReceiptHtml}
         </div>
       `;
     }
     renderTopBar();
+    renderHUD();
     updateCarnivalWheelUI({ updateShards: true });
     return;
   }
@@ -3356,17 +3386,47 @@ function spinCarnivalWheelAnimated(payMethod) {
 
       if (resBox) {
         const burnedBoxTxt = res.burnedInfo ? `<div style="font-size:0.82rem; color:#f97316; margin-top:4px;">🔥 ${res.burnedInfo.amount} ${burnedNameTr} anında yakılarak kalıcı silindi.</div>` : '';
+        const buybackReceiptHtml = res.buybackInfo ? `
+          <div style="background:rgba(15,23,42,0.92); border:1px solid #22c55e; border-radius:8px; padding:10px 14px; margin-top:12px; text-align:left; font-size:0.82rem; box-shadow:0 4px 14px rgba(34,197,94,0.15);">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(34,197,94,0.3); padding-bottom:6px; margin-bottom:8px;">
+              <span style="font-weight:900; color:#4ade80;">🏛️ KARNAVAL HAZİNESİ AMM BUYBACK DEKONTU</span>
+              <span style="color:#38bdf8; font-weight:800; font-size:0.75rem;">FİZİKİ PİYASA EMRİ</span>
+            </div>
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap:6px; margin-bottom:8px;">
+              <div style="background:rgba(255,255,255,0.04); padding:6px 8px; border-radius:6px;">
+                <div style="color:#94a3b8; font-size:0.72rem;">🛒 Piyasadan Alınan:</div>
+                <div style="font-weight:800; color:#fff;">+${res.buybackInfo.amount.toLocaleString('tr-TR')} ${res.buybackInfo.poolIcon} ${res.buybackInfo.poolName}</div>
+              </div>
+              <div style="background:rgba(255,255,255,0.04); padding:6px 8px; border-radius:6px;">
+                <div style="color:#94a3b8; font-size:0.72rem;">💰 Karnaval Kasası Ödedi:</div>
+                <div style="font-weight:800; color:#facc15;">-${res.buybackInfo.adaSpent.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} $ADASTRA</div>
+              </div>
+              <div style="background:rgba(255,255,255,0.04); padding:6px 8px; border-radius:6px;">
+                <div style="color:#94a3b8; font-size:0.72rem;">📈 Canlı AMM Fiyatı:</div>
+                <div style="font-weight:800; color:#4ade80;">
+                  ${res.buybackInfo.oldPrice.toFixed(4)} ➔ ${res.buybackInfo.newPrice.toFixed(4)} ADA <span style="font-size:0.72rem; color:#22c55e;">(+%${res.buybackInfo.priceDeltaPct.toFixed(2)})</span>
+                </div>
+              </div>
+            </div>
+            <div style="font-size:0.73rem; color:#cbd5e1; line-height:1.4;">
+              ℹ️ Bu ödül havadan basılmadı; Karnaval Kasasındaki tohum bütçesiyle doğrudan AMM DEX likidite havuzundan satın alınarak satış baskısı kırıldı ve fiziki olarak hesabınıza teslim edildi.
+            </div>
+          </div>
+        ` : '';
+
         resBox.innerHTML = `
           <div class="clean-card" style="border:2px solid #ec4899; background:linear-gradient(135deg, rgba(236,72,153,0.35), rgba(168,85,247,0.35)); text-align:center; padding:16px; margin-top:10px; animation: pulse 1s infinite alternate;">
             <div style="font-size:3rem; filter: drop-shadow(0 0 12px #fde047);">${res.reward?.icon || '🎁'}</div>
             <div style="font-size:1.25rem; font-weight:900; color:#fff; margin-top:4px;">🎉 TEBRİKLER KAZANDINIZ!</div>
             <div style="font-size:1.1rem; font-weight:800; color:#fde047; margin-top:4px;">${res.rewardSummaryText}</div>
             ${burnedBoxTxt}
+            ${buybackReceiptHtml}
           </div>
         `;
       }
 
       renderTopBar();
+      renderHUD();
       updateCarnivalWheelUI({ updateShards: true });
     }
   }
