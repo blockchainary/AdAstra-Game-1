@@ -94,7 +94,8 @@ export class GameStateManager {
       botSiloAutoUpgrade: parsed.botSiloAutoUpgrade !== undefined ? parsed.botSiloAutoUpgrade : true,
       botActiveUntil: parsed.botActiveUntil || 0,
       redeemCodes: Array.isArray(parsed.redeemCodes) ? parsed.redeemCodes : [],
-      burnedResources: parsed.burnedResources || { wood: 0, iron: 0, wheat: 0 }
+      burnedResources: parsed.burnedResources || { wood: 0, iron: 0, wheat: 0 },
+      carnivalBurnedResources: parsed.carnivalBurnedResources || { wood: 0, iron: 0, wheat: 0 }
     };
   }
 
@@ -239,6 +240,18 @@ export class GameStateManager {
     if (wood > 0) this.burnResource('wood', wood);
     if (iron > 0) this.burnResource('iron', iron);
     if (wheat > 0) this.burnResource('wheat', wheat);
+  }
+
+  // 🎪 Karnaval Çarkında Anında Yakılan Hammaddeler Sayacı
+  recordCarnivalResourceBurn(resourceKey, amount) {
+    const qty = Number(amount) || 0;
+    if (qty <= 0) return 0;
+    if (!this.state.carnivalBurnedResources) {
+      this.state.carnivalBurnedResources = { wood: 0, iron: 0, wheat: 0 };
+    }
+    this.state.carnivalBurnedResources[resourceKey] = (this.state.carnivalBurnedResources[resourceKey] || 0) + qty;
+    this.burnResource(resourceKey, qty);
+    return qty;
   }
 
   // Asker satın alma maliyeti: İlk asker 5.000 $ADASTRA, 18. asker 1.800.000 $ADASTRA kademeli artan model
@@ -3567,11 +3580,11 @@ export class GameStateManager {
         return { success: false, message: `Yetersiz ${resNameTr}! 100 ADA değerinde hammadde için ${requiredAmount} adet gereklidir.` };
       }
       inv[paymentMethod] -= requiredAmount;
-      // 🔥 HAMMADDE ANINDA YAKILIR VE TOTAL ARZDAN SİLİNİR (AMM havuzuna aktarılmaz, kalıcı yakım)
-      this.burnResource(paymentMethod, requiredAmount);
-      burnedInfo = { resource: paymentMethod, resourceNameTr: resNameTr, amount: requiredAmount };
+      // 🔥 HAMMADDE ANINDA YAKILIR VE KARNAVAL YAKIM SAYACINA YAZILIR
+      this.recordCarnivalResourceBurn(paymentMethod, requiredAmount);
+      burnedInfo = { resource: paymentMethod, resourceNameTr: resNameTr, amount: requiredAmount, fromPayment: true };
 
-      // Hazine defteri ve tokenomics muhasebesi: 100 ADA eşdeğeri harcama kaydı (%22 Kalıcı Yakım, %78 Hazine Havuzları)
+      // Hazine defteri ve tokenomics muhasebesi: 100 ADA eşdeğeri harcama kaydı
       globalPool.recordTokenSpend(costAda);
     } else {
       return { success: false, message: 'Geçersiz ödeme yöntemi!' };
@@ -3595,12 +3608,44 @@ export class GameStateManager {
       this.state.adAstraBalance += selectedReward.amount;
     } else if (selectedReward.type === 'resource') {
       inv[selectedReward.key] = (inv[selectedReward.key] || 0) + selectedReward.amount;
-    } else if (selectedReward.type === 'amm_raw') {
-      const p = ammMarket.getPrice(selectedReward.key) || 1.0;
-      const grantAmount = Math.round(selectedReward.adaVal / p);
-      inv[selectedReward.key] = (inv[selectedReward.key] || 0) + grantAmount;
-      const grantResNameTr = this.getResourceNameTr(selectedReward.key);
-      rewardSummaryText = `${grantAmount} ${grantResNameTr} (${selectedReward.name})`;
+    } else if (selectedReward.type === 'amm_raw' || ['wood', 'iron', 'wheat'].includes(selectedReward.key)) {
+      const resKey = selectedReward.key;
+      const p = ammMarket.getPrice(resKey) || 1.0;
+      const grantAmount = selectedReward.amount || Math.round((selectedReward.adaVal || 50) / p);
+      inv[resKey] = (inv[resKey] || 0) + grantAmount;
+      const grantResNameTr = this.getResourceNameTr(resKey);
+      rewardSummaryText = `${grantAmount.toLocaleString('tr-TR')} ${grantResNameTr} (${selectedReward.name})`;
+
+      // 🏛️ KARNAVAL HAZİNE KASASINDAN MARKET SATIN ALIMI & YAKIM MEKANİZMASI:
+      // Çarkta hammadde ödülü çıktığında, karnaval hazine kasasındaki ADA ile marketten bu kadar hammadde satın alınır ve yakılır!
+      const buyCostAda = Math.round(grantAmount * p);
+      const carnivalBalance = (typeof treasury !== 'undefined' && treasury.getPool) ? treasury.getPool('carnival') : 0;
+      const adaToSpend = Math.min(carnivalBalance, buyCostAda);
+
+      if (adaToSpend > 0 && typeof treasury !== 'undefined') {
+        treasury.state.pools.carnival = Math.max(0, (treasury.state.pools.carnival || 0) - adaToSpend);
+        if (!treasury.state.outflow) treasury.state.outflow = {};
+        treasury.state.outflow.carnival = (treasury.state.outflow.carnival || 0) + adaToSpend;
+        treasury.save();
+      }
+
+      // AMM DEX Marketinden satın alma: Havuz likiditesine ADA aktarılır, hammadde dolaşımdan çıkıp kalıcı yakılır
+      if (typeof ammMarket !== 'undefined' && ammMarket.pools && ammMarket.pools[resKey]) {
+        ammMarket.pools[resKey].adAstraReserve = (ammMarket.pools[resKey].adAstraReserve || 0) + adaToSpend;
+        ammMarket.pools[resKey].resourceReserve = Math.max(1, (ammMarket.pools[resKey].resourceReserve || 0) - grantAmount);
+        if (typeof ammMarket.savePools === 'function') ammMarket.savePools();
+      }
+
+      // Çıkan hammadde kadar miktar anında yakılır ve Karnaval Yakılan Hammaddeler sayacına eklenir!
+      this.recordCarnivalResourceBurn(resKey, grantAmount);
+
+      burnedInfo = {
+        resource: resKey,
+        resourceNameTr: grantResNameTr,
+        amount: grantAmount,
+        adaSpent: adaToSpend,
+        fromTreasuryBuy: true
+      };
     } else if (selectedReward.type === 'bot_free') {
       this.buyTavernaAutomationBot(true);
     } else if (selectedReward.type === 'key') {
@@ -3630,8 +3675,10 @@ export class GameStateManager {
       slice: selectedReward,
       rewardSummaryText,
       burnedInfo,
-      message: burnedInfo
-        ? `🔥 ${burnedInfo.amount} ${this.getResourceNameTr(burnedInfo.resource)} anında yakıldı ve sistemden silindi! Çarktan kazandın: ${rewardSummaryText}`
+      message: burnedInfo?.fromTreasuryBuy
+        ? `🎉 Çarktan kazandın: ${rewardSummaryText}! 🏛️ Karnaval Kasasından (${burnedInfo.adaSpent.toLocaleString('tr-TR')} ADA) karşılanarak pazar havuzundan satın alındı ve ${burnedInfo.amount.toLocaleString('tr-TR')} ${burnedInfo.resourceNameTr} kalıcı olarak yakıldı!`
+        : burnedInfo
+        ? `🔥 ${burnedInfo.amount.toLocaleString('tr-TR')} ${burnedInfo.resourceNameTr} anında yakıldı ve sistemden silindi! Çarktan kazandın: ${rewardSummaryText}`
         : `🎉 Tebrikler! Çarktan kazandın: ${rewardSummaryText}`
     };
   }
@@ -4349,7 +4396,8 @@ export class GameStateManager {
     const lotteryAmortiShare = Math.round(lotteryPool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.AMORTI_SHARE || 0.02));
     const lotteryRolloverShare = Math.max(0, lotteryPool - lotteryAmortiShare);
 
-    const burnedResources = state.burnedResources || { wood: 0, iron: 0, wheat: 0 };
+    // Sadece Karnaval Çarkında Anında Yakılan Hammaddeler sayacı (genel oyundaki yakımlar hariç)
+    const burnedResources = state.carnivalBurnedResources || { wood: 0, iron: 0, wheat: 0 };
     const lifetimeBurnedAda = Math.round((treasury.state?.lifetimeBurned || 0) + (globalPool.state?.totalBurned || 0));
 
     const pools = [

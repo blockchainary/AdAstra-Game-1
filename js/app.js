@@ -3684,18 +3684,11 @@ function renderCarnivalHtml(activeTab = 'wheel') {
                 </div>
 
                 <div style="text-align: right;">
-                  <div style="font-size: 1.35rem; font-weight: 900; color: ${pool.color}; text-shadow: 0 0 12px ${pool.color}40;">
-                    ${pool.balance.toLocaleString('tr-TR')} <span style="font-size: 0.85rem; color: #c084fc;">$ADASTRA</span>
-                  </div>
-                  <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 2px;">
-                    Hedef: ${pool.target.toLocaleString('tr-TR')} ADA (%${Math.round(pool.health * 100)} Doluluk)
+                  <div style="font-size: 0.72rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Hazinede Mevcut:</div>
+                  <div style="font-size: 1.45rem; font-weight: 900; color: ${pool.color}; text-shadow: 0 0 14px ${pool.color}50; margin-top: 2px;">
+                    ${pool.balance.toLocaleString('tr-TR')} <span style="font-size: 0.9rem; color: #c084fc;">$ADASTRA</span>
                   </div>
                 </div>
-              </div>
-
-              <!-- Doluluk Çubuğu -->
-              <div style="height: 6px; width: 100%; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; margin-top: 10px;">
-                <div style="height: 100%; width: ${Math.min(100, Math.round(pool.health * 100))}%; background: ${pool.color};"></div>
               </div>
 
               <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
