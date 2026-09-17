@@ -36,6 +36,57 @@ export function elementMultiplier(attacker, defender) {
   return 1;
 }
 
+// Sınıf adına göre geriye dönük varsayılan yetenek haritası
+function specClsSkills(cls) {
+  if (cls === 'ranger') return ['shockwave'];
+  if (cls === 'paladin') return ['fieldMedic'];
+  if (cls === 'mage') return ['shockwave'];
+  return ['shieldWall'];
+}
+
+// 👑 Seviye 9 ve Seviye 18 için Düz HP-Yüzdesi Tetikleyicili Boss Fazları
+export const DEFAULT_BOSS_PHASES = {
+  9: [
+    {
+      atPct: 0.50,
+      name: 'Taş Kabuk',
+      text: 'Kadim Taş Golyat taş kabuğuna büründü! (+%50 Zırh ve devasa Kalkan)',
+      onEnter({ enemies, log }) {
+        enemies.filter(isAlive).forEach(e => {
+          addStatus(e, { type: 'fortify', turns: 3, magnitude: 0.50, stackable: false });
+          addStatus(e, { type: 'shield', turns: 3, magnitude: Math.round(e.maxHp * 0.25) });
+        });
+      }
+    }
+  ],
+  18: [
+    {
+      atPct: 0.60,
+      name: 'Ejderha Gazabı',
+      text: 'Kıyamet Ejderhası IGNIS kükreyerek alev saçtı! (+%50 Saldırı Gücü)',
+      onEnter({ enemies, log }) {
+        enemies.filter(isAlive).forEach(e => {
+          addStatus(e, { type: 'rage', turns: 4, magnitude: 0.50, stackable: false });
+        });
+      }
+    },
+    {
+      atPct: 0.25,
+      name: 'Kıyamet Alevi',
+      text: 'IGNIS son nefesinde tüm ön safı alevlere boğdu! (Sersemletme Darbesi)',
+      onEnter({ allies, log, rng }) {
+        const front = allies.filter(isAlive).filter(u => u.row === 'front');
+        const targets = front.length > 0 ? front : allies.filter(isAlive);
+        targets.forEach(a => {
+          if (rng() < 0.75) {
+            addStatus(a, { type: 'stun', turns: 1, stackable: false });
+          }
+        });
+      }
+    }
+  ]
+};
+
 // Zırh azaltması: azalan verimli, asla %100 olmaz
 function mitigation(armor, penetration) {
   const eff = Math.max(0, (armor || 0) - (penetration || 0));
@@ -44,44 +95,62 @@ function mitigation(armor, penetration) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Birim oluşturma
+// Birim oluşturma (Tek Tip Asker + Skill Loadout)
 // ─────────────────────────────────────────────────────────────────────────
 export function createUnit(spec) {
-  const cls = GAME_CONFIG.COMBAT_CLASSES[spec.cls] || GAME_CONFIG.COMBAT_CLASSES.guardian;
+  const cls = (GAME_CONFIG.COMBAT_CLASSES && GAME_CONFIG.COMBAT_CLASSES[spec.cls]) || {
+    name: 'AdAstra Şampiyonu',
+    icon: '🛡️',
+    baseArmor: 10,
+    baseSpeed: 10,
+    baseCrit: 0.05,
+    basePen: 5,
+    preferredRow: 'front'
+  };
+
   const maxHp = Math.max(1, Math.round(spec.maxHp != null ? spec.maxHp : 100));
+  
+  // Askerin yetenek envanteri (Skill Loadout): 1-3 yetenek
+  const skills = spec.skills && Array.isArray(spec.skills) && spec.skills.length
+    ? [...spec.skills]
+    : (spec.cls === 'ranger' ? ['shockwave']
+      : spec.cls === 'paladin' ? ['fieldMedic']
+      : spec.cls === 'mage' ? ['shockwave']
+      : ['shieldWall']);
+
   return {
     uid: spec.uid || `u_${Math.random().toString(36).slice(2, 9)}`,
     sourceIndex: spec.sourceIndex != null ? spec.sourceIndex : -1,
-    name: spec.name || cls.name,
-    icon: spec.icon || cls.icon,
-    cls: spec.cls || 'guardian',
-    clsName: cls.name,
+    name: spec.name || cls.name || 'AdAstra Şampiyonu',
+    icon: spec.icon || cls.icon || '🛡️',
+    cls: spec.cls || 'champion',
+    clsName: spec.clsName || cls.name || 'AdAstra Şampiyonu',
     level: spec.level || 1,
     side: spec.side || 'ally',
 
     maxHp,
     hp: Math.max(0, Math.round(spec.hp != null ? spec.hp : maxHp)),
-    atk: Math.max(1, Math.round(spec.atk != null ? spec.atk : 20)),
-    armor: Math.max(0, Math.round(spec.armor != null ? spec.armor : cls.baseArmor)),
-    speed: Math.max(1, Math.round(spec.speed != null ? spec.speed : cls.baseSpeed)),
-    crit: spec.crit != null ? spec.crit : cls.baseCrit,
+    atk: Math.max(1, Math.round(spec.atk != null ? spec.atk : 25)),
+    armor: Math.max(0, Math.round(spec.armor != null ? spec.armor : (cls.baseArmor || 10))),
+    speed: Math.max(1, Math.round(spec.speed != null ? spec.speed : (cls.baseSpeed || 10))),
+    crit: spec.crit != null ? spec.crit : (cls.baseCrit || 0.05),
     critDmg: spec.critDmg != null ? spec.critDmg : GAME_CONFIG.COMBAT.BASE_CRIT_DAMAGE,
-    pen: Math.max(0, spec.pen != null ? spec.pen : cls.basePen),
+    pen: Math.max(0, spec.pen != null ? spec.pen : (cls.basePen || 5)),
     lifesteal: spec.lifesteal || 0,
 
-    element: null,
-    row: spec.row || cls.preferredRow,
+    skills,
+    row: spec.row || cls.preferredRow || 'front', // 'front' | 'back'
 
-    // Tur başına aksiyon sayısı. Tek bir boss 18 askere karşı bir aksiyonla
-    // savaşamaz — 18 vuruş alıp 1 vuruş yapar. Boss'lar bu yüzden tur içinde
-    // birden fazla hamle yapar; ordu büyüdükçe boss da daha çok hamle kazanır.
+    // Tur başına aksiyon sayısı (Boss mekaniği)
     actionsPerRound: Math.max(1, spec.actionsPerRound || 1),
     abilities: spec.abilities || null,
     abilityCooldown: spec.abilityCooldown || 3,
 
     statuses: [],
     cooldown: 0,
+    cooldowns: (skills || []).reduce((acc, sk) => { acc[sk] = 0; return acc; }, {}),
     revivedOnce: false,
+    usedLastStand: false,
     // Savaş sonu raporu için
     damageDealt: 0,
     damageTaken: 0,
@@ -124,7 +193,7 @@ function effectiveSpeed(unit) {
 // Hedef seçimi — MEVZİ BURADA ANLAM KAZANIR
 // Ön saf ayaktayken arka saf korunur; kırılınca arka saf açığa çıkar.
 // ─────────────────────────────────────────────────────────────────────────
-function selectTarget(attacker, enemies, rng, { piercing = false } = {}) {
+export function selectTarget(attacker, enemies, rng = Math.random, { piercing = false } = {}) {
   const alive = enemies.filter(isAlive);
   if (alive.length === 0) return null;
 
@@ -234,79 +303,183 @@ function healUnit(healer, target, amount, log) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// SINIF YETENEKLERİ — dört sınıf, dört gerçek rol
+// ⚔️ ASKER YETENEK ENVENTARİ (SKILL LOADOUT SİSTEMİ)
+// Tek tip askerler için 7 temel taktiksel rol yeteneği
 // ─────────────────────────────────────────────────────────────────────────
-const ABILITIES = {
-  // 🛡️ Muhafız — Kalkan Duvarı: kendini hedef gösterir, safı ayakta tutar
-  guardian(self, allies, enemies, rng, log) {
-    addStatus(self, { type: 'taunt', turns: 2, stackable: false });
-    addStatus(self, { type: 'fortify', turns: 2, magnitude: 0.45, stackable: false });
-    const shieldAmt = Math.round(self.maxHp * 0.18);
-    addStatus(self, { type: 'shield', turns: 3, magnitude: shieldAmt });
-    log.push({
-      type: 'ability', ability: 'Kalkan Duvarı', icon: '🛡️',
-      actor: self.name, actorIcon: self.icon, actorSide: self.side,
-      text: `${self.name} kalkan duvarı kurdu: düşman ateşini üzerine çekiyor (+%45 zırh, ${shieldAmt} kalkan).`
-    });
-    return true;
-  },
-
-  // 🏹 Okçu — Delici Ok: zırhı yok sayar, arka safı infaz eder
-  ranger(self, allies, enemies, rng, log) {
-    const target = selectTarget(self, enemies, rng, { piercing: true });
-    if (!target) return false;
-    log.push({
-      type: 'ability', ability: 'Delici Ok', icon: '🏹',
-      actor: self.name, actorIcon: self.icon, actorSide: self.side,
-      text: `${self.name} arka safa delici ok fırlattı — zırh yok sayılıyor!`
-    });
-    const saved = self.pen;
-    self.pen = 99999;
-    applyDamage(self, target, effectiveAtk(self) * 1.65, rng, log, { label: 'Delici Ok' });
-    self.pen = saved;
-    return true;
-  },
-
-  // 🔮 Büyücü — Element Patlaması: tüm düşmanlara vurur, elemente göre statü basar
-  mage(self, allies, enemies, rng, log) {
-    const targets = enemies.filter(isAlive).slice(0, GAME_CONFIG.COMBAT.MAX_AOE_TARGETS);
-    if (targets.length === 0) return false;
-    log.push({
-      type: 'ability', ability: 'Element Patlaması', icon: '🔮',
-      actor: self.name, actorIcon: self.icon, actorSide: self.side,
-      text: `${self.name} ${GAME_CONFIG.ELEMENT_TRIANGLE[self.element]?.name || 'arcane'} patlaması saldı — tüm düşman safı etkilendi!`
-    });
-    for (const t of targets) {
-      applyDamage(self, t, effectiveAtk(self) * 0.8, rng, log, { label: 'Element Patlaması' });
-      if (!isAlive(t)) continue;
-      if (self.element === 'fire') {
-        addStatus(t, { type: 'burn', turns: 3, magnitude: Math.round(effectiveAtk(self) * 0.14), stackable: false });
-      } else if (self.element === 'ice') {
-        addStatus(t, { type: 'chill', turns: 2, stackable: false });
-      } else if (self.element === 'nature') {
-        addStatus(t, { type: 'poison', turns: 3, magnitude: Math.round(t.maxHp * 0.035), stackable: false });
-      } else {
-        addStatus(t, { type: 'weaken', turns: 2, stackable: false });
-      }
+export const PLAYER_SKILLS = {
+  // 🛡️ Kalkan Duvarı: Tanklık
+  shieldWall: {
+    id: 'shieldWall',
+    name: 'Kalkan Duvarı',
+    icon: '🛡️',
+    role: 'Tanklık',
+    cooldown: 3,
+    desc: 'Kendine 2 tur taunt çeker, +%45 zırh ve %20 kalkan kazanır.',
+    execute(self, allies, enemies, rng, log) {
+      addStatus(self, { type: 'taunt', turns: 2, stackable: false });
+      addStatus(self, { type: 'fortify', turns: 2, magnitude: 0.45, stackable: false });
+      const shieldAmt = Math.round(self.maxHp * 0.20);
+      addStatus(self, { type: 'shield', turns: 3, magnitude: shieldAmt });
+      log.push({
+        type: 'ability', ability: 'Kalkan Duvarı', icon: '🛡️',
+        actor: self.name, actorIcon: self.icon, actorSide: self.side,
+        text: `${self.name} Kalkan Duvarı kurdu: Düşman ateşini üzerine çekiyor (+%45 Zırh, ${shieldAmt} Kalkan)!`
+      });
+      return true;
     }
-    return true;
   },
 
-  // ⚔️ Paladin — Kutsal Işık: en yaralı müttefiki iyileştirir, lanet temizler
-  paladin(self, allies, enemies, rng, log) {
-    const wounded = allies.filter(isAlive).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
-    if (!wounded) return false;
-    const amount = Math.round(self.maxHp * 0.22 + effectiveAtk(self) * 0.6);
-    log.push({
-      type: 'ability', ability: 'Kutsal Işık', icon: '✨',
-      actor: self.name, actorIcon: self.icon, actorSide: self.side,
-      text: `${self.name} kutsal ışık çağırdı — ${wounded.name} iyileşiyor ve lanetlerden arınıyor.`
-    });
-    healUnit(self, wounded, amount, log);
-    wounded.statuses = wounded.statuses.filter(s => !['burn', 'poison', 'weaken', 'chill', 'sunder'].includes(s.type));
-    addStatus(wounded, { type: 'rage', turns: 2, magnitude: 0.15, stackable: false });
-    return true;
+  // ⚡ Şok Dalgası: Kalabalık temizleme (AoE)
+  shockwave: {
+    id: 'shockwave',
+    name: 'Şok Dalgası',
+    icon: '⚡',
+    role: 'AoE Temizleme',
+    cooldown: 3,
+    desc: 'Ön saftaki en fazla 3 hedefe alan hasarı vurur.',
+    execute(self, allies, enemies, rng, log) {
+      const alive = enemies.filter(isAlive);
+      const front = alive.filter(u => u.row === 'front');
+      const pool = front.length > 0 ? front : alive;
+      const targets = pool.slice(0, 3);
+      if (targets.length === 0) return false;
+      log.push({
+        type: 'ability', ability: 'Şok Dalgası', icon: '⚡',
+        actor: self.name, actorIcon: self.icon, actorSide: self.side,
+        text: `${self.name} yeri sarsan bir Şok Dalgası gönderdi — ${targets.length} hedefe vurdu!`
+      });
+      for (const t of targets) {
+        applyDamage(self, t, effectiveAtk(self) * 0.85, rng, log, { label: 'Şok Dalgası' });
+      }
+      return true;
+    }
+  },
+
+  // ✨ Sahra Merhemi: Sağlık & Destek
+  fieldMedic: {
+    id: 'fieldMedic',
+    name: 'Sahra Merhemi',
+    icon: '✨',
+    role: 'Sağlık / Destek',
+    cooldown: 3,
+    desc: 'En yaralı müttefiği iyileştirir, lanetleri temizler ve moral verir.',
+    execute(self, allies, enemies, rng, log) {
+      const wounded = allies.filter(isAlive).sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp))[0];
+      if (!wounded) return false;
+      const healAmt = Math.round(self.maxHp * 0.22 + effectiveAtk(self) * 0.5);
+      log.push({
+        type: 'ability', ability: 'Sahra Merhemi', icon: '✨',
+        actor: self.name, actorIcon: self.icon, actorSide: self.side,
+        text: `${self.name} Sahra Merhemi uyguladı: ${wounded.name} ${healAmt} HP iyileşti ve arındı!`
+      });
+      healUnit(self, wounded, healAmt, log);
+      wounded.statuses = wounded.statuses.filter(s => !['burn', 'poison', 'weaken', 'chill', 'sunder'].includes(s.type));
+      addStatus(wounded, { type: 'rage', turns: 2, magnitude: 0.15, stackable: false });
+      return true;
+    }
+  },
+
+  // 🪓 Zırh Kırıcı: Boss & Tank kırma
+  armorBreaker: {
+    id: 'armorBreaker',
+    name: 'Zırh Kırıcı',
+    icon: '🪓',
+    role: 'Anti-Tank',
+    cooldown: 3,
+    desc: 'Hedefe sert bir darbe indirir ve zırhını 3 tur kırar (-%40 zırh).',
+    execute(self, allies, enemies, rng, log) {
+      const target = selectTarget(self, enemies, rng);
+      if (!target) return false;
+      log.push({
+        type: 'ability', ability: 'Zırh Kırıcı', icon: '🪓',
+        actor: self.name, actorIcon: self.icon, actorSide: self.side,
+        text: `${self.name} ${target.name}'in zırhına sert bir darbe indirdi (-%40 zırh)!`
+      });
+      addStatus(target, { type: 'sunder', turns: 3, stackable: false });
+      applyDamage(self, target, effectiveAtk(self) * 1.30, rng, log, { label: 'Zırh Kırıcı' });
+      return true;
+    }
+  },
+
+  // 💫 Sersemletme Darbesi: Kontrol
+  stunStrike: {
+    id: 'stunStrike',
+    name: 'Sersemletme Darbesi',
+    icon: '💫',
+    role: 'Kontrol',
+    cooldown: 4,
+    desc: 'Hedefe vurur ve 1 tur sersemleterek hareketini engeller.',
+    execute(self, allies, enemies, rng, log) {
+      const target = selectTarget(self, enemies, rng);
+      if (!target) return false;
+      log.push({
+        type: 'ability', ability: 'Sersemletme Darbesi', icon: '💫',
+        actor: self.name, actorIcon: self.icon, actorSide: self.side,
+        text: `${self.name} kafaya indirdiği darbeyle ${target.name}'i sersemletti (1 tur devre dışı)!`
+      });
+      addStatus(target, { type: 'stun', turns: 1, stackable: false });
+      applyDamage(self, target, effectiveAtk(self) * 1.10, rng, log, { label: 'Sersemletme' });
+      return true;
+    }
+  },
+
+  // 🩸 Kan Çılgınlığı: Riskli yüksek hasar
+  bloodFrenzy: {
+    id: 'bloodFrenzy',
+    name: 'Kan Çılgınlığı',
+    icon: '🩸',
+    role: 'Riskli Hasar',
+    cooldown: 3,
+    desc: 'Kendi zırhını düşürerek 2 tur boyunca saldırı gücünü +%50 artırır.',
+    execute(self, allies, enemies, rng, log) {
+      addStatus(self, { type: 'rage', turns: 2, magnitude: 0.50, stackable: false });
+      addStatus(self, { type: 'sunder', turns: 2, stackable: false });
+      log.push({
+        type: 'ability', ability: 'Kan Çılgınlığı', icon: '🩸',
+        actor: self.name, actorIcon: self.icon, actorSide: self.side,
+        text: `${self.name} Kan Çılgınlığına girdi: +%50 Saldırı Gücü kazandı (-%40 Zırh feragatiyle)!`
+      });
+      const target = selectTarget(self, enemies, rng);
+      if (target) {
+        applyDamage(self, target, effectiveAtk(self) * 1.25, rng, log, { label: 'Çılgın Vuruş' });
+      }
+      return true;
+    }
+  },
+
+  // 🔥 Son Nefes: Pasif Hayatta Kalma
+  lastStand: {
+    id: 'lastStand',
+    name: 'Son Nefes',
+    icon: '🔥',
+    role: 'Pasif',
+    isPassive: true,
+    desc: 'Canı %20 altına düştüğünde bir kerelik %35 kalkan ve zırh patlaması tetikler.',
+    checkTrigger(self, log) {
+      if (self.usedLastStand || !isAlive(self)) return false;
+      if (self.hp <= self.maxHp * 0.25) {
+        self.usedLastStand = true;
+        const shieldAmt = Math.round(self.maxHp * 0.35);
+        addStatus(self, { type: 'shield', turns: 3, magnitude: shieldAmt });
+        addStatus(self, { type: 'fortify', turns: 3, magnitude: 0.50, stackable: false });
+        log.push({
+          type: 'ability', ability: 'Son Nefes', icon: '🔥',
+          actor: self.name, actorIcon: self.icon, actorSide: self.side,
+          text: `🔥 ${self.name} ölümün eşiğinde Son Nefes pasifini tetikledi: ${shieldAmt} Kalkan ve +%50 Zırh kazandı!`
+        });
+        return true;
+      }
+      return false;
+    }
   }
+};
+
+// Geriye dönük uyumluluk köprüsü
+const ABILITIES = {
+  guardian: (self, allies, enemies, rng, log) => PLAYER_SKILLS.shieldWall.execute(self, allies, enemies, rng, log),
+  ranger: (self, allies, enemies, rng, log) => PLAYER_SKILLS.shockwave.execute(self, allies, enemies, rng, log),
+  mage: (self, allies, enemies, rng, log) => PLAYER_SKILLS.shockwave.execute(self, allies, enemies, rng, log),
+  paladin: (self, allies, enemies, rng, log) => PLAYER_SKILLS.fieldMedic.execute(self, allies, enemies, rng, log)
 };
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -479,21 +652,45 @@ export function simulateBattle({
       const own = unit.side === 'ally' ? allies : enemies;
       const foes = unit.side === 'ally' ? enemies : allies;
 
+      // Pasif yetenek kontrolü (örn. lastStand)
+      if (unit.side === 'ally' && unit.skills && unit.skills.includes('lastStand')) {
+        PLAYER_SKILLS.lastStand.checkTrigger(unit, log);
+      }
+
       // Yetenek hazırsa kullan
       let usedAbility = false;
       if (unit.cooldown <= 0) {
-        const kit = unit.side === 'ally'
-          ? ABILITIES[unit.cls]
-          : (unit.abilities && unit.abilities.length
+        if (unit.side === 'ally') {
+          // Müttefik Asker Skill Loadout taraması
+          const activeSkills = unit.skills && unit.skills.length
+            ? unit.skills
+            : (specClsSkills(unit.cls));
+
+          for (const sKey of activeSkills) {
+            const sDef = PLAYER_SKILLS[sKey];
+            if (sDef && !sDef.isPassive && typeof sDef.execute === 'function') {
+              usedAbility = sDef.execute(unit, own, foes, rng, log);
+              if (usedAbility) {
+                unit.cooldown = sDef.cooldown || 3;
+                break;
+              }
+            }
+          }
+          // Eski ABILITIES fallback
+          if (!usedAbility && ABILITIES[unit.cls]) {
+            usedAbility = ABILITIES[unit.cls](unit, own, foes, rng, log);
+            if (usedAbility) unit.cooldown = 3;
+          }
+        } else {
+          // Canavar Yetenek Kiti
+          const kit = unit.abilities && unit.abilities.length
             ? MONSTER_ABILITIES[unit.abilities[Math.floor(rng() * unit.abilities.length)]]
-            : null);
-        if (kit) {
-          usedAbility = kit(unit, own, foes, rng, log);
-          if (usedAbility) {
-            const cd = unit.side === 'ally'
-              ? (GAME_CONFIG.COMBAT_CLASSES[unit.cls]?.cooldown || 3)
-              : (unit.abilityCooldown || 3);
-            unit.cooldown = cd;
+            : null;
+          if (kit) {
+            usedAbility = kit(unit, own, foes, rng, log);
+            if (usedAbility) {
+              unit.cooldown = unit.abilityCooldown || 3;
+            }
           }
         }
       } else {
@@ -501,7 +698,7 @@ export function simulateBattle({
       }
 
       if (!usedAbility) {
-        const target = selectTarget(unit, foes, rng, { piercing: unit.cls === 'ranger' });
+        const target = selectTarget(unit, foes, rng);
         if (target) applyDamage(unit, target, effectiveAtk(unit), rng, log, { label: 'Saldırı' });
       }
 

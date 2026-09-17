@@ -10,39 +10,39 @@
 // ============================================================================
 
 import { GAME_CONFIG } from './config.js';
-import { createUnit } from './combat.js';
+import { createUnit, DEFAULT_BOSS_PHASES } from './combat.js';
 
-// 6 kat × 3 seviye = 18 bölüm. Her katın kendi elementi ve tehdit profili var.
+// 6 kat × 3 seviye = 18 bölüm. Her katın kendi canavar profili ve yetenekleri var.
 export const DUNGEON_LEVELS = [
-  // ── 1. KAT: Kristal Mağarası (Doğa) ──────────────────────────────────
-  { level: 1,  name: 'Bataklık Balçığı',        icon: '🟢', element: 'nature', floor: 1, cls: 'guardian', abilities: [] },
-  { level: 2,  name: 'Mağara Goblini',          icon: '👺', element: 'nature', floor: 1, cls: 'ranger',   abilities: ['swoop'] },
-  { level: 3,  name: 'Gölge Kurdu',             icon: '🐺', element: 'nature', floor: 1, cls: 'ranger',   abilities: ['swoop'], isFloorGuard: true },
+  // ── 1. KAT: Kristal Mağarası ─────────────────────────────────────────
+  { level: 1,  name: 'Bataklık Balçığı',        icon: '🟢', floor: 1, cls: 'guardian', abilities: [] },
+  { level: 2,  name: 'Mağara Goblini',          icon: '👺', floor: 1, cls: 'ranger',   abilities: ['swoop'] },
+  { level: 3,  name: 'Gölge Kurdu',             icon: '🐺', floor: 1, cls: 'ranger',   abilities: ['swoop'], isFloorGuard: true },
 
-  // ── 2. KAT: Kemik Mahzeni (Buz) ──────────────────────────────────────
-  { level: 4,  name: 'Kemik Mahzeni İskeleti',  icon: '💀', element: 'ice',    floor: 2, cls: 'guardian', abilities: ['sunder'] },
-  { level: 5,  name: 'Lanetli Kemik Büyücüsü',  icon: '🧙‍♂️', element: 'ice',  floor: 2, cls: 'mage',     abilities: ['terrify'] },
-  { level: 6,  name: 'Kemik Taht Muhafızı',     icon: '🗡️', element: 'ice',    floor: 2, cls: 'paladin',  abilities: ['cleave', 'regenerate'], isFloorGuard: true },
+  // ── 2. KAT: Kemik Mahzeni ─────────────────────────────────────────────
+  { level: 4,  name: 'Kemik Mahzeni İskeleti',  icon: '💀', floor: 2, cls: 'guardian', abilities: ['sunder'] },
+  { level: 5,  name: 'Lanetli Kemik Büyücüsü',  icon: '🧙‍♂️', floor: 2, cls: 'mage',     abilities: ['terrify'] },
+  { level: 6,  name: 'Kemik Taht Muhafızı',     icon: '🗡️', floor: 2, cls: 'paladin',  abilities: ['cleave', 'regenerate'], isFloorGuard: true },
 
-  // ── 3. KAT: Kadim Tapınak (Nötr) — ARA BOSS ──────────────────────────
-  { level: 7,  name: 'Karanlık Tarikatçı',      icon: '🧙‍♂️', element: 'neutral', floor: 3, cls: 'mage',  abilities: ['terrify'] },
-  { level: 8,  name: 'Cehennem Tazısı',         icon: '🐺', element: 'fire',   floor: 3, cls: 'ranger',   abilities: ['swoop', 'cleave'] },
-  { level: 9,  name: 'Kadim Taş Golyat',        icon: '🗿', element: 'neutral',floor: 3, cls: 'guardian', abilities: ['cleave', 'sunder', 'regenerate'], isBoss: true, bossLabel: 'ARA BOSS' },
+  // ── 3. KAT: Kadim Tapınak — ARA BOSS ──────────────────────────────────
+  { level: 7,  name: 'Karanlık Tarikatçı',      icon: '🧙‍♂️', floor: 3, cls: 'mage',     abilities: ['terrify'] },
+  { level: 8,  name: 'Cehennem Tazısı',         icon: '🐺', floor: 3, cls: 'ranger',   abilities: ['swoop', 'cleave'] },
+  { level: 9,  name: 'Kadim Taş Golyat',        icon: '🗿', floor: 3, cls: 'guardian', abilities: ['cleave', 'sunder', 'regenerate'], isBoss: true, bossLabel: 'ARA BOSS', bossPhases: DEFAULT_BOSS_PHASES[9] },
 
-  // ── 4. KAT: Lanetli Firavun Mezarı (Buz) ─────────────────────────────
-  { level: 10, name: 'Sargılı Mumya',           icon: '🧟', element: 'ice',    floor: 4, cls: 'guardian', abilities: ['sunder'] },
-  { level: 11, name: 'Gölge Hayalet',           icon: '👻', element: 'ice',    floor: 4, cls: 'mage',     abilities: ['swoop', 'terrify'] },
-  { level: 12, name: 'Lanetli Firavun',         icon: '👑', element: 'ice',    floor: 4, cls: 'paladin',  abilities: ['cleave', 'regenerate', 'terrify'], isFloorGuard: true },
+  // ── 4. KAT: Lanetli Firavun Mezarı ────────────────────────────────────
+  { level: 10, name: 'Sargılı Mumya',           icon: '🧟', floor: 4, cls: 'guardian', abilities: ['sunder'] },
+  { level: 11, name: 'Gölge Hayalet',           icon: '👻', floor: 4, cls: 'mage',     abilities: ['swoop', 'terrify'] },
+  { level: 12, name: 'Lanetli Firavun',         icon: '👑', floor: 4, cls: 'paladin',  abilities: ['cleave', 'regenerate', 'terrify'], isFloorGuard: true },
 
-  // ── 5. KAT: Kaynayan Lav Çukuru (Ateş) ───────────────────────────────
-  { level: 13, name: 'Ateş İblisi',             icon: '😈', element: 'fire',   floor: 5, cls: 'ranger',   abilities: ['cleave'] },
-  { level: 14, name: 'Lav Elementali',          icon: '🌋', element: 'fire',   floor: 5, cls: 'mage',     abilities: ['cleave', 'regenerate'] },
-  { level: 15, name: 'Obsidyen Berserker',      icon: '⚔️', element: 'fire',   floor: 5, cls: 'ranger',   abilities: ['cleave', 'sunder'], isFloorGuard: true },
+  // ── 5. KAT: Kaynayan Lav Çukuru ──────────────────────────────────────
+  { level: 13, name: 'Ateş İblisi',             icon: '😈', floor: 5, cls: 'ranger',   abilities: ['cleave'] },
+  { level: 14, name: 'Lav Elementali',          icon: '🌋', floor: 5, cls: 'mage',     abilities: ['cleave', 'regenerate'] },
+  { level: 15, name: 'Obsidyen Berserker',      icon: '⚔️', floor: 5, cls: 'ranger',   abilities: ['cleave', 'sunder'], isFloorGuard: true },
 
-  // ── 6. KAT: Kıyamet Mabedi (Ateş) — FİNAL ────────────────────────────
-  { level: 16, name: 'Kıyamet Şövalyesi',       icon: '🛡️', element: 'fire',   floor: 6, cls: 'paladin',  abilities: ['cleave', 'sunder'] },
-  { level: 17, name: 'Kadim Gölge Lordu',       icon: '👁️', element: 'neutral',floor: 6, cls: 'mage',     abilities: ['terrify', 'swoop', 'cleave'] },
-  { level: 18, name: 'Kıyamet Ejderhası IGNIS', icon: '🐉', element: 'fire',   floor: 6, cls: 'guardian', abilities: ['cleave', 'sunder', 'swoop', 'regenerate'], isBoss: true, bossLabel: 'BÜYÜK BOSS' }
+  // ── 6. KAT: Kıyamet Mabedi — FİNAL ───────────────────────────────────
+  { level: 16, name: 'Kıyamet Şövalyesi',       icon: '🛡️', floor: 6, cls: 'paladin',  abilities: ['cleave', 'sunder'] },
+  { level: 17, name: 'Kadim Gölge Lordu',       icon: '👁️', floor: 6, cls: 'mage',     abilities: ['terrify', 'swoop', 'cleave'] },
+  { level: 18, name: 'Kıyamet Ejderhası IGNIS', icon: '🐉', floor: 6, cls: 'guardian', abilities: ['cleave', 'sunder', 'swoop', 'regenerate'], isBoss: true, bossLabel: 'BÜYÜK BOSS', bossPhases: DEFAULT_BOSS_PHASES[18] }
 ];
 
 // Kat başına refakatçi yaratıklar (odalar tek düşmandan ibaret değil)

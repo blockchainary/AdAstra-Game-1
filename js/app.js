@@ -6,6 +6,7 @@ import { ammMarket } from './ammMarket.js';
 import { sound } from './audio.js';
 import { GrandTownScene } from './grandTownScene.js';
 import { DungeonScene } from './dungeonScene.js';
+import { createUnit, simulateBattle, DEFAULT_BOSS_PHASES, PLAYER_SKILLS } from './combat.js';
 
 let speedMultiplier = 1;
 let lastTickTime = performance.now();
@@ -2680,9 +2681,53 @@ function renderBarracksHtml() {
                 </div>
               </div>
             </div>
-            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+              <button class="btn-clean btn-toggle-soldier-row" data-soldier-idx="${actualSelectedIndex}" style="padding: 6px 12px; font-size: 0.8rem; font-weight: 800; background: ${selectedSoldier.row === 'back' ? 'rgba(56,189,248,0.2)' : 'rgba(245,158,11,0.2)'}; border: 1.5px solid ${selectedSoldier.row === 'back' ? '#38bdf8' : '#f59e0b'}; color: ${selectedSoldier.row === 'back' ? '#38bdf8' : '#fde047'}; cursor: pointer;">
+                ${selectedSoldier.row === 'back' ? '🏹 Arka Saf (Tıkla: Öne Al)' : '🛡️ Ön Saf (Tıkla: Arkaya Al)'}
+              </button>
               <span class="card-badge" style="color: #ef4444; font-size: 0.82rem; padding: 4px 10px;">⚔️ ${soldierStats.totalAtk} Toplam ATK</span>
               <span class="card-badge" style="color: #22c55e; font-size: 0.82rem; padding: 4px 10px;">❤️ ${soldierStats.totalMaxHp} Toplam HP</span>
+            </div>
+          </div>
+
+          <!-- ⚡ AKTİF SKILL LOADOUT (YETENEK YÜKÜ) -->
+          <div class="soldier-skills-panel" style="background: rgba(15,23,42,0.7); border: 1px solid rgba(168,85,247,0.35); border-radius: 10px; padding: 10px 14px; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <div style="font-weight: 800; font-size: 0.86rem; color: #c084fc; display: flex; align-items: center; gap: 6px;">
+                <span>⚡ Taktiksel Yetenek Yükü (Skill Loadout)</span>
+                <span style="font-size: 0.72rem; color: #94a3b8; font-weight: normal;">(Max 3 Aktif + 1 Pasif)</span>
+              </div>
+              <div style="font-size: 0.72rem; color: #38bdf8;">
+                Mevzi: <strong>${selectedSoldier.row === 'back' ? 'Arka Saf' : 'Ön Saf'}</strong>
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              ${(selectedSoldier.skills || ['shieldWall']).map(skId => {
+                const sk = PLAYER_SKILLS[skId] || { name: skId, icon: '⚡', role: 'Genel', desc: '' };
+                const roleColors = {
+                  'Tank': '#f59e0b',
+                  'AoE': '#ef4444',
+                  'Şifa': '#34d399',
+                  'Kırıcı': '#eab308',
+                  'Kontrol': '#a855f7',
+                  'Öfke': '#f97316',
+                  'Hayatta Kalma': '#38bdf8'
+                };
+                const badgeColor = roleColors[sk.role] || '#94a3b8';
+                return `
+                  <div style="flex: 1; min-width: 180px; background: rgba(30,41,59,0.8); border: 1px solid ${badgeColor}; border-radius: 8px; padding: 6px 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                      <span style="font-weight: 800; font-size: 0.8rem; color: #fff;">${sk.icon} ${sk.name}</span>
+                      <span style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,0.4); color: ${badgeColor}; font-weight: 700;">${sk.role}</span>
+                    </div>
+                    <div style="font-size: 0.7rem; color: #cbd5e1; line-height: 1.3;">${sk.desc}</div>
+                    ${sk.cooldown ? `<div style="font-size: 0.65rem; color: #94a3b8; margin-top: 3px;">⏳ Bekleme: ${sk.cooldown} Tur</div>` : ''}
+                  </div>
+                `;
+              }).join('')}
+            </div>
+            <div style="font-size: 0.7rem; color: #64748b; margin-top: 6px;">
+              💡 <em>Seviye İlerlemesi: Lv.10, Lv.25, Lv.45 ve Lv.65'te yeni yeteneklerin kilitleri otomatik açılır.</em>
             </div>
           </div>
 
@@ -4886,17 +4931,26 @@ function openPreBattleModal(monster) {
 
       ${activeWeaponsPreviewHtml}
 
-      <div style="max-height:240px; overflow-y:auto; padding-right:4px;">
+      <div style="max-height:260px; overflow-y:auto; padding-right:4px;">
         ${soldiers.map((sol, idx) => {
           const stats = gameState.getSoldierFullStats(idx);
           const isChecked = preBattleSelectedSoldiers.includes(idx);
+          const isBackRow = sol.row === 'back';
+          const skillIcons = (sol.skills || ['shieldWall']).map(skId => (PLAYER_SKILLS[skId]?.icon || '⚡')).join(' ');
           return `
-            <label class="prebattle-soldier-checkbox">
-              <input type="checkbox" class="prebattle-sol-check" data-idx="${idx}" ${isChecked ? 'checked' : ''}>
-              <span>${BARRACKS_CLASS_ICONS[sol.class] || '🛡️'}</span>
-              <span style="flex:1; font-weight:600;">#${idx+1} ${sol.name} (${sol.hp || 100} HP)</span>
-              <span style="font-size:0.72rem; color:#fde047;">${stats?.totalAtk || 20} ATK</span>
-            </label>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; background:rgba(30,41,59,0.5); padding:6px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
+              <label style="display:flex; align-items:center; gap:8px; flex:1; cursor:pointer; margin:0;">
+                <input type="checkbox" class="prebattle-sol-check" data-idx="${idx}" ${isChecked ? 'checked' : ''}>
+                <span style="font-size:1.1rem;">${BARRACKS_CLASS_ICONS[sol.class] || '🛡️'}</span>
+                <div style="flex:1;">
+                  <div style="font-weight:700; font-size:0.82rem; color:#fff;">#${idx+1} ${sol.name}</div>
+                  <div style="font-size:0.7rem; color:#94a3b8;">${sol.hp || 100} HP • <span style="color:#fde047;">${stats?.totalAtk || 20} ATK</span> • <span title="Yetenekler">${skillIcons}</span></div>
+                </div>
+              </label>
+              <button type="button" class="btn-clean btn-toggle-prebattle-row" data-idx="${idx}" style="padding:4px 8px; font-size:0.72rem; width:auto; font-weight:700; background:${isBackRow ? 'rgba(56,189,248,0.2)' : 'rgba(245,158,11,0.2)'}; border:1px solid ${isBackRow ? '#38bdf8' : '#f59e0b'}; color:${isBackRow ? '#38bdf8' : '#fde047'};" title="Mevziyi Değiştir">
+                ${isBackRow ? '🏹 Arka Saf' : '🛡️ Ön Saf'}
+              </button>
+            </div>
           `;
         }).join('')}
       </div>
@@ -4970,6 +5024,20 @@ function openPreBattleModal(monster) {
     });
   });
 
+  document.querySelectorAll('.btn-toggle-prebattle-row').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const idx = parseInt(btn.dataset.idx, 10);
+      const sol = (gameState.state.soldierUnits || [])[idx];
+      if (sol) {
+        const nextRow = sol.row === 'back' ? 'front' : 'back';
+        gameState.setSoldierRow(idx, nextRow);
+        openPreBattleModal(monster);
+      }
+    });
+  });
+
   const cancelBtn = document.getElementById('btn-cancel-prebattle');
   if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
 
@@ -5013,46 +5081,75 @@ function executeMonsterBattle(monster, selectedIndices) {
   }
   renderTopBar();
 
-  let playerSquad = selectedIndices
+  // 1. Müttefik Asker Birimleri Oluşturma (Tek Tip Asker + Skill Loadout + Mevzi)
+  const allies = selectedIndices
     .filter(idx => soldiers[idx])
     .map(idx => {
-      const stats = gameState.getSoldierFullStats(idx) || { totalAtk: 20, totalMaxHp: 100 };
+      const stats = gameState.getSoldierFullStats(idx) || { totalAtk: 25, totalMaxHp: 100 };
       const sol = soldiers[idx];
-      return {
-        idx,
+      return createUnit({
+        uid: `soldier_${idx}`,
+        sourceIndex: idx,
         name: sol.name,
-        icon: BARRACKS_CLASS_ICONS[sol.class] || '🛡️',
-        hp: sol.hp != null ? sol.hp : 100,
+        icon: sol.icon || '⚔️',
+        hp: sol.hp != null ? sol.hp : stats.totalMaxHp,
         maxHp: stats.totalMaxHp,
-        atk: stats.totalAtk
-      };
+        atk: stats.totalAtk,
+        armor: sol.baseArmor || 10,
+        skills: sol.skills || ['shieldWall'],
+        row: sol.row || 'front'
+      });
     });
 
-  if (playerSquad.length === 0) {
+  if (allies.length === 0) {
     showToast('Savaşa katılacak geçerli bir asker bulunamadı!', 'error');
     return;
   }
 
-  const playerTotalHp = playerSquad.reduce((s, u) => s + u.hp, 0);
-  const playerTotalAtk = playerSquad.reduce((s, u) => s + u.atk, 0);
-
-  let pCurHp = playerTotalHp;
   let eCurHp = gameState.getMonsterCurrentHp(monster.level, monster.hp);
   const enemyStartHpPct = Math.min(100, Math.max(0, Math.round((eCurHp / monster.hp) * 100)));
+
+  // 2. Canavar Birimi ve Boss Fazları
+  const isBossMonster = !!(monster.isBoss || monster.level === 9 || monster.level === 18);
+  const enemyUnit = createUnit({
+    uid: `mon_${monster.level}`,
+    name: monster.name,
+    icon: monster.icon || '💀',
+    hp: eCurHp,
+    maxHp: monster.hp,
+    atk: monster.atk,
+    abilities: monster.abilities || [],
+    actionsPerRound: isBossMonster ? 2 : 1,
+    side: 'enemy',
+    row: 'front'
+  });
+
+  const bossPhases = DEFAULT_BOSS_PHASES[monster.level] || null;
+
+  // 3. Gerçek combat.js simulateBattle Simülasyonu
+  const simResult = simulateBattle({
+    allies,
+    enemies: [enemyUnit],
+    bossPhases,
+    seed: Date.now()
+  });
+
+  const playerTotalMaxHp = allies.reduce((s, u) => s + u.maxHp, 0);
+  let playerTotalCurrentHp = allies.reduce((s, u) => s + u.hp, 0);
 
   dom.modalBody.innerHTML = `
     <div class="clean-card" style="border-color: #ef4444; background: #1c1012;">
       <div class="card-title-row">
-        <div class="card-title">💀 ${monster.name} ile Savaş</div>
+        <div class="card-title">💀 ${monster.name} ile Taktiksel Savaş</div>
         <span class="card-badge">${monster.level}. Kat Muhafızı</span>
       </div>
     </div>
 
     <div class="arena-battlefield">
       <div class="arena-squad player-squad">
-        <div class="arena-squad-title">🛡️ Seçilen Ordu (${playerSquad.length} Asker)</div>
+        <div class="arena-squad-title">🛡️ Seçilen Ordu (${allies.length} Asker)</div>
         <div class="arena-hp-track"><div id="dungeon-player-hp-fill" class="arena-hp-fill player" style="width: 100%;"></div></div>
-        <div style="font-size:0.8rem; text-align:center; color:#34d399;" id="dungeon-player-hp-text">${playerTotalHp} / ${playerTotalHp} HP</div>
+        <div style="font-size:0.8rem; text-align:center; color:#34d399;" id="dungeon-player-hp-text">${playerTotalCurrentHp} / ${playerTotalMaxHp} HP</div>
       </div>
       <div class="arena-vs-badge">VS</div>
       <div class="arena-squad enemy-squad">
@@ -5062,8 +5159,8 @@ function executeMonsterBattle(monster, selectedIndices) {
       </div>
     </div>
 
-    <div id="dungeon-combat-log" class="clean-card arena-combat-log">
-      ⚔️ Savaş başlıyor... <span style="color:#38bdf8;">(⚡ -${staminaCost} Stamina harcandı)</span> ${eCurHp < monster.hp ? `<span style="color:#fde047;">• Canavar önceki savaştan yaralı: ${eCurHp}/${monster.hp} HP</span>` : ''}
+    <div id="dungeon-combat-log" class="clean-card arena-combat-log" style="max-height: 180px; overflow-y: auto; font-family: monospace; font-size: 0.82rem; line-height: 1.5;">
+      ⚔️ Taktiksel savaş motoru devrede... <span style="color:#38bdf8;">(⚡ -${staminaCost} Stamina harcandı)</span>
     </div>
   `;
 
@@ -5073,97 +5170,91 @@ function executeMonsterBattle(monster, selectedIndices) {
   const eHpText = document.getElementById('dungeon-enemy-hp-text');
   const logEl = document.getElementById('dungeon-combat-log');
 
-  let round = 0;
+  const logEntries = simResult.log || [];
+  let logIdx = 0;
+
   if (currentBattleInterval) {
     clearInterval(currentBattleInterval);
     currentBattleInterval = null;
   }
+
+  // 4. Tur ve Olayların Ekrana Sıralı Animasyonla Akıtılması
   const battleInt = setInterval(() => {
     currentBattleInterval = battleInt;
-    round++;
-    sound.playPickaxe();
 
-    const isCrit = Math.random() < 0.25;
-    const critMult = isCrit ? 1.75 : 1.0;
-    const pDmg = Math.floor(playerTotalAtk * (0.85 + Math.random() * 0.3) * critMult);
-    const eDmg = Math.floor(monster.atk * (0.85 + Math.random() * 0.3));
-
-    eCurHp = Math.max(0, eCurHp - pDmg);
-    pCurHp = Math.max(0, pCurHp - eDmg);
-
-    // Görsel Vuruş Efektleri: Screen Shake & Floating Damage
-    const enemySquadEl = document.querySelector('.enemy-squad');
-    const playerSquadEl = document.querySelector('.player-squad');
-    const battlefieldEl = document.querySelector('.arena-battlefield');
-
-    if (enemySquadEl && battlefieldEl) {
-      // Düşmana Darbe Titremesi
-      enemySquadEl.classList.remove('combat-shake');
-      void enemySquadEl.offsetWidth; // Reflow trigger
-      enemySquadEl.classList.add('combat-shake');
-
-      // Kılıç Kesme Efekti (Slash)
-      const slash = document.createElement('div');
-      slash.className = 'combat-slash-effect';
-      slash.style.left = `${enemySquadEl.offsetLeft + enemySquadEl.offsetWidth / 2 - 60}px`;
-      slash.style.top = `${enemySquadEl.offsetTop + enemySquadEl.offsetHeight / 2 - 10}px`;
-      battlefieldEl.appendChild(slash);
-      setTimeout(() => slash.remove(), 400);
-
-      // Uçuşan Hasar Sayısı (Floating Damage Number)
-      const dmgNum = document.createElement('div');
-      dmgNum.className = `floating-dmg-num ${isCrit ? 'crit' : 'normal'}`;
-      dmgNum.innerHTML = isCrit ? `💥 KRİTİK! -${pDmg}` : `⚔️ -${pDmg}`;
-      dmgNum.style.left = `${enemySquadEl.offsetLeft + 20 + Math.random() * 40}px`;
-      dmgNum.style.top = `${enemySquadEl.offsetTop + 10}px`;
-      battlefieldEl.appendChild(dmgNum);
-      setTimeout(() => dmgNum.remove(), 800);
-    }
-
-    if (playerSquadEl && battlefieldEl && eDmg > 0) {
-      playerSquadEl.classList.remove('combat-shake');
-      void playerSquadEl.offsetWidth;
-      playerSquadEl.classList.add('combat-shake');
-    }
-
-    if (eHpFill) eHpFill.style.width = `${Math.round((eCurHp / monster.hp) * 100)}%`;
-    if (pHpFill) pHpFill.style.width = `${Math.round((pCurHp / playerTotalHp) * 100)}%`;
-    if (eHpText) eHpText.innerText = `${eCurHp} / ${monster.hp} HP`;
-    if (pHpText) pHpText.innerText = `${pCurHp} / ${playerTotalHp} HP`;
-
-    if (logEl) {
-      logEl.innerHTML = `<div>⚔️ Tur ${round}: Ordun ${isCrit ? '💥 <strong>KRİTİK</strong> ' : ''}${pDmg} hasar vurdu! ${monster.name} ${eDmg} karşı hasar verdi!</div>`;
-    }
-
-    if (eCurHp <= 0 || pCurHp <= 0) {
+    if (logIdx >= logEntries.length) {
       clearInterval(battleInt);
       currentBattleInterval = null;
-      const isVictory = eCurHp <= 0;
+      finalizeBattle();
+      return;
+    }
 
-      const dmgFraction = Math.min(1, (playerTotalHp - pCurHp) / Math.max(1, playerTotalHp));
-      const weaponsWorn = [];
-      selectedIndices.forEach(idx => {
-        if (soldiers[idx]) {
-          const loss = Math.floor((soldiers[idx].hp || 100) * dmgFraction);
-          soldiers[idx].hp = Math.max(1, (soldiers[idx].hp || 100) - loss);
+    const entry = logEntries[logIdx];
+    logIdx++;
 
-          if (soldiers[idx].equipment?.weapon) {
-            const w = soldiers[idx].equipment.weapon;
-            const maxD = w.maxDurability || 13;
-            const curD = w.durability != null ? w.durability : maxD;
-            w.durability = Math.max(0, curD - 1);
-            weaponsWorn.push(`${soldiers[idx].name} silahı (${w.durability}/${maxD})`);
-          } else if (state.equipment?.weapon) {
-            const w = state.equipment.weapon;
-            const maxD = w.maxDurability || 13;
-            const curD = w.durability != null ? w.durability : maxD;
-            w.durability = Math.max(0, curD - 1);
-            weaponsWorn.push(`Krallık Kılıcı (${w.durability}/${maxD})`);
-          }
+    // Ses ve görsel efektler
+    if (entry.type === 'damage') {
+      sound.playPickaxe();
+      if (entry.actorSide === 'ally') {
+        eCurHp = Math.max(0, entry.targetHp);
+      } else {
+        playerTotalCurrentHp = Math.max(0, playerTotalCurrentHp - entry.amount);
+      }
+    } else if (entry.type === 'ability') {
+      sound.playLevelUp();
+    }
+
+    // UI Güncelleme
+    if (eHpFill) eHpFill.style.width = `${Math.round((eCurHp / monster.hp) * 100)}%`;
+    if (pHpFill) pHpFill.style.width = `${Math.round((playerTotalCurrentHp / playerTotalMaxHp) * 100)}%`;
+    if (eHpText) eHpText.innerText = `${eCurHp} / ${monster.hp} HP`;
+    if (pHpText) pHpText.innerText = `${playerTotalCurrentHp} / ${playerTotalMaxHp} HP`;
+
+    if (logEl) {
+      const line = document.createElement('div');
+      if (entry.type === 'ability') {
+        line.innerHTML = `<span style="color:#fde047;">⚡ [YETENEK]</span> ${entry.text}`;
+      } else if (entry.type === 'damage') {
+        line.innerHTML = `<span>⚔️</span> ${entry.actor} ➔ ${entry.target}: <strong>-${entry.amount} HP</strong> ${entry.isCrit ? '💥 (KRİTİK!)' : ''} ${entry.label ? `[${entry.label}]` : ''}`;
+      } else if (entry.type === 'heal') {
+        line.innerHTML = `<span style="color:#34d399;">✨ [İYİLEŞME]</span> ${entry.actor} ➔ ${entry.target}: <strong>+${entry.amount} HP</strong>`;
+      } else if (entry.type === 'phase') {
+        line.innerHTML = `<span style="color:#ef4444; font-weight:bold;">🔥 [BOSS FAZI]</span> ${entry.text}`;
+      } else if (entry.type === 'rage') {
+        line.innerHTML = `<span style="color:#ea580c; font-weight:bold;">🌋 [ÖFKE]</span> ${entry.text}`;
+      } else if (entry.text) {
+        line.innerText = entry.text;
+      }
+      logEl.appendChild(line);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+  }, 220);
+
+  function finalizeBattle() {
+    const isVictory = simResult.winner === 'ally';
+
+    // Askerlerin gerçek canlarının güncellenmesi (Askeri Koruma: 1 HP altına düşmez)
+    const weaponsWorn = [];
+    allies.forEach(a => {
+      const idx = a.sourceIndex;
+      if (soldiers[idx]) {
+        soldiers[idx].hp = Math.max(1, a.hp);
+
+        // Silah aşınması
+        if (soldiers[idx].equipment?.weapon) {
+          const w = soldiers[idx].equipment.weapon;
+          const maxD = w.maxDurability || 13;
+          w.durability = Math.max(0, (w.durability != null ? w.durability : maxD) - 1);
+          weaponsWorn.push(`${soldiers[idx].name} silahı (${w.durability}/${maxD})`);
+        } else if (state.equipment?.weapon) {
+          const w = state.equipment.weapon;
+          const maxD = w.maxDurability || 13;
+          w.durability = Math.max(0, (w.durability != null ? w.durability : maxD) - 1);
+          weaponsWorn.push(`Krallık Kılıcı (${w.durability}/${maxD})`);
         }
-      });
+      }
+    });
 
-    const isBossMonster = !!(monster.isBoss || monster.level === 9 || monster.level === 18);
     const dropRes = gameState.addDungeonXpAndDrops(monster.level, isBossMonster);
     const adaReward = dropRes.adAstraGained || monster.rewardAdAstra || (monster.level * 25);
 
@@ -5171,12 +5262,14 @@ function executeMonsterBattle(monster, selectedIndices) {
       sound.playLevelUp();
       gameState.clearMonsterHp(monster.level);
 
-      // Zindan XP'si SADECE savaşa giren askerlere gider (Karakter avatar seviyesine gitmez)
       let levelUpNotice = [];
       selectedIndices.forEach(idx => {
         const sRes = gameState.addSoldierXp(idx, monster.rewardXp);
         if (sRes && sRes.leveledUp) {
           levelUpNotice.push(`Asker #${idx + 1} Lv.${sRes.newLevel}'e Yükseldi!`);
+          if (sRes.unlockedSkills && sRes.unlockedSkills.length) {
+            levelUpNotice.push(`✨ Yeni Yetenek Açıldı: ${sRes.unlockedSkills.join(', ')}!`);
+          }
         }
       });
 
@@ -5350,7 +5443,6 @@ function executeMonsterBattle(monster, selectedIndices) {
     gameState.saveState();
     renderTopBar();
   }
-}, 350);
 }
 
 // =========================================================================
@@ -6087,6 +6179,22 @@ function initAppEvents() {
         showToast(res.message, 'error');
       }
       renderTopBar();
+      return;
+    }
+
+    // 🛡️ Asker Formasyon Mevzisi Değiştirme (Ön Saf / Arka Saf)
+    const toggleSoldierRowBtn = e.target.closest('.btn-toggle-soldier-row');
+    if (toggleSoldierRowBtn) {
+      const sIdx = parseInt(toggleSoldierRowBtn.dataset.soldierIdx, 10);
+      const soldier = (gameState.state.soldierUnits || [])[sIdx];
+      if (soldier) {
+        const nextRow = soldier.row === 'back' ? 'front' : 'back';
+        const res = gameState.setSoldierRow(sIdx, nextRow);
+        if (res.success) {
+          showToast(`🛡️ ${soldier.name} mevzisi: ${nextRow === 'back' ? '🏹 Arka Saf' : '🛡️ Ön Saf'} olarak ayarlandı.`, 'info');
+          openBarracksModal();
+        }
+      }
       return;
     }
 

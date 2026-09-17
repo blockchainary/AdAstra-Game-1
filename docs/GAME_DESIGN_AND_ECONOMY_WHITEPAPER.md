@@ -287,18 +287,42 @@ Her asker zindan savaşlarından kazandığı tecrübe puanıyla bağımsız sev
 
 *(Not: Tablonun 1'den 81'e kadar tüm satırları için [docs/LEVEL_PROGRESSION_TABLES.md](docs/LEVEL_PROGRESSION_TABLES.md) dokümanına başvurabilirsiniz).*
 
-### C) ⚔️ Kolezyum Gladyatör Ligi & 1v1 Şampiyon Arenası:
-Kolezyum, krallığın en güçlü şampiyonlarının ELO derecesi ve Krallık Hazinesinin %20'lik Arena Kasası için çarpıştığı onur meydanıdır.
+### C) 🛡️ Tek Tip Asker + Yetenek Yükü (Skill Loadout) & Taktik Formasyon:
+Krallık ordusunda askerler sınıf (class) ayrımı olmaksızın **tek tip temel matematiksel stat eğrisine** ($100 + 25 \cdot (L - 1)$ HP, $25 + 6 \cdot (L - 1)$ ATK) tabidir. Ancak ordudaki her asker, taşıdığı **Skill Loadout** (1-3 Aktif + 1 Pasif Yetenek) ve **Mevzi (Front / Back Row)** konumuyla uzmanlaşır.
 
-1. **🛡️ Askeri Koruma Kuralı (No Permadeath):**
-   - Kolezyum maçlarında oyuncunun şampiyon askeri yenilgiye uğrasa dahi **canı minimum 1 HP'de sabitlenir** (`champion.hp = Math.max(1, playerCurrentHp)`).
-   - Asker asla ölmez, silinmez ve ordudan kaybolmaz. Oyuncular emek verdikleri askerlerini kaybetme korkusu yaşamadan arenada özgürce savaşabilir.
-2. **📈 Dinamik ELO Reyting Algoritması:**
-   - Maç eşleşmesinde rakibin dinamik reytingi hesaba katılır ve satranç standardındaki matematiksel ELO formülü uygulanır:
-     $$E_A = \frac{1}{1 + 10^{(R_{\text{rakip}} - R_{\text{oyuncu}}) / 400}}$$
-   - Galibiyet durumunda oyuncu reytingi $+K \cdot (1 - E_A)$, mağlubiyette $-K \cdot E_A$ formülüyle adil ve dinamik olarak değişir.
-3. **🏛️ Lig Ödül Dağılımı:**
-   - Hazine kasasındaki haftalık %20'lik pay (8.000.000 $ADASTRA başlangıç tabanı), Pazar/Pazartesi 00:01 TSİ sıfırlamasında lig derecelerine göre hak sahiplerine dağıtılır.
+#### 1. Taktiksel Yetenek Havuzu:
+| Yetenek Kodu | Adı & Rolü | Tur Beklemesi (CD) | Taktiksel Etki |
+| :--- | :--- | :---: | :--- |
+| `shieldWall` | 🛡️ Kalkan Duvarı (Tank) | 3 Tur | Kendine 2 tur +20 Zırh, +30 Kalkan ve tüm düşman saldırılarını üzerine çeken **Taunt** uygular. |
+| `shockwave` | ⚡ Şok Dalgası (AoE) | 3 Tur | Ön saftaki tüm düşmanlara %80 ATK hasarı vurarak kalabalıkları temizler. |
+| `fieldMedic` | 🧪 Sahra Merhemi (Şifa) | 4 Tur | Ordudaki en yaralı müttefiki %130 ATK gücünde iyileştirir, zayıflatıcı etkileri (debuff) temizler. |
+| `armorBreaker` | 🔨 Zırh Kırıcı (Kırıcı) | 3 Tur | Düşmanın zırhını 3 tur boyunca %40 azaltır ve tek hedefe %120 hasar vurur (Boss kırma). |
+| `stunStrike` | 💫 Sersemletme Darbesi (Kontrol) | 4 Tur | Düşmana darbe vurarak 1 tur boyunca sersemletir (aksiyon alamaz). |
+| `bloodFrenzy` | 🩸 Kan Çılgınlığı (Öfke) | 3 Tur | Kendi zırhını 2 tur -10 düşürür ama ATK gücünü +%60 artırır (Yüksek risk, yüksek hasar). |
+| `lastStand` | 🛡️ Son Nefes (Pasif) | Pasif (1 Kez) | Can %20 altına indiğinde otomatik tetiklenir; savaş boyunca bir kereliğine %40 hasar azaltma kalkanı verir. |
+
+#### 2. Yetenek Kazanım ve Kilit Açım Kanalları:
+- **Seviye Atlama:** Asker Lv.10'a ulaştığında `shockwave`, Lv.25'te `armorBreaker`, Lv.45'te `fieldMedic` ve Lv.65'te `lastStand` pasif yeteneğinin kilidini otomatik olarak açar.
+- **Ekipman Bağı:** Demirci'de dövülen yüksek seviyeli silah ve miğferler askerlerin yetenek slotlarını zenginleştirir.
+- **Zindan / Pandora Ganimeti:** Zindan muhafızlarından ve Pandora sandıklarından düşen Yetenek Parşömenleri (`scroll_skill_*`) askere doğrudan kalıcı yetenek öğretir.
+
+#### 3. Mevzi & Ön Saf (Frontline Cover) Mekanizması:
+- Oyuncu her savaştan önce ordusundaki askerleri **Ön Saf (`front`)** veya **Arka Saf (`back`)** olarak konumlandırır.
+- Savaş motorundaki `selectTarget()` algoritması, ön saf ayaktayken saldırıların %85'ini ön saf askerlerine yönlendirir ve arkadaki kırılgan destekçileri korur.
+
+### D) 🏟️ Kolezyum Sabit Lig Kademeleri & 1v1 Gladyatör Arenası:
+Kolezyum, krallığın en güçlü şampiyonlarının ELO derecesi ve Krallık Hazinesinin %20'lik Arena Kasası için çarpıştığı onur meydanıdır.
+- **Sabit Lig Kademeleri:** Rakipler rastgele üretilmez; sabit ELO bandlarına göre dengelenir:
+  - 👑 **Efsanevi Şampiyon:** 1800+ ELO (2.0x Hazine Ödülü, 900 HP / 180 ATK Gladyatörler)
+  - 💎 **Elmas Gladyatör:** 1500 - 1799 ELO (1.6x Hazine Ödülü, 600 HP / 120 ATK Gladyatörler)
+  - 🥇 **Altın Gladyatör:** 1300 - 1499 ELO (1.3x Hazine Ödülü, 350 HP / 75 ATK Gladyatörler)
+  - 🥈 **Gümüş Gladyatör:** 1150 - 1299 ELO (1.1x Hazine Ödülü, 200 HP / 45 ATK Gladyatörler)
+  - 🥉 **Bronz Gladyatör:** 0 - 1149 ELO (1.0x Taban Ödül, 100 HP / 25 ATK Gladyatörler)
+- **Asenkron Bot Ligi:** Liderlik tablosu bot gladyatörlerle etiketlenmiştir; oyuncu kademeleri tırmandıkça gerçek bir lig ilerleme hissi yaşar.
+- **🛡️ Askeri Koruma Kuralı (No Permadeath):** Kolezyumda asker asla ölmez, canı en kötü 1 HP'de sabitlenir.
+
+### E) 🌋 Dünya Bossu Yetenek Çeşitliliği Bonusu:
+Haftalık Dünya Bossu savaşına stake edilen ordunun gücü sadece kaba ATK toplamına değil, ordudaki **farklı yetenek ve rol çeşitliliğine** (`calculateSquadSkillDiversity`) dayanır. Ordusunda Tank, Kalabalık Temizleme (AoE), Kırıcı, Kontrol ve Şifa rollerini harmanlayan komutanlar **+%30'a varan hasar çarpanı** elde eder.
 
 ---
 

@@ -25,10 +25,13 @@ Oyunda harcama olarak tüketilen **tüm Odun, Demir ve Buğdaylar kalıcı olara
 - **Tek Çekim Tavanı:** Hiçbir hesap tek talepte UBI havuzunun **%5'inden fazlasını** çekemez.
 - **Havuz Emniyet Tamponu:** Havuz bakiyesi %50 seviyesine indiğinde ödemeler orantılı dengelenir, havuz asla sıfırlanmaz.
 
-### 3. ⚔️ Kademeli 1.8 Milyon $ADASTRA Asker Modeli & Kolezyum Ligi
-- Kışlada ordu sınırı kaldırılmıştır; sınırsız sayıda asker alınabilir.
-- İlk askerin bedeli erişilebilir taban maliyetiyle **5.000 $ADASTRA**'dır. 18. asker tam **1.800.000 (1.8 Milyon) $ADASTRA**'dır.
-- **🛡️ Kolezyum Askeri Koruma Kuralı (No Permadeath):** Gladyatör maçlarında şampiyon yenilse dahi canı minimum 1 HP'de kalır, asker asla ölmez ve ordudan silinmez. Dinamik ELO derecelendirme algoritması aktiftir.
+### 3. ⚔️ Tek Tip Asker + Yetenek Yükü (Skill Loadout) & Formasyon
+- **Tek Tip Asker Stat Modeli:** Askerler sınıf kısıtı olmadan aynı temel eğriyi ($100 + 25 \cdot (L - 1)$ HP, $25 + 6 \cdot (L - 1)$ ATK) takip eder. Ordu sınırı kaldırılmıştır; ilk asker 5.000 ADA, 18. asker 1.800.000 ADA'dır.
+- **Taktiksel Skill Loadout:** Her asker 1-3 aktif ve 1 pasif yetenek taşır (`shieldWall`, `shockwave`, `fieldMedic`, `armorBreaker`, `stunStrike`, `bloodFrenzy`, `lastStand`).
+- **Doğal Kilit Açımı:** Lv.10, Lv.25, Lv.45 ve Lv.65'te yeni yetenekler otomatik açılır; parşömenler ve dövülen eşyalar askere özel yetenek kazandırır.
+- **Taktik Formasyon (Ön / Arka Saf):** Oyuncu savaştan önce askerlerini sürükle-bırak / tek tıkla Ön Saf (`front`) veya Arka Saf (`back`) olarak dizer. `selectTarget()` algoritması ön saf ayaktayken saldırıların %85'ini ön safa yönlendirerek arkadaki birimleri korur.
+- **🛡️ Kolezyum Sabit Lig Kademeleri:** Bronz, Gümüş, Altın, Elmas ve Şampiyon sabit ELO bandları tanımlanmıştır. Askerler asla ölmez (No Permadeath), canları minimum 1 HP'de korunur.
+- **🌋 Dünya Bossu Yetenek Çeşitliliği:** Stake edilen ordudaki farklı rol sayısı (Tank, AoE, Şifa, Kırıcı) hesaplanarak **+%30'a varan hasar bonusu** verilir.
 
 ### 4. 🤖 Taverna: 24 Saatlik Otonom Sefer & Tamir Botu
 - **Saf Kâr Ortaklığı (%50):** 24 saatlik tahmini net saf kâr üzerinden hesaplanan adil ortaklık bedeli.

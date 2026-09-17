@@ -4,6 +4,7 @@ import { globalPool } from './globalPool.js';
 import { sound } from './audio.js';
 import { ammMarket } from './ammMarket.js';
 import { treasury } from './treasury.js';
+import { createUnit, simulateBattle } from './combat.js';
 
 export class GameStateManager {
   constructor() {
@@ -126,6 +127,13 @@ export class GameStateManager {
     const maxHp = GAME_CONFIG.SOLDIER_MAX_HP || 100;
     const baseAtk = GAME_CONFIG.SOLDIER_BASE_ATK || 25;
 
+    // İlk askere Kalkan Duvarı, 2. askere Şok Dalgası, 3. askere Sahra Merhemi vb. dengeli dağılım
+    const initialSkills = (index === 1) ? ['shieldWall']
+      : (index === 2) ? ['shockwave']
+      : (index === 3) ? ['fieldMedic']
+      : (index === 4) ? ['armorBreaker']
+      : ['shieldWall'];
+
     return {
       id: `soldier_${Date.now()}_${index}`,
       name: `AdAstra Şampiyonu #${index}`,
@@ -133,8 +141,8 @@ export class GameStateManager {
       classId: 'adastra_champion',
       className: 'AdAstra Şampiyonu',
       icon: '⚔️',
-      element: null,
-      row: 'front',
+      row: index <= 2 ? 'front' : 'back',
+      skills: initialSkills,
       level,
       xp: 0,
       maxHp,
@@ -178,14 +186,20 @@ export class GameStateManager {
       const level = Math.max(1, s.level || 1);
       const maxHp = 100 + (level - 1) * (GAME_CONFIG.SOLDIER_HP_PER_LEVEL || 25);
       const baseAtk = 25 + (level - 1) * (GAME_CONFIG.SOLDIER_ATK_PER_LEVEL || 6);
+
+      // Geriye dönük uyumlu yetenek yükleme
+      const skills = s.skills && Array.isArray(s.skills) && s.skills.length > 0
+        ? [...s.skills]
+        : (i === 0 ? ['shieldWall'] : i === 1 ? ['shockwave'] : ['armorBreaker']);
+
       return {
         id: s.id || `soldier_${i + 1}`,
         name: `AdAstra Şampiyonu #${i + 1}`,
         class: 'adastra_champion',
         className: 'AdAstra Şampiyonu',
         icon: '⚔️',
-        element: null,
-        row: 'front',
+        row: s.row || (i < 2 ? 'front' : 'back'),
+        skills,
         level,
         xp: s.xp || 0,
         maxHp: s.maxHp || maxHp,
@@ -4811,21 +4825,21 @@ export class GameStateManager {
   }
 
   // =========================================================================
-  // KOLEZYUM 1v1 PVP & HAFTALIK LİDERLİK TABLOSU
+  // KOLEZYUM ARENA LİGİ & HAFTALIK LİDERLİK TABLOSU (ASENKRON BOT LİGİ)
   // =========================================================================
   getColosseumLeaderboard() {
     if (!this.state.colosseumLeaderboard) {
       this.state.colosseumLeaderboard = [
-        { rank: 1, name: 'Kraliyet Gladyatörü Leonidas', score: 48, wins: 48, losses: 2, icon: '🦁', title: 'Arena Şampiyonu', rewardKeys: 5, rewardAda: 15000 },
-        { rank: 2, name: 'Valkyrie Selin', score: 42, wins: 42, losses: 5, icon: '⚔️', title: 'Yenilmez Gladyatör', rewardKeys: 3, rewardAda: 8000 },
-        { rank: 3, name: 'Gölge Şövalyesi Eren', score: 38, wins: 38, losses: 7, icon: '🗡️', title: 'Arenanın Fatihi', rewardKeys: 1, rewardAda: 2500 },
-        { rank: 4, name: 'Titan Barok', score: 35, wins: 35, losses: 8, icon: '🗿', title: 'Taş Muhafız', rewardKeys: 1, rewardAda: 2500 },
-        { rank: 5, name: 'Büyücü Zafira', score: 31, wins: 31, losses: 9, icon: '🧙‍♀️', title: 'Kadim Elementalist', rewardKeys: 1, rewardAda: 2500 },
-        { rank: 6, name: 'Gece Avcısı Kaan', score: 28, wins: 28, losses: 10, icon: '🏹', title: 'Usta Nişancı', rewardKeys: 1, rewardAda: 2500 },
-        { rank: 7, name: 'Korsan Kaptan Drake', score: 25, wins: 25, losses: 12, icon: '🏴‍☠️', title: 'Denizler Fatihi', rewardKeys: 1, rewardAda: 2500 },
-        { rank: 8, name: 'Ejderha Süvarisi Alperen', score: 22, wins: 22, losses: 13, icon: '🐉', title: 'Ateş Lordu', rewardKeys: 1, rewardAda: 2500 },
-        { rank: 9, name: 'Kutsal Şövalye Galahad', score: 19, wins: 19, losses: 14, icon: '🛡️', title: 'Işık Muhafızı', rewardKeys: 1, rewardAda: 2500 },
-        { rank: 10, name: 'Fırtına Savaşçısı Zephyr', score: 16, wins: 16, losses: 15, icon: '⚡', title: 'Fırtına Getiren', rewardKeys: 1, rewardAda: 2500 },
+        { rank: 1, name: 'Gladyatör Botu #1 (Leonidas)', score: 48, wins: 48, losses: 2, icon: '🦁', title: 'Şampiyon Bot', rewardKeys: 5, rewardAda: 15000, isBot: true },
+        { rank: 2, name: 'Gladyatör Botu #2 (Selin)', score: 42, wins: 42, losses: 5, icon: '⚔️', title: 'Elmas Bot', rewardKeys: 3, rewardAda: 8000, isBot: true },
+        { rank: 3, name: 'Gladyatör Botu #3 (Eren)', score: 38, wins: 38, losses: 7, icon: '🗡️', title: 'Altın Bot', rewardKeys: 1, rewardAda: 2500, isBot: true },
+        { rank: 4, name: 'Gladyatör Botu #4 (Barok)', score: 35, wins: 35, losses: 8, icon: '🗿', title: 'Taş Muhafız', rewardKeys: 1, rewardAda: 2500, isBot: true },
+        { rank: 5, name: 'Gladyatör Botu #5 (Zafira)', score: 31, wins: 31, losses: 9, icon: '🧙‍♀️', title: 'Gümüş Bot', rewardKeys: 1, rewardAda: 2500, isBot: true },
+        { rank: 6, name: 'Gladyatör Botu #6 (Kaan)', score: 28, wins: 28, losses: 10, icon: '🏹', title: 'Gümüş Bot', rewardKeys: 1, rewardAda: 2500, isBot: true },
+        { rank: 7, name: 'Gladyatör Botu #7 (Drake)', score: 25, wins: 25, losses: 12, icon: '🏴‍☠️', title: 'Bronz Bot', rewardKeys: 1, rewardAda: 2500, isBot: true },
+        { rank: 8, name: 'Gladyatör Botu #8 (Alperen)', score: 22, wins: 22, losses: 13, icon: '🐉', title: 'Bronz Bot', rewardKeys: 1, rewardAda: 2500, isBot: true },
+        { rank: 9, name: 'Gladyatör Botu #9 (Galahad)', score: 19, wins: 19, losses: 14, icon: '🛡️', title: 'Acemi Bot', rewardKeys: 1, rewardAda: 2500, isBot: true },
+        { rank: 10, name: 'Gladyatör Botu #10 (Zephyr)', score: 16, wins: 16, losses: 15, icon: '⚡', title: 'Acemi Bot', rewardKeys: 1, rewardAda: 2500, isBot: true },
       ];
     }
     return this.state.colosseumLeaderboard;
@@ -4839,7 +4853,6 @@ export class GameStateManager {
     }
     return this.state.dailyCounters;
   }
-
 
   executeColosseum1v1Match(championIndex = 0) {
     if (this.isArmyStakedInWorldBoss()) {
@@ -4856,15 +4869,6 @@ export class GameStateManager {
       return { success: false, message: `⚠️ ${champion.name} ağır yaralı (Can: ${champion.hp}/${champion.maxHp}). Kolezyuma çıkmadan önce buğdayla iyileştirilmelidir!` };
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // GİRİŞ BEDELİ — v2 (F-02)
-    // ═══════════════════════════════════════════════════════════════════
-    // v1'de arayüz "🔑 N Anahtar" rozetini gösteriyor ve whitepaper anahtarın
-    // "dövüşlere girmek için kullanıldığını" söylüyordu; ancak bu fonksiyonun
-    // hiçbir yerinde arenaKeys kontrol edilmiyor veya düşülmüyordu. Düello
-    // tamamen ücretsizdi, şampiyon Math.max(1,...) ile asla ölmüyordu ve
-    // galibiyet %25 ihtimalle YENİ anahtar veriyordu. Sink olması gereken
-    // kalem faucet'e dönüşmüştü: sınırsız ücretsiz ADA.
     const cfg = GAME_CONFIG.COLOSSEUM;
     const counters = this.getDailyCounters();
     if (counters.arenaMatches >= cfg.DAILY_MATCH_CAP) {
@@ -4884,36 +4888,60 @@ export class GameStateManager {
     const stats = this.getSoldierFullStats(championIndex);
     const playerAtk = stats.totalAtk;
     const playerMaxHp = stats.totalMaxHp;
-    let playerCurrentHp = champion.hp || playerMaxHp;
 
-    // Gerçekçi Rakip Şampiyon Havuzu ve Dinamik Rakip ELO Derecesi
     const playerRating = this.state.colosseumStats?.rating || GAME_CONFIG.COLOSSEUM.STARTING_RATING;
-    const opponents = [
-      { name: 'Gölge Gladyatörü Kael', atk: Math.floor(playerAtk * (0.85 + Math.random() * 0.3)), hp: Math.floor(playerMaxHp * (0.85 + Math.random() * 0.3)), rating: Math.round(playerRating * (0.90 + Math.random() * 0.15)), icon: '🥷' },
-      { name: 'Çöl Akrebi Malok', atk: Math.floor(playerAtk * (0.90 + Math.random() * 0.3)), hp: Math.floor(playerMaxHp * (0.90 + Math.random() * 0.3)), rating: Math.round(playerRating * (0.95 + Math.random() * 0.15)), icon: '🦂' },
-      { name: 'Kolezyum Şampiyonu Ragnar', atk: Math.floor(playerAtk * (0.95 + Math.random() * 0.35)), hp: Math.floor(playerMaxHp * (0.95 + Math.random() * 0.35)), rating: Math.round(playerRating * (1.00 + Math.random() * 0.20)), icon: '🪓' }
-    ];
-    const opp = opponents[Math.floor(Math.random() * opponents.length)];
-    let oppHp = opp.hp;
+    const tier = this.getColosseumTier(playerRating);
 
-    const combatLog = [];
-    let round = 0;
-    while (playerCurrentHp > 0 && oppHp > 0 && round < 8) {
-      round++;
-      const pDmg = Math.floor(playerAtk * (0.9 + Math.random() * 0.3));
-      oppHp = Math.max(0, oppHp - pDmg);
-      combatLog.push(`⚔️ Tur ${round}: ${champion.name} hamle yaptı ve rakibe **-${pDmg} hasar** verdi!`);
+    // Sabit Lig Kademelerine Göre Kalibre Edilmiş Düşman Şampiyonu
+    const oppBaseAtk = tier.id === 'champion' ? 180 : tier.id === 'diamond' ? 120 : tier.id === 'gold' ? 75 : tier.id === 'silver' ? 45 : 25;
+    const oppBaseHp = tier.id === 'champion' ? 900 : tier.id === 'diamond' ? 600 : tier.id === 'gold' ? 350 : tier.id === 'silver' ? 200 : 100;
 
-      if (oppHp <= 0) break;
+    const oppAtk = Math.max(15, Math.floor(oppBaseAtk * (0.85 + Math.random() * 0.3)));
+    const oppMaxHp = Math.max(80, Math.floor(oppBaseHp * (0.85 + Math.random() * 0.3)));
+    const oppRating = Math.round(tier.minRating + Math.random() * 150);
 
-      const eDmg = Math.floor(opp.atk * (0.85 + Math.random() * 0.25));
-      playerCurrentHp = Math.max(0, playerCurrentHp - eDmg);
-      combatLog.push(`💥 Tur ${round}: ${opp.name} karşı saldırıyla **-${eDmg} hasar** vurdu!`);
-    }
+    const opponent = {
+      name: `${tier.name} Rakibi`,
+      icon: tier.id === 'champion' ? '👑' : tier.id === 'diamond' ? '💎' : tier.id === 'gold' ? '🥇' : tier.id === 'silver' ? '🥈' : '🥉',
+      atk: oppAtk,
+      hp: oppMaxHp,
+      rating: oppRating
+    };
 
-    const isVictory = playerCurrentHp > 0 && oppHp <= 0;
-    // 🛡️ Askeri Koruma Kuralı (No Permadeath): Kolezyumda asker ölmez, en fazla 1 HP'ye düşer ve buğdayla tedavi edilir
-    champion.hp = Math.max(1, playerCurrentHp);
+    // combat.js createUnit ve simulateBattle simülasyonu
+    const allyUnit = createUnit({
+      uid: 'player_champ',
+      name: champion.name,
+      icon: champion.icon || '⚔️',
+      maxHp: playerMaxHp,
+      hp: champion.hp || playerMaxHp,
+      atk: playerAtk,
+      skills: champion.skills || ['shieldWall'],
+      row: champion.row || 'front'
+    });
+
+    const enemyUnit = createUnit({
+      uid: 'opp_champ',
+      name: opponent.name,
+      icon: opponent.icon,
+      maxHp: oppMaxHp,
+      hp: oppMaxHp,
+      atk: oppAtk,
+      skills: ['shieldWall', 'shockwave'],
+      row: 'front',
+      side: 'enemy'
+    });
+
+    const simRes = simulateBattle({
+      allies: [allyUnit],
+      enemies: [enemyUnit],
+      seed: Date.now()
+    });
+
+    const isVictory = !!(simRes.victory || simRes.winner === 'ally');
+    const finalPlayerHp = allyUnit.hp;
+    // 🛡️ Askeri Koruma Kuralı (No Permadeath): Kolezyumda asker asla ölmez, 1 HP'de hayatta kalır
+    champion.hp = Math.max(1, finalPlayerHp);
     const damageTaken = playerMaxHp - champion.hp;
 
     if (!this.state.colosseumStats) {
@@ -4923,11 +4951,10 @@ export class GameStateManager {
     let rewardAda = 0;
     let rewardKeys = 0;
 
-    // 🏆 Gerçek Matematiksel ELO Puanı: Rakip derecesi (opp.rating) ve Oyuncu derecesi arasındaki fark hesaba katılır
+    // 🏆 Gerçek ELO Formülü
     if (this.state.colosseumStats.rating == null) {
       this.state.colosseumStats.rating = GAME_CONFIG.COLOSSEUM.STARTING_RATING;
     }
-    const oppRating = opp.rating || playerRating;
     const expected = 1 / (1 + Math.pow(10, (oppRating - this.state.colosseumStats.rating) / 400));
     const ratingDelta = Math.round(GAME_CONFIG.COLOSSEUM.K_FACTOR * ((isVictory ? 1 : 0) - expected));
     this.state.colosseumStats.rating = Math.max(0, this.state.colosseumStats.rating + ratingDelta);
@@ -4936,18 +4963,16 @@ export class GameStateManager {
       this.state.colosseumStats.wins += 1;
       this.state.colosseumStats.score += 3;
 
-      // YASA 1: ödül BASILMAZ, hazineden ÇEKİLİR.
-      // v1'de `state.adAstraBalance += rewardAda` yazıyordu — bedeli olmayan
-      // sınırsız emisyon. Artık arena havuzu boşalırsa ödül kendiliğinden küçülür.
-      const request = 120 + Math.floor(Math.random() * 60);
-      const draw = globalPool.withdrawReward('arena', request);
-      rewardAda = Math.floor(draw.granted);
-      this.state.adAstraBalance += rewardAda;
+      // Hazine Arena Kasasından Ödül
+      const arenaPool = (typeof treasury !== 'undefined' && treasury.getPool) ? treasury.getPool('arena') : 8000000;
+      const baseReward = Math.min(2500, Math.round(arenaPool * 0.0002));
+      rewardAda = Math.round(baseReward * tier.rewardMult);
+      this.state.adAstraBalance = (this.state.adAstraBalance || 0) + rewardAda;
+
       if (Math.random() < 0.25) {
         rewardKeys = 1;
         this.state.arenaKeys = (this.state.arenaKeys || 0) + 1;
       }
-      sound.playLevelUp();
     } else {
       this.state.colosseumStats.losses += 1;
       this.state.colosseumStats.score = Math.max(0, this.state.colosseumStats.score - 1);
@@ -4955,19 +4980,22 @@ export class GameStateManager {
 
     this.saveState();
 
+    const combatLog = simRes.log.map(l => l.text || `${l.actor} -> ${l.target} (${l.amount || ''} hasar)`).filter(Boolean);
+
     return {
       success: true,
       isVictory,
       championName: champion.name,
-      opponentName: opp.name,
-      opponentIcon: opp.icon,
+      opponentName: opponent.name,
+      opponentIcon: opponent.icon,
       damageTaken,
       currentHp: champion.hp,
       maxHp: champion.maxHp,
       rewardAda,
       rewardKeys,
       combatLog,
-      colosseumStats: this.state.colosseumStats
+      colosseumStats: this.state.colosseumStats,
+      tier
     };
   }
 
@@ -5012,20 +5040,28 @@ export class GameStateManager {
   }
 
   // Kullanıcının ordusunun Pazar 18:00 TSİ savaşındaki hasar gücünü hesaplar:
-  // Her 1 ATK = 1:1 rasyo, Her 1 HP = 1:0.25 rasyo
+  // Her 1 ATK = 1:1 rasyo, Her 1 HP = 1:0.25 rasyo + Yetenek Çeşitliliği Bonusu (max +%50)
   calculateUserWorldBossPower() {
     const boss = this.getWorldBossInfo();
     const atk = boss.userStakedAtk || 0;
     const hp = boss.userStakedHp || 0;
-    const calculatedDamage = Math.floor((atk * 1.0) + (hp * 0.25));
+    const baseDamage = Math.floor((atk * 1.0) + (hp * 0.25));
+
+    // Rol / Yetenek Çeşitliliği Bonusu
+    const diversity = this.calculateSquadSkillDiversity();
+    const calculatedDamage = Math.floor(baseDamage * diversity.diversityMultiplier);
     const estimatedAda = Math.floor((calculatedDamage * boss.weeklyAdaPool) / boss.maxBossHp);
     return {
       atk,
       hp,
       atkContribution: Math.floor(atk * 1.0),
       hpContribution: Math.floor(hp * 0.25),
+      baseDamage,
       calculatedDamage,
-      estimatedAda
+      estimatedAda,
+      diversityMultiplier: diversity.diversityMultiplier,
+      uniqueRoles: diversity.uniqueRoles,
+      rolesFound: diversity.rolesFound
     };
   }
 
@@ -5326,20 +5362,126 @@ export class GameStateManager {
     s.xp = (s.xp || 0) + xpAmount;
     let leveledUp = false;
     let newLevel = s.level || 1;
+    let unlockedSkills = [];
 
     // Gerekli XP Formülü: Level * 100
     while (s.xp >= (s.level * 100)) {
       s.xp -= (s.level * 100);
       s.level += 1;
-      s.baseAtk = (s.baseAtk || 20) + 5;
-      s.maxHp = (s.maxHp || 100) + 15;
+      s.baseAtk = 25 + (s.level - 1) * (GAME_CONFIG.SOLDIER_ATK_PER_LEVEL || 6);
+      s.maxHp = 100 + (s.level - 1) * (GAME_CONFIG.SOLDIER_HP_PER_LEVEL || 25);
       s.hp = s.maxHp;
       leveledUp = true;
       newLevel = s.level;
+
+      // Otomatik yetenek slotu ve kilit açımı
+      const newly = this.checkSoldierSkillUnlock(s);
+      if (newly && newly.length) unlockedSkills.push(...newly);
     }
 
     this.saveState();
-    return { leveledUp, newLevel, soldierName: s.name };
+    return { leveledUp, newLevel, soldierName: s.name, unlockedSkills };
+  }
+
+  // ⚔️ Seviye Kademelerinde Otomatik Skill Açımı (Lv.10, Lv.25, Lv.45, Lv.65)
+  checkSoldierSkillUnlock(soldier) {
+    if (!soldier.skills) soldier.skills = ['shieldWall'];
+    const lvl = soldier.level || 1;
+    const newlyUnlocked = [];
+
+    // Seviye 10: 2. Slot (Şok Dalgası)
+    if (lvl >= 10 && !soldier.skills.includes('shockwave') && !soldier.skills.includes('armorBreaker')) {
+      soldier.skills.push('shockwave');
+      newlyUnlocked.push('shockwave');
+    }
+    // Seviye 25: 3. Slot (Zırh Kırıcı)
+    if (lvl >= 25 && !soldier.skills.includes('armorBreaker')) {
+      soldier.skills.push('armorBreaker');
+      newlyUnlocked.push('armorBreaker');
+    }
+    // Seviye 45: 4. Slot (Sahra Merhemi)
+    if (lvl >= 45 && !soldier.skills.includes('fieldMedic')) {
+      soldier.skills.push('fieldMedic');
+      newlyUnlocked.push('fieldMedic');
+    }
+    // Seviye 65: Pasif Yetenek (Son Nefes)
+    if (lvl >= 65 && !soldier.skills.includes('lastStand')) {
+      soldier.skills.push('lastStand');
+      newlyUnlocked.push('lastStand');
+    }
+    return newlyUnlocked;
+  }
+
+  // 🛡️ Asker Formasyonu (Ön Saf / Arka Saf) Ayarlama
+  setSoldierRow(soldierIdx, row) {
+    const s = (this.state.soldierUnits || [])[soldierIdx];
+    if (!s) return { success: false, message: 'Asker bulunamadı!' };
+    s.row = row === 'back' ? 'back' : 'front';
+    this.saveState();
+    return { success: true, soldier: s, row: s.row };
+  }
+
+  // 📖 Askere Yeni Skill Öğretme (Skill Loadout: Max 3 Aktif + Pasif)
+  learnSoldierSkill(soldierIdx, skillId) {
+    const s = (this.state.soldierUnits || [])[soldierIdx];
+    if (!s) return { success: false, message: 'Asker bulunamadı!' };
+    if (!s.skills) s.skills = ['shieldWall'];
+    if (s.skills.includes(skillId)) {
+      return { success: false, message: 'Bu asker bu yeteneği zaten biliyor!' };
+    }
+
+    const activeSkills = s.skills.filter(sk => sk !== 'lastStand');
+    if (skillId !== 'lastStand' && activeSkills.length >= 3) {
+      // 3 aktif yetenek dolduysa en eskisini çıkarıp yeniyi ekler
+      s.skills = [...activeSkills.slice(1), skillId, ...(s.skills.includes('lastStand') ? ['lastStand'] : [])];
+    } else {
+      s.skills.push(skillId);
+    }
+
+    this.saveState();
+    return { success: true, soldier: s, skills: s.skills };
+  }
+
+  // 🌋 Dünya Bossu & Ordu Yetenek Çeşitliliği Hasar Çarpanı
+  calculateSquadSkillDiversity(soldierIndices = null) {
+    const units = soldierIndices
+      ? soldierIndices.map(i => (this.state.soldierUnits || [])[i]).filter(Boolean)
+      : (this.state.soldierUnits || []);
+
+    if (units.length === 0) return { uniqueRoles: 0, diversityMultiplier: 1.0, rolesFound: [] };
+
+    const roles = new Set();
+    units.forEach(u => {
+      const skills = u.skills || ['shieldWall'];
+      skills.forEach(sk => {
+        if (sk === 'shieldWall') roles.add('Tank');
+        else if (sk === 'shockwave') roles.add('AoE');
+        else if (sk === 'fieldMedic') roles.add('Şifacı');
+        else if (sk === 'armorBreaker') roles.add('Anti-Tank');
+        else if (sk === 'stunStrike') roles.add('Kontrol');
+        else if (sk === 'bloodFrenzy') roles.add('Berserker');
+        else if (sk === 'lastStand') roles.add('Hayatta Kalma');
+      });
+    });
+
+    const uniqueRoles = roles.size;
+    // Her farklı taktiksel rol için %6 hasar çarpanı bonusu (örn. 5 farklı rol = 1.24x hasar!)
+    const diversityMultiplier = Math.min(1.50, 1.0 + Math.max(0, uniqueRoles - 1) * 0.06);
+
+    return {
+      uniqueRoles,
+      diversityMultiplier: parseFloat(diversityMultiplier.toFixed(2)),
+      rolesFound: Array.from(roles)
+    };
+  }
+
+  // 🏆 Kolezyum Sabit Lig Kademeleri (Bronz / Gümüş / Altın / Elmas / Şampiyon)
+  getColosseumTier(rating = (this.state.colosseumStats?.rating || 1000)) {
+    if (rating >= 1800) return { id: 'champion', name: '👑 Efsanevi Şampiyon', color: '#f59e0b', rewardMult: 2.0, minRating: 1800 };
+    if (rating >= 1500) return { id: 'diamond', name: '💎 Elmas Gladyatör', color: '#38bdf8', rewardMult: 1.6, minRating: 1500 };
+    if (rating >= 1300) return { id: 'gold', name: '🥇 Altın Gladyatör', color: '#eab308', rewardMult: 1.3, minRating: 1300 };
+    if (rating >= 1150) return { id: 'silver', name: '🥈 Gümüş Gladyatör', color: '#94a3b8', rewardMult: 1.1, minRating: 1150 };
+    return { id: 'bronze', name: '🥉 Bronz Gladyatör', color: '#b45309', rewardMult: 1.0, minRating: 0 };
   }
 
   // =========================================================================
