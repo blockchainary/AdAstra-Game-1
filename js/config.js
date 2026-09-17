@@ -955,6 +955,18 @@ export const GAME_CONFIG = {
         'Eski hız iksiri kalıntı kodları temizlenerek GameStateManager ve yardımcı modüller yalınlaştırıldı.',
         'Tüm canlı birim ve entegrasyon testleri (36 dosya) package.json test scriptine bağlanarak %100 kapsama sağlandı.'
       ]
+    },
+    {
+      version: 'v1.20',
+      title: '🤖 Çift Yönlü Bot Oto-Tedarik (Auto-Buy Resource Deficit) & Kesintisiz Silo Yükseltme Güvencesi',
+      date: 'Eylül 2026',
+      changes: [
+        'Bot çalışırken Silo Seviye atladığında veya sefer/tamirat harcamalarıyla Odun, Demir veya Buğday stokları 50 altına indiğinde; kasadaki $ADASTRA bakiyesiyle AMM pazarından eksik hammaddeyi anında satın alan çift yönlü oto-tedarik motoru (autoBuyBotResourceDeficit) entegre edildi.',
+        'Daha önce yalnızca ADA eksikliğinde kaynak satan tek yönlü sistem; hem ADA eksildiğinde kaynak satan hem de hammadde azaldığında piyasadan kaynak satın alan tam otonom çift yönlü dengeleyiciye dönüştürüldü.',
+        'Silo Seviye 3, 4 ve üzeri yükseltmelerde tüm ambarlar sıfırlandığında botun duraklatılması (paused) engellendi; yükseltme tamamlandığı an kasadaki ADA ile ambarlara 50şerlik güvenlik rezervi otomatik temin edildi.',
+        'Geliştirici konsolundan saat ileri sarıldığında veya çevrimdışı ilerlemede ambar sıfırlanmasından ötürü botun dondurulması sorunu kökten çözüldü.',
+        'Yeni oto-tedarik sistemi bağımsız birim testleriyle (test_bot_dual_auto_buy_resource_deficit.mjs) %100 başarıyla doğrulandı.'
+      ]
     }
   ],
 
@@ -979,7 +991,7 @@ export const GAME_CONFIG = {
     {
       id: 'f2p_welcome',
       badge: '⚔️ KRALLIK DUYURUSU',
-      text: 'AdAstra: Genesis Realm v1.19 devrede! Kod tabanı arındırma ve kalıntı temizliği tamamlandı, Karnaval AMM Buyback, Zaman Atlama ve 6 Varlıklı Dinamik Buyback motorları aktiftir.',
+      text: 'AdAstra: Genesis Realm v1.20 devrede! Çift Yönlü Bot Oto-Tedarik ve Kesintisiz Silo Yükseltme Güvencesi aktiftir.',
       active: true,
       priority: 2
     }

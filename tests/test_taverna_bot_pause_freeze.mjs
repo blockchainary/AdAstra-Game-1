@@ -64,8 +64,9 @@ describe('24 Saatlik Taverna Botu - 50x Önkoşul Kaynak ve Süre Dondurma (Free
     const remainingBeforePause = originalExpiry - Date.now();
     assert.ok(remainingBeforePause > 23 * 3600 * 1000, 'Kalan süre ~24 saat olmalı');
 
-    // Odun miktarını 20ye düşürelim (harcandı veya satıldı)
+    // Odun miktarını 20ye düşürelim ve ADA kalmasın (satın alamaz -> duraklatılır)
     gameState.state.inventory.wood = 20;
+    gameState.state.adAstraBalance = 0;
 
     // Bot pause durumunu kontrol et
     const pauseStatus = gameState.updateBotPauseState();
@@ -89,8 +90,9 @@ describe('24 Saatlik Taverna Botu - 50x Önkoşul Kaynak ve Süre Dondurma (Free
     gameState.state.botActiveUntil = Date.now() + oneHourMs;
     gameState.state.tavernaBotExpiresAt = gameState.state.botActiveUntil;
 
-    // Demir 10a düştü -> Bot duraklatıldı
+    // Demir 10a düştü ve ADA yok -> Bot duraklatıldı
     gameState.state.inventory.iron = 10;
+    gameState.state.adAstraBalance = 0;
     gameState.updateBotPauseState();
 
     assert.strictEqual(gameState.isBotPaused(), true);
@@ -101,8 +103,9 @@ describe('24 Saatlik Taverna Botu - 50x Önkoşul Kaynak ve Süre Dondurma (Free
     // Dondurulan süre asla eksilmemeli
     assert.strictEqual(gameState.state.botPausedRemainingMs, frozenMs, 'Dondurulan süre sabit kalmalı');
 
-    // Kullanıcı AMM pazarından veya madenden demir kazandı ve 100 demire ulaştı
+    // Kullanıcı AMM pazarından veya madenden demir kazandı ve 100 demire ulaştı, ADA sağlandı
     gameState.state.inventory.iron = 100;
+    gameState.state.adAstraBalance = 50000;
     const resumeCheck = gameState.updateBotPauseState();
 
     assert.strictEqual(resumeCheck.isPaused, false, 'Bot artık duraklatılmış olmamalı');

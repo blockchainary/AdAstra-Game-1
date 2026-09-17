@@ -1006,13 +1006,22 @@ export class GameStateManager {
     const actions = [];
 
     // =========================================================================
-    // 0. BOT ADA ÖN-KONTROLÜ & OTOMATİK FİNANSMAN
-    // Bot çalışırken yetersiz $ADASTRA olup durmaması için depodan eşit miktarda satış yap
+    // 0. BOT ADA & HAMMADDE ÖN-KONTROLÜ & OTOMATİK ÇİFT YÖNLÜ FİNANSMAN / TEDARİK
+    // A) Yetersiz $ADASTRA varsa depodan eşit miktarda satış yap
+    // B) Yetersiz Hammadde (Odun, Demir, Buğday) varsa kasadaki ADA ile AMM'den satın al
     // =========================================================================
     if ((this.state.adAstraBalance || 0) < 50) {
       const fundRes = this.autoFundBotAdaDeficit(50);
       if (fundRes && fundRes.funded) {
         actions.push(`⚖️ Bot Oto-Finansman: Yetersiz ADA için depodan eşit miktarda (${fundRes.toSell?.wood || 0} Odun, ${fundRes.toSell?.iron || 0} Demir, ${fundRes.toSell?.wheat || 0} Buğday) satılarak +${fundRes.totalEarned?.toFixed(1)} $ADASTRA sağlandı.`);
+      }
+    }
+
+    const cycleInv = this.state.inventory || {};
+    if (((cycleInv.wood || 0) < 50 || (cycleInv.iron || 0) < 50 || (cycleInv.wheat || 0) < 50) && (this.state.adAstraBalance || 0) >= 10) {
+      const buyRes = this.autoBuyBotResourceDeficit(50);
+      if (buyRes && buyRes.bought) {
+        actions.push(buyRes.message);
       }
     }
 
@@ -1317,6 +1326,96 @@ export class GameStateManager {
     return { funded: false, reason: 'sell_execution_failed' };
   }
 
+  /**
+   * 🤖 Bot Çalışırken Hammadde Yetersizliği Durumunda Kasadaki ADA ile AMM'den Satın Alma (Oto-Tedarik)
+   * Kullanıcı kuralı: Silo yükseltildiğinde ambarlar sıfırlandığı veya seferler/tamiratlardan dolayı
+   * Odun, Demir ve Buğday stokları 50'nin altına indiğinde; botun durmaması için kasadaki $ADASTRA ile
+   * eksik olan miktarlar AMM pazarından anında satın alınarak depolar en az 50'ye tamamlanır.
+   */
+  autoBuyBotResourceDeficit(minTarget = 50) {
+    if (typeof ammMarket === 'undefined' || !ammMarket || !ammMarket.executeBuyAmount) {
+      return { bought: false, reason: 'amm_unavailable' };
+    }
+
+    const inv = this.state.inventory = this.state.inventory || {};
+    let curAda = Number(this.state.adAstraBalance) || 0;
+    if (curAda <= 0) {
+      return { bought: false, reason: 'no_ada_balance', currentBalance: curAda };
+    }
+
+    const nodes = ['wood', 'iron', 'wheat'];
+    const missingNodes = [];
+    for (const node of nodes) {
+      const cur = Number(inv[node]) || 0;
+      if (cur < minTarget) {
+        missingNodes.push({
+          node,
+          current: cur,
+          missing: Math.ceil(minTarget - cur),
+          name: this.getResourceNameTr ? this.getResourceNameTr(node) : node
+        });
+      }
+    }
+
+    if (missingNodes.length === 0) {
+      return { bought: false, reason: 'no_missing_resources' };
+    }
+
+    let totalSpentAda = 0;
+    const boughtBreakdown = {};
+    const itemsPurchasedText = [];
+
+    for (const item of missingNodes) {
+      if (curAda <= 0.1) break;
+      const node = item.node;
+      let qtyToBuy = item.missing;
+
+      // AMM'den tahmini maliyeti kontrol et
+      let estCost = 0;
+      if (typeof ammMarket.getEstimatedCostForBuy === 'function') {
+        estCost = ammMarket.getEstimatedCostForBuy(node, qtyToBuy);
+      }
+      if (!isFinite(estCost) || estCost <= 0 || estCost > curAda) {
+        // Mevcut bakiye eksik miktarın tamamını karşılamıyorsa alabileceği kadarını al
+        const p = (typeof ammMarket.getPrice === 'function') ? ammMarket.getPrice(node) : 1;
+        const affordable = Math.floor(curAda / (Math.max(0.01, p) * 1.05));
+        qtyToBuy = Math.min(item.missing, Math.max(1, affordable));
+      }
+
+      if (qtyToBuy > 0) {
+        const buyRes = ammMarket.executeBuyAmount(node, qtyToBuy);
+        if (buyRes && buyRes.success) {
+          curAda = Math.max(0, curAda - buyRes.cost);
+          this.state.adAstraBalance = curAda;
+          inv[node] = (inv[node] || 0) + buyRes.resourceReceived;
+          totalSpentAda += buyRes.cost;
+          boughtBreakdown[node] = {
+            units: buyRes.resourceReceived,
+            cost: buyRes.cost
+          };
+          itemsPurchasedText.push(`+${buyRes.resourceReceived} ${buyRes.icon || ''} ${buyRes.resourceName || node}`);
+        }
+      }
+    }
+
+    if (totalSpentAda > 0) {
+      this.saveState();
+      const actionMsg = `🛒 Bot Oto-Tedarik: Depodaki eksik hammadde için AMM pazarından ${totalSpentAda.toFixed(1)} ADA ile (${itemsPurchasedText.join(', ')}) satın alındı ve botun durması engellendi.`;
+      if (!this.state.lastBotActions) this.state.lastBotActions = [];
+      this.state.lastBotActions.push(actionMsg);
+
+      return {
+        bought: true,
+        totalSpentAda,
+        boughtBreakdown,
+        newBalance: this.state.adAstraBalance,
+        message: actionMsg
+      };
+    }
+
+    return { bought: false, reason: 'buy_execution_failed' };
+  }
+
   // ⏸️ Botun Duraklatılması (Pause) ve Süresinin Azalmadan Dondurulması (Freeze) Motoru
   updateBotPauseState() {
     const now = Date.now();
@@ -1339,9 +1438,8 @@ export class GameStateManager {
 
     let prereq = this.checkBotPrerequisites();
 
-    // 🤖 KULLANICI KURALI: Eğer bot çalışırken/aktifken $ADASTRA < 50 olduğu için duracaksa veya durmuşsa:
-    // Bot durup beklemek yerine depodaki tüm malzemelerden (Odun, Demir, Buğday) eşit miktarda satıp
-    // 50 $ADASTRA'yı marketten temin eder ve durmayı engeller!
+    // 🤖 KULLANICI KURALI: Çift Yönlü Bot Dengeleme ve Kesintisiz Çalışma Motoru!
+    // 1) Eğer ADA < 50 olduğu için duracaksa depodaki kaynaklardan eşit satıp ADA temin et:
     if (!prereq.isMet) {
       const hasAdaMissing = prereq.missing.some(m => m.key === 'adAstra');
       if (hasAdaMissing) {
@@ -1353,8 +1451,20 @@ export class GameStateManager {
       }
     }
 
+    // 2) Eğer Hammadde (Odun, Demir, Buğday) < 50 olduğu için duracaksa kasadaki ADA ile AMM'den satın al:
     if (!prereq.isMet) {
-      // Koşullar hala sağlanmıyor (örneğin hammadde eksikse) -> BOT DURAKLATILMALI VE SÜRESİ DONDURULMALI!
+      const hasResourceMissing = prereq.missing.some(m => ['wood', 'iron', 'wheat'].includes(m.key));
+      if (hasResourceMissing && (this.state.adAstraBalance || 0) >= 1) {
+        const buyRes = this.autoBuyBotResourceDeficit(50);
+        if (buyRes && buyRes.bought) {
+          // Satın alım yapıldı ve kaynaklar 50'ye tamamlandı, koşulları tekrar kontrol et!
+          prereq = this.checkBotPrerequisites();
+        }
+      }
+    }
+
+    if (!prereq.isMet) {
+      // Koşullar hala sağlanmıyor (hem hammadde hem ADA tükendiyse) -> BOT DURAKLATILMALI VE SÜRESİ DONDURULMALI!
       if (!this.state.botPaused) {
         this.state.botPaused = true;
         const remainingMs = Math.max(1000, rawExp - now);
@@ -2423,6 +2533,19 @@ export class GameStateManager {
 
     this.state.warehouseLevel += 1;
     sound.playLevelUp();
+
+    // 🤖 KULLANICI KURALI & BOT KESİNTİSİZ ÇALIŞMA GÜVENCESİ:
+    // Silo yükseltildiğinde tüm ambarlar sıfırlandığı veya 50'nin altına indiği için,
+    // eğer bot aktif/satın alınmışsa ve hesapta ADA varsa eksik olan 50'şer kaynak
+    // derhal AMM pazarından otomatik temin edilir. Böylece bot asla duraklatılmaz!
+    if (this.hasPurchasedBot && this.hasPurchasedBot()) {
+      if ((inv.wood || 0) < 50 || (inv.iron || 0) < 50 || (inv.wheat || 0) < 50) {
+        if ((this.state.adAstraBalance || 0) >= 1) {
+          this.autoBuyBotResourceDeficit(50);
+        }
+      }
+    }
+
     this.saveState();
 
     const newCap = this.getWarehouseCapacity(this.state.warehouseLevel);
