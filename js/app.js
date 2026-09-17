@@ -3498,8 +3498,11 @@ function renderCarnivalHtml(activeTab = 'wheel') {
     `;
   } else if (activeTab === 'pools') {
     const eData = eco || {
-      burnRatePct: 22,
-      totalPoolsBalance: 40000000,
+      burnRatePct: 13,
+      ubiRatePct: 6,
+      teamRatePct: 3,
+      treasuryRatePct: 78,
+      totalPoolsBalance: 31200000,
       lifetimeBurnedAda: 45000,
       solvencyPct: 100,
       totalDeposited: 180000,
@@ -3523,8 +3526,8 @@ function renderCarnivalHtml(activeTab = 'wheel') {
               🛡️ Kasa Ödeme Güvencesi: %${eData.solvencyPct}
             </span>
           </div>
-          <div class="clean-desc" style="color: #cbd5e1; font-size: 0.84rem; line-height: 1.5; margin-top: 4px;">
-            Karnaval harcamaları dahil, oyundan kazanılan ve harcanan tüm AdAstra'lar matematiksel bir anayasa ile yönetilir. Her harcamanın <strong>%${eData.burnRatePct}'si kara deliğe gidip kalıcı yakılır</strong>, kalan <strong>%${100 - eData.burnRatePct}'i ise 5 ana ödül havuzuna</strong> aktarılarak oyunculara geri dağıtılır.
+          <div class="clean-desc" style="color: #cbd5e1; font-size: 0.85rem; line-height: 1.5; margin-top: 6px;">
+            Karnaval harcamaları dahil, oyundan kazanılan ve harcanan tüm AdAstra'lar matematiksel bir anayasa ile yönetilir: Her harcamanın <strong>%13'ü kalıcı yakılır</strong>, <strong>%6'sı Evrensel Temel Gelir'e (UBI)</strong>, <strong>%3'ü Geliştirici/Team payına</strong>, kalan <strong>%78'i ise 5 ana Krallık hazine kasasına</strong> (Zindan %25, AMM DEX %18, World Boss %15, Kolezyum %10, Karnaval %10) aktarılarak oyunculara geri dağıtılır.
           </div>
 
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 14px;">
@@ -3600,29 +3603,58 @@ function renderCarnivalHtml(activeTab = 'wheel') {
               <span>📊</span>
               <span>Hangi Havuza Ne Kadar Gidiyor? (Gelir Dağılım Oranları)</span>
             </div>
-            <span class="card-badge" style="background:#0284c7; color:#fff; font-weight:800;">100 ADA Harcama Dağılımı</span>
+            <span class="card-badge" style="background:#0284c7; color:#fff; font-weight:800;">100 ADA Harcama Dağılımı (%100)</span>
           </div>
           <div class="clean-desc" style="font-size:0.83rem; color:#cbd5e1; line-height:1.4;">
             Karnaval çarkı ve piyangosu dahil, oyunda harcanan her <strong>100 $ADASTRA</strong>'nın anlık akış oranları:
           </div>
 
-          <!-- Dağılım Çubuğu -->
-          <div style="height: 18px; width: 100%; border-radius: 9px; overflow: hidden; display: flex; margin-top: 10px; border: 1px solid rgba(255,255,255,0.2);">
-            <div style="width: 22%; background: #ef4444;" title="Kalıcı Yakım (%22)"></div>
+          <!-- Dağılım Çubuğu (%100 Tam Kırılım) -->
+          <div style="height: 20px; width: 100%; border-radius: 10px; overflow: hidden; display: flex; margin-top: 10px; border: 1.5px solid rgba(255,255,255,0.25); box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);">
+            <div style="width: 13%; background: #ef4444;" title="Kalıcı Yakım (%13)"></div>
+            <div style="width: 6%; background: #a855f7;" title="Evrensel Temel Gelir - UBI (%6)"></div>
+            <div style="width: 3%; background: #64748b;" title="Team / Geliştirici Payı (%3)"></div>
             <div style="width: 25%; background: #06b6d4;" title="Zindan Ganimeti (%25)"></div>
-            <div style="width: 15%; background: #f59e0b;" title="Kolezyum Gladyatör (%15)"></div>
-            <div style="width: 15%; background: #dc2626;" title="World Boss (%15)"></div>
-            <div style="width: 13%; background: #38bdf8;" title="AMM Buyback (%13)"></div>
-            <div style="width: 10%; background: #ec4899;" title="Karnaval & Çark (%10)"></div>
+            <div style="width: 18%; background: #38bdf8;" title="AMM DEX Likidite & Buyback (%18)"></div>
+            <div style="width: 15%; background: #f87171;" title="World Boss Akın Havuzu (%15)"></div>
+            <div style="width: 10%; background: #f59e0b;" title="Kolezyum Gladyatör (%10)"></div>
+            <div style="width: 10%; background: #ec4899;" title="Karnaval & Çark Kasası (%10)"></div>
           </div>
 
-          <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; font-size: 0.78rem;">
-            <span style="display:flex; align-items:center; gap:4px;"><span style="display:inline-block; width:10px; height:10px; background:#ef4444; border-radius:2px;"></span> 🔥 Kalıcı Yakım: <strong>%22</strong></span>
-            <span style="display:flex; align-items:center; gap:4px;"><span style="display:inline-block; width:10px; height:10px; background:#06b6d4; border-radius:2px;"></span> 🏰 Zindan: <strong>%25</strong></span>
-            <span style="display:flex; align-items:center; gap:4px;"><span style="display:inline-block; width:10px; height:10px; background:#f59e0b; border-radius:2px;"></span> 🏟️ Kolezyum: <strong>%15</strong></span>
-            <span style="display:flex; align-items:center; gap:4px;"><span style="display:inline-block; width:10px; height:10px; background:#dc2626; border-radius:2px;"></span> 🌋 World Boss: <strong>%15</strong></span>
-            <span style="display:flex; align-items:center; gap:4px;"><span style="display:inline-block; width:10px; height:10px; background:#38bdf8; border-radius:2px;"></span> 🤖 AMM Destek: <strong>%13</strong></span>
-            <span style="display:flex; align-items:center; gap:4px;"><span style="display:inline-block; width:10px; height:10px; background:#ec4899; border-radius:2px;"></span> 🎪 Karnaval: <strong>%10</strong></span>
+          <!-- 8 Dilimin Tam Listesi -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 8px; margin-top: 12px; font-size: 0.8rem;">
+            <div style="background: rgba(239,68,68,0.12); border: 1px solid #ef4444; border-radius: 6px; padding: 6px 8px; display:flex; align-items:center; gap:6px;">
+              <span style="display:inline-block; width:10px; height:10px; background:#ef4444; border-radius:2px; flex-shrink:0;"></span>
+              <span>🔥 Yakım: <strong style="color:#fca5a5;">%13</strong></span>
+            </div>
+            <div style="background: rgba(168,85,247,0.12); border: 1px solid #a855f7; border-radius: 6px; padding: 6px 8px; display:flex; align-items:center; gap:6px;">
+              <span style="display:inline-block; width:10px; height:10px; background:#a855f7; border-radius:2px; flex-shrink:0;"></span>
+              <span>🤝 UBI: <strong style="color:#d8b4fe;">%6</strong></span>
+            </div>
+            <div style="background: rgba(100,116,139,0.15); border: 1px solid #64748b; border-radius: 6px; padding: 6px 8px; display:flex; align-items:center; gap:6px;">
+              <span style="display:inline-block; width:10px; height:10px; background:#64748b; border-radius:2px; flex-shrink:0;"></span>
+              <span>🛠️ Team: <strong style="color:#cbd5e1;">%3</strong></span>
+            </div>
+            <div style="background: rgba(6,182,212,0.12); border: 1px solid #06b6d4; border-radius: 6px; padding: 6px 8px; display:flex; align-items:center; gap:6px;">
+              <span style="display:inline-block; width:10px; height:10px; background:#06b6d4; border-radius:2px; flex-shrink:0;"></span>
+              <span>🏰 Zindan: <strong style="color:#67e8f9;">%25</strong></span>
+            </div>
+            <div style="background: rgba(56,189,248,0.12); border: 1px solid #38bdf8; border-radius: 6px; padding: 6px 8px; display:flex; align-items:center; gap:6px;">
+              <span style="display:inline-block; width:10px; height:10px; background:#38bdf8; border-radius:2px; flex-shrink:0;"></span>
+              <span>🤖 AMM DEX: <strong style="color:#7dd3fc;">%18</strong></span>
+            </div>
+            <div style="background: rgba(248,113,113,0.12); border: 1px solid #f87171; border-radius: 6px; padding: 6px 8px; display:flex; align-items:center; gap:6px;">
+              <span style="display:inline-block; width:10px; height:10px; background:#f87171; border-radius:2px; flex-shrink:0;"></span>
+              <span>🌋 World Boss: <strong style="color:#fca5a5;">%15</strong></span>
+            </div>
+            <div style="background: rgba(245,158,11,0.12); border: 1px solid #f59e0b; border-radius: 6px; padding: 6px 8px; display:flex; align-items:center; gap:6px;">
+              <span style="display:inline-block; width:10px; height:10px; background:#f59e0b; border-radius:2px; flex-shrink:0;"></span>
+              <span>🏟️ Kolezyum: <strong style="color:#fde047;">%10</strong></span>
+            </div>
+            <div style="background: rgba(236,72,153,0.12); border: 1px solid #ec4899; border-radius: 6px; padding: 6px 8px; display:flex; align-items:center; gap:6px;">
+              <span style="display:inline-block; width:10px; height:10px; background:#ec4899; border-radius:2px; flex-shrink:0;"></span>
+              <span>🎪 Karnaval: <strong style="color:#f472b6;">%10</strong></span>
+            </div>
           </div>
         </div>
 

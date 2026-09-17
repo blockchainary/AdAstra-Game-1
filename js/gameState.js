@@ -4331,14 +4331,16 @@ export class GameStateManager {
     const boss = this.getWorldBossInfo();
 
     const alloc = GAME_CONFIG.TREASURY_ALLOCATION || {
-      dungeon: 0.35,
-      arena: 0.20,
-      worldBoss: 0.20,
-      ammBuyback: 0.15,
-      carnival: 0.10
+      dungeon: 25 / 78,
+      ammBuyback: 18 / 78,
+      worldBoss: 15 / 78,
+      arena: 10 / 78,
+      carnival: 10 / 78
     };
 
-    const burnRate = GAME_CONFIG.TOKEN_BURN_RATE || 0.22;
+    const burnRate = GAME_CONFIG.TOKEN_BURN_RATE || 0.13;
+    const ubiRate = GAME_CONFIG.UBI_POOL_RATE || 0.06;
+    const creatorRate = GAME_CONFIG.CREATOR_ROYALTY_RATE || 0.03;
     const lotteryPool = state.lotteryPool != null ? state.lotteryPool : 20000000;
     const amortiPool = state.lotteryAmortiPool || 0;
     const myTickets = state.lotteryTickets || 0;
@@ -4356,9 +4358,9 @@ export class GameStateManager {
         name: 'Zindan Ganimet Kasası',
         icon: '🏰',
         color: '#06b6d4',
-        sharePct: Math.round((alloc.dungeon || 0.25) * 100),
+        sharePct: 25,
         balance: Math.round(treasury.getPool('dungeon')),
-        target: GAME_CONFIG.TREASURY_TARGET_RESERVE?.dungeon || 14000000,
+        target: GAME_CONFIG.TREASURY_TARGET_RESERVE?.dungeon || 10000000,
         health: treasury.getPoolHealth('dungeon'),
         inflow: Math.round(treasury.state?.inflow?.dungeon || 0),
         outflow: Math.round(treasury.state?.outflow?.dungeon || 0),
@@ -4368,45 +4370,13 @@ export class GameStateManager {
         actionText: '💀 Zindana Git'
       },
       {
-        id: 'arena',
-        name: 'Kolezyum Gladyatör Havuzu',
-        icon: '🏟️',
-        color: '#f59e0b',
-        sharePct: Math.round((alloc.arena || 0.15) * 100),
-        balance: Math.round(treasury.getPool('arena')),
-        target: GAME_CONFIG.TREASURY_TARGET_RESERVE?.arena || 8000000,
-        health: treasury.getPoolHealth('arena'),
-        inflow: Math.round(treasury.state?.inflow?.arena || 0),
-        outflow: Math.round(treasury.state?.outflow?.arena || 0),
-        description: 'Arena anahtarı kullanan şampiyonların 1v1 düelloları ve haftalık sıralama ödülleri bu fondan çekilir.',
-        howToEarn: 'Arena anahtarı kuşan, Kolezyuma çık ve şampiyonları devir.',
-        actionType: 'colosseum',
-        actionText: '🏟️ Kolezyuma Git'
-      },
-      {
-        id: 'worldBoss',
-        name: 'Dünya Bossu (World Boss) Akın Havuzu',
-        icon: '🌋',
-        color: '#ef4444',
-        sharePct: Math.round((alloc.worldBoss || 0.15) * 100),
-        balance: Math.round(treasury.getPool('worldBoss')),
-        target: GAME_CONFIG.TREASURY_TARGET_RESERVE?.worldBoss || 8000000,
-        health: treasury.getPoolHealth('worldBoss'),
-        inflow: Math.round(treasury.state?.inflow?.worldBoss || 0),
-        outflow: Math.round(treasury.state?.outflow?.worldBoss || 0),
-        description: 'Her Pazar 18:00 TSİ otomatik savaşında kilitlenen orduların Kadim Kıyamet Behemothuna verdiği hasar oranında dağıtılır.',
-        howToEarn: 'Ordunu kışladan savaşa kilitle, Pazar 18:00 hasar payını kap.',
-        actionType: 'boss',
-        actionText: '🌋 Boss Karargahı'
-      },
-      {
         id: 'ammBuyback',
-        name: 'AMM Likidite Destek & Buyback',
+        name: 'AMM DEX Likidite & Buyback',
         icon: '🤖',
         color: '#38bdf8',
-        sharePct: Math.round((alloc.ammBuyback || 0.13) * 100),
+        sharePct: 18,
         balance: Math.round(treasury.getPool('ammBuyback')),
-        target: GAME_CONFIG.TREASURY_TARGET_RESERVE?.ammBuyback || 6000000,
+        target: GAME_CONFIG.TREASURY_TARGET_RESERVE?.ammBuyback || 7200000,
         health: treasury.getPoolHealth('ammBuyback'),
         inflow: Math.round(treasury.state?.inflow?.ammBuyback || 0),
         outflow: Math.round(treasury.state?.outflow?.ammBuyback || 0),
@@ -4416,17 +4386,49 @@ export class GameStateManager {
         actionText: '🏪 Markete Git'
       },
       {
+        id: 'worldBoss',
+        name: 'Dünya Bossu (World Boss) Akın Havuzu',
+        icon: '🌋',
+        color: '#ef4444',
+        sharePct: 15,
+        balance: Math.round(treasury.getPool('worldBoss')),
+        target: GAME_CONFIG.TREASURY_TARGET_RESERVE?.worldBoss || 6000000,
+        health: treasury.getPoolHealth('worldBoss'),
+        inflow: Math.round(treasury.state?.inflow?.worldBoss || 0),
+        outflow: Math.round(treasury.state?.outflow?.worldBoss || 0),
+        description: 'Her Pazar 18:00 TSİ otomatik savaşında kilitlenen orduların Kadim Kıyamet Behemothuna verdiği hasar oranında dağıtılır.',
+        howToEarn: 'Ordunu kışladan savaşa kilitle, Pazar 18:00 hasar payını kap.',
+        actionType: 'boss',
+        actionText: '🌋 Boss Karargahı'
+      },
+      {
+        id: 'arena',
+        name: 'Kolezyum Gladyatör Havuzu',
+        icon: '🏟️',
+        color: '#f59e0b',
+        sharePct: 10,
+        balance: Math.round(treasury.getPool('arena')),
+        target: GAME_CONFIG.TREASURY_TARGET_RESERVE?.arena || 4000000,
+        health: treasury.getPoolHealth('arena'),
+        inflow: Math.round(treasury.state?.inflow?.arena || 0),
+        outflow: Math.round(treasury.state?.outflow?.arena || 0),
+        description: 'Arena anahtarı kullanan şampiyonların 1v1 düelloları ve haftalık sıralama ödülleri bu fondan çekilir.',
+        howToEarn: 'Arena anahtarı kuşan, Kolezyuma çık ve şampiyonları devir.',
+        actionType: 'colosseum',
+        actionText: '🏟️ Kolezyuma Git'
+      },
+      {
         id: 'carnival',
         name: 'Krallık Karnavalı & Şans Kasası',
         icon: '🎪',
         color: '#ec4899',
-        sharePct: Math.round((alloc.carnival || 0.10) * 100),
+        sharePct: 10,
         balance: Math.round(treasury.getPool('carnival')),
         target: GAME_CONFIG.TREASURY_TARGET_RESERVE?.carnival || 4000000,
         health: treasury.getPoolHealth('carnival'),
         inflow: Math.round(treasury.state?.inflow?.carnival || 0),
         outflow: Math.round(treasury.state?.outflow?.carnival || 0),
-        description: '14 ödüllü Şans Çarkındaki 50 ADA, 150 ADA ve 500 ADA gibi doğrudan token ödüllerinin emisyon kasasıdır.',
+        description: '15 potansiyel ödüllü Şans Çarkındaki doğrudan token ödüllerinin emisyon kasasıdır.',
         howToEarn: 'Karnavalda 100 ADA, hammadde veya biletle şans çarkını çevir.',
         actionType: 'carnival_wheel',
         actionText: '🎡 Şans Çarkı'
@@ -4437,6 +4439,9 @@ export class GameStateManager {
 
     return {
       burnRatePct: Math.round(burnRate * 100),
+      ubiRatePct: Math.round(ubiRate * 100),
+      creatorRatePct: Math.round(creatorRate * 100),
+      treasuryRatePct: 78,
       allocations: alloc,
       pools,
       totalPoolsBalance,

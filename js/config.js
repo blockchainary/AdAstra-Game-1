@@ -658,17 +658,17 @@ export const GAME_CONFIG = {
   // ═══════════════════════════════════════════════════════════════════════
   // 🏦 HAZİNE DEFTERİ — YASA 1: ödül basılmaz, transfer edilir (F-05)
   // ═══════════════════════════════════════════════════════════════════════
-  // %22 Ebedi Yakım, Kalan %78'lik Gelirin 5 Ana Havuza Dağıtımı (Toplam 40 Milyon ADA Başlangıç Hazine Dağılımı):
-  // %35 Zindan (14M ADA), %20 Kolezyum (8M ADA), %20 World Boss (8M ADA), %15 AMM Buyback (6M ADA), %10 Karnaval (4M ADA)
-  TREASURY_ALLOCATION: { dungeon: 0.35, arena: 0.20, worldBoss: 0.20, ammBuyback: 0.15, carnival: 0.10 },
+  // %13 Ebedi Yakım, %6 UBI, %3 Team Payı, Kalan %78'lik Gelirin 5 Ana Havuza Dağıtımı (Toplam 40 Milyon ADA Başlangıç Hazine Dağılımı):
+  // %25 Zindan (10M ADA), %18 AMM DEX (7.2M ADA), %15 World Boss (6M ADA), %10 Kolezyum (4M ADA), %10 Karnaval (4M ADA)
+  TREASURY_ALLOCATION: { dungeon: 25 / 78, ammBuyback: 18 / 78, worldBoss: 15 / 78, arena: 10 / 78, carnival: 10 / 78 },
   TREASURY_POOL_NAMES: {
     dungeon: 'Zindan Ganimet Kasası',
-    arena: 'Kolezyum Şampiyonluk Havuzu',
+    ammBuyback: 'AMM DEX & Likidite Rezervi',
     worldBoss: 'World Boss Ödül Havuzu',
-    ammBuyback: 'AMM Likidite & Buyback Rezervi',
+    arena: 'Kolezyum Şampiyonluk Havuzu',
     carnival: 'Sirk & Karnaval Ödül Havuzu'
   },
-  TREASURY_TARGET_RESERVE: { dungeon: 14000000, arena: 8000000, worldBoss: 8000000, ammBuyback: 6000000, carnival: 4000000 },
+  TREASURY_TARGET_RESERVE: { dungeon: 10000000, ammBuyback: 7200000, worldBoss: 6000000, arena: 4000000, carnival: 4000000 },
   TREASURY_MIN_PAYOUT_RATIO: 0.15,   // havuz boşalsa bile ödül tamamen sıfırlanmaz
   TREASURY_SINGLE_DRAW_CAP: 0.02,    // tek ödül havuzun en fazla %2'sini çekebilir
 

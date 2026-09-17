@@ -174,11 +174,13 @@ console.log('\n[6/6] Krallık Hazinesi & Havuz Dağılımı ve Canlı Ödüller 
 const ecoSummary = gs.getEconomyAndPoolsSummary();
 assert(ecoSummary, 'Hazine ve havuz özeti oluşturulmalı');
 assert.equal(ecoSummary.burnRatePct, 13, 'Kalıcı yakım oranı %13 olmalı');
-assert.equal(ecoSummary.allocations.dungeon, 0.35, 'Zindan havuz payı %35 (14M ADA) olmalı');
-assert.equal(ecoSummary.allocations.arena, 0.20, 'Kolezyum havuz payı %20 (8M ADA) olmalı');
-assert.equal(ecoSummary.allocations.worldBoss, 0.20, 'World Boss havuz payı %20 (8M ADA) olmalı');
-assert.equal(ecoSummary.allocations.ammBuyback, 0.15, 'AMM buyback havuz payı %15 (6M ADA) olmalı');
-assert.equal(ecoSummary.allocations.carnival, 0.10, 'Karnaval havuz payı %10 (4M ADA) olmalı');
+assert.equal(ecoSummary.ubiRatePct, 6, 'UBI havuz payı %6 olmalı');
+assert.equal(ecoSummary.creatorRatePct, 3, 'Yapımcı / Team payı %3 olmalı');
+assert.equal(ecoSummary.allocations.dungeon, 25 / 78, 'Zindan havuz payı %25 (25/78) olmalı');
+assert.equal(ecoSummary.allocations.ammBuyback, 18 / 78, 'AMM DEX havuz payı %18 (18/78) olmalı');
+assert.equal(ecoSummary.allocations.worldBoss, 15 / 78, 'World Boss havuz payı %15 (15/78) olmalı');
+assert.equal(ecoSummary.allocations.arena, 10 / 78, 'Kolezyum havuz payı %10 (10/78) olmalı');
+assert.equal(ecoSummary.allocations.carnival, 10 / 78, 'Karnaval havuz payı %10 (10/78) olmalı');
 assert(ecoSummary.pools.length === 5, '5 ana hazine havuzu listelenmeli');
 
 ecoSummary.pools.forEach(p => {

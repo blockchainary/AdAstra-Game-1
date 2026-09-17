@@ -64,11 +64,12 @@ Oyunda bir token harcandığında (AMM harçları, seviye atlama, bot kâr ortak
 | **🎨 Yapımcı & Geliştirici Telifi** | **%3** | Protokol geliştirme cüzdanına aktarılır (`0x58DBCF66bdd7BfA9da98aDba1965b3794321087C`). |
 
 ### 🏛️ Hazine Kasaları Dağılım Matrisi (%78 Hazine İçi Kırılım):
-- **🏰 Zindan Ganimet Kasası (%35):** 6 Kat ve 18 Seviyeli zindan canavarlarını ve bosslarını yenenlere dağıtılır.
-- **⚔️ Kolezyum Gladyatör Arenası (%20):** Gladyatör ligi şampiyonlarına haftalık ödül olarak verilir (Askeri koruma devrededir, permadeath yoktur).
-- **🌋 Dünya Bossu Kasası (%20):** Haftalık ordusunu Dünya Bossuna stake eden oyuncuların verdiği hasara göre dağıtılır.
-- **💱 AMM DEX Likidite Geri Alımı (%15):** Avalanche C-Chain üzerindeki piyasa taban fiyatını desteklemek için protokol geri alımlarında kullanılır.
-- **🎡 Karnaval & Şans Çarkı Kasası (%10):** 14 ödüllü şans çarkında çıkan doğrudan token ikramiyelerinin emisyon kasasıdır.
+- **🏰 Zindan Ganimet Kasası (%25):** 6 Kat ve 18 Seviyeli zindan canavarlarını ve bosslarını yenenlere dağıtılır.
+- **💱 AMM DEX Likidite & Buyback Rezervi (%18):** Avalanche C-Chain üzerindeki piyasa taban fiyatını desteklemek ve DEX likiditesini güçlendirmek için kullanılır.
+- **🌋 Dünya Bossu Kasası (%15):** Haftalık ordusunu Dünya Bossuna stake eden oyuncuların verdiği hasara göre dağıtılır.
+- **⚔️ Kolezyum Gladyatör Arenası (%10):** Gladyatör ligi şampiyonlarına haftalık ödül olarak verilir (Askeri koruma devrededir, permadeath yoktur).
+- **🎡 Karnaval & Şans Çarkı Kasası (%10):** 15 potansiyel ödüllü şans çarkında çıkan doğrudan token ikramiyelerinin emisyon kasasıdır.
+*(Hazine İçi Toplam: %25 + %18 + %15 + %10 + %10 = %78 Krallık Hazinesi | Genel Harcama Dağılımı: %13 Yakım + %6 UBI + %3 Team + %78 Hazine = %100)*
 
 ---
 
