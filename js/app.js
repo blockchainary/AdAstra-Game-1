@@ -19,6 +19,7 @@ let barracksActiveTab = 'army';
 let mineActiveTab = 'mining';
 let marketActiveTab = 'resources';
 let selectedSoldierIndex = 0;
+let editingSoldierNameIndex = null;
 let collectionActiveTab = 'koleksiyon';
 let lastBoxResult = null;
 let barracksLiveRefreshAccumulator = 0;
@@ -2661,12 +2662,29 @@ function renderBarracksHtml() {
                 ⚔️
               </div>
               <div>
-                <div style="font-size: 1.15rem; font-weight: 900; color: #fff; display: flex; align-items: center; gap: 8px;">
-                  <span>${selectedSoldier.name}</span>
-                  <span class="soldier-element-tag" style="color: #c084fc; background: rgba(168,85,247,0.15); border: 1px solid #a855f7;">
-                    👑 AdAstra Şampiyonu
-                  </span>
-                </div>
+                ${editingSoldierNameIndex === actualSelectedIndex ? `
+                  <div class="soldier-rename-box" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 2px;">
+                    <input type="text" id="input-soldier-rename" data-soldier-idx="${actualSelectedIndex}" maxlength="24" value="${selectedSoldier.name}" placeholder="Asker Adı..." style="background: rgba(0,0,0,0.6); border: 1.5px solid #fde047; border-radius: 6px; color: #fff; font-weight: 800; font-size: 0.95rem; padding: 4px 10px; outline: none; width: 180px; box-shadow: 0 0 10px rgba(253,224,71,0.25);" />
+                    <button class="btn-clean btn-save-soldier-name" data-soldier-idx="${actualSelectedIndex}" style="width: auto; background: #16a34a; border-color: #4ade80; color: #fff; font-size: 0.78rem; font-weight: 800; padding: 5px 10px; border-radius: 6px; cursor: pointer;" title="İsmi Kaydet">
+                      💾 Kaydet
+                    </button>
+                    <button class="btn-clean btn-cancel-soldier-name" style="width: auto; background: rgba(239,68,68,0.25); border: 1px solid #ef4444; color: #fca5a5; font-size: 0.78rem; font-weight: 700; padding: 5px 8px; border-radius: 6px; cursor: pointer;" title="İptal">
+                      ✕
+                    </button>
+                  </div>
+                ` : `
+                  <div style="font-size: 1.15rem; font-weight: 900; color: #fff; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span class="btn-trigger-rename" data-soldier-idx="${actualSelectedIndex}" title="İsmi değiştirmek için tıkla" style="cursor: pointer; border-bottom: 1px dashed rgba(253,224,71,0.4); transition: all 0.2s;">
+                      ${selectedSoldier.name}
+                    </span>
+                    <button class="btn-clean btn-trigger-rename" data-soldier-idx="${actualSelectedIndex}" title="Askerin İsmini Değiştir" style="width: auto; background: rgba(253,224,71,0.12); border: 1px solid rgba(253,224,71,0.4); border-radius: 6px; color: #fde047; cursor: pointer; padding: 2px 7px; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;">
+                      ✏️ <span style="font-size: 0.72rem; font-weight: 700;">İsim Değiştir</span>
+                    </button>
+                    <span class="soldier-element-tag" style="color: #c084fc; background: rgba(168,85,247,0.15); border: 1px solid #a855f7;">
+                      👑 AdAstra Şampiyonu
+                    </span>
+                  </div>
+                `}
                 <div style="font-size: 0.8rem; color: #fde047; margin-top: 2px;">
                   Seviye ${selectedSoldier.level || 1} • AdAstra Şampiyonu • 5 Parça Teçhizat Envanteri
                 </div>
@@ -3753,6 +3771,33 @@ function openBarracksModal() {
   dom.modalTitle.innerHTML = `<span>⚔️</span> <span>ASKERİ KIŞLA & TALİM KAMPI</span>`;
   dom.modalBody.innerHTML = renderBarracksHtml();
   displayModal();
+
+  const renameInput = document.getElementById('input-soldier-rename');
+  if (renameInput) {
+    setTimeout(() => {
+      renameInput.focus();
+      renameInput.select();
+    }, 50);
+
+    renameInput.addEventListener('keydown', (ke) => {
+      if (ke.key === 'Enter') {
+        ke.preventDefault();
+        const sIdx = parseInt(renameInput.dataset.soldierIdx, 10);
+        const res = gameState.renameSoldierUnit(sIdx, renameInput.value);
+        if (res.success) {
+          showToast(res.message, 'success');
+          editingSoldierNameIndex = null;
+          openBarracksModal();
+        } else {
+          showToast(res.message, 'error');
+        }
+      } else if (ke.key === 'Escape') {
+        ke.preventDefault();
+        editingSoldierNameIndex = null;
+        openBarracksModal();
+      }
+    });
+  }
 }
 
 function openBattlefieldModal() {
@@ -6136,8 +6181,45 @@ function initAppEvents() {
       const idx = parseInt(selectSoldierBtn.dataset.soldierIdx, 10);
       if (!isNaN(idx)) {
         selectedSoldierIndex = idx;
+        editingSoldierNameIndex = null;
         openBarracksModal();
       }
+      return;
+    }
+
+    // ✏️ Asker İsmi Değiştirme Tetikleyici
+    const triggerRenameBtn = e.target.closest('.btn-trigger-rename');
+    if (triggerRenameBtn) {
+      const sIdx = parseInt(triggerRenameBtn.dataset.soldierIdx, 10);
+      if (!isNaN(sIdx)) {
+        editingSoldierNameIndex = sIdx;
+        openBarracksModal();
+      }
+      return;
+    }
+
+    // 💾 Asker İsmi Kaydetme
+    const saveNameBtn = e.target.closest('.btn-save-soldier-name');
+    if (saveNameBtn) {
+      const sIdx = parseInt(saveNameBtn.dataset.soldierIdx, 10);
+      const input = document.getElementById('input-soldier-rename');
+      const newName = input ? input.value : '';
+      const res = gameState.renameSoldierUnit(sIdx, newName);
+      if (res.success) {
+        showToast(res.message, 'success');
+        editingSoldierNameIndex = null;
+        openBarracksModal();
+      } else {
+        showToast(res.message, 'error');
+      }
+      return;
+    }
+
+    // ✕ Asker İsmi Değiştirme İptali
+    const cancelNameBtn = e.target.closest('.btn-cancel-soldier-name');
+    if (cancelNameBtn) {
+      editingSoldierNameIndex = null;
+      openBarracksModal();
       return;
     }
 

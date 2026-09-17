@@ -286,6 +286,26 @@ export class GameStateManager {
     };
   }
 
+  renameSoldierUnit(soldierIndex, newName) {
+    if (!Array.isArray(this.state.soldierUnits)) return { success: false, message: 'Ordu bulunamadı.' };
+    const soldier = this.state.soldierUnits[soldierIndex];
+    if (!soldier) return { success: false, message: 'Asker bulunamadı.' };
+
+    const cleanName = (newName || '').trim();
+    if (!cleanName) return { success: false, message: 'Asker ismi boş bırakılamaz.' };
+    if (cleanName.length > 24) return { success: false, message: 'Asker ismi en fazla 24 karakter olabilir.' };
+
+    const oldName = soldier.name;
+    soldier.name = cleanName;
+    this.saveState();
+    return {
+      success: true,
+      message: `⚔️ Asker ismi "${cleanName}" olarak güncellendi!`,
+      oldName,
+      newName: cleanName
+    };
+  }
+
   getSoldierSetBonus(soldierIndex) {
     const soldier = (this.state.soldierUnits || [])[soldierIndex];
     if (!soldier) return null;
