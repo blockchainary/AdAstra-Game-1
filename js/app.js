@@ -3749,7 +3749,7 @@ function renderCarnivalHtml(activeTab = 'wheel') {
       totalDeposited: 180000,
       totalWithdrawn: 42000,
       burnedResources: { wood: 0, iron: 0, wheat: 0 },
-      lottery: { lotteryPool: 20000000, winnerShare: 3600000, amortiShare: 400000, rolloverShare: 16000000 },
+      lottery: { lotteryPool: 20000000, winnerMultiplier: 2.0, amortiShare: 400000, rolloverShare: 19600000 },
       pools: []
     };
 

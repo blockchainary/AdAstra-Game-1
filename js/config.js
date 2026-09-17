@@ -562,7 +562,6 @@ export const GAME_CONFIG = {
   COMBAT: {
     ARMOR_CONSTANT: 120,        // zırh azaltması: 1 - zırh/(zırh+120), asla %100 olmaz
     BASE_CRIT_DAMAGE: 1.75,
-    FRONTLINE_COVER: 0.85,      // ön saf ayaktayken saldırıların %85'i ön safa gider
     MAX_ROUNDS: 30,
     // Alan hasarı en fazla 4 hedef vurur. Sınırsız bırakılırsa "yarma" saldırısı
     // ordu büyüklüğüyle doğrusal ölçeklenir ve 18 kişilik kadro cezalandırılır.
@@ -944,6 +943,18 @@ export const GAME_CONFIG = {
         'Çark sonuç ekranına ve toast bildirimlerine "🏛️ KARNAVAL HAZİNESİ AMM BUYBACK DEKONTU" eklendi; satın alınan miktar, kasadan ödenen ADA ve anlık fiyat artışı (P_eski ➔ P_yeni ADA, +%X.XX 📈) canlı olarak raporlanır.',
         'Pazar yerinde fiyatlar 4 ondalık basamak hassasiyetle anlık canlı güncellenir.'
       ]
+    },
+    {
+      version: 'v1.19',
+      title: '🧹 Kod Tabanı Arındırma, Eski Kalıntıların Temizlenmesi & Mimari Refactor',
+      date: 'Eylül 2026',
+      changes: [
+        'Eski ve güncelliğini yitirmiş tek seferlik debug betikleri (check_browser_runtime, check_time, debug_background_tab, debug_user_loop, inspect_live_game) projeden ve GitHub deposundan tamamen temizlendi.',
+        'Savaş motoru konfigürasyonundaki eski ön saf kalıntısı (FRONTLINE_COVER) ve testlerdeki row/mevzi kalıntıları safsız açık muharebe modeline göre arındırıldı.',
+        'Hazine defteri ve piyango arayüzlerindeki eski tekil pay modelleri güncel 2x bilet yakım doktrinine göre optimize edildi.',
+        'Eski hız iksiri kalıntı kodları temizlenerek GameStateManager ve yardımcı modüller yalınlaştırıldı.',
+        'Tüm canlı birim ve entegrasyon testleri (36 dosya) package.json test scriptine bağlanarak %100 kapsama sağlandı.'
+      ]
     }
   ],
 
@@ -968,7 +979,7 @@ export const GAME_CONFIG = {
     {
       id: 'f2p_welcome',
       badge: '⚔️ KRALLIK DUYURUSU',
-      text: 'AdAstra: Genesis Realm v1.18 devrede! Karnaval Çarkı Fiziki AMM DEX Buyback & Fiyat Artış Motoru, Zaman Atlama Simülasyonu ve 6 Varlıklı Dinamik Buyback aktiftir.',
+      text: 'AdAstra: Genesis Realm v1.19 devrede! Kod tabanı arındırma ve kalıntı temizliği tamamlandı, Karnaval AMM Buyback, Zaman Atlama ve 6 Varlıklı Dinamik Buyback motorları aktiftir.',
       active: true,
       priority: 2
     }

@@ -5,8 +5,8 @@ import { gameState } from '../js/gameState.js';
 test('⚔️ Asker İsmi Değiştirme (Custom Soldier Naming) Testi', async (t) => {
   // Test öncesi state sıfırlama / asker oluşturma
   gameState.state.soldierUnits = [
-    { id: 1, name: 'AdAstra Piyadesi', level: 1, hp: 100, maxHp: 100, baseAtk: 20, row: 'front', skills: ['shieldWall'] },
-    { id: 2, name: 'AdAstra Okçusu', level: 10, hp: 120, maxHp: 120, baseAtk: 28, row: 'back', skills: ['shieldWall', 'shockwave'] }
+    { id: 1, name: 'AdAstra Piyadesi', level: 1, hp: 100, maxHp: 100, baseAtk: 20, skills: ['shieldWall'] },
+    { id: 2, name: 'AdAstra Okçusu', level: 10, hp: 120, maxHp: 120, baseAtk: 28, skills: ['shieldWall', 'shockwave'] }
   ];
 
   await t.test('1. Geçerli bir isimle askerin adı başarıyla güncellenmeli', () => {

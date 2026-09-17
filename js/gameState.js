@@ -18,12 +18,6 @@ export class GameStateManager {
       this.state.lotteryAmortiPool = Math.round(this.state.lotteryTickets * ticketCost * amortiRate);
       this.saveState();
     }
-    // 🗑️ Sefer Hızlandırıcı İksirlerin Sistemden Tamamen Temizlenmesi
-    if (this.state.activeBuffs) {
-      delete this.state.activeBuffs['speed_potion_1'];
-      delete this.state.activeBuffs['speed_potion_2'];
-      delete this.state.activeBuffs['speed_potion_3'];
-    }
     if (typeof ammMarket !== 'undefined' && ammMarket && ammMarket.subscribe) {
       ammMarket.subscribe(() => {
         this.tickUpgradeCostBot(0);

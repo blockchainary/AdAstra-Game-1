@@ -307,9 +307,9 @@ Krallık ordusunda askerler sınıf (class) ayrımı olmaksızın **tek tip teme
 - **Ekipman Bağı:** Demirci'de dövülen yüksek seviyeli silah ve miğferler askerlerin yetenek slotlarını zenginleştirir.
 - **Zindan / Pandora Ganimeti:** Zindan muhafızlarından ve Pandora sandıklarından düşen Yetenek Parşömenleri (`scroll_skill_*`) askere doğrudan kalıcı yetenek öğretir.
 
-#### 3. Mevzi & Ön Saf (Frontline Cover) Mekanizması:
-- Oyuncu her savaştan önce ordusundaki askerleri **Ön Saf (`front`)** veya **Arka Saf (`back`)** olarak konumlandırır.
-- Savaş motorundaki `selectTarget()` algoritması, ön saf ayaktayken saldırıların %85'ini ön saf askerlerine yönlendirir ve arkadaki kırılgan destekçileri korur.
+#### 3. Tek Hat Serbest Taktiksel Savaş Düzeni (Safsız Açık Muharebe):
+- Eski ön saf / arka saf mevzi kısıtlaması tamamen kaldırılarak tüm askerlerin tek hat üzerinde tam yetenek erişimiyle savaştığı dinamik muharebe düzenine geçilmiştir.
+- Savaş motorundaki `selectTarget()` algoritması, taunt (kışkırtma) ve piercing (yarma) yetenekleri haricinde tüm canlı düşmanları doğrudan hedefleyebilir.
 
 ### D) 🏟️ Kolezyum Sabit Lig Kademeleri & 1v1 Gladyatör Arenası:
 Kolezyum, krallığın en güçlü şampiyonlarının ELO derecesi ve Krallık Hazinesinin %20'lik Arena Kasası için çarpıştığı onur meydanıdır.
