@@ -1040,9 +1040,21 @@ function openInventoryModal() {
 
       <!-- İlerleme & Gereksinimler -->
       <div style="background: #140e08; padding: 12px; border-radius: 10px; border: 1px solid #583007; display: flex; flex-direction: column; gap: 8px;">
-        <div style="display: flex; justify-content: space-between; font-size: 0.88rem; font-weight: 700;">
-          <span style="color: #60a5fa;">✨ Deneyim (XP):</span>
-          <span style="color: ${state.currentXp >= req.xp ? '#4ade80' : '#f87171'};">${state.currentXp} / ${req.xp} XP</span>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="display: flex; justify-content: space-between; font-size: 0.88rem; font-weight: 700;">
+            <span style="color: #60a5fa; display:flex; align-items:center; gap:4px;">✨ Deneyim (XP):</span>
+            <span style="color: ${state.currentXp >= req.xp ? '#4ade80' : '#f87171'}; font-weight: 900;">
+              ${state.currentXp} / ${req.xp} XP ${state.currentXp >= req.xp ? '✅' : `(Eksik: ${req.xp - state.currentXp} XP)`}
+            </span>
+          </div>
+          <div style="height: 8px; width: 100%; background: #1e293b; border-radius: 4px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);">
+            <div style="height: 100%; width: ${Math.min(100, Math.round((state.currentXp / req.xp) * 100))}%; background: ${state.currentXp >= req.xp ? 'linear-gradient(90deg, #10b981, #34d399)' : 'linear-gradient(90deg, #f59e0b, #ef4444)'}; transition: width 0.3s ease;"></div>
+          </div>
+          ${state.currentXp < req.xp ? `
+            <div style="font-size: 0.73rem; color: #fbbf24; display:flex; align-items:center; gap:4px; margin-top: 1px;">
+              <span>💡</span> <span>XP kazanmak için haritadan <strong>Orman, Maden veya Çiftlik</strong> seferlerine çıkmalısın.</span>
+            </div>
+          ` : ''}
         </div>
         
         <div style="font-size: 0.85rem; font-weight: 700; color: #cbd5e1; margin-top: 4px; display: flex; justify-content: space-between; align-items: center;">
@@ -1064,15 +1076,41 @@ function openInventoryModal() {
         </div>
       </div>
 
-      ${req.isMaxLevel ? `
-        <button id="btn-modal-levelup" class="btn-clean" style="margin-top: 4px; background: #334155; border-color: #64748b; color: #94a3b8; cursor: not-allowed;" disabled>
-          🏆 MAKSİMUM SEVİYEYE (LV.81) ULAŞILDI
-        </button>
-      ` : `
-        <button id="btn-modal-levelup" class="btn-clean btn-clean-green" style="margin-top: 4px;">
-          SEVİYE ${state.level + 1}'E YÜKSELT
-        </button>
-      `}
+      <div id="levelup-feedback-box"></div>
+
+      ${(() => {
+        const hasXp = state.currentXp >= req.xp;
+        const hasWood = wood >= req.wood;
+        const hasIron = iron >= req.iron;
+        const hasWheat = wheat >= req.wheat;
+        const hasAda = adAstra >= req.adAstra;
+        const canLevelUp = hasXp && hasWood && hasIron && hasWheat && hasAda;
+
+        if (req.isMaxLevel) {
+          return `
+            <button id="btn-modal-levelup" class="btn-clean" style="margin-top: 4px; background: #334155; border-color: #64748b; color: #94a3b8; cursor: not-allowed;" disabled>
+              🏆 MAKSİMUM SEVİYEYE (LV.81) ULAŞILDI
+            </button>
+          `;
+        } else if (!canLevelUp) {
+          let missingReason = '';
+          if (!hasXp) missingReason = `Yetersiz Deneyim (${state.currentXp}/${req.xp} XP)`;
+          else if (!hasAda) missingReason = `Yetersiz $ADASTRA (${adAstra.toFixed(0)}/${req.adAstra} ADA)`;
+          else missingReason = 'Eksik Hammadde Bulunuyor';
+
+          return `
+            <button id="btn-modal-levelup" class="btn-clean" style="margin-top: 4px; background: #1f2937; border: 1.5px solid #ef4444; color: #fca5a5; font-weight: 800; cursor: pointer;">
+              🔒 SEVİYE ${state.level + 1}'E YÜKSELT — ${missingReason}
+            </button>
+          `;
+        } else {
+          return `
+            <button id="btn-modal-levelup" class="btn-clean btn-clean-green" style="margin-top: 4px; font-weight: 900; box-shadow: 0 4px 15px rgba(16,185,129,0.4);">
+              ✨ SEVİYE ${state.level + 1}'E YÜKSELT (TÜM KOŞULLAR HAZIR!)
+            </button>
+          `;
+        }
+      })()}
     </div>
 
     <!-- 🏛️ EVRENSEL TEMEL GELİR (UBI) & SEVİYE STAKE HAVUZU KARTI -->
@@ -6282,6 +6320,15 @@ function initAppEvents() {
         openInventoryModal();
       } else {
         showToast(res.message, 'error');
+        const feedbackBox = dom.modalBody.querySelector('#levelup-feedback-box');
+        if (feedbackBox) {
+          feedbackBox.innerHTML = `
+            <div style="background: rgba(239,68,68,0.25); border: 1.5px solid #ef4444; border-radius: 8px; padding: 10px 14px; color: #fca5a5; font-size: 0.86rem; font-weight: 800; margin-top: 6px; display: flex; align-items: center; gap: 8px; animation: shake 0.3s ease;">
+              <span style="font-size: 1.3rem;">⚠️</span>
+              <span>${res.message}</span>
+            </div>
+          `;
+        }
       }
       renderTopBar();
       return;
@@ -8024,15 +8071,33 @@ function refreshLiveUpgradeCostUI(deltaSeconds = 1) {
       if (lvlAdaBox) {
         lvlAdaBox.style.color = adAstra >= req.adAstra ? '#4ade80' : '#f87171';
       }
-      const canAfford = state.currentXp >= req.xp &&
-                        (inv.wood || 0) >= req.wood &&
-                        (inv.iron || 0) >= req.iron &&
-                        (inv.wheat || 0) >= req.wheat &&
-                        adAstra >= req.adAstra;
-      if (!canAfford) {
-        lvlBtn.style.opacity = '0.7';
-      } else {
-        lvlBtn.style.opacity = '1';
+      const hasXp = state.currentXp >= req.xp;
+      const hasWood = (inv.wood || 0) >= req.wood;
+      const hasIron = (inv.iron || 0) >= req.iron;
+      const hasWheat = (inv.wheat || 0) >= req.wheat;
+      const hasAda = adAstra >= req.adAstra;
+      const canAfford = hasXp && hasWood && hasIron && hasWheat && hasAda;
+
+      if (!req.isMaxLevel) {
+        if (!canAfford) {
+          lvlBtn.className = 'btn-clean';
+          lvlBtn.style.background = '#1f2937';
+          lvlBtn.style.border = '1.5px solid #ef4444';
+          lvlBtn.style.color = '#fca5a5';
+          lvlBtn.style.fontWeight = '800';
+          let missingReason = '';
+          if (!hasXp) missingReason = `Yetersiz Deneyim (${state.currentXp}/${req.xp} XP)`;
+          else if (!hasAda) missingReason = `Yetersiz $ADASTRA (${adAstra.toFixed(0)}/${req.adAstra} ADA)`;
+          else missingReason = 'Eksik Hammadde';
+          lvlBtn.innerText = `🔒 SEVİYE ${state.level + 1}'E YÜKSELT — ${missingReason}`;
+        } else {
+          lvlBtn.className = 'btn-clean btn-clean-green';
+          lvlBtn.style.background = '';
+          lvlBtn.style.border = '';
+          lvlBtn.style.color = '';
+          lvlBtn.style.fontWeight = '900';
+          lvlBtn.innerText = `✨ SEVİYE ${state.level + 1}'E YÜKSELT (TÜM KOŞULLAR HAZIR!)`;
+        }
       }
     }
   }

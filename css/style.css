@@ -1075,14 +1075,14 @@ body.modal-open .realm-tooltip {
 
 /* Toast */
 .toast-container {
-  position: absolute;
-  top: 90px;
-  right: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  z-index: 2000;
-  pointer-events: none;
+  position: fixed !important;
+  top: 30px !important;
+  right: 20px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  z-index: 100005 !important;
+  pointer-events: none !important;
 }
 
 .toast {
