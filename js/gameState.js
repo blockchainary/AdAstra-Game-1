@@ -945,6 +945,17 @@ export class GameStateManager {
     const actions = [];
 
     // =========================================================================
+    // 0. BOT ADA ÖN-KONTROLÜ & OTOMATİK FİNANSMAN
+    // Bot çalışırken yetersiz $ADASTRA olup durmaması için depodan eşit miktarda satış yap
+    // =========================================================================
+    if ((this.state.adAstraBalance || 0) < 50) {
+      const fundRes = this.autoFundBotAdaDeficit(50);
+      if (fundRes && fundRes.funded) {
+        actions.push(`⚖️ Bot Oto-Finansman: Yetersiz ADA için depodan eşit miktarda (${fundRes.toSell?.wood || 0} Odun, ${fundRes.toSell?.iron || 0} Demir, ${fundRes.toSell?.wheat || 0} Buğday) satılarak +${fundRes.totalEarned?.toFixed(1)} $ADASTRA sağlandı.`);
+      }
+    }
+
+    // =========================================================================
     // 1. ÖNCE TAMAMLANAN SEFERLERİ TOPLA (Hasat)
     // Sefer bitmişse veya süresi dolmuşsa derhal toplanır.
     // Bu sayede ambara buğday, demir ve odun girer; yetersizlik çözülür.
@@ -970,10 +981,15 @@ export class GameStateManager {
       if (tool && tool.durability <= 0) {
         const repCost = this.calculateRepairCost(toolId);
         const inv = this.state.inventory || {};
-        if (repCost && (inv.wood || 0) >= repCost.woodCost && (inv.iron || 0) >= repCost.ironCost && (this.state.adAstraBalance || 0) >= repCost.adAstraCost) {
-          const repRes = this.repairTool(toolId);
-          if (repRes && repRes.success) {
-            actions.push(`🔨 ${GAME_CONFIG.TOOLS[toolId].name} otomatik tamir edildi.`);
+        if (repCost && (inv.wood || 0) >= repCost.woodCost && (inv.iron || 0) >= repCost.ironCost) {
+          if ((this.state.adAstraBalance || 0) < repCost.adAstraCost) {
+            this.autoFundBotAdaDeficit(Math.max(50, repCost.adAstraCost + 5));
+          }
+          if ((this.state.adAstraBalance || 0) >= repCost.adAstraCost) {
+            const repRes = this.repairTool(toolId);
+            if (repRes && repRes.success) {
+              actions.push(`🔨 ${GAME_CONFIG.TOOLS[toolId].name} otomatik tamir edildi.`);
+            }
           }
         }
       }
@@ -1101,6 +1117,145 @@ export class GameStateManager {
     };
   }
 
+  /**
+   * 🤖 Bot Çalışırken ADA Yetersizliği Durumunda Depodan Eşit Miktarda Kaynak Satışı
+   * Kullanıcı kuralı: Bot çalışırken yetersiz $ADASTRA olup durursa (veya durmaması için),
+   * depodaki tüm malzemelerden (Odun, Demir, Buğday) eşit miktarda satıp botun tekrar
+   * çalışması için ihtiyaç olan $ADASTRA'yı (en az 50 $ADASTRA) marketten elde eder.
+   */
+  autoFundBotAdaDeficit(neededTarget = 50) {
+    const curAda = Number(this.state.adAstraBalance) || 0;
+    if (curAda >= neededTarget) {
+      return { funded: false, reason: 'sufficient_ada', currentBalance: curAda };
+    }
+
+    if (typeof ammMarket === 'undefined' || !ammMarket || !ammMarket.executeSell) {
+      return { funded: false, reason: 'amm_unavailable' };
+    }
+
+    const deficit = Math.max(0, neededTarget - curAda);
+    // Küçük bir tampon (+5 ADA) ekleyerek en az 55 ADA'ya ulaştır ki anında tekrar düşüp durmasın
+    const targetToRaise = Math.max(1, Math.ceil(deficit + 5));
+
+    const inv = this.state.inventory = this.state.inventory || {};
+    const nodes = ['wood', 'iron', 'wheat'];
+
+    // Her malzemenin satış fiyatını al
+    const prices = {};
+    let sumPrices = 0;
+    for (const node of nodes) {
+      let p = 0;
+      if (typeof ammMarket.getEstimatedAdAstraForSell === 'function') {
+        p = ammMarket.getEstimatedAdAstraForSell(node, 1);
+      }
+      if (!p || isNaN(p) || p <= 0) {
+        p = (typeof ammMarket.getPrice === 'function') ? ammMarket.getPrice(node) : 0.5;
+      }
+      prices[node] = Math.max(0.01, p || 0.5);
+      sumPrices += prices[node];
+    }
+
+    if (sumPrices <= 0) return { funded: false, reason: 'zero_prices' };
+
+    // 1. ADIM: Eşit miktarda x satılacak: x * sumPrices >= targetToRaise
+    let unitsPerNode = Math.ceil(targetToRaise / sumPrices);
+    if (unitsPerNode < 1) unitsPerNode = 1;
+
+    // Depodaki stokları kontrol et
+    const curStocks = {
+      wood: Number(inv.wood) || 0,
+      iron: Number(inv.iron) || 0,
+      wheat: Number(inv.wheat) || 0
+    };
+
+    // Tüm malzemelerden eşit miktarda satmayı hedefle
+    const toSell = { wood: 0, iron: 0, wheat: 0 };
+    const minStock = Math.min(curStocks.wood, curStocks.iron, curStocks.wheat);
+
+    if (minStock >= unitsPerNode) {
+      // Her malzemede yeterli stok var: tam olarak eşit miktarda sat!
+      toSell.wood = unitsPerNode;
+      toSell.iron = unitsPerNode;
+      toSell.wheat = unitsPerNode;
+    } else if (minStock > 0) {
+      // Ortak minimum kadar eşit sat, kalan açığı stokları elverenler arasında eşit paylaştır
+      toSell.wood = minStock;
+      toSell.iron = minStock;
+      toSell.wheat = minStock;
+
+      const raisedSoFar = minStock * sumPrices;
+      let remainingToRaise = Math.max(0, targetToRaise - raisedSoFar);
+
+      if (remainingToRaise > 0) {
+        // Stoğu minStock'tan fazla olan kaynaklar
+        const surplusNodes = nodes.filter(n => (curStocks[n] - minStock) > 0);
+        if (surplusNodes.length > 0) {
+          const surplusSumPrice = surplusNodes.reduce((acc, n) => acc + prices[n], 0);
+          const extraUnitsPerNode = Math.ceil(remainingToRaise / surplusSumPrice);
+          for (const sn of surplusNodes) {
+            const avail = curStocks[sn] - minStock;
+            const extra = Math.min(avail, extraUnitsPerNode);
+            toSell[sn] += extra;
+          }
+        }
+      }
+    } else {
+      // Bir kaynağın stoğu 0 bile olsa, diğer mevcut kaynaklardan eşit miktarda sat
+      const availableNodes = nodes.filter(n => curStocks[n] > 0);
+      if (availableNodes.length > 0) {
+        const availSumPrice = availableNodes.reduce((acc, n) => acc + prices[n], 0);
+        let equalQty = Math.ceil(targetToRaise / availSumPrice);
+        const minAvail = Math.min(...availableNodes.map(n => curStocks[n]));
+        equalQty = Math.min(equalQty, minAvail);
+        if (equalQty < 1 && minAvail >= 1) equalQty = 1;
+        for (const an of availableNodes) {
+          toSell[an] = Math.min(curStocks[an], equalQty);
+        }
+      }
+    }
+
+    const totalUnitsPlanned = toSell.wood + toSell.iron + toSell.wheat;
+    if (totalUnitsPlanned <= 0) {
+      return { funded: false, reason: 'no_inventory_available' };
+    }
+
+    let totalEarned = 0;
+    const soldBreakdown = {};
+
+    for (const node of nodes) {
+      const qty = toSell[node] || 0;
+      if (qty > 0) {
+        const sellRes = ammMarket.executeSell(node, qty);
+        if (sellRes && sellRes.success) {
+          inv[node] = Math.max(0, (inv[node] || 0) - qty);
+          const earned = Number(sellRes.adAstraReceived) || 0;
+          totalEarned += earned;
+          soldBreakdown[node] = { qty, earned };
+        }
+      }
+    }
+
+    if (totalEarned > 0) {
+      this.state.adAstraBalance = (this.state.adAstraBalance || 0) + totalEarned;
+      this.saveState();
+
+      const actionMsg = `⚖️ Bot Oto-Finansman: Yetersiz ADA giderildi. Depodan eşit miktarda (${toSell.wood} Odun, ${toSell.iron} Demir, ${toSell.wheat} Buğday) satılarak +${totalEarned.toFixed(1)} $ADASTRA elde edildi.`;
+      if (!this.state.lastBotActions) this.state.lastBotActions = [];
+      this.state.lastBotActions.push(actionMsg);
+
+      return {
+        funded: true,
+        toSell,
+        totalEarned,
+        soldBreakdown,
+        newBalance: this.state.adAstraBalance,
+        message: actionMsg
+      };
+    }
+
+    return { funded: false, reason: 'sell_execution_failed' };
+  }
+
   // ⏸️ Botun Duraklatılması (Pause) ve Süresinin Azalmadan Dondurulması (Freeze) Motoru
   updateBotPauseState() {
     const now = Date.now();
@@ -1121,10 +1276,24 @@ export class GameStateManager {
       this.state.tavernaBotExpiresAt || 0
     );
 
-    const prereq = this.checkBotPrerequisites();
+    let prereq = this.checkBotPrerequisites();
+
+    // 🤖 KULLANICI KURALI: Eğer bot çalışırken/aktifken $ADASTRA < 50 olduğu için duracaksa veya durmuşsa:
+    // Bot durup beklemek yerine depodaki tüm malzemelerden (Odun, Demir, Buğday) eşit miktarda satıp
+    // 50 $ADASTRA'yı marketten temin eder ve durmayı engeller!
+    if (!prereq.isMet) {
+      const hasAdaMissing = prereq.missing.some(m => m.key === 'adAstra');
+      if (hasAdaMissing) {
+        const fundRes = this.autoFundBotAdaDeficit(50);
+        if (fundRes && fundRes.funded) {
+          // Satış yapıldı ve ADA tamamlandı, koşulları tekrar kontrol et!
+          prereq = this.checkBotPrerequisites();
+        }
+      }
+    }
 
     if (!prereq.isMet) {
-      // Koşullar sağlanmıyor -> BOT DURAKLATILMALI VE SÜRESİ DONDURULMALI!
+      // Koşullar hala sağlanmıyor (örneğin hammadde eksikse) -> BOT DURAKLATILMALI VE SÜRESİ DONDURULMALI!
       if (!this.state.botPaused) {
         this.state.botPaused = true;
         const remainingMs = Math.max(1000, rawExp - now);
