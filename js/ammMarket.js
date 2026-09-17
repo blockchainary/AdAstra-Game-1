@@ -1,23 +1,11 @@
-// AdAstra: Genesis Realm v2 — AMM Swap Motoru (x · y = k)
+// Realm of Astra — AMM Swap Motoru (x · y = k)
 // ============================================================================
-// v1'DEKİ İKİ YAPISAL HATA:
-//
-//  1) Havuz rezervleri config'teki AMM_CORRIDORS tablosuyla hiç ilişkili değildi.
-//     Odun 0,00916 ADA (koridor tabanı 0,10) — 11 kat ucuz. Parça ise 1.000 ADA
-//     (koridor tavanı 12) — 83 kat pahalı. Sonuç: tüm küresel haftalık kotanın
-//     satışı 6.264 ADA getiriyordu, yani tek askerin üçte biri. Hammadde
-//     ekonomisi ekonomik olarak var değildi.
-//
-//  2) Swap ücreti yoktu. Ücret olmayınca ne likidite geliri, ne işlem başına
-//     yakım, ne de fiyat istikrarı vardı.
-//
-// v2'DE:
-//  • Rezervler koridor hedef fiyatından türetilir (YASA 3: kıt olan pahalıdır).
-//  • Derinlik, haftalık küresel kotanın fiyatı ~%7 hareket ettireceği şekilde
-//    seçilir — piyasa ne donuk ne de manipüle edilebilir olur.
-//  • %0,30 ücret alınır: yarısı yakılır, yarısı havuzda kalır.
-//  • Fiyat koridoru UYGULANIR: taban altına inen satış reddedilir, hazine
-//    buyback ile havuzu destekler.
+// AMM DEX Dinamik Havuz Mimarisi:
+//  • Rezervler AMM_CORRIDORS hedef fiyatlarından türetilir (YASA 3: kıt olan pahalıdır).
+//  • Derinlik, haftalık küresel kotanın fiyatı ~%7 hareket ettireceği şekilde seçilir.
+//  • %2.00 Market Harcı alınır: %78 Hazine, %13 Kalıcı Yakım, %6 UBI, %3 Telif.
+//  • %2.00 Hammadde Yakımı alınır: Alınan/satılan kaynaktan anında yakılıp total arzdan silinir.
+//  • Fiyat koridoru UYGULANIR: taban altına inen satış reddedilir, tavan aşımı engellenir.
 // ============================================================================
 
 import { GAME_CONFIG } from './config.js';
@@ -56,42 +44,12 @@ function derivePool(key, meta) {
 
 function buildDefaultPools() {
   return {
-    wheat: {
-      name: 'Buğday',
-      icon: '🌾',
-      adAstraReserve: 14000000,
-      resourceReserve: 15555556
-    },
-    wood: {
-      name: 'Odun',
-      icon: '🌲',
-      adAstraReserve: 10000000,
-      resourceReserve: 4000000
-    },
-    iron: {
-      name: 'Demir',
-      icon: '⛏️',
-      adAstraReserve: 10000000,
-      resourceReserve: 2500000
-    },
-    fragments: {
-      name: 'Teçhizat Parçaları',
-      icon: '🧩',
-      adAstraReserve: 3000000,
-      resourceReserve: 66667
-    },
-    boxes: {
-      name: 'Pandora Kutusu',
-      icon: '📦',
-      adAstraReserve: 2000000,
-      resourceReserve: 200
-    },
-    keys: {
-      name: 'Arena Anahtarı',
-      icon: '🔑',
-      adAstraReserve: 1000000,
-      resourceReserve: 1000
-    },
+    wheat: derivePool('wheat', { name: 'Buğday', icon: '🌾' }),
+    wood: derivePool('wood', { name: 'Odun', icon: '🌲' }),
+    iron: derivePool('iron', { name: 'Demir', icon: '⛏️' }),
+    fragments: derivePool('fragments', { name: 'Teçhizat Parçaları', icon: '🧩' }),
+    boxes: derivePool('boxes', { name: 'Pandora Kutusu', icon: '📦' }),
+    keys: derivePool('keys', { name: 'Arena Anahtarı', icon: '🔑' }),
     scroll_heal: derivePool('scroll_heal', { name: 'Ordu İyileştirme Parşömeni', icon: '📜' }),
     scroll_stamina: derivePool('scroll_stamina', { name: '100 Stamina Doldurma Parşömeni', icon: '⚡' })
   };
@@ -427,12 +385,6 @@ export class AMMMarketEngine {
         tvlAda: pool.adAstraReserve * 2
       };
     });
-  }
-
-  resetPools() {
-    this.pools = buildDefaultPools();
-    this.feeStats = { collected: 0, burned: 0 };
-    this.savePools();
   }
 }
 

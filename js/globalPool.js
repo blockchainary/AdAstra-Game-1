@@ -19,13 +19,51 @@ export const CIRCULATING_SUPPLY_ESTIMATE = 1200000000;
 export class GlobalResourceManager {
   constructor() {
     this.storageKey = 'adastra_global_network_pool_v3';
+    this.serverTimeOffset = 0;
+    this.trustedTimeReady = false;
     this.state = this.loadState();
+    this.initNetworkTimeSync();
+  }
+
+  // Güvenilir zaman: sunucu ofseti mevcutsa uygula, yoksa Date.now() kullan
+  getTrustedTime() {
+    return Date.now() + this.serverTimeOffset;
+  }
+
+  // Tarayıcı ortamında sunucunun HTTP yanıt başlığından (Date header) gerçek UTC zamanını alır
+  // Böylece oyuncu bilgisayarının saatini 1 hafta ileri alsa dahi sunucu saati bunu otomatik sıfırlar
+  async initNetworkTimeSync() {
+    if (typeof window !== 'undefined' && typeof fetch === 'function') {
+      try {
+        const res = await fetch(window.location.href, { method: 'HEAD', cache: 'no-store' });
+        const serverDateStr = res.headers.get('date');
+        if (serverDateStr) {
+          const serverTime = new Date(serverDateStr).getTime();
+          if (!isNaN(serverTime) && serverTime > 0) {
+            this.serverTimeOffset = serverTime - Date.now();
+            this.trustedTimeReady = true;
+            this.checkEpochExpiration();
+          }
+        }
+      } catch (err) {
+        // Çevrimdışı fallback: yerel monotonic saat devam eder
+      }
+    }
+  }
+
+  checkEpochExpiration() {
+    const now = this.getTrustedTime();
+    if (this.state && this.state.epochEndTime && now > this.state.epochEndTime) {
+      this.createNewEpoch(this.state);
+      this.saveState();
+    }
   }
 
   // Pazar'ı Pazartesiye bağlayan gece 00:01 (Türkiye Saati / UTC+3 = Pazar 21:01 UTC) reset zamanını hesaplar
-  getNextWeeklyResetTRT(fromTimestamp = Date.now()) {
+  getNextWeeklyResetTRT(fromTimestamp = null) {
+    const baseTime = fromTimestamp !== null ? fromTimestamp : this.getTrustedTime();
     const TRT_OFFSET_MS = 3 * 60 * 60 * 1000;
-    const trtNow = new Date(fromTimestamp + TRT_OFFSET_MS);
+    const trtNow = new Date(baseTime + TRT_OFFSET_MS);
 
     const trtDay = trtNow.getUTCDay(); // 0 = Pazar, 1 = Pazartesi...
     const trtHour = trtNow.getUTCHours();
@@ -45,7 +83,7 @@ export class GlobalResourceManager {
   }
 
   // Geriye dönük uyumluluk
-  getNextMonday1800TRT(fromTimestamp = Date.now()) {
+  getNextMonday1800TRT(fromTimestamp = null) {
     return this.getNextWeeklyResetTRT(fromTimestamp);
   }
 
@@ -55,8 +93,15 @@ export class GlobalResourceManager {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
+        const now = this.getTrustedTime();
+
+        // Anti-Tamper: Saat geriye sarılırsa son kaydedilen zamandan önceye gidemez
+        if (parsed.lastSavedTime && now < parsed.lastSavedTime - 60000) {
+          console.warn('[GlobalPool Anti-Tamper] Sistem saati manipülasyonu tespit edildi.');
+        }
+
         // Zamanı dolduysa yeni haftalık epoch başlat
-        if (Date.now() > (parsed.epochEndTime || 0)) {
+        if (now > (parsed.epochEndTime || 0)) {
           return this.createNewEpoch(parsed);
         }
         // Mevcut kaynak limitlerini config ile senkronize et (overflow hatasını önler)
@@ -172,6 +217,9 @@ export class GlobalResourceManager {
 
   saveState() {
     if (typeof localStorage === 'undefined') return;
+    if (this.state) {
+      this.state.lastSavedTime = this.getTrustedTime();
+    }
     localStorage.setItem(this.storageKey, JSON.stringify(this.state));
   }
 
@@ -261,31 +309,32 @@ export class GlobalResourceManager {
     };
   }
 
-  // Seviyeye göre (Lv 1 - 81) üssel dağıtım payı hesabı: W(L) = L^1.85
+  // Seviyeye göre (Lv 1 - 81) dengeli UBI dağıtım payı hesabı:
+  // Balina Sömürüsü Koruması: W(L) = 1 + sqrt(L-1)*0.75 ve %5 Tek Çekim Tavanı!
   calculateLevelUbiPayout(playerLevel = 1, weeklyBudget = null) {
     const lvl = Math.max(1, Math.min(81, playerLevel || 1));
     const nextLvl = Math.min(81, lvl + 1);
 
-    const exponent = (GAME_CONFIG.UBI_CONFIG && GAME_CONFIG.UBI_CONFIG.LEVEL_WEIGHT_EXPONENT) || 1.85;
-    const baseDivisor = (GAME_CONFIG.UBI_CONFIG && GAME_CONFIG.UBI_CONFIG.BASE_WEIGHT_DIVISOR) || 1000;
-
     const pool = Math.max(0, Number(this.state.ubiPool) || 0);
     const budget = weeklyBudget !== null ? weeklyBudget : (pool / 12);
 
-    const playerWeight = Math.pow(lvl, exponent);
-    const nextPlayerWeight = Math.pow(nextLvl, exponent);
+    // Dengeli Kök/Logaritmik Fonksiyon: Lv 1 = 1.00, Lv 3 = 2.06, Lv 10 = 3.25, Lv 81 = 7.71
+    const calcWeight = (l) => 1 + Math.sqrt(l - 1) * 0.75;
+    const playerWeight = calcWeight(lvl);
+    const nextPlayerWeight = calcWeight(nextLvl);
 
-    // Her seviyenin haftalık bütçeden aldığı dinamik pay:
-    // Seviye 1: W(1) = 1.0  -> bütçenin %0.1'i (Binde biri)
-    // Seviye 3: W(3) = 7.64 -> bütçenin %0.76'sı (Lv 1'in tam 7.64 katı!)
-    // Seviye 10: W(10) = 70.8 -> bütçenin %7.08'i (Lv 1'in tam 70.8 katı!)
-    // Seviye 81: W(81) = 3375 -> bütçenin 3.375 katı!
-    const rawPayout = (budget * playerWeight) / baseDivisor;
-    const rawNextPayout = (budget * nextPlayerWeight) / baseDivisor;
+    // Her seviyenin haftalık bütçeden aldığı adil pay:
+    // Taban: bütçenin %0.5'i (Lv 1), Lv 81 için bütçenin ~%3.85'i
+    const rawPayout = (budget * 0.005) * playerWeight;
+    const rawNextPayout = (budget * 0.005) * nextPlayerWeight;
+
+    // 🛡️ TEK ÇEKİM TAVANI: Havuzun %5'inden fazlası ASLA tek seferde çekilemez!
+    const maxSingleCap = pool * ((GAME_CONFIG.UBI_CONFIG && GAME_CONFIG.UBI_CONFIG.MAX_SINGLE_CLAIM_SHARE) || 0.05);
+    const cappedPayout = Math.min(rawPayout, maxSingleCap > 0 ? maxSingleCap : rawPayout);
 
     // Minimum 0.01 ADA, 2 ondalık hassasiyetle anlık canlı değer
-    const payout = Math.max(0.01, Math.round(rawPayout * 100) / 100);
-    const nextLevelPayout = Math.max(0.01, Math.round(rawNextPayout * 100) / 100);
+    const payout = Math.max(0.01, Math.round(cappedPayout * 100) / 100);
+    const nextLevelPayout = Math.max(0.01, Math.round(Math.min(rawNextPayout, maxSingleCap > 0 ? maxSingleCap : rawNextPayout) * 100) / 100);
     const increasePct = payout > 0 ? Math.round(((nextLevelPayout - payout) / payout) * 100) : 0;
 
     return {
@@ -293,11 +342,12 @@ export class GlobalResourceManager {
       playerWeight: Math.round(playerWeight * 100) / 100,
       payout,
       nextLevelPayout,
-      increasePct
+      increasePct,
+      maxSingleCap: Math.round(maxSingleCap)
     };
   }
 
-  // Haftalık Evrensel Temel Gelir Claim Metodu
+  // Haftalık Evrensel Temel Gelir Claim Metodu (Havuz Koruma Tamponu İle)
   claimWeeklyUbi(playerLevel = 1, currentBalance = 0, lastClaimedEpoch = 0) {
     if (lastClaimedEpoch === this.state.epochId) {
       return {
@@ -307,13 +357,18 @@ export class GlobalResourceManager {
     }
 
     const ubiInfo = this.getUbiPoolInfo(playerLevel, lastClaimedEpoch);
-    const amount = ubiInfo.payout;
+    let amount = ubiInfo.payout;
 
-    if (amount <= 0 || (this.state.ubiPool || 0) < amount) {
+    if (amount <= 0 || (this.state.ubiPool || 0) <= 0) {
       return {
         success: false,
-        message: 'UBI havuzunda şu anda yeterli bakiye bulunmuyor.'
+        message: 'UBI havuzunda şu anda dağıtılabilir bakiye bulunmuyor.'
       };
+    }
+
+    // Havuz sağlığı koruması: Eğer talep edilen tutar havuzun kalanından fazlaysa, kalan havuzun %50'si verilir, havuz asla sıfırlanmaz
+    if (amount > this.state.ubiPool) {
+      amount = Math.max(0.01, Math.round((this.state.ubiPool * 0.5) * 100) / 100);
     }
 
     // Havuzdan düş ve deftere yaz

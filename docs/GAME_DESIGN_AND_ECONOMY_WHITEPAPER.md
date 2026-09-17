@@ -1,9 +1,10 @@
-# 🌌 AdAstra: Genesis Realm — Kapsamlı Oyun Tasarımı & Ekonomi Dokümantasyonu (Master Whitepaper)
+# 🌌 Realm of Astra — Kapsamlı Oyun Tasarımı & Ekonomi Dokümantasyonu (Master Whitepaper)
 
 > **Avalanche (AVAX) Ekosisteminde 10 Yıllık Sürdürülebilir Web3 RPG & GameFi Başyapıtı**  
 > **Resmi Web3 Dokümantasyon Standardı (DeFi Kingdoms Mimarisinden İlham Alınmıştır)**  
 > **Geliştirici & Vizyoner:** Kağan (AlphAvax)  
 > **Teknoloji Mimarisi:** Phaser 3.80 Canvas Rendering • Vanilla ES6+ Modüler State Motoru • Avalanche C-Chain / Pangolin DEX AMM Modeli  
+> **Aşama & Mimari:** Genesis Devnet / Client-Side Sandbox Simulation (Sunucu/Kontrat Otoritesine Hazır Altyapı)  
 > **Son Güncelleme:** 2026-09-17 • Sürüm 2.4.0 (Enterprise)
 
 ---
@@ -16,19 +17,19 @@
 4. [💱 AMM DEX Pazar Yeri ($x \cdot y = k$) & Canlı Fiyat Botu](#4-amm-dex-pazar-yeri-x-cdot-y--k--canlı-fiyat-botu)
 5. [🧙‍♂️ Gezgin (Hesap) Seviyesi İlerleme Tablosu (Seviye 1 – 81)](#5-gezgin-hesap-seviyesi-ilerleme-tablosu-seviye-1--81)
 6. [🏰 Silo (Ambar) Kapasite & Yükseltme Tablosu (Seviye 1 – 18)](#6-silo-ambar-kapasite--yükseltme-tablosu-seviye-1--18)
-7. [⚔️ Ordu, Kışla & Asker İlerleme Tabloları (1. – 18. Asker & Lv.1 – 81)](#7-ordu-kışla--asker-ilerleme-tabloları-1--18-asker--lv1--81)
+7. [⚔️ Ordu, Kışla & Kolezyum Gladyatör Ligi (No-Permadeath & Dinamik ELO)](#7-ordu-kışla--kolezyum-gladyatör-ligi-no-permadeath--dinamik-elo)
 8. [🔨 Cephanelik, Teçhizat Dövme & Geliştirme Tabloları (Lv.1 – 10)](#8-cephanelik-teçhizat-dövme--geliştirme-tabloları-lv1--10)
 9. [💀 6 Katlı & 18 Seviyeli Zindan, Canavarlar & Boss Tablosu](#9-6-katlı--18-seviyeli-zindan-canavarlar--boss-tablosu)
 10. [🔧 Aletler, İşçilik & 72 Saatlik Aşınma Mekaniği](#10-aletler-işçilik--72-saatlik-aşınma-mekaniği)
 11. [🤖 Taverna: 24 Saatlik Otonom Sefer & Tamir Botu](#11-taverna-24-saatlik-otonom-sefer--tamir-botu)
 12. [🎡 Karnaval & Sirk (14 Ödüllü Şans Çarkı & Haftalık Piyango)](#12-karnaval--sirk-14-ödüllü-şans-çarkı--haftalık-piyango)
-13. [🛡️ Kurumsal Güvenlik Denetimi & Kalite Güvencesi (QA)](#13-kurumsal-güvenlik-denetimi--kalite-güvencesi-qa)
+13. [🛡️ Kurumsal Güvenlik Denetimi, Anti-Tamper & Genesis Devnet Şeffaflığı](#13-kurumsal-güvenlik-denetimi-anti-tamper--genesis-devnet-şeffaflığı)
 
 ---
 
 ## 1. 🌐 Proje Vizyonu & DeFi Kingdoms Standardında Ekosistem
 
-**AdAstra: Genesis Realm**, Web3 yayıncılığının öncüsü **AlphAvax** markası tarafından hayata geçirilen; Avalanche (AVAX) blokzincirinin hızını, klasik izometrik RPG derinliğini ve DeFi Kingdoms tarzı merkeziyetsiz finans (DeFi) mekaniklerini tek bir potada eriten yeni nesil bir GameFi ekosistemidir.
+**Realm of Astra**, Web3 yayıncılığının öncüsü **AlphAvax** markası tarafından hayata geçirilen; Avalanche (AVAX) blokzincirinin hızını, klasik izometrik RPG derinliğini ve DeFi Kingdoms tarzı merkeziyetsiz finans (DeFi) mekaniklerini tek bir potada eriten yeni nesil bir GameFi ekosistemidir.
 
 ```mermaid
 graph TD
@@ -36,7 +37,7 @@ graph TD
     Res -->|Demirci & Kışla| Army[⚔️ Ordu & 10 Seviye Teçhizat]
     Army -->|Zindan & Boss Savaşları| Loot[🟣 $ADASTRA / 🧩 Parça / 📦 Pandora / 🗝️ Anahtar]
     Res -->|Silo / Tamir / Dövme / Stamina| BurnRes[🔥 Evrensel Hammadde Yakımı - Arzdan Kalıcı Silinme]
-    Loot -->|AMM DEX Alış / Satış| AMM[💱 %2 Havuz Harcı]
+    Loot -->|AMM DEX Alış / Satış| AMM[💱 %2 Havuz Harcı + %2 Hammadde Yakımı]
     AMM -->|%13 Kalıcı Yakım| BurnToken[🔥 Token Yakımı]
     AMM -->|%78 Hazine / %6 UBI / %3 Telif| Treasury[🏛️ Krallık Kasası & UBI Havuzu]
 ```
@@ -44,7 +45,7 @@ graph TD
 ### Temel Prensipler:
 1. **Gerçek Mülkiyet & Kıtlık:** Haftalık kaynak kotası aşılmaz. Dolaşımdaki her hammadde ve $ADASTRA token matematiksel formüllerle korunur.
 2. **Hiper-Deflasyonist Döngü:** Yalnızca tokenlar değil, oyunda harcanan **tüm Odun, Demir ve Buğdaylar kalıcı olarak yakılır (burn)** ve küresel haftalık toplam arzdan silinir.
-3. **Adil Ekonomi:** Token çıkarma (faucet) yoktur; tüm ödüller oyuncunun harcadığı zaman, strateji ve zindan başarılarına göre Krallık Hazinesinden dağıtılır.
+3. **Adil Ekonomi & Balina Koruması:** Token çıkarma (faucet) yoktur; UBI havuzu balina sübvansiyonu yerine adil kök dağılımı ($W(L) = 1 + \sqrt{L-1} \times 0.75$) ve tek çekimde %5 tavanı ile korunur.
 
 ---
 
@@ -59,12 +60,12 @@ Oyunda bir token harcandığında (AMM harçları, seviye atlama, bot kâr ortak
 | :--- | :---: | :--- |
 | **🔥 Kalıcı Token Yakımı (Burn)** | **%13** | Geri dönüşsüz kara delik adresine gönderilir; arzı sürekli daraltır. |
 | **🏛️ Krallık Hazine Kasaları** | **%78** | Zindan, Arena, Dünya Bossu, DEX Geri Alım ve Karnaval havuzlarını besler. |
-| **🤝 Evrensel Temel Gelir (UBI)** | **%6** | Oyuncu seviyesine göre ($W(L) = L^{1.85}$) haftalık pasif gelir olarak dağıtılır. |
+| **🤝 Evrensel Temel Gelir (UBI)** | **%6** | Oyuncu seviyesine göre ($W(L) = 1 + \sqrt{L-1} \times 0.75$) haftalık pasif gelir; tek çekim tavanı havuzun %5'idir. |
 | **🎨 Yapımcı & Geliştirici Telifi** | **%3** | Protokol geliştirme cüzdanına aktarılır (`0x58DBCF66bdd7BfA9da98aDba1965b3794321087C`). |
 
 ### 🏛️ Hazine Kasaları Dağılım Matrisi (%78 Hazine İçi Kırılım):
 - **🏰 Zindan Ganimet Kasası (%35):** 6 Kat ve 18 Seviyeli zindan canavarlarını ve bosslarını yenenlere dağıtılır.
-- **⚔️ Kolezyum Gladyatör Arenası (%20):** 18v18 Gladyatör ligi şampiyonlarına haftalık ödül olarak verilir.
+- **⚔️ Kolezyum Gladyatör Arenası (%20):** Gladyatör ligi şampiyonlarına haftalık ödül olarak verilir (Askeri koruma devrededir, permadeath yoktur).
 - **🌋 Dünya Bossu Kasası (%20):** Haftalık ordusunu Dünya Bossuna stake eden oyuncuların verdiği hasara göre dağıtılır.
 - **💱 AMM DEX Likidite Geri Alımı (%15):** Avalanche C-Chain üzerindeki piyasa taban fiyatını desteklemek için protokol geri alımlarında kullanılır.
 - **🎡 Karnaval & Şans Çarkı Kasası (%10):** 14 ödüllü şans çarkında çıkan doğrudan token ikramiyelerinin emisyon kasasıdır.
@@ -114,91 +115,91 @@ Gezgin seviyesi, krallığın omurgasıdır. Sefer sürelerini, stamina tavanın
   - $\text{Sefer Stamina Maliyeti} = 20 + 8 \cdot (\text{Level} - 1)$ (Her seviyede 3 paralel sefer açılabilir)
   - $\text{Zindan Parça Düşme Şansı} = 0.18\% \to 18.00\%$ (Hesap seviyesiyle 100 kat artar)
   - $\text{Pandora Kutusu Düşme Şansı} = 0.0018\% \to 0.1800\%$ (Hesap seviyesiyle 100 kat artar)
-  - $\text{UBI Katsayısı } W(L) = L^{1.85}$
+  - $\text{UBI Katsayısı } W(L) = 1 + \sqrt{L - 1} \times 0.75$ (Adil Kök Dağılımı ve %5 Tek Çekim Tavanı Koruması)
 
 | Seviye | Sefer Süresi | Sefer Başı Stamina | Max Stamina (⚡) | Zindan Parça Şansı | Pandora Sandığı Şansı | UBI Dağıtım Katsayısı W(L) |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **Lv.1** |0.3 Saat | 20 ⚡ | 100 ⚡ |0.180% |0.0018% |1.00 |
-| **Lv.2** |1.2 Saat | 28 ⚡ | 150 ⚡ |0.403% |0.0040% |3.61 |
-| **Lv.3** |2.1 Saat | 36 ⚡ | 200 ⚡ |0.625% |0.0063% |7.63 |
-| **Lv.4** |2.98 Saat | 44 ⚡ | 250 ⚡ |0.848% |0.0085% |13.00 |
-| **Lv.5** |3.88 Saat | 52 ⚡ | 300 ⚡ |1.071% |0.0107% |19.64 |
-| **Lv.6** |4.78 Saat | 60 ⚡ | 350 ⚡ |1.294% |0.0129% |27.52 |
-| **Lv.7** |5.68 Saat | 68 ⚡ | 400 ⚡ |1.516% |0.0152% |36.60 |
-| **Lv.8** |6.57 Saat | 76 ⚡ | 450 ⚡ |1.739% |0.0174% |46.85 |
-| **Lv.9** |7.47 Saat | 84 ⚡ | 500 ⚡ |1.962% |0.0196% |58.26 |
-| **Lv.10** |8.37 Saat | 92 ⚡ | 550 ⚡ |2.185% |0.0218% |70.79 |
-| **Lv.11** |9.27 Saat | 100 ⚡ | 600 ⚡ |2.408% |0.0241% |84.45 |
-| **Lv.12** |10.17 Saat | 108 ⚡ | 650 ⚡ |2.630% |0.0263% |99.19 |
-| **Lv.13** |11.05 Saat | 116 ⚡ | 700 ⚡ |2.853% |0.0285% |115.03 |
-| **Lv.14** |11.95 Saat | 124 ⚡ | 750 ⚡ |3.076% |0.0308% |131.93 |
-| **Lv.15** |12.85 Saat | 132 ⚡ | 800 ⚡ |3.299% |0.0330% |149.89 |
-| **Lv.16** |13.75 Saat | 140 ⚡ | 850 ⚡ |3.521% |0.0352% |168.90 |
-| **Lv.17** |14.63 Saat | 148 ⚡ | 900 ⚡ |3.744% |0.0374% |188.94 |
-| **Lv.18** |15.53 Saat | 156 ⚡ | 950 ⚡ |3.967% |0.0397% |210.02 |
-| **Lv.19** |16.43 Saat | 164 ⚡ | 1000 ⚡ |4.189% |0.0419% |232.11 |
-| **Lv.20** |17.33 Saat | 172 ⚡ | 1050 ⚡ |4.412% |0.0441% |255.21 |
-| **Lv.21** |18.23 Saat | 180 ⚡ | 1100 ⚡ |4.635% |0.0464% |279.32 |
-| **Lv.22** |19.12 Saat | 188 ⚡ | 1150 ⚡ |4.858% |0.0486% |304.43 |
-| **Lv.23** |20.02 Saat | 196 ⚡ | 1200 ⚡ |5.080% |0.0508% |330.52 |
-| **Lv.24** |20.92 Saat | 204 ⚡ | 1250 ⚡ |5.303% |0.0530% |357.59 |
-| **Lv.25** |21.82 Saat | 212 ⚡ | 1300 ⚡ |5.526% |0.0553% |385.65 |
-| **Lv.26** |22.70 Saat | 220 ⚡ | 1350 ⚡ |5.749% |0.0575% |414.67 |
-| **Lv.27** |23.60 Saat | 228 ⚡ | 1400 ⚡ |5.971% |0.0597% |444.65 |
-| **Lv.28** |24.50 Saat | 236 ⚡ | 1450 ⚡ |6.194% |0.0619% |475.60 |
-| **Lv.29** |25.40 Saat | 244 ⚡ | 1500 ⚡ |6.417% |0.0642% |507.50 |
-| **Lv.30** |26.28 Saat | 252 ⚡ | 1550 ⚡ |6.640% |0.0664% |540.35 |
-| **Lv.31** |27.18 Saat | 260 ⚡ | 1600 ⚡ |6.862% |0.0686% |574.14 |
-| **Lv.32** |28.08 Saat | 268 ⚡ | 1650 ⚡ |7.085% |0.0709% |608.87 |
-| **Lv.33** |28.98 Saat | 276 ⚡ | 1700 ⚡ |7.308% |0.0731% |644.54 |
-| **Lv.34** |29.88 Saat | 284 ⚡ | 1750 ⚡ |7.531% |0.0753% |681.14 |
-| **Lv.35** |30.77 Saat | 292 ⚡ | 1800 ⚡ |7.753% |0.0775% |718.66 |
-| **Lv.36** |31.67 Saat | 300 ⚡ | 1850 ⚡ |7.976% |0.0798% |757.11 |
-| **Lv.37** |32.57 Saat | 308 ⚡ | 1900 ⚡ |8.199% |0.0820% |796.48 |
-| **Lv.38** |33.47 Saat | 316 ⚡ | 1950 ⚡ |8.422% |0.0842% |836.76 |
-| **Lv.39** |34.35 Saat | 324 ⚡ | 2000 ⚡ |8.645% |0.0864% |877.95 |
-| **Lv.40** |35.25 Saat | 332 ⚡ | 2050 ⚡ |8.867% |0.0887% |920.05 |
-| **Lv.41** |36.15 Saat | 340 ⚡ | 2100 ⚡ |9.090% |0.0909% |963.05 |
-| **Lv.42** |37.05 Saat | 348 ⚡ | 2150 ⚡ |9.313% |0.0931% |1006.96 |
-| **Lv.43** |37.95 Saat | 356 ⚡ | 2200 ⚡ |9.535% |0.0954% |1051.76 |
-| **Lv.44** |38.83 Saat | 364 ⚡ | 2250 ⚡ |9.758% |0.0976% |1097.46 |
-| **Lv.45** |39.73 Saat | 372 ⚡ | 2300 ⚡ |9.981% |0.0998% |1144.05 |
-| **Lv.46** |40.63 Saat | 380 ⚡ | 2350 ⚡ |10.204% |0.1020% |1191.52 |
-| **Lv.47** |41.53 Saat | 388 ⚡ | 2400 ⚡ |10.427% |0.1043% |1239.88 |
-| **Lv.48** |42.42 Saat | 396 ⚡ | 2450 ⚡ |10.649% |0.1065% |1289.13 |
-| **Lv.49** |43.32 Saat | 404 ⚡ | 2500 ⚡ |10.872% |0.1087% |1339.25 |
-| **Lv.50** |44.22 Saat | 412 ⚡ | 2550 ⚡ |11.095% |0.1109% |1390.26 |
-| **Lv.51** |45.12 Saat | 420 ⚡ | 2600 ⚡ |11.317% |0.1132% |1442.13 |
-| **Lv.52** |46.02 Saat | 428 ⚡ | 2650 ⚡ |11.540% |0.1154% |1494.88 |
-| **Lv.53** |46.90 Saat | 436 ⚡ | 2700 ⚡ |11.763% |0.1176% |1548.50 |
-| **Lv.54** |47.80 Saat | 444 ⚡ | 2750 ⚡ |11.986% |0.1199% |1602.98 |
-| **Lv.55** |48.70 Saat | 452 ⚡ | 2800 ⚡ |12.209% |0.1221% |1658.33 |
-| **Lv.56** |49.60 Saat | 460 ⚡ | 2850 ⚡ |12.431% |0.1243% |1714.54 |
-| **Lv.57** |50.48 Saat | 468 ⚡ | 2900 ⚡ |12.654% |0.1265% |1771.61 |
-| **Lv.58** |51.38 Saat | 476 ⚡ | 2950 ⚡ |12.877% |0.1288% |1829.54 |
-| **Lv.59** |52.28 Saat | 484 ⚡ | 3000 ⚡ |13.099% |0.1310% |1888.32 |
-| **Lv.60** |53.18 Saat | 492 ⚡ | 3050 ⚡ |13.322% |0.1332% |1947.96 |
-| **Lv.61** |54.08 Saat | 500 ⚡ | 3100 ⚡ |13.545% |0.1354% |2008.45 |
-| **Lv.62** |54.97 Saat | 508 ⚡ | 3150 ⚡ |13.768% |0.1377% |2069.78 |
-| **Lv.63** |55.87 Saat | 516 ⚡ | 3200 ⚡ |13.991% |0.1399% |2131.96 |
-| **Lv.64** |56.77 Saat | 524 ⚡ | 3250 ⚡ |14.213% |0.1421% |2194.99 |
-| **Lv.65** |57.67 Saat | 532 ⚡ | 3300 ⚡ |14.436% |0.1444% |2258.86 |
-| **Lv.66** |58.55 Saat | 540 ⚡ | 3350 ⚡ |14.659% |0.1466% |2323.57 |
-| **Lv.67** |59.45 Saat | 548 ⚡ | 3400 ⚡ |14.881% |0.1488% |2389.12 |
-| **Lv.68** |60.35 Saat | 556 ⚡ | 3450 ⚡ |15.104% |0.1510% |2455.51 |
-| **Lv.69** |61.25 Saat | 564 ⚡ | 3500 ⚡ |15.327% |0.1533% |2522.73 |
-| **Lv.70** |62.13 Saat | 572 ⚡ | 3550 ⚡ |15.550% |0.1555% |2590.79 |
-| **Lv.71** |63.03 Saat | 580 ⚡ | 3600 ⚡ |15.773% |0.1577% |2659.67 |
-| **Lv.72** |63.93 Saat | 588 ⚡ | 3650 ⚡ |15.995% |0.1600% |2729.39 |
-| **Lv.73** |64.83 Saat | 596 ⚡ | 3700 ⚡ |16.218% |0.1622% |2799.93 |
-| **Lv.74** |65.73 Saat | 604 ⚡ | 3750 ⚡ |16.441% |0.1644% |2871.30 |
-| **Lv.75** |66.62 Saat | 612 ⚡ | 3800 ⚡ |16.663% |0.1666% |2943.50 |
-| **Lv.76** |67.52 Saat | 620 ⚡ | 3850 ⚡ |16.886% |0.1689% |3016.51 |
-| **Lv.77** |68.42 Saat | 628 ⚡ | 3900 ⚡ |17.109% |0.1711% |3090.35 |
-| **Lv.78** |69.32 Saat | 636 ⚡ | 3950 ⚡ |17.332% |0.1733% |3165.01 |
-| **Lv.79** |70.20 Saat | 644 ⚡ | 4000 ⚡ |17.555% |0.1755% |3240.49 |
-| **Lv.80** |71.10 Saat | 652 ⚡ | 4050 ⚡ |17.777% |0.1778% |3316.78 |
-| **Lv.81 (MAX)** | **72.00 Saat** | **660 ⚡** | **4100 ⚡** | **18.000%** | **0.1800%** | **3393.89** |
+| **Lv.2** |1.2 Saat | 28 ⚡ | 150 ⚡ |0.403% |0.0040% |1.75 |
+| **Lv.3** |2.09 Saat | 36 ⚡ | 200 ⚡ |0.625% |0.0063% |2.06 |
+| **Lv.4** |2.99 Saat | 44 ⚡ | 250 ⚡ |0.848% |0.0085% |2.30 |
+| **Lv.5** |3.88 Saat | 52 ⚡ | 300 ⚡ |1.071% |0.0107% |2.50 |
+| **Lv.6** |4.78 Saat | 60 ⚡ | 350 ⚡ |1.294% |0.0129% |2.68 |
+| **Lv.7** |5.68 Saat | 68 ⚡ | 400 ⚡ |1.516% |0.0152% |2.84 |
+| **Lv.8** |6.57 Saat | 76 ⚡ | 450 ⚡ |1.739% |0.0174% |2.98 |
+| **Lv.9** |7.47 Saat | 84 ⚡ | 500 ⚡ |1.962% |0.0196% |3.12 |
+| **Lv.10** |8.37 Saat | 92 ⚡ | 550 ⚡ |2.185% |0.0218% |3.25 |
+| **Lv.11** |9.26 Saat | 100 ⚡ | 600 ⚡ |2.408% |0.0241% |3.37 |
+| **Lv.12** |10.16 Saat | 108 ⚡ | 650 ⚡ |2.630% |0.0263% |3.49 |
+| **Lv.13** |11.05 Saat | 116 ⚡ | 700 ⚡ |2.853% |0.0285% |3.60 |
+| **Lv.14** |11.95 Saat | 124 ⚡ | 750 ⚡ |3.076% |0.0308% |3.70 |
+| **Lv.15** |12.85 Saat | 132 ⚡ | 800 ⚡ |3.299% |0.0330% |3.81 |
+| **Lv.16** |13.74 Saat | 140 ⚡ | 850 ⚡ |3.521% |0.0352% |3.90 |
+| **Lv.17** |14.64 Saat | 148 ⚡ | 900 ⚡ |3.744% |0.0374% |4.00 |
+| **Lv.18** |15.54 Saat | 156 ⚡ | 950 ⚡ |3.967% |0.0397% |4.09 |
+| **Lv.19** |16.43 Saat | 164 ⚡ | 1000 ⚡ |4.189% |0.0419% |4.18 |
+| **Lv.20** |17.33 Saat | 172 ⚡ | 1050 ⚡ |4.412% |0.0441% |4.27 |
+| **Lv.21** |18.23 Saat | 180 ⚡ | 1100 ⚡ |4.635% |0.0464% |4.35 |
+| **Lv.22** |19.12 Saat | 188 ⚡ | 1150 ⚡ |4.858% |0.0486% |4.44 |
+| **Lv.23** |20.02 Saat | 196 ⚡ | 1200 ⚡ |5.080% |0.0508% |4.52 |
+| **Lv.24** |20.91 Saat | 204 ⚡ | 1250 ⚡ |5.303% |0.0530% |4.60 |
+| **Lv.25** |21.81 Saat | 212 ⚡ | 1300 ⚡ |5.526% |0.0553% |4.67 |
+| **Lv.26** |22.71 Saat | 220 ⚡ | 1350 ⚡ |5.749% |0.0575% |4.75 |
+| **Lv.27** |23.6 Saat | 228 ⚡ | 1400 ⚡ |5.971% |0.0597% |4.82 |
+| **Lv.28** |24.5 Saat | 236 ⚡ | 1450 ⚡ |6.194% |0.0619% |4.90 |
+| **Lv.29** |25.39 Saat | 244 ⚡ | 1500 ⚡ |6.417% |0.0642% |4.97 |
+| **Lv.30** |26.29 Saat | 252 ⚡ | 1550 ⚡ |6.640% |0.0664% |5.04 |
+| **Lv.31** |27.19 Saat | 260 ⚡ | 1600 ⚡ |6.862% |0.0686% |5.11 |
+| **Lv.32** |28.08 Saat | 268 ⚡ | 1650 ⚡ |7.085% |0.0709% |5.18 |
+| **Lv.33** |28.98 Saat | 276 ⚡ | 1700 ⚡ |7.308% |0.0731% |5.24 |
+| **Lv.34** |29.88 Saat | 284 ⚡ | 1750 ⚡ |7.531% |0.0753% |5.31 |
+| **Lv.35** |30.77 Saat | 292 ⚡ | 1800 ⚡ |7.753% |0.0775% |5.37 |
+| **Lv.36** |31.67 Saat | 300 ⚡ | 1850 ⚡ |7.976% |0.0798% |5.44 |
+| **Lv.37** |32.56 Saat | 308 ⚡ | 1900 ⚡ |8.199% |0.0820% |5.50 |
+| **Lv.38** |33.46 Saat | 316 ⚡ | 1950 ⚡ |8.422% |0.0842% |5.56 |
+| **Lv.39** |34.36 Saat | 324 ⚡ | 2000 ⚡ |8.644% |0.0864% |5.62 |
+| **Lv.40** |35.25 Saat | 332 ⚡ | 2050 ⚡ |8.867% |0.0887% |5.68 |
+| **Lv.41** |36.15 Saat | 340 ⚡ | 2100 ⚡ |9.090% |0.0909% |5.74 |
+| **Lv.42** |37.05 Saat | 348 ⚡ | 2150 ⚡ |9.313% |0.0931% |5.80 |
+| **Lv.43** |37.94 Saat | 356 ⚡ | 2200 ⚡ |9.536% |0.0954% |5.86 |
+| **Lv.44** |38.84 Saat | 364 ⚡ | 2250 ⚡ |9.758% |0.0976% |5.92 |
+| **Lv.45** |39.73 Saat | 372 ⚡ | 2300 ⚡ |9.981% |0.0998% |5.97 |
+| **Lv.46** |40.63 Saat | 380 ⚡ | 2350 ⚡ |10.204% |0.1020% |6.03 |
+| **Lv.47** |41.53 Saat | 388 ⚡ | 2400 ⚡ |10.427% |0.1043% |6.09 |
+| **Lv.48** |42.42 Saat | 396 ⚡ | 2450 ⚡ |10.649% |0.1065% |6.14 |
+| **Lv.49** |43.32 Saat | 404 ⚡ | 2500 ⚡ |10.872% |0.1087% |6.20 |
+| **Lv.50** |44.22 Saat | 412 ⚡ | 2550 ⚡ |11.095% |0.1109% |6.25 |
+| **Lv.51** |45.11 Saat | 420 ⚡ | 2600 ⚡ |11.317% |0.1132% |6.30 |
+| **Lv.52** |46.01 Saat | 428 ⚡ | 2650 ⚡ |11.540% |0.1154% |6.36 |
+| **Lv.53** |46.9 Saat | 436 ⚡ | 2700 ⚡ |11.763% |0.1176% |6.41 |
+| **Lv.54** |47.8 Saat | 444 ⚡ | 2750 ⚡ |11.986% |0.1199% |6.46 |
+| **Lv.55** |48.7 Saat | 452 ⚡ | 2800 ⚡ |12.208% |0.1221% |6.51 |
+| **Lv.56** |49.59 Saat | 460 ⚡ | 2850 ⚡ |12.431% |0.1243% |6.56 |
+| **Lv.57** |50.49 Saat | 468 ⚡ | 2900 ⚡ |12.654% |0.1265% |6.61 |
+| **Lv.58** |51.39 Saat | 476 ⚡ | 2950 ⚡ |12.877% |0.1288% |6.66 |
+| **Lv.59** |52.28 Saat | 484 ⚡ | 3000 ⚡ |13.099% |0.1310% |6.71 |
+| **Lv.60** |53.18 Saat | 492 ⚡ | 3050 ⚡ |13.322% |0.1332% |6.76 |
+| **Lv.61** |54.08 Saat | 500 ⚡ | 3100 ⚡ |13.545% |0.1354% |6.81 |
+| **Lv.62** |54.97 Saat | 508 ⚡ | 3150 ⚡ |13.768% |0.1377% |6.86 |
+| **Lv.63** |55.87 Saat | 516 ⚡ | 3200 ⚡ |13.990% |0.1399% |6.91 |
+| **Lv.64** |56.76 Saat | 524 ⚡ | 3250 ⚡ |14.213% |0.1421% |6.95 |
+| **Lv.65** |57.66 Saat | 532 ⚡ | 3300 ⚡ |14.436% |0.1444% |7.00 |
+| **Lv.66** |58.56 Saat | 540 ⚡ | 3350 ⚡ |14.659% |0.1466% |7.05 |
+| **Lv.67** |59.45 Saat | 548 ⚡ | 3400 ⚡ |14.882% |0.1488% |7.09 |
+| **Lv.68** |60.35 Saat | 556 ⚡ | 3450 ⚡ |15.104% |0.1510% |7.14 |
+| **Lv.69** |61.24 Saat | 564 ⚡ | 3500 ⚡ |15.327% |0.1533% |7.18 |
+| **Lv.70** |62.14 Saat | 572 ⚡ | 3550 ⚡ |15.550% |0.1555% |7.23 |
+| **Lv.71** |63.04 Saat | 580 ⚡ | 3600 ⚡ |15.773% |0.1577% |7.27 |
+| **Lv.72** |63.93 Saat | 588 ⚡ | 3650 ⚡ |15.995% |0.1600% |7.32 |
+| **Lv.73** |64.83 Saat | 596 ⚡ | 3700 ⚡ |16.218% |0.1622% |7.36 |
+| **Lv.74** |65.73 Saat | 604 ⚡ | 3750 ⚡ |16.441% |0.1644% |7.41 |
+| **Lv.75** |66.62 Saat | 612 ⚡ | 3800 ⚡ |16.663% |0.1666% |7.45 |
+| **Lv.76** |67.52 Saat | 620 ⚡ | 3850 ⚡ |16.886% |0.1689% |7.50 |
+| **Lv.77** |68.41 Saat | 628 ⚡ | 3900 ⚡ |17.109% |0.1711% |7.54 |
+| **Lv.78** |69.31 Saat | 636 ⚡ | 3950 ⚡ |17.332% |0.1733% |7.58 |
+| **Lv.79** |70.21 Saat | 644 ⚡ | 4000 ⚡ |17.555% |0.1755% |7.62 |
+| **Lv.80** |71.1 Saat | 652 ⚡ | 4050 ⚡ |17.777% |0.1778% |7.67 |
+| **Lv.81 (MAX)** | **72.00 Saat** |  **660 ⚡** |  **4100 ⚡** | **18.000%** | **0.1800%** | **7.71** |
 
 ---
 
@@ -285,6 +286,19 @@ Her asker zindan savaşlarından kazandığı tecrübe puanıyla bağımsız sev
 | **Lv.81 (MAX)** | **2.100 HP** | **505 ATK** | **10 Def** | **10 Spd** | **%5.0** | **5 Pen** |
 
 *(Not: Tablonun 1'den 81'e kadar tüm satırları için [docs/LEVEL_PROGRESSION_TABLES.md](docs/LEVEL_PROGRESSION_TABLES.md) dokümanına başvurabilirsiniz).*
+
+### C) ⚔️ Kolezyum Gladyatör Ligi & 1v1 Şampiyon Arenası:
+Kolezyum, krallığın en güçlü şampiyonlarının ELO derecesi ve Krallık Hazinesinin %20'lik Arena Kasası için çarpıştığı onur meydanıdır.
+
+1. **🛡️ Askeri Koruma Kuralı (No Permadeath):**
+   - Kolezyum maçlarında oyuncunun şampiyon askeri yenilgiye uğrasa dahi **canı minimum 1 HP'de sabitlenir** (`champion.hp = Math.max(1, playerCurrentHp)`).
+   - Asker asla ölmez, silinmez ve ordudan kaybolmaz. Oyuncular emek verdikleri askerlerini kaybetme korkusu yaşamadan arenada özgürce savaşabilir.
+2. **📈 Dinamik ELO Reyting Algoritması:**
+   - Maç eşleşmesinde rakibin dinamik reytingi hesaba katılır ve satranç standardındaki matematiksel ELO formülü uygulanır:
+     $$E_A = \frac{1}{1 + 10^{(R_{\text{rakip}} - R_{\text{oyuncu}}) / 400}}$$
+   - Galibiyet durumunda oyuncu reytingi $+K \cdot (1 - E_A)$, mağlubiyette $-K \cdot E_A$ formülüyle adil ve dinamik olarak değişir.
+3. **🏛️ Lig Ödül Dağılımı:**
+   - Hazine kasasındaki haftalık %20'lik pay (8.000.000 $ADASTRA başlangıç tabanı), Pazar/Pazartesi 00:01 TSİ sıfırlamasında lig derecelerine göre hak sahiplerine dağıtılır.
 
 ---
 
@@ -400,10 +414,20 @@ Oyuncular 100 ADA, 100 ADA değerinde hammadde veya 1 Piyango Bileti vererek ça
 
 ---
 
-## 13. 🛡️ Kurumsal Güvenlik Denetimi & Kalite Güvencesi (QA)
+## 13. 🛡️ Kurumsal Güvenlik Denetimi, Anti-Tamper & Genesis Devnet Şeffaflığı
 
-AdAstra protokolü 2026 bağımsız mimari denetim standartlarına (F-01 ila F-20 bulguları) tam uyumludur:
-- Sıfır muhasebe açığı (Tüm asker alımları, alet tamirleri ve piyango amortileri defter kaydına işlenmiştir).
-- Deterministik zindan yapısı kırılmış, elementel karşıtlıklar ve boss çoklu turları getirilmiştir.
-- Pazar harçları matematiksel anayasaya (%13 burn, %78 hazine, %6 UBI, %3 telif) tam entegre edilmiştir.
-- Tüm sistemler **36 bağımsız birim test paketiyle** `%100 Passed` güvencesindedir.
+### A) 🌐 Genesis Devnet & Sandbox Mimarisi Şeffaflık Beyanı:
+* **Mevcut Aşama:** Oyunun şu anki sürümü **Genesis Devnet / Client-Side Sandbox Simulation** aşamasındadır. Oyuncuların Web3 RPG mekaniklerini, AMM piyasa koridorlarını ve 10 Milyar $ADASTRA makro tokenomiğini sıfır ağ/gaz maliyetiyle yerel tarayıcılarında kesintisiz deneyimlemesi için tasarlanmıştır.
+* **Sunucu & Akıllı Kontrat Otoritesine Geçiş:** 
+  * Tüm deterministik savaş tohumları (`makeRng(seed)`) istemci tarafında çalıştırılmakta olup, Avalanche C-Chain doğrulayıcıları ve sunucu otoritesine (Server-Authoritative Node / Supabase backend) geçişe tam hazır modüler mimaride kodlanmıştır.
+  * Paylaşılan küresel durum (Shared Global State), Avalanche Subnet lansmanıyla zincir üstü doğrulamaya kavuşturulacaktır.
+
+### B) ⏱️ Sistem Saati ve Anti-Tamper Koruma Protokolü:
+* **HTTP Network Time Senkronizasyonu:** Oyuncunun yerel işletim sistemi saatini ileri veya geri alarak haftalık kotaları veya UBI havuzunu sonsuz kez yeniden hasat etmesini (infinite re-farm) engellemek amacıyla; sistem web sunucusunun HTTP yanıt başlığındaki gerçek UTC `Date` verisini (`serverTimeOffset`) otomatik tespit eder ve yerel saat kaymasını nötralize eder.
+* **Monotonic Zaman Güvencesi:** Sistem saati geriye alındığında son bilinen kaydedilmiş zaman damgası (`lastSavedTime`) korunur ve hileli epoch sıfırlamaları reddedilir.
+
+### C) 📊 Bağımsız Denetim ve QA Güvencesi:
+* **Sıfır Muhasebe Açığı:** Asker alımları, piyango amortileri, pazar harçları ve UBI dağıtımları deftere tam işlenir.
+* **Balina Koruması & Havuz Emniyeti:** UBI çekiminde tek çekim tavanı (%5) ve havuz tükenme güvencesi (%50 tampon) devrededir; üstel balina sömürüsü tamamen engellenmiştir.
+* **AMM Pazar Koridorları:** Hammadde rezervleri `derivePool()` formülüyle `AMM_CORRIDORS` ile %100 senkronize tutulur; %2 işlem harcı ve %2 anında hammadde yakımı uygulanır.
+* **Test Kapsamı:** Tüm mekanikler **30 bağımsız birim test paketi ve 100'ü aşkın assertion ile %100 Passed** durumundadır.

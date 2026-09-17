@@ -1,13 +1,14 @@
-# 🌌 AdAstra: Genesis Realm (v2.4.0 Enterprise)
+# 🌌 Realm of Astra (v2.4.0 Enterprise)
 
 > **Avalanche (AVAX) Ekosisteminde Yeni Nesil Web3 GameFi & Strateji RPG Başyapıtı**  
-> *DeFi Kingdoms standartlarında hiper-deflasyonist mikro/makro ekonomi, Phaser 3 Canvas rendering motoru ve Vanilla ES6+ modüler State mimarisi.*
+> *DeFi Kingdoms standartlarında hiper-deflasyonist mikro/makro ekonomi, Phaser 3 Canvas rendering motoru ve Vanilla ES6+ modüler State mimarisi.*  
+> *Aşama: **Genesis Devnet / Client-Side Sandbox Simulation** (Sunucu & Akıllı Kontrat Otoritesine Geçişe Tam Uyumlu Altyapı).*
 
 ---
 
 ## 📚 Kapsamlı Dokümantasyon & Referanslar
 
-* 📖 **[Master Whitepaper & Oyun Tasarımı](docs/GAME_DESIGN_AND_ECONOMY_WHITEPAPER.md):** 10 Yıllık Makro Ekonomi, AMM Likidite Modeli, Hazine Anayasası ve Tüm Sistemlerin Detaylı Rehberi.
+* 📖 **[Master Whitepaper & Oyun Tasarımı](docs/GAME_DESIGN_AND_ECONOMY_WHITEPAPER.md):** 10 Yıllık Makro Ekonomi, AMM Likidite Modeli, Hazine Anayasası, Anti-Tamper Zaman Protokolü ve Tüm Sistemlerin Detaylı Rehberi.
 * 📊 **[Tüm Sistemlerin Seviye Atlama & Denge Tabloları](docs/LEVEL_PROGRESSION_TABLES.md):** Hesap Seviyesi (1-81), Silo (1-18), Asker Alımı (1-18), Asker Statları (1-81), 5 Ekipman Parçası (1-10) ve Zindan Seviyelerinin tek tek matematiksel tabloları.
 
 ---
@@ -19,14 +20,15 @@ Oyunda harcama olarak tüketilen **tüm Odun, Demir ve Buğdaylar kalıcı olara
 - Silo yükseltme, hesap seviyesi atlama, alet tamiri, teçhizat dövme (craft), teçhizat seviye yükseltme, teçhizat onarımı, stamina doldurma, asker iyileştirme ve çark çevirme harcamaları anında yakılarak deflasyona uğrar.
 - Küresel havuzdaki kaynak kotası (`totalCap`) harcanan miktar kadar küçülür; hiçbir kaynak havuza geri dönmez.
 
-### 2. ⚡ Buğday Odaklı Saf Stamina Mekaniği
-- Taverna menüsündeki $ADASTRA ile anında stamina satın alma kaldırılmıştır.
-- Stamina **yalnızca depodaki Buğday** ile doldurulabilir (1 Stamina = 3.15 Buğday). Tüketilen buğday doğrudan yakılır.
+### 2. 🤝 Adil Evrensel Temel Gelir (UBI) & Balina Koruması
+- **Adil Kök Modeli:** $W(L) = 1 + \sqrt{L - 1} \times 0.75$. Üstel balina sübvansiyonu kaldırılmış; yeni başlayanlar ile son seviye arasında sürdürülebilir bir denge kurulmuştur.
+- **Tek Çekim Tavanı:** Hiçbir hesap tek talepte UBI havuzunun **%5'inden fazlasını** çekemez.
+- **Havuz Emniyet Tamponu:** Havuz bakiyesi %50 seviyesine indiğinde ödemeler orantılı dengelenir, havuz asla sıfırlanmaz.
 
-### 3. ⚔️ Kademeli 1.8 Milyon $ADASTRA Asker Modeli
+### 3. ⚔️ Kademeli 1.8 Milyon $ADASTRA Asker Modeli & Kolezyum Ligi
 - Kışlada ordu sınırı kaldırılmıştır; sınırsız sayıda asker alınabilir.
-- İlk askerin bedeli erişilebilir taban maliyetiyle **5.000 $ADASTRA**'dır.
-- 18. askere kadar maliyet logaritmik üssel modelle artar ve **18. asker tam 1.800.000 (1.8 Milyon) $ADASTRA** olarak yapılandırılmıştır.
+- İlk askerin bedeli erişilebilir taban maliyetiyle **5.000 $ADASTRA**'dır. 18. asker tam **1.800.000 (1.8 Milyon) $ADASTRA**'dır.
+- **🛡️ Kolezyum Askeri Koruma Kuralı (No Permadeath):** Gladyatör maçlarında şampiyon yenilse dahi canı minimum 1 HP'de kalır, asker asla ölmez ve ordudan silinmez. Dinamik ELO derecelendirme algoritması aktiftir.
 
 ### 4. 🤖 Taverna: 24 Saatlik Otonom Sefer & Tamir Botu
 - **Saf Kâr Ortaklığı (%50):** 24 saatlik tahmini net saf kâr üzerinden hesaplanan adil ortaklık bedeli.
@@ -35,7 +37,8 @@ Oyunda harcama olarak tüketilen **tüm Odun, Demir ve Buğdaylar kalıcı olara
 - **Akıllı Silo Alanı Yönetimi:** %80 barajı koruması, erken panik satışının engellenmesi ve ambar yetersizliğinde kısmi hasadın seferde bekletilmesi.
 
 ### 5. 💱 AMM DEX ($x \cdot y = k$) & Canlı Maliyet Botu
-- Spot piyasa fiyatları sabit çarpım formülüyle belirlenir; her işlemden **%2.00 AMM Harcı** kesilir.
+- Spot piyasa fiyatları sabit çarpım formülüyle belirlenir; her işlemden **%2.00 AMM Harcı** ve hammadde işlemlerinden **%2.00 Hammadde Yakımı** alınır.
+- Tüm havuzlar `derivePool()` ile `AMM_CORRIDORS`'tan türetilir.
 - Saniyelik canlı bot (`tickUpgradeCostBot`), silo ve seviye atlama için talep edilen hammaddelerin borsa değerini anlık ADA maliyeti olarak yansıtır.
 
 ### 6. 💀 6 Katlı & 18 Seviyeli Zindan & Boss Çarpanları
@@ -45,6 +48,7 @@ Oyunda harcama olarak tüketilen **tüm Odun, Demir ve Buğdaylar kalıcı olara
 ### 7. 🪙 10 Milyar Makro Tokenomics & Hazine
 - **Sabit Maksimum Arz:** 10.000.000.000 $ADASTRA.
 - **Gelir Dağılım Anayasası:** %13 Kalıcı Yakım • %78 Krallık Hazinesi • %6 Evrensel Temel Gelir (UBI) • %3 Yapımcı Telifi.
+- **Anti-Tamper & HTTP Network Saati:** Sistem saati manipülasyonu ve haftalık kotaları sonsuz re-farm etme istismarı sunucu HTTP Date başlığı doğrulamasıyla engellenmiştir.
 
 ---
 

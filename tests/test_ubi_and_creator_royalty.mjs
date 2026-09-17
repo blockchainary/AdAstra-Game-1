@@ -45,7 +45,7 @@ test('Evrensel Temel Gelir (UBI) & %3 Yapımcı Telifi & %13 Yakım Testi', asyn
     assert.equal(info.weeklyBudget, 200000, 'Haftalık bütçe 2.4M / 12 = 200.000 ADA olmalı');
   });
 
-  await t.test('[4/6] Seviye 1 vs Seviye 81 Matematiksel Üssel Pay Dağılımı (W(L) = L^1.85)', () => {
+  await t.test('[4/6] Seviye 1 vs Seviye 81 Adil Kök Pay Dağılımı ve %5 Tek Çekim Tavanı Koruması', () => {
     globalPool.state.ubiPool = 2400000;
     const lv1 = globalPool.calculateLevelUbiPayout(1);
     const lv10 = globalPool.calculateLevelUbiPayout(10);
@@ -53,21 +53,24 @@ test('Evrensel Temel Gelir (UBI) & %3 Yapımcı Telifi & %13 Yakım Testi', asyn
     const lv81 = globalPool.calculateLevelUbiPayout(81);
 
     assert(lv1.payout > 0, 'Seviye 1 taban ödül almalı');
-    assert(lv10.payout > lv1.payout * 50, 'Seviye 10, Seviye 1 den en az 50 kat fazla pay almalı');
-    assert(lv81.payout > lv1.payout * 2000, 'Seviye 81, Seviye 1 den en az 2.000 kat fazla pay almalı');
-    assert(lv81.playerWeight > 3000, 'Seviye 81 ağırlığı 3.000 in üzerinde olmalı (~3375)');
+    assert(lv10.payout > lv1.payout, 'Seviye 10, Seviye 1 den fazla pay almalı (~3.25x)');
+    assert(lv81.payout > lv10.payout, 'Seviye 81, Seviye 10 dan fazla pay almalı');
+    
+    // Tek çekim tavanı denetimi: maxSingleCap = havuzun %5'i (2.4M * 0.05 = 120.000 ADA)
+    const maxCap = 2400000 * 0.05;
+    assert(lv81.payout <= maxCap, 'Seviye 81 tek çekimde havuzun %5 inden fazlasını alamaz (Balina Koruması)');
 
-    // Kullanıcı Senaryosu: 22.000 ADA'lık havuzda Seviye 1 vs Seviye 3 kesinlikle farklı ve dinamik olmalı
+    // Kullanıcı Senaryosu: 22.000 ADA'lık havuzda Seviye 1 vs Seviye 3 dinamik ve adil dağılım
     globalPool.state.ubiPool = 22000;
     const userLv1 = globalPool.calculateLevelUbiPayout(1);
     const userLv3 = globalPool.calculateLevelUbiPayout(3);
-    assert.notEqual(userLv1.payout, userLv3.payout, 'Seviye 1 ve Seviye 3 aynı sabit tutarda (5 ADA) kalamaz!');
-    assert(userLv3.payout > userLv1.payout * 7, 'Seviye 3, Seviye 1 in en az 7 katı pay almalı');
+    assert.notEqual(userLv1.payout, userLv3.payout, 'Seviye 1 ve Seviye 3 aynı sabit tutarda kalamaz!');
+    assert(userLv3.payout > userLv1.payout, 'Seviye 3, Seviye 1 den yüksek pay almalıdır');
 
     // Havuz 22.000'den 50.000'e çıktığında anlık canlı büyüme
     globalPool.state.ubiPool = 50000;
     const updatedLv3 = globalPool.calculateLevelUbiPayout(3);
-    assert(updatedLv3.payout > userLv3.payout * 2, 'Havuz doldukça payout anlık olarak artmalı');
+    assert(updatedLv3.payout > userLv3.payout, 'Havuz doldukça payout anlık olarak artmalı');
   });
 
   await t.test('[5/6] Envanter / Karakter Paneli Haftalık Claim ve Çift Claim Koruması', () => {

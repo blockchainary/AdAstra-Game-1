@@ -3164,7 +3164,7 @@ export class GameStateManager {
     const toolCostPerMinAda = toolMaterialCostPerMinAda + toolAdaPerMin;
 
     const netProfitPerMin = Math.max(1, grossValuePerMin - staminaCostPerMinAda - toolCostPerMinAda);
-    const netProfit24h = netProfitPerMin * 1440;
+    const netProfit24h = Math.round(netProfitPerMin * 1440);
     const botCostAda = Math.max(100, Math.round(netProfit24h * 0.50));
 
     return {
@@ -4886,11 +4886,12 @@ export class GameStateManager {
     const playerMaxHp = stats.totalMaxHp;
     let playerCurrentHp = champion.hp || playerMaxHp;
 
-    // Gerçekçi Rakip Şampiyon Havuzu
+    // Gerçekçi Rakip Şampiyon Havuzu ve Dinamik Rakip ELO Derecesi
+    const playerRating = this.state.colosseumStats?.rating || GAME_CONFIG.COLOSSEUM.STARTING_RATING;
     const opponents = [
-      { name: 'Gölge Gladyatörü Kael', atk: Math.floor(playerAtk * (0.85 + Math.random() * 0.3)), hp: Math.floor(playerMaxHp * (0.85 + Math.random() * 0.3)), icon: '🥷' },
-      { name: 'Çöl Akrebi Malok', atk: Math.floor(playerAtk * (0.90 + Math.random() * 0.3)), hp: Math.floor(playerMaxHp * (0.90 + Math.random() * 0.3)), icon: '🦂' },
-      { name: 'Kolezyum Şampiyonu Ragnar', atk: Math.floor(playerAtk * (0.95 + Math.random() * 0.35)), hp: Math.floor(playerMaxHp * (0.95 + Math.random() * 0.35)), icon: '🪓' }
+      { name: 'Gölge Gladyatörü Kael', atk: Math.floor(playerAtk * (0.85 + Math.random() * 0.3)), hp: Math.floor(playerMaxHp * (0.85 + Math.random() * 0.3)), rating: Math.round(playerRating * (0.90 + Math.random() * 0.15)), icon: '🥷' },
+      { name: 'Çöl Akrebi Malok', atk: Math.floor(playerAtk * (0.90 + Math.random() * 0.3)), hp: Math.floor(playerMaxHp * (0.90 + Math.random() * 0.3)), rating: Math.round(playerRating * (0.95 + Math.random() * 0.15)), icon: '🦂' },
+      { name: 'Kolezyum Şampiyonu Ragnar', atk: Math.floor(playerAtk * (0.95 + Math.random() * 0.35)), hp: Math.floor(playerMaxHp * (0.95 + Math.random() * 0.35)), rating: Math.round(playerRating * (1.00 + Math.random() * 0.20)), icon: '🪓' }
     ];
     const opp = opponents[Math.floor(Math.random() * opponents.length)];
     let oppHp = opp.hp;
@@ -4911,21 +4912,23 @@ export class GameStateManager {
     }
 
     const isVictory = playerCurrentHp > 0 && oppHp <= 0;
-    champion.hp = Math.max(1, playerCurrentHp); // Hayatta kalır ama yaralanır
+    // 🛡️ Askeri Koruma Kuralı (No Permadeath): Kolezyumda asker ölmez, en fazla 1 HP'ye düşer ve buğdayla tedavi edilir
+    champion.hp = Math.max(1, playerCurrentHp);
     const damageTaken = playerMaxHp - champion.hp;
 
     if (!this.state.colosseumStats) {
-      this.state.colosseumStats = { wins: 0, losses: 0, score: 0, rank: 11 };
+      this.state.colosseumStats = { wins: 0, losses: 0, score: 0, rank: 11, rating: GAME_CONFIG.COLOSSEUM.STARTING_RATING };
     }
 
     let rewardAda = 0;
     let rewardKeys = 0;
 
-    // ELO puanı: rakip artık oyuncudan türetilse de derece gerçek biçimde işler.
+    // 🏆 Gerçek Matematiksel ELO Puanı: Rakip derecesi (opp.rating) ve Oyuncu derecesi arasındaki fark hesaba katılır
     if (this.state.colosseumStats.rating == null) {
       this.state.colosseumStats.rating = GAME_CONFIG.COLOSSEUM.STARTING_RATING;
     }
-    const expected = 1 / (1 + Math.pow(10, 0 / 400)); // eşit güçlü rakip = 0.5
+    const oppRating = opp.rating || playerRating;
+    const expected = 1 / (1 + Math.pow(10, (oppRating - this.state.colosseumStats.rating) / 400));
     const ratingDelta = Math.round(GAME_CONFIG.COLOSSEUM.K_FACTOR * ((isVictory ? 1 : 0) - expected));
     this.state.colosseumStats.rating = Math.max(0, this.state.colosseumStats.rating + ratingDelta);
 

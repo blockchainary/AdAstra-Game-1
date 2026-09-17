@@ -53,12 +53,13 @@ export const GAME_CONFIG = {
 
   // 🏛️ EVRENSEL TEMEL GELİR (UBI) & SEVİYE STAKE HAVUZU PARAMETRELERİ
   // Havuzdaki para anında tükenmez; 3 ayda (12 haftada) dağıtılacak eğriyle her hafta 1/12'si açılır.
-  // Seviye 1'den Seviye 81'e kadar ağırlık fonksiyonu: W(L) = L^1.85 (Lv 81 katlanarak daha fazla pay alır)
+  // Balina Sömürüsü Koruması: W(L) = 1 + sqrt(L-1)*0.75 dengeli modeli ve max %5 tek çekim tavanı devrededir.
   UBI_CONFIG: {
     POOL_RATE: 0.06,
     AMORTIZATION_WEEKS: 12,              // 3 Ayda dağıtım takvimi (haftalık 1/12 bütçe)
-    LEVEL_WEIGHT_EXPONENT: 1.85,         // Üssel seviye katsayısı (Lv 81 ~ 3.375x çarpan)
-    BASE_WEIGHT_DIVISOR: 1000,           // 1000 pay tabanı (Lv 1: %0.1, Lv 3: %0.76, Lv 10: %7.1, Lv 81: 3.375x)
+    LEVEL_WEIGHT_EXPONENT: 0.65,         // Dengeli üssel katsayı (Lv 81 için aşırı balina sübvansiyonunu önler)
+    BASE_WEIGHT_DIVISOR: 100,            // Pay tabanı
+    MAX_SINGLE_CLAIM_SHARE: 0.05,        // 🛡️ TEK ÇEKİM TAVANI: Tek bir kullanıcı haftalık havuzun %5'inden fazlasını çekemez!
     BASE_REALM_ACTIVE_WEIGHT: 12500,     // Krallık aktif ağırlık pay tabanı
     INITIAL_SEED_POOL: 2400000           // Başlangıç tohum fonu: 2.4 Milyon $ADASTRA
   },
