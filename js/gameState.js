@@ -4192,28 +4192,209 @@ export class GameStateManager {
   }
 
   fastForwardTime(hours) {
-    const seconds = hours * 3600;
-    // 1. Aktif Seferleri İlerlet
-    for (const nodeId of Object.keys(this.state.activeExpeditions || {})) {
-      const exp = this.state.activeExpeditions[nodeId];
-      if (exp && !exp.isCompleted) {
-        exp.elapsedSeconds += seconds;
-        if (exp.elapsedSeconds >= exp.durationSeconds) {
-          exp.elapsedSeconds = exp.durationSeconds;
-          exp.isCompleted = true;
+    const totalSeconds = hours * 3600;
+    const now = Date.now();
+    const hasBot = this.hasPurchasedBot();
+    const isPaused = this.isBotPaused();
+
+    const initialInv = {
+      wood: Number(this.state.inventory?.wood) || 0,
+      iron: Number(this.state.inventory?.iron) || 0,
+      wheat: Number(this.state.inventory?.wheat) || 0
+    };
+    const initialAda = Number(this.state.adAstraBalance) || 0;
+    const initialWarehouseLevel = Number(this.state.warehouseLevel) || 1;
+
+    let totalExpeditionsClaimed = 0;
+    let botExecutionStatus = 'inactive'; // 'ran', 'paused', 'expired', 'inactive'
+
+    // 1. EĞER BOT AKTİF VE DURAKLATILMAMIŞSA: OTONOM SİMÜLASYON DÖNGÜSÜ
+    if (hasBot && !isPaused) {
+      botExecutionStatus = 'ran';
+      const currentExpiry = this.getAutoCollectorExpiry();
+      const remainingMs = Math.max(0, currentExpiry - now);
+      const remainingBotSec = Math.floor(remainingMs / 1000);
+
+      // Simüle edilecek bot çalışma süresi (kalan bot süresini aşamaz)
+      const botWorkSec = Math.min(totalSeconds, remainingBotSec);
+
+      // Bot süresini totalSeconds kadar düşür
+      if (this.state.botActiveUntil) {
+        this.state.botActiveUntil -= totalSeconds * 1000;
+        if (this.state.botActiveUntil <= now) {
+          this.state.botActiveUntil = 0;
+        }
+      }
+      if (this.state.tavernaBotExpiresAt) {
+        this.state.tavernaBotExpiresAt -= totalSeconds * 1000;
+        if (this.state.tavernaBotExpiresAt <= now) {
+          this.state.tavernaBotExpiresAt = 0;
+          this.state.tavernaBotActive = false;
+        }
+      }
+      for (const id of ['auto_collector', 'auto_collector_weekly', 'auto_collector_monthly']) {
+        if (this.state.activeBuffs && this.state.activeBuffs[id]) {
+          this.state.activeBuffs[id].expiresAt -= totalSeconds * 1000;
+          if (this.state.activeBuffs[id].expiresAt <= now) {
+            delete this.state.activeBuffs[id];
+          }
+        }
+      }
+
+      if (remainingBotSec < totalSeconds) {
+        botExecutionStatus = 'expired';
+      }
+
+      // Adım adım simülasyon: botWorkSec boyunca ardışık seferler ve döngüler
+      let remainingSimTime = botWorkSec;
+      let safetyCounter = Math.min(200, Math.ceil(hours * 15)); // yeterli döngü sınırı
+      const nodes = ['wood', 'iron', 'wheat'];
+
+      while (remainingSimTime > 0 && safetyCounter-- > 0) {
+        // En yakın bitiş zamanını bul
+        let minNeeded = remainingSimTime;
+        let anyActive = false;
+
+        for (const nodeId of nodes) {
+          const exp = this.state.activeExpeditions ? this.state.activeExpeditions[nodeId] : null;
+          if (exp && !exp.isCompleted) {
+            anyActive = true;
+            const needed = Math.max(1, (exp.durationSeconds - (exp.elapsedSeconds || 0)));
+            if (needed < minNeeded) minNeeded = needed;
+          }
+        }
+
+        // Eğer aktif sefer yoksa hemen runTavernaAutomationCycle ile boş madenleri başlat
+        if (!anyActive) {
+          this.runTavernaAutomationCycle();
+          const hasAny = Object.keys(this.state.activeExpeditions || {}).length > 0;
+          if (!hasAny || this.isBotPaused()) {
+            if (this.isBotPaused()) {
+              botExecutionStatus = 'paused';
+            }
+            break;
+          }
+          continue;
+        }
+
+        const stepToApply = Math.min(remainingSimTime, minNeeded);
+        remainingSimTime -= stepToApply;
+
+        // Seferlerin süresini ilerlet
+        for (const nodeId of nodes) {
+          const exp = this.state.activeExpeditions ? this.state.activeExpeditions[nodeId] : null;
+          if (exp && !exp.isCompleted) {
+            exp.elapsedSeconds = Math.min(exp.durationSeconds, (exp.elapsedSeconds || 0) + stepToApply);
+            if (exp.elapsedSeconds >= exp.durationSeconds) {
+              exp.isCompleted = true;
+            }
+          }
+        }
+
+        // Bitenleri topla ve yeni döngüyü işlet
+        const cycleRes = this.runTavernaAutomationCycle();
+        if (cycleRes && cycleRes.actions) {
+          for (const act of cycleRes.actions) {
+            if (act.includes('toplandı')) {
+              totalExpeditionsClaimed++;
+            }
+          }
+        }
+
+        if (this.isBotPaused()) {
+          botExecutionStatus = 'paused';
+          break;
+        }
+      }
+
+      // Kalan simüle edilmemiş (veya bot süresi bittikten sonraki) zaman varsa aktif seferleri ilerlet
+      if (totalSeconds > botWorkSec) {
+        const extraSec = totalSeconds - botWorkSec;
+        for (const nodeId of Object.keys(this.state.activeExpeditions || {})) {
+          const exp = this.state.activeExpeditions[nodeId];
+          if (exp && !exp.isCompleted) {
+            exp.elapsedSeconds += extraSec;
+            if (exp.elapsedSeconds >= exp.durationSeconds) {
+              exp.elapsedSeconds = exp.durationSeconds;
+              exp.isCompleted = true;
+            }
+          }
+        }
+      }
+    } else if (hasBot && isPaused) {
+      botExecutionStatus = 'paused';
+      // Bot dondurulmuş olduğu için kalan bot süresi dondurulmuştur, azaltılmaz.
+      // Sadece varsa önceden gönderilmiş seferlerin süresi ilerletilir.
+      for (const nodeId of Object.keys(this.state.activeExpeditions || {})) {
+        const exp = this.state.activeExpeditions[nodeId];
+        if (exp && !exp.isCompleted) {
+          exp.elapsedSeconds += totalSeconds;
+          if (exp.elapsedSeconds >= exp.durationSeconds) {
+            exp.elapsedSeconds = exp.durationSeconds;
+            exp.isCompleted = true;
+          }
+        }
+      }
+    } else {
+      // Bot yoksa: Yalnızca mevcut seferler ilerletilir
+      botExecutionStatus = 'inactive';
+      for (const nodeId of Object.keys(this.state.activeExpeditions || {})) {
+        const exp = this.state.activeExpeditions[nodeId];
+        if (exp && !exp.isCompleted) {
+          exp.elapsedSeconds += totalSeconds;
+          if (exp.elapsedSeconds >= exp.durationSeconds) {
+            exp.elapsedSeconds = exp.durationSeconds;
+            exp.isCompleted = true;
+          }
         }
       }
     }
-    // 2. Taverna Güçlendirmelerini İlerlet (expiresAt mutlak zaman damgasını geriye sarar)
+
+    // 2. Diğer Taverna Güçlendirmelerini İlerlet (expiresAt mutlak zaman damgasını geriye sarar)
     for (const buffId of Object.keys(this.state.activeBuffs || {})) {
+      if (buffId.startsWith('auto_collector')) continue;
       const buff = this.state.activeBuffs[buffId];
       if (buff && buff.expiresAt) {
-        buff.expiresAt -= seconds * 1000;
+        buff.expiresAt -= totalSeconds * 1000;
       }
     }
+
     // 3. Ordunun (soldierUnits) Buğday ile Pasif İyileşmesini İlerlet
-    this.processSoldierPassiveHealing(seconds);
+    this.processSoldierPassiveHealing(totalSeconds);
+
     this.saveState();
+
+    // Rapor ve Sonuç Bilgisi Oluştur
+    const finalWood = Number(this.state.inventory?.wood) || 0;
+    const finalIron = Number(this.state.inventory?.iron) || 0;
+    const finalWheat = Number(this.state.inventory?.wheat) || 0;
+    const finalAda = Number(this.state.adAstraBalance) || 0;
+    const finalWarehouseLevel = Number(this.state.warehouseLevel) || 1;
+
+    let botRemainingText = 'Kapalı / Yok';
+    if (this.hasPurchasedBot()) {
+      const exp = this.getAutoCollectorExpiry();
+      const rem = this.isBotPaused() ? (this.state.botPausedRemainingMs || 0) : Math.max(0, exp - Date.now());
+      const h = Math.floor(rem / (3600 * 1000));
+      const m = Math.floor((rem % (3600 * 1000)) / (60 * 1000));
+      botRemainingText = `${h} saat ${m} dakika${this.isBotPaused() ? ' (Donduruldu)' : ''}`;
+    }
+
+    return {
+      hours,
+      hasBot,
+      botExecutionStatus,
+      isPaused: this.isBotPaused(),
+      missingText: this.checkBotPrerequisites().missingText,
+      totalExpeditionsClaimed,
+      woodGain: Math.max(0, finalWood - initialInv.wood),
+      ironGain: Math.max(0, finalIron - initialInv.iron),
+      wheatGain: Math.max(0, finalWheat - initialInv.wheat),
+      adaDiff: finalAda - initialAda,
+      warehouseUpgraded: finalWarehouseLevel > initialWarehouseLevel,
+      currentWarehouseLevel: finalWarehouseLevel,
+      botRemainingText
+    };
   }
 
   completeAllExpeditionsNow() {

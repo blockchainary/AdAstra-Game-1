@@ -919,6 +919,19 @@ export const GAME_CONFIG = {
         'Hazine Güvenlik Tavanı: Kasada kaç milyon ADA olursa olsun, bir döngüde en fazla %10 bütçe harcanabilir; kalan %90 rezervde kalıp arkadaki kale görevini sürdürür.',
         'Pazar yerine "🛡️ Otonom Buyback & Yakım" sekmesi eklendi; 6 varlığın canlı fiyat analizi, aciliyet yoğunluğu ve tek tıkla operasyon yürütme kontrolü sağlandı.'
       ]
+    },
+    {
+      version: 'v1.17',
+      title: '⏩ Zaman Atlama & Otonom Taverna Botu Simülasyon Motoru',
+      date: 'Eylül 2026',
+      changes: [
+        'Geliştirici & Hızlı Test Konsolundan saat ileri sarıldığında (+1s, +6s, +18s, +24s) otonom Taverna Botunun zaman dilimini ardışık döngülerle otonom simüle etmesi sağlandı.',
+        'Simülasyon sürecinde odun, demir ve buğday seferleri peş peşe tamamlanır, depolar doldurulur, aşınan aletler otomatik onarılır ve stamina sadece gereken oranda buğdaydan karşılanır.',
+        'Silo Doluluk Tercihi Tam Entegrasyonu: "Siloyu Yükselt" seçiliyken ambarlar otomatik üst seviyeye taşınır, "Kaynakları Sat" modundayken %50 rezerve korunarak fazlalık AMM DEX pazarında satılıp ADA biriktirilir.',
+        '50x Önkoşul & Dondurma (Freeze) Uyumu: Zaman ilerletilirken kaynaklar tükenirse bot süresi dondurulur, saniyeler boşa harcanmaz.',
+        'Kalan bot süresi geçen zaman kadar senkronize geriye düşürülür; süre bittiğinde seferler durur.',
+        'Test menüsünde zaman sarıldıktan sonra tamamlanan sefer sayısını, kazanılan net hammaddeleri, kasa değişimini ve kalan bot süresini gösteren canlı "Simülasyon Sonuç Raporu" arayüzü eklendi.'
+      ]
     }
   ],
 
@@ -943,7 +956,7 @@ export const GAME_CONFIG = {
     {
       id: 'f2p_welcome',
       badge: '⚔️ KRALLIK DUYURUSU',
-      text: 'AdAstra: Genesis Realm v1.16 devrede! 100M $ADASTRA tohum fonu, 6 Varlıklı Dinamik AMM Buyback & Yakım Motoru ve Krallık Meclisi oylamaları aktiftir.',
+      text: 'AdAstra: Genesis Realm v1.17 devrede! Zaman atlama test konsolu & Taverna Bot simülasyon motoru, 6 Varlıklı Dinamik Buyback ve Krallık Meclisi oylamaları aktiftir.',
       active: true,
       priority: 2
     }

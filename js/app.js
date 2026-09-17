@@ -7968,11 +7968,66 @@ function initDevPanelEvents() {
         sound.playLevelUp();
         break;
 
-      case 'fast-forward':
-        gameState.fastForwardTime(hours);
-        showToast(`⏩ Zaman ${hours} saat ileri sarıldı!`, 'success');
+      case 'fast-forward': {
+        const report = gameState.fastForwardTime(hours);
+        updateDevLiveInputs();
+        renderHUD();
+        renderExpeditionCards();
+
+        // Test konsolundaki canlı sonuç paneline yazdır
+        const resBox = document.getElementById('dev-time-result-container');
+        if (resBox) {
+          const statusMap = {
+            ran: '<span style="color:#4ade80; font-weight:800;">🟢 Aktif Çalıştı</span>',
+            paused: '<span style="color:#facc15; font-weight:800;">⏸️ Donduruldu</span>',
+            expired: '<span style="color:#f87171; font-weight:800;">⏳ Süre Doldu</span>',
+            inactive: '<span style="color:#94a3b8; font-weight:800;">⚪ Bot Yok / Pasif</span>'
+          };
+          resBox.style.display = 'block';
+          resBox.innerHTML = `
+            <div style="font-weight:800; color:#38bdf8; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(56,189,248,0.2); padding-bottom:6px;">
+              <span>⏩ +${report.hours} Saat Zaman Atlama & Bot Simülasyon Raporu</span>
+              <span style="font-size:0.75rem; color:#94a3b8;">${new Date().toLocaleTimeString()}</span>
+            </div>
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:6px; margin-bottom:8px;">
+              <div style="background:rgba(255,255,255,0.04); padding:6px 8px; border-radius:6px; border-left:3px solid #38bdf8;">
+                <div style="color:#94a3b8; font-size:0.72rem;">🤖 Bot Durumu:</div>
+                <div style="font-size:0.85rem;">${statusMap[report.botExecutionStatus] || 'Bilinmiyor'}</div>
+              </div>
+              <div style="background:rgba(255,255,255,0.04); padding:6px 8px; border-radius:6px; border-left:3px solid #22c55e;">
+                <div style="color:#94a3b8; font-size:0.72rem;">🔄 Tamamlanan Sefer:</div>
+                <div style="font-weight:700; color:#fff; font-size:0.85rem;">${report.totalExpeditionsClaimed} Sefer</div>
+              </div>
+              <div style="background:rgba(255,255,255,0.04); padding:6px 8px; border-radius:6px; border-left:3px solid #facc15;">
+                <div style="color:#94a3b8; font-size:0.72rem;">⏱️ Kalan Bot Süresi:</div>
+                <div style="font-weight:700; color:#fde047; font-size:0.85rem;">${report.botRemainingText}</div>
+              </div>
+            </div>
+            <div style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px; margin-bottom:6px;">
+              <div style="color:#94a3b8; font-size:0.75rem; margin-bottom:4px;">🌾 Net Toplanan Mahsuller & Kasa Hareketi:</div>
+              <div style="display:flex; gap:12px; flex-wrap:wrap; font-weight:700; font-size:0.85rem;">
+                <span style="color:#4ade80;">🌲 +${report.woodGain.toLocaleString()} Odun</span>
+                <span style="color:#38bdf8;">⛏️ +${report.ironGain.toLocaleString()} Demir</span>
+                <span style="color:#facc15;">🌾 +${report.wheatGain.toLocaleString()} Buğday</span>
+                <span style="color:#c084fc;">🪙 ${report.adaDiff >= 0 ? '+' : ''}${report.adaDiff.toFixed(1)} ADA</span>
+              </div>
+            </div>
+            ${report.warehouseUpgraded ? `<div style="color:#22c55e; font-weight:700; font-size:0.78rem; margin-bottom:4px;">🏰 Silo bu sürede otomatik olarak Seviye ${report.currentWarehouseLevel}'e yükseltildi!</div>` : ''}
+            ${report.botExecutionStatus === 'paused' ? `<div style="color:#facc15; font-size:0.75rem;">⚠️ Eksik kaynaklar (<code>${report.missingText}</code>) nedeniyle bot donduruldu, bot süreniz harcanmadı.</div>` : ''}
+          `;
+        }
+
+        if (report.botExecutionStatus === 'ran') {
+          showToast(`⏩ +${hours}s İleri Sarıldı: Bot ${report.totalExpeditionsClaimed} sefer tamamladı! (+${report.woodGain}🌲, +${report.ironGain}⛏️, +${report.wheatGain}🌾)`, 'success');
+        } else if (report.botExecutionStatus === 'paused') {
+          showToast(`⏸️ +${hours}s İleri Sarıldı: Eksik kaynaklar nedeniyle bot dondurulmuş durumda kaldı.`, 'warning');
+        } else {
+          showToast(`⏩ Zaman ${hours} saat ileri sarıldı!`, 'success');
+        }
+
         sound.playLevelUp();
         break;
+      }
 
       case 'complete-expeditions':
         gameState.completeAllExpeditionsNow();
