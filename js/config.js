@@ -880,6 +880,45 @@ export const GAME_CONFIG = {
         'Piyango 2x Kazanç Sistemi: Kazanan kişi havuzun %18\'i yerine satın aldığı bilet tutarının tam 2 katını (2x) nakit kazanır, biletleri yakılır ve devasa 20M+ havuz devrederek büyümeye devam eder.',
         'Balina İstiflemesini Önleme Kotası: Her hesabın haftalık satın alabileceği maksimum bilet sayısı 100 bilet (10.000 ADA) ile sınırlandırıldı.'
       ]
+    },
+    {
+      version: 'v1.14',
+      title: 'Karnaval & AMM Hazine Rezervi Kalibrasyonu, Amorti 3x ve Talihli Payı',
+      date: 'Eylül 2026',
+      changes: [
+        'Karnaval Çarkı hammadde yakım sayacı bağımsızlaştırılarak sadece çarkta yakılan kaynaklar için özel sayaç bağlandı.',
+        'Hazine kasalarındaki yanıltıcı "doluluk oranı" kaldırılarak her kasada net ADA miktarı gösterildi.',
+        'Karnaval çarkında kazanılan tüm ödüller havadan basılmak yerine Karnaval hazine bütçesiyle AMM pazarından buyback yapılıp teslim edilecek şekilde uyarlandı.',
+        'Çark amorti bilet gereksinimi 10 adetten 3 adede düşürüldü (3 bilet parçası = 1 çevirme).',
+        'AMM DEX işlemlerinde alınan %2 komisyon ile toplam kaç adet demir, odun ve buğday yakıldığını gösteren canlı sayaç kartı eklendi.',
+        'Piyangodaki "Bu haftaki talihli payı" silindi; yerine talihlinin biletlerini yakıp değerinin tam 2 katı ADA\'yı kasadan çektiği "Talihli Bilet Yak & 2 Katı ADA Kasadan Çek" bölümü eklendi.'
+      ]
+    },
+    {
+      version: 'v1.15',
+      title: 'Savaş Formasyonu Sadeleştirmesi & Zindan Zafer Kontrolü Reformu',
+      date: 'Eylül 2026',
+      changes: [
+        'Savaşlardaki Ön Saf / Arka Saf mevzi mekanizması tamamen kaldırıldı; tüm askerlerin tek hat serbest savaşa katıldığı modern savaş motoru aktif edildi.',
+        'selectTarget algoritmasından mevzi koruma barajı kaldırılarak taunt ve piercing harici tüm canlı düşmanların doğrudan hedeflenebilmesi sağlandı.',
+        'Kışla ve zindan savaş öncesi arayüzlerinden mevzi değiştirme butonları ve etiketleri temizlendi.',
+        'Zindan savaşını kazanıp canavar 0 HP\'ye düşmesine rağmen "BOZGUN" verme hatası düzeltildi (simResult.winner, simResult.victory ve eCurHp <= 0 üçlü zafer kontrolü teminat altına alındı).',
+        'Karakter seviye atlama butonunun XP dolmasına rağmen kilitli kalması ve toast z-index sorunu çözüldü.'
+      ]
+    },
+    {
+      version: 'v1.16',
+      title: '6 Varlıklı Dinamik Genesis Buyback & Kalıcı Yakım Motoru (%18 Evrensel Harcama Girişi)',
+      date: 'Eylül 2026',
+      changes: [
+        'AMM DEX havuzundaki satış baskısını kırmak ve taban fiyat koruması sağlamak amacıyla 6 Varlıklı (Buğday, Demir, Odun, Parça, Anahtar, Kutu) Dinamik Buyback & Kalıcı Yakım Motoru geliştirildi.',
+        'Hazineye yalnızca DEX alım-satım fee\'leri değil, oyundaki TÜM $ADASTRA harcamalarının net %18\'i doğrudan AMM Buyback Kasasına bağlandı.',
+        'Fiyat düşüşleri haftalık dalgalanmaya değil, değişmez Genesis Lansman Fiyatlarına ($P_{genesis}$) sabitlendi.',
+        'Kuvvet Yasası Harcama Matematiği (U = Δ^2.5): Fiyat %10 düştüğünde binde 3 sembolik fon ayrılırken, %90 çöküşte bütçenin %76.8\'i devreye girer ve ucuza gelen fiyattan tam 2.195 kat daha fazla FİZİKSEL ADET satın alınıp anında yakılır (Burn).',
+        'Hazine Dağıtım Ağırlığı: Bütçenin %75 aslan payı temel hammadde üçlüsüne (%30 Buğday, %25 Demir, %20 Odun), %25 payı ise gelişim & prestij varlıklarına (%10 Parça, %8 Anahtar, %7 Kutu) tahsis edildi.',
+        'Hazine Güvenlik Tavanı: Kasada kaç milyon ADA olursa olsun, bir döngüde en fazla %10 bütçe harcanabilir; kalan %90 rezervde kalıp arkadaki kale görevini sürdürür.',
+        'Pazar yerine "🛡️ Otonom Buyback & Yakım" sekmesi eklendi; 6 varlığın canlı fiyat analizi, aciliyet yoğunluğu ve tek tıkla operasyon yürütme kontrolü sağlandı.'
+      ]
     }
   ],
 
@@ -904,7 +943,7 @@ export const GAME_CONFIG = {
     {
       id: 'f2p_welcome',
       badge: '⚔️ KRALLIK DUYURUSU',
-      text: 'AdAstra: Genesis Realm v1.15 devrede! 100M $ADASTRA tohum fonu, dinamik AMM DEX fiyatlandırması ve Krallık Meclisi oylamaları aktiftir.',
+      text: 'AdAstra: Genesis Realm v1.16 devrede! 100M $ADASTRA tohum fonu, 6 Varlıklı Dinamik AMM Buyback & Yakım Motoru ve Krallık Meclisi oylamaları aktiftir.',
       active: true,
       priority: 2
     }
