@@ -53,7 +53,7 @@ console.log('✅ [2/6] Yetersiz bakiyede bot alımı başarıyla engellendi ve n
 console.log('\n[3/6] Başarılı Satın Alma ve Süre Aktivasyonu Test Ediliyor...');
 const prevTreasury = treasury.getSummary().totalBalance;
 gs.state.adAstraBalance = 500000; // Yeterli bakiye
-gs.state.inventory = { wood: 50, iron: 50, wheat: 50 }; // Önkoşullar hazır
+gs.state.inventory = { wood: 500, iron: 500, wheat: 500 }; // Dinamik önkoşullar hazır
 
 const buyRes = gs.buyTavernaAutomationBot(false);
 assert(buyRes.success, 'Bot satın alma işlemi başarılı olmalı');

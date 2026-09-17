@@ -30,6 +30,8 @@ console.log('\n[TEST 1] Artan mahsulün AMM DEX pazarında anında satılması')
 
 // Ambarda 880 odun var -> boş yer = 200 (1080 - 880 = 200)
 gs.state.inventory.wood = 880;
+gs.state.inventory.iron = 50;
+gs.state.inventory.wheat = 50;
 const initialAda = 1000;
 gs.state.adAstraBalance = initialAda;
 
@@ -71,6 +73,7 @@ console.log('✅ TEST 1 BAŞARILI: 200 yer varken 324 odun geldiğinde 124 marke
 console.log('\n[TEST 2] %80 Barajında ADA Finansmanı ve Otomatik Seviye Atlama');
 
 // Silo Seviye 1
+gs.state.botSiloAutoUpgrade = true;
 gs.state.warehouseLevel = 1;
 const cap1 = gs.getWarehouseCapacity(1);
 

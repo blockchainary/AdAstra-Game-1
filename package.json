@@ -1,6 +1,6 @@
 {
   "name": "adastra-genesis-realm",
-  "version": "1.20.0",
+  "version": "1.21.0",
   "description": "AdAstra: Genesis Realm - Web3 GameFi RPG on Avalanche",
   "type": "module",
   "scripts": {

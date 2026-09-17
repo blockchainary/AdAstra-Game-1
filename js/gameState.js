@@ -1019,7 +1019,7 @@ export class GameStateManager {
 
     const cycleInv = this.state.inventory || {};
     if (((cycleInv.wood || 0) < 50 || (cycleInv.iron || 0) < 50 || (cycleInv.wheat || 0) < 50) && (this.state.adAstraBalance || 0) >= 10) {
-      const buyRes = this.autoBuyBotResourceDeficit(50);
+      const buyRes = this.autoBuyBotResourceDeficit();
       if (buyRes && buyRes.bought) {
         actions.push(buyRes.message);
       }
@@ -1327,12 +1327,63 @@ export class GameStateManager {
   }
 
   /**
-   * 🤖 Bot Çalışırken Hammadde Yetersizliği Durumunda Kasadaki ADA ile AMM'den Satın Alma (Oto-Tedarik)
-   * Kullanıcı kuralı: Silo yükseltildiğinde ambarlar sıfırlandığı veya seferler/tamiratlardan dolayı
-   * Odun, Demir ve Buğday stokları 50'nin altına indiğinde; botun durmaması için kasadaki $ADASTRA ile
-   * eksik olan miktarlar AMM pazarından anında satın alınarak depolar en az 50'ye tamamlanır.
+   * 🤖 Hesap Seviyesi & Sefer Süresi Odaklı Dinamik Tamirat & Stamina Rezervi Hesaplayıcı
+   * Kullanıcı kuralı: Kişi hesap seviyesini 2-3-4 şeklinde artırdıkça sefer süresi uzayacağı için
+   * alet tamir bedelleri de artacaktır. Sabit 50 yerine, kişinin o anki hesap seviyesinde sefer süresi
+   * üzerinden her sefer için tamirat bedeli olarak kaç odun/demir gerekiyorsa o miktarın en az %50 daha
+   * fazlası (+%50 güvenlik tamponu) hesaplanır. Ayrıca 3 seferlik stamina için gereken buğday da aynı
+   * şekilde en az %50 marjla eklenir. Böylece seviye atlatmalarda bot durdurma problemi kökünden çözülür.
    */
-  autoBuyBotResourceDeficit(minTarget = 50) {
+  getBotDynamicResourceDeficitTargets(level = this.state.level) {
+    const lvl = Number(level) || 1;
+    const durationMin = this.getExpeditionDurationMinutes ? this.getExpeditionDurationMinutes(lvl) : 18;
+
+    // Üretim hızları üzerinden dakika başına alet aşınma maliyeti
+    const woodRatePm = this.getResourceRatePerMinute ? this.getResourceRatePerMinute('wood') : 18;
+    const ironRatePm = this.getResourceRatePerMinute ? this.getResourceRatePerMinute('iron') : 12;
+
+    // 3 aletin toplam 1 seferlik aşınma maliyeti: 3 * (durationMin * costPerMin)
+    const woodCostPerMin = (woodRatePm * 0.25) / 3;
+    const ironCostPerMin = (ironRatePm * 0.25) / 3;
+    const singleExpRepairWood = Math.ceil(3 * (durationMin * woodCostPerMin));
+    const singleExpRepairIron = Math.ceil(3 * (durationMin * ironCostPerMin));
+
+    // 3 paralel sefer için stamina tüketimi ve buğday karşılığı
+    const staminaCostPerExp = this.getExpeditionStaminaCost ? this.getExpeditionStaminaCost(lvl) : 25;
+    const totalStaminaNeeded = 3 * staminaCostPerExp;
+    const wheatPerStamina = GAME_CONFIG.WHEAT_PER_STAMINA || 3.15;
+    const singleExpStaminaWheat = Math.ceil(totalStaminaNeeded * wheatPerStamina);
+
+    // Kural: Her sefer için tamirat bedeli olarak kaç odun/demir gerekiyorsa o miktarın EN AZ %50 DAHA FAZLASI (+%50)
+    // Taban değer olarak da en az 50 hammadde güvence altına alınır.
+    const targetWood = Math.max(50, Math.ceil(singleExpRepairWood * 1.5));
+    const targetIron = Math.max(50, Math.ceil(singleExpRepairIron * 1.5));
+    const targetWheat = Math.max(50, Math.ceil(singleExpStaminaWheat * 1.5));
+
+    // Ambar kapasitesi sınırını taşmayacak şekilde sınırla (%80 ambar doluluğu tavanı)
+    const cap = this.getWarehouseCapacity ? this.getWarehouseCapacity() : { wood: 1000, iron: 1000, wheat: 1000 };
+
+    return {
+      level: lvl,
+      durationMinutes: durationMin,
+      singleExpRepairWood,
+      singleExpRepairIron,
+      singleExpStaminaWheat,
+      targets: {
+        wood: Math.min(Math.floor((cap.wood || 1000) * 0.8), targetWood),
+        iron: Math.min(Math.floor((cap.iron || 1000) * 0.8), targetIron),
+        wheat: Math.min(Math.floor((cap.wheat || 1000) * 0.8), targetWheat)
+      }
+    };
+  }
+
+  /**
+   * 🤖 Bot Çalışırken Hammadde Yetersizliği Durumunda Kasadaki ADA ile AMM'den Satın Alma (Oto-Tedarik)
+   * Kullanıcı kuralı: Kişi hesap seviyesini artırdıkça sefer süresi uzayacağı için alet tamirat bedelleri
+   * de artar. Bu yüzden sabit 50 yerine, o anki hesap seviyesinde sefer süresi üzerinden gereken tamirat
+   * bedellerinin en az %50 daha fazlası kadar malzeme AMM DEX pazarından satın alınır.
+   */
+  autoBuyBotResourceDeficit(customTarget = null) {
     if (typeof ammMarket === 'undefined' || !ammMarket || !ammMarket.executeBuyAmount) {
       return { bought: false, reason: 'amm_unavailable' };
     }
@@ -1343,22 +1394,34 @@ export class GameStateManager {
       return { bought: false, reason: 'no_ada_balance', currentBalance: curAda };
     }
 
+    // Dinamik hedef miktarları hesapla (hesap seviyesi ve sefer süresi üzerinden +%50 tamirat payı)
+    const dynamicData = this.getBotDynamicResourceDeficitTargets();
+    const dynamicTargets = dynamicData.targets;
+
+    const targets = {
+      wood: (customTarget && typeof customTarget === 'object' && customTarget.wood != null) ? customTarget.wood : ((typeof customTarget === 'number') ? Math.max(customTarget, dynamicTargets.wood) : dynamicTargets.wood),
+      iron: (customTarget && typeof customTarget === 'object' && customTarget.iron != null) ? customTarget.iron : ((typeof customTarget === 'number') ? Math.max(customTarget, dynamicTargets.iron) : dynamicTargets.iron),
+      wheat: (customTarget && typeof customTarget === 'object' && customTarget.wheat != null) ? customTarget.wheat : ((typeof customTarget === 'number') ? Math.max(customTarget, dynamicTargets.wheat) : dynamicTargets.wheat)
+    };
+
     const nodes = ['wood', 'iron', 'wheat'];
     const missingNodes = [];
     for (const node of nodes) {
       const cur = Number(inv[node]) || 0;
-      if (cur < minTarget) {
+      const targetReq = targets[node] || 50;
+      if (cur < targetReq) {
         missingNodes.push({
           node,
           current: cur,
-          missing: Math.ceil(minTarget - cur),
+          required: targetReq,
+          missing: Math.ceil(targetReq - cur),
           name: this.getResourceNameTr ? this.getResourceNameTr(node) : node
         });
       }
     }
 
     if (missingNodes.length === 0) {
-      return { bought: false, reason: 'no_missing_resources' };
+      return { bought: false, reason: 'no_missing_resources', targets };
     }
 
     let totalSpentAda = 0;
@@ -1400,7 +1463,7 @@ export class GameStateManager {
 
     if (totalSpentAda > 0) {
       this.saveState();
-      const actionMsg = `🛒 Bot Oto-Tedarik: Depodaki eksik hammadde için AMM pazarından ${totalSpentAda.toFixed(1)} ADA ile (${itemsPurchasedText.join(', ')}) satın alındı ve botun durması engellendi.`;
+      const actionMsg = `🛒 Bot Dinamik Oto-Tedarik (Lv.${dynamicData.level} Sefer Tamiratı +%50): Depodaki eksikler için AMM pazarından ${totalSpentAda.toFixed(1)} ADA ile (${itemsPurchasedText.join(', ')}) satın alındı.`;
       if (!this.state.lastBotActions) this.state.lastBotActions = [];
       this.state.lastBotActions.push(actionMsg);
 
@@ -1409,11 +1472,12 @@ export class GameStateManager {
         totalSpentAda,
         boughtBreakdown,
         newBalance: this.state.adAstraBalance,
+        dynamicData,
         message: actionMsg
       };
     }
 
-    return { bought: false, reason: 'buy_execution_failed' };
+    return { bought: false, reason: 'buy_execution_failed', targets };
   }
 
   // ⏸️ Botun Duraklatılması (Pause) ve Süresinin Azalmadan Dondurulması (Freeze) Motoru
@@ -1455,9 +1519,9 @@ export class GameStateManager {
     if (!prereq.isMet) {
       const hasResourceMissing = prereq.missing.some(m => ['wood', 'iron', 'wheat'].includes(m.key));
       if (hasResourceMissing && (this.state.adAstraBalance || 0) >= 1) {
-        const buyRes = this.autoBuyBotResourceDeficit(50);
+        const buyRes = this.autoBuyBotResourceDeficit();
         if (buyRes && buyRes.bought) {
-          // Satın alım yapıldı ve kaynaklar 50'ye tamamlandı, koşulları tekrar kontrol et!
+          // Satın alım yapıldı ve kaynaklar dinamik seviye gereksinimine göre tamamlandı, koşulları tekrar kontrol et!
           prereq = this.checkBotPrerequisites();
         }
       }
@@ -2535,13 +2599,17 @@ export class GameStateManager {
     sound.playLevelUp();
 
     // 🤖 KULLANICI KURALI & BOT KESİNTİSİZ ÇALIŞMA GÜVENCESİ:
-    // Silo yükseltildiğinde tüm ambarlar sıfırlandığı veya 50'nin altına indiği için,
-    // eğer bot aktif/satın alınmışsa ve hesapta ADA varsa eksik olan 50'şer kaynak
-    // derhal AMM pazarından otomatik temin edilir. Böylece bot asla duraklatılmaz!
+    // Silo Seviye 3, 4 veya üzerine yükseltilip ambarlar sıfırlandığı o milisaniyede:
+    // Kişi hesap seviyesini artırdıkça sefer süresi uzayacağı için alet tamir ve stamina bedelleri de artar.
+    // Sabit 50 yerine, o anki hesap seviyesinde sefer süresi üzerinden gereken tamirat bedelinin
+    // en az %50 daha fazlası (+%50 tampon) kadar malzeme AMM DEX pazarından satın alınır!
+    // Böylece seviye atlatmalarda botun durma problemi kökünden çözülür!
     if (this.hasPurchasedBot && this.hasPurchasedBot()) {
-      if ((inv.wood || 0) < 50 || (inv.iron || 0) < 50 || (inv.wheat || 0) < 50) {
+      const dynamicReq = this.getBotDynamicResourceDeficitTargets();
+      const dynTargets = dynamicReq.targets;
+      if ((inv.wood || 0) < dynTargets.wood || (inv.iron || 0) < dynTargets.iron || (inv.wheat || 0) < dynTargets.wheat) {
         if ((this.state.adAstraBalance || 0) >= 1) {
-          this.autoBuyBotResourceDeficit(50);
+          this.autoBuyBotResourceDeficit();
         }
       }
     }
