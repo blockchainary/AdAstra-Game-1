@@ -63,11 +63,11 @@ assert(staminaRes.success, 'scroll_stamina başarılı olmalı');
 assert.equal(gs.state.stamina, 150, 'Stamina 50 den tam +100 artarak 150 olmalı');
 assert.equal(gs.state.inventory.scroll_stamina, 1, 'Parşömen 1 eksilmeli');
 
-// Sınıra yakınken test: 300 iken +100 uygulanınca maxStamina (325) ile sınırlanmalı
-gs.state.stamina = 300;
+// Sınıra yakınken test: (maxStamina - 25) iken +100 uygulanınca maxStamina ile sınırlanmalı
+gs.state.stamina = maxStamina - 25;
 const capRes = gs.useScroll('scroll_stamina');
 assert(capRes.success, 'scroll_stamina sınıra yakınken de başarılı olmalı');
-assert.equal(gs.state.stamina, maxStamina, 'Stamina maksimum (325) ile sınırlanmalı');
+assert.equal(gs.state.stamina, maxStamina, `Stamina maksimum (${maxStamina}) ile sınırlanmalı`);
 assert.equal(gs.state.inventory.scroll_stamina, 0, 'Parşömen 0 olmalı');
 
 const fullStaminaRes = gs.useScroll('scroll_stamina');

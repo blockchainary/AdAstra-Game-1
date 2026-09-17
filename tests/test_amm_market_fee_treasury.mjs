@@ -73,12 +73,21 @@ const eco = gs.getEconomyAndPoolsSummary();
 assert(eco.totalPoolsBalance >= afterTreasuryBalance, 'getEconomyAndPoolsSummary() güncel kilitli kasaları yansıtmalı');
 console.log(`✅ [4/5] GameStateManager Kilitli Ödül Kasası: ${eco.totalPoolsBalance.toLocaleString()} ADA başarıyla okundu.`);
 
-// 6. Alış İşleminde de Harç Doğrulaması
+// 6. Alış İşleminde de Harç ve Hammadde Yakımı Doğrulaması
+const initialIronCap = globalPool.state.resources.iron.totalCap;
+const initialBurnedIron = globalPool.state.totalBurnedResources?.iron || 0;
 const buyBeforeTreasury = treasury.getSummary().totalBalance;
+
 const buyRes = ammMarket.executeBuyAmount('iron', 1000);
 assert(buyRes.success, 'Alış işlemi başarılı olmalı');
 const buyAfterTreasury = treasury.getSummary().totalBalance;
 assert(buyAfterTreasury > buyBeforeTreasury, 'Alış işleminde de ödenen %2 harç hazine kasalarını artırmalı');
-console.log(`✅ [5/5] Alış işleminde de %2 harç (${buyRes.fee.toFixed(2)} ADA) hazine kasasını büyüttü.`);
 
-console.log('🎉 TÜM AMM MARKET %2 HARCI VE TOPLAM KİLİTLİ ÖDÜL KASASI TESTLERİ %100 BAŞARIYLA GEÇTİ!');
+// 🔥 Hammadde Yakımı Doğrulaması (%2):
+assert.equal(buyRes.resourceBurnFee, 20, '1000 demir alımında %2 fee = 20 demir olmalı');
+assert.equal(globalPool.state.resources.iron.totalCap, initialIronCap - 20, 'Demir küresel total arzından 20 adet silinmeli');
+assert.equal(globalPool.state.totalBurnedResources.iron, initialBurnedIron + 20, 'Yakılan demir sayacı 20 artmalı');
+
+console.log(`✅ [5/5] Alış işleminde de %2 harç (${buyRes.fee.toFixed(2)} ADA) hazine kasasını büyüttü ve %2 hammadde (${buyRes.resourceBurnFee} Demir) yakılıp total arzdan silindi.`);
+
+console.log('🎉 TÜM AMM MARKET %2 HARCI, %2 HAMMADDE YAKIMI VE TOPLAM KİLİTLİ ÖDÜL KASASI TESTLERİ %100 BAŞARIYLA GEÇTİ!');

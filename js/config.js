@@ -22,11 +22,11 @@ export const GAME_CONFIG = {
     }
   ],
   
-  // Stamina — v2: 3 paralel sefer HER seviyede mümkün olacak şekilde kalibre edildi.
-  // v1'de max = 100+20(L-1) iken maliyet = 25+12(L-1) idi; 3 sefer Lv.3'ten itibaren
-  // imkânsız hâle geliyordu (bkz. denetim bulgusu F-14).
+  // Stamina — v2.5: Seferler ve Zindan savaşları için genişletilmiş stamina havuzu.
+  // Her seviye atlandığında Max Stamina +50 artar (Lv 1: 100, Lv 2: 150, Lv 3: 200, Lv 10: 550, Lv 81: 4.100).
+  // Böylece 3 paralel sefer gönderilse dahi geriye zindan katları ve boss savaşları için bol miktarda stamina kalır.
   MAX_STAMINA: 100,
-  STAMINA_MAX_PER_LEVEL: 25,          // max = 100 + 25·(L-1)
+  STAMINA_MAX_PER_LEVEL: 50,          // max = 100 + 50·(L-1)
   STAMINA_COST_PER_EXPEDITION: 20,    // maliyet = 20 + 8·(L-1)
   STAMINA_COST_PER_LEVEL: 8,
   STAMINA_NATURAL_REGEN_INTERVAL: 150,
@@ -245,6 +245,8 @@ export const GAME_CONFIG = {
 
   // Swap ücreti: %2.00 piyasa komisyonu (Hazine Ödül Kasaları, Kalıcı Yakım & UBI'ye aktarılır)
   AMM_FEE_RATE: 0.02,
+  // Hammadde Yakım Ücreti: Alınan ve satılan tüm hammaddelerden (odun, demir, buğday vb.) %2.00 kesilir ve anında yakılır
+  AMM_RESOURCE_FEE_RATE: 0.02,
   AMM_FEE_BURN_SHARE: 0.5,
   // Fiyat koridoru dışına çıkan işlemler reddedilir; hazine buyback devreye girer
   AMM_MAX_SLIPPAGE_PER_TX: 0.12,

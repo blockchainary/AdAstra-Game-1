@@ -301,6 +301,12 @@ export class AMMMarketEngine {
     const net = gross - fee;
     if (net <= 0) return { success: false, message: 'Kazanç hesaplanamadı!' };
 
+    // 🔥 Hammadde Yakımı (%2 Fee): Satılan malzemeden %2 fee kesilir, anında yakılır ve total arzdan silinir
+    const resourceBurnFee = resourceAmount * (GAME_CONFIG.AMM_RESOURCE_FEE_RATE || GAME_CONFIG.AMM_FEE_RATE || 0.02);
+    if (resourceBurnFee > 0 && typeof globalPool !== 'undefined' && typeof globalPool.recordResourceBurn === 'function') {
+      globalPool.recordResourceBurn(resourceKey, resourceBurnFee);
+    }
+
     // Havuz: hammadde girer, brüt ADA çıkar
     pool.resourceReserve += resourceAmount;
     pool.adAstraReserve -= gross;
@@ -323,6 +329,7 @@ export class AMMMarketEngine {
       gross,
       fee,
       burned,
+      resourceBurnFee,
       newPrice: this.getPrice(resourceKey),
       resourceName: pool.name,
       icon: pool.icon
@@ -351,6 +358,12 @@ export class AMMMarketEngine {
     const cost = net + fee;
     if (!isFinite(cost) || cost <= 0) return { success: false, message: 'Maliyet hesaplanamadı!' };
 
+    // 🔥 Hammadde Yakımı (%2 Fee): Satın alınan malzemeden %2 fee kesilir, anında yakılır ve total arzdan silinir
+    const resourceBurnFee = resourceAmount * (GAME_CONFIG.AMM_RESOURCE_FEE_RATE || GAME_CONFIG.AMM_FEE_RATE || 0.02);
+    if (resourceBurnFee > 0 && typeof globalPool !== 'undefined' && typeof globalPool.recordResourceBurn === 'function') {
+      globalPool.recordResourceBurn(resourceKey, resourceBurnFee);
+    }
+
     pool.adAstraReserve += net;
     pool.resourceReserve -= resourceAmount;
 
@@ -371,6 +384,7 @@ export class AMMMarketEngine {
       netCost: net,
       fee,
       burned,
+      resourceBurnFee,
       resourceReceived: resourceAmount,
       newPrice: this.getPrice(resourceKey),
       resourceName: pool.name,

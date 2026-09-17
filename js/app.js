@@ -2004,10 +2004,11 @@ function openTownZoneModal(zoneId, zoneName) {
                 <input type="number" min="1" class="amm-number-input amm-buy-qty" data-res="${resKey}" value="${initialBuy}" placeholder="Adet..." />
               </div>
               <div class="amm-est-display">
-                <span style="color: #94a3b8;">Maliyet (%2 Harç Dahil):</span>
+                <span style="color: #94a3b8;">Maliyet (%2 ADA Harcı Dahil):</span>
                 <strong class="amm-est-cost-text" data-res="${resKey}" style="color: #f87171;">
                   ${isFinite(buyCost) ? `~${buyCost.toFixed(2)} ADA` : 'Yetersiz Likidite'}
                 </strong>
+                <div style="font-size: 0.72rem; color: #f97316; margin-top: 3px;">🔥 Alınan miktardan %2 fee anında yakılır</div>
               </div>
               <button class="btn-clean btn-clean-green btn-amm-confirm-buy" data-res="${resKey}" style="padding: 8px 12px; font-size: 0.82rem;">
                 🟢 ONAYLA & SATIN AL
@@ -2023,10 +2024,11 @@ function openTownZoneModal(zoneId, zoneName) {
                 <input type="number" min="1" class="amm-number-input amm-sell-qty" data-res="${resKey}" value="${initialSell}" placeholder="Adet..." />
               </div>
               <div class="amm-est-display">
-                <span style="color: #94a3b8;">Net Kazanç (%2 Harç Sonrası):</span>
+                <span style="color: #94a3b8;">Net Kazanç (%2 ADA Harcı Sonrası):</span>
                 <strong class="amm-est-gain-text" data-res="${resKey}" style="color: #4ade80;">
                   ~${sellGain.toFixed(2)} ADA
                 </strong>
+                <div style="font-size: 0.72rem; color: #f97316; margin-top: 3px;">🔥 Satılan miktardan %2 fee anında yakılır</div>
               </div>
               <button class="btn-clean btn-clean-outline btn-amm-confirm-sell" data-res="${resKey}" style="padding: 8px 12px; font-size: 0.82rem; border-color: #facc15; color: #fde047;">
                 🔴 ONAYLA & SAT
@@ -6433,7 +6435,8 @@ function initAppEvents() {
 
         gameState.state.adAstraBalance += res.adAstraReceived;
         gameState.saveState();
-        showToast(`💰 ${qty.toLocaleString('tr-TR')} ${res.resourceName} satıldı: +${res.adAstraReceived.toFixed(2)} ADA cüzdana eklendi! (%2 Harç: ${res.fee.toFixed(2)} ADA Hazine Kasalarına & UBI'ye aktarıldı)`, 'success');
+        const burnInfo = res.resourceBurnFee > 0 ? ` (🔥 %2 Yakım: ${res.resourceBurnFee.toLocaleString('tr-TR')} ${res.resourceName} kalıcı silindi)` : '';
+        showToast(`💰 ${qty.toLocaleString('tr-TR')} ${res.resourceName} satıldı: +${res.adAstraReceived.toFixed(2)} ADA cüzdana eklendi! (%2 Harç: ${res.fee.toFixed(2)} ADA Hazine Kasalarına & UBI'ye aktarıldı)${burnInfo}`, 'success');
         sound.playLevelUp();
         openTownZoneModal('market', '🏪 AMM Pazar Alanı');
       } else {
@@ -6473,7 +6476,8 @@ function initAppEvents() {
         else gameState.state.inventory[resKey] = (gameState.state.inventory[resKey] || 0) + res.resourceReceived;
 
         gameState.saveState();
-        showToast(`🛒 ${res.cost.toFixed(2)} ADA ödendi: +${res.resourceReceived.toLocaleString('tr-TR')} ${res.resourceName} satın alındı! (%2 Harç: ${res.fee.toFixed(2)} ADA Hazine Kasalarına aktarıldı)`, 'success');
+        const burnInfo = res.resourceBurnFee > 0 ? ` (🔥 %2 Yakım: ${res.resourceBurnFee.toLocaleString('tr-TR')} ${res.resourceName} kalıcı silindi)` : '';
+        showToast(`🛒 ${res.cost.toFixed(2)} ADA ödendi: +${res.resourceReceived.toLocaleString('tr-TR')} ${res.resourceName} satın alındı! (%2 Harç: ${res.fee.toFixed(2)} ADA Hazine Kasalarına aktarıldı)${burnInfo}`, 'success');
         sound.playLevelUp();
 
         // 🤖 Bot duraklatılmışsa ve eksik kaynak tamamlandıysa anında devreye sok
