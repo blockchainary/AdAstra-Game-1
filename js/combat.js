@@ -664,9 +664,11 @@ export function simulateBattle({
   const alliesDown = !allies.some(isAlive);
   const victory = enemiesDown && !alliesDown;
   const timeout = !enemiesDown && !alliesDown;
+  const winner = victory ? 'ally' : (alliesDown ? 'enemy' : 'draw');
 
   return {
     victory,
+    winner,
     timeout,
     rounds,
     roundCount: round,

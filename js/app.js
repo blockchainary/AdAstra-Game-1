@@ -5456,7 +5456,7 @@ function executeMonsterBattle(monster, selectedIndices) {
   }, 220);
 
   function finalizeBattle() {
-    const isVictory = simResult.winner === 'ally';
+    const isVictory = !!(simResult.victory || simResult.winner === 'ally' || eCurHp <= 0);
 
     // Askerlerin gerçek canlarının güncellenmesi (Askeri Koruma: 1 HP altına düşmez)
     const weaponsWorn = [];
