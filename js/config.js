@@ -264,8 +264,9 @@ export const GAME_CONFIG = {
   // =========================================================================
   // Tek bir asker türü: AdAstra Şampiyonu. Level 1'de fix 100 HP ve fix 25 ATK.
   SOLDIER_PRICE: 5000,                // 1. askerin başlangıç fiyatı: 5.000 ADA
-  SOLDIER_COST_BASE: 5000,            // Taban maliyet: 5.000 ADA
-  SOLDIER_COST_EXPONENT: 1.25,        // Kademeli artış üssü (1. asker 5.000, 18. asker ~185.000 ADA)
+  SOLDIER_COST_BASE: 5000,            // Taban maliyet: 5.000 ADA (1. asker)
+  SOLDIER_COST_EXPONENT: 2.0364522367650437, // Kademeli artış üssü (1. asker: 5.000 ADA, 18. asker: 1.800.000 ADA)
+  SOLDIER_18_TARGET_COST: 1800000,    // 18. asker maliyeti: 1.8 Milyon ADA
   MAX_SOLDIERS: Infinity,             // Sınırsız ordu ve asker alımı
   SOLDIER_MAX_HP: 100,                // Fix Level 1 HP
   SOLDIER_BASE_ATK: 25,               // Fix Level 1 ATK

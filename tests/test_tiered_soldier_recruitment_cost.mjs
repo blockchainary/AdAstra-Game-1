@@ -38,6 +38,7 @@ describe('⚔️ Kademeli Artan Asker Satın Alma Maliyeti Testi', () => {
     const cost18 = gameState.getSoldierCost(18);
 
     assert.strictEqual(cost1, 5000);
+    assert.strictEqual(cost18, 1800000, '18. asker maliyeti tam olarak 1.800.000 $ADASTRA olmalıdır');
     assert.ok(cost2 > cost1, `2. asker (${cost2}) 1. askerden (${cost1}) pahalı olmalı`);
     assert.ok(cost3 > cost2, `3. asker (${cost3}) 2. askerden (${cost2}) pahalı olmalı`);
     assert.ok(cost5 > cost3, `5. asker (${cost5}) 3. askerden (${cost3}) pahalı olmalı`);
@@ -50,7 +51,7 @@ describe('⚔️ Kademeli Artan Asker Satın Alma Maliyeti Testi', () => {
     console.log(`- 3. Asker: ${cost3.toLocaleString()} ADA`);
     console.log(`- 5. Asker: ${cost5.toLocaleString()} ADA`);
     console.log(`- 10. Asker: ${cost10.toLocaleString()} ADA`);
-    console.log(`- 18. Asker: ${cost18.toLocaleString()} ADA`);
+    console.log(`- 18. Asker: ${cost18.toLocaleString()} ADA (1.8 Milyon ADA)`);
   });
 
   it('3. buySoldierUnit fonksiyonu ilk askeri alırken tam 5.000 ADA tahsil etmeli', () => {

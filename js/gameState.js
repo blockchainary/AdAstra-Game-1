@@ -204,14 +204,17 @@ export class GameStateManager {
     });
   }
 
-  // Asker satın alma maliyeti: İlk asker 5.000 $ADASTRA, kademeli artan model
+  // Asker satın alma maliyeti: İlk asker 5.000 $ADASTRA, 18. asker 1.800.000 $ADASTRA kademeli artan model
   getSoldierCost(index = (this.state.soldierUnits || []).length + 1) {
     const n = Math.max(1, index);
     const base = GAME_CONFIG.SOLDIER_COST_BASE || 5000;
-    const exponent = (GAME_CONFIG.SOLDIER_COST_EXPONENT != null) ? GAME_CONFIG.SOLDIER_COST_EXPONENT : 1.25;
-    if (exponent === 0 || n === 1) {
+    if (n === 1) {
       return base;
     }
+    if (n === 18 && GAME_CONFIG.SOLDIER_18_TARGET_COST) {
+      return GAME_CONFIG.SOLDIER_18_TARGET_COST;
+    }
+    const exponent = (GAME_CONFIG.SOLDIER_COST_EXPONENT != null) ? GAME_CONFIG.SOLDIER_COST_EXPONENT : 2.0364522367650437;
     const rawCost = base * Math.pow(n, exponent);
     return Math.round(rawCost / 50) * 50;
   }
