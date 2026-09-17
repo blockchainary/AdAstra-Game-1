@@ -731,7 +731,7 @@ export const GAME_CONFIG = {
       { id: 'ada_1000',      name: '🏆 1.000 $ADASTRA BÜYÜK İKRAMİYE',icon: '👑', type: 'ada',      amount: 1000,                   valAda: 1000, weight: 10 },
       { id: 'ada_50',        name: '50 $ADASTRA Ödül',                icon: '🟣', type: 'ada',      amount: 50,                     valAda: 50,   weight: 2000 },
       { id: 'box_key',       name: '1 Pandora Kutusu Anahtarı',       icon: '🔑', type: 'key',      amount: 1,                      valAda: 1000, weight: 8 },
-      { id: 'wheel_ticket_shard', name: 'Amorti Çark Bileti (10 Adet = 1 Çevirme)', icon: '🎟️', type: 'ticket_shard', amount: 1,  valAda: 10, weight: 3312 },
+      { id: 'wheel_ticket_shard', name: 'Amorti Çark Bileti (3 Adet = 1 Çevirme)', icon: '🎟️', type: 'ticket_shard', amount: 1,  valAda: 33.3, weight: 3312 },
       { id: 'coin_analysis_code', name: 'AlphAvax Vercel App Özel Coin Analiz Bileti', icon: '🎫', type: 'analysis_code', amount: 1, valAda: 0, weight: 50 }
     ],
     // Haftalık Piyango Sistemi
@@ -841,8 +841,8 @@ export const GAME_CONFIG = {
       date: 'Eylül 2026',
       changes: [
         'Karnaval Çarkı amorti bilet parçası (wheel_ticket_shard) kazanıldığında sayfanın veya modalın kapatılıp açılması gerekliliği ortadan kaldırıldı.',
-        'Kazanım anında "🎟️ Amorti Bilet Parçaları: X/10" rozeti canlı animasyon ve altın rengi vurgu ile anında güncellenir.',
-        '10 Parça tamamlanıp 1 Piyango/Çark Biletine dönüştüğünde, hem amorti sayacı hem de "🎟️ 1 Bilet İle Çevir" butonu anında canlı olarak senkronize edilir.',
+        'Kazanım anında "🎟️ Amorti Bilet Parçaları: X/3" rozeti canlı animasyon ve altın rengi vurgu ile anında güncellenir.',
+        '3 Parça tamamlanıp 1 Piyango/Çark Biletine dönüştüğünde, hem amorti sayacı hem de "🎟️ 1 Bilet İle Çevir" butonu anında canlı olarak senkronize edilir.',
         'Kazanılan AlphAvax Vercel App analiz kodları modal açıkken anlık olarak listeye eklenir.'
       ]
     },

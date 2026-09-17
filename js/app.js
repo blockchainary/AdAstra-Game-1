@@ -2998,7 +2998,7 @@ function updateCarnivalWheelUI(options = { updateShards: true }) {
   if (options.updateShards) {
     const shardsBadge = document.getElementById('carnival-shards-badge');
     if (shardsBadge) {
-      shardsBadge.innerHTML = `🎟️ Amorti Bilet Parçaları: <strong>${shards}/10</strong> ${shards >= 10 ? '🎉 (+1 Bilet Eklendi!)' : ''}`;
+      shardsBadge.innerHTML = `🎟️ Amorti Bilet Parçaları: <strong>${shards}/3</strong> ${shards >= 3 ? '🎉 (+1 Bilet Eklendi!)' : ''}`;
       shardsBadge.style.transform = 'scale(1.12)';
       shardsBadge.style.borderColor = '#fde047';
       shardsBadge.style.background = 'rgba(250,204,21,0.25)';
@@ -3289,7 +3289,7 @@ function renderCarnivalHtml(activeTab = 'wheel') {
               </div>
             </div>
             <div id="carnival-shards-badge" style="font-size:0.82rem; color:#fde047; background:rgba(0,0,0,0.4); padding:6px 14px; border-radius:8px; border:1px solid rgba(250,204,21,0.3); transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease, border-color 0.2s ease;">
-              🎟️ Amorti Bilet Parçaları: <strong>${shards}/10</strong> ${shards >= 10 ? '🎉 (+1 Bilet Eklendi!)' : ''}
+              🎟️ Amorti Bilet Parçaları: <strong>${shards}/3</strong> ${shards >= 3 ? '🎉 (+1 Bilet Eklendi!)' : ''}
             </div>
           </div>
         </div>

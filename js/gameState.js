@@ -3604,60 +3604,125 @@ export class GameStateManager {
     }
 
     let rewardSummaryText = selectedReward.name;
+    let buybackInfo = null;
+
     if (selectedReward.type === 'ada') {
-      this.state.adAstraBalance += selectedReward.amount;
-    } else if (selectedReward.type === 'resource') {
-      inv[selectedReward.key] = (inv[selectedReward.key] || 0) + selectedReward.amount;
-    } else if (selectedReward.type === 'amm_raw' || ['wood', 'iron', 'wheat'].includes(selectedReward.key)) {
-      const resKey = selectedReward.key;
-      const p = ammMarket.getPrice(resKey) || 1.0;
-      const grantAmount = selectedReward.amount || Math.round((selectedReward.adaVal || 50) / p);
-      inv[resKey] = (inv[resKey] || 0) + grantAmount;
-      const grantResNameTr = this.getResourceNameTr(resKey);
-      rewardSummaryText = `${grantAmount.toLocaleString('tr-TR')} ${grantResNameTr} (${selectedReward.name})`;
+      // 🏛️ KARNAVAL HAZİNESİNDEN ADA ÖDÜLÜ: Havadan basılmaz, doğrudan Karnaval Hazine Kasasından karşılanır!
+      const rewardAmount = selectedReward.amount || 0;
+      const carnivalBalance = (typeof treasury !== 'undefined' && treasury.getPool) ? treasury.getPool('carnival') : ((typeof treasury !== 'undefined' && treasury.state?.pools?.carnival) || 0);
+      const adaToPay = carnivalBalance > 0 ? Math.min(carnivalBalance, rewardAmount) : rewardAmount;
 
-      // 🏛️ KARNAVAL HAZİNE KASASINDAN MARKET SATIN ALIMI & YAKIM MEKANİZMASI:
-      // Çarkta hammadde ödülü çıktığında, karnaval hazine kasasındaki ADA ile marketten bu kadar hammadde satın alınır ve yakılır!
-      const buyCostAda = Math.round(grantAmount * p);
-      const carnivalBalance = (typeof treasury !== 'undefined' && treasury.getPool) ? treasury.getPool('carnival') : 0;
-      const adaToSpend = Math.min(carnivalBalance, buyCostAda);
-
-      if (adaToSpend > 0 && typeof treasury !== 'undefined') {
-        treasury.state.pools.carnival = Math.max(0, (treasury.state.pools.carnival || 0) - adaToSpend);
+      if (typeof treasury !== 'undefined' && adaToPay > 0 && (treasury.state?.pools?.carnival || 0) > 0) {
+        const actualDeduct = Math.min(treasury.state.pools.carnival, adaToPay);
+        treasury.state.pools.carnival = Math.max(0, treasury.state.pools.carnival - actualDeduct);
         if (!treasury.state.outflow) treasury.state.outflow = {};
-        treasury.state.outflow.carnival = (treasury.state.outflow.carnival || 0) + adaToSpend;
+        treasury.state.outflow.carnival = (treasury.state.outflow.carnival || 0) + actualDeduct;
         treasury.save();
       }
 
-      // AMM DEX Marketinden satın alma: Havuz likiditesine ADA aktarılır, hammadde dolaşımdan çıkıp kalıcı yakılır
+      this.state.adAstraBalance += adaToPay;
+      rewardSummaryText = `${adaToPay.toLocaleString('tr-TR')} $ADASTRA (🏛️ Karnaval Hazinesinden Karşılandı)`;
+
+    } else if (selectedReward.key === 'fragments' || (selectedReward.type === 'resource' && selectedReward.key === 'fragments')) {
+      // 🏛️ TEÇHİZAT PARÇALARI: Sonsuz/infinit basılmaz, Karnaval Hazinesi bütçesiyle AMM marketten buyback yapılıp kullanıcıya verilir!
+      const fragAmount = selectedReward.amount || 1;
+      const fragPrice = (typeof ammMarket !== 'undefined' && ammMarket.getPrice) ? (ammMarket.getPrice('fragments') || 45.0) : 45.0;
+      const buyCostAda = Math.round(fragAmount * fragPrice);
+
+      const carnivalBalance = (typeof treasury !== 'undefined' && treasury.getPool) ? treasury.getPool('carnival') : ((typeof treasury !== 'undefined' && treasury.state?.pools?.carnival) || 0);
+      const adaToSpend = carnivalBalance > 0 ? Math.min(carnivalBalance, buyCostAda) : buyCostAda;
+
+      if (typeof treasury !== 'undefined' && adaToSpend > 0 && (treasury.state?.pools?.carnival || 0) > 0) {
+        const actualDeduct = Math.min(treasury.state.pools.carnival, adaToSpend);
+        treasury.state.pools.carnival = Math.max(0, treasury.state.pools.carnival - actualDeduct);
+        if (!treasury.state.outflow) treasury.state.outflow = {};
+        treasury.state.outflow.carnival = (treasury.state.outflow.carnival || 0) + actualDeduct;
+        treasury.save();
+      }
+
+      // AMM DEX Marketinden Buyback: Pazar havuzuna ADA girer, pazar havuzundan rezerv düşer
+      if (typeof ammMarket !== 'undefined' && ammMarket.pools && ammMarket.pools.fragments) {
+        ammMarket.pools.fragments.adAstraReserve = (ammMarket.pools.fragments.adAstraReserve || 0) + adaToSpend;
+        ammMarket.pools.fragments.resourceReserve = Math.max(1, (ammMarket.pools.fragments.resourceReserve || 0) - fragAmount);
+        if (typeof ammMarket.savePools === 'function') ammMarket.savePools();
+      }
+
+      // Kullanıcıya teslim edilir
+      inv.fragments = (inv.fragments || 0) + fragAmount;
+      rewardSummaryText = `${fragAmount} Teçhizat Parçası (🏛️ Karnaval Hazinesinden Market Buyback)`;
+      buybackInfo = { item: `${fragAmount} Teçhizat Parçası`, adaSpent: adaToSpend };
+
+    } else if (selectedReward.type === 'amm_raw' || ['wood', 'iron', 'wheat'].includes(selectedReward.key)) {
+      // 🏛️ HAMMADDELER (Odun, Demir, Buğday): Sonsuz basılmaz, Karnaval Hazinesi bütçesiyle AMM marketten buyback yapılıp kullanıcıya verilir!
+      const resKey = selectedReward.key;
+      const p = (typeof ammMarket !== 'undefined' && ammMarket.getPrice) ? (ammMarket.getPrice(resKey) || 1.0) : 1.0;
+      const grantAmount = selectedReward.amount || Math.round((selectedReward.adaVal || 50) / p);
+      const buyCostAda = Math.round(grantAmount * p);
+
+      const carnivalBalance = (typeof treasury !== 'undefined' && treasury.getPool) ? treasury.getPool('carnival') : ((typeof treasury !== 'undefined' && treasury.state?.pools?.carnival) || 0);
+      const adaToSpend = carnivalBalance > 0 ? Math.min(carnivalBalance, buyCostAda) : buyCostAda;
+
+      if (typeof treasury !== 'undefined' && adaToSpend > 0 && (treasury.state?.pools?.carnival || 0) > 0) {
+        const actualDeduct = Math.min(treasury.state.pools.carnival, adaToSpend);
+        treasury.state.pools.carnival = Math.max(0, treasury.state.pools.carnival - actualDeduct);
+        if (!treasury.state.outflow) treasury.state.outflow = {};
+        treasury.state.outflow.carnival = (treasury.state.outflow.carnival || 0) + actualDeduct;
+        treasury.save();
+      }
+
+      // AMM DEX Marketinden Buyback: Pazar havuzuna ADA girer, pazar havuzundan hammadde düşer
       if (typeof ammMarket !== 'undefined' && ammMarket.pools && ammMarket.pools[resKey]) {
         ammMarket.pools[resKey].adAstraReserve = (ammMarket.pools[resKey].adAstraReserve || 0) + adaToSpend;
         ammMarket.pools[resKey].resourceReserve = Math.max(1, (ammMarket.pools[resKey].resourceReserve || 0) - grantAmount);
         if (typeof ammMarket.savePools === 'function') ammMarket.savePools();
       }
 
-      // Çıkan hammadde kadar miktar anında yakılır ve Karnaval Yakılan Hammaddeler sayacına eklenir!
-      this.recordCarnivalResourceBurn(resKey, grantAmount);
+      // Kullanıcıya teslim edilir
+      inv[resKey] = (inv[resKey] || 0) + grantAmount;
+      const grantResNameTr = this.getResourceNameTr(resKey);
+      rewardSummaryText = `${grantAmount.toLocaleString('tr-TR')} ${grantResNameTr} (🏛️ Karnaval Hazinesinden Market Buyback)`;
+      buybackInfo = { item: `${grantAmount.toLocaleString('tr-TR')} ${grantResNameTr}`, adaSpent: adaToSpend };
 
-      burnedInfo = {
-        resource: resKey,
-        resourceNameTr: grantResNameTr,
-        amount: grantAmount,
-        adaSpent: adaToSpend,
-        fromTreasuryBuy: true
-      };
+    } else if (selectedReward.type === 'key' || selectedReward.id === 'box_key') {
+      // 🏛️ PANDORA KUTUSU ANAHTARLARI: Sonsuz basılmaz, Karnaval Hazinesi bütçesiyle AMM marketten buyback yapılıp kullanıcıya verilir!
+      const keyAmount = selectedReward.amount || 1;
+      const keyPrice = (typeof ammMarket !== 'undefined' && ammMarket.getPrice) ? (ammMarket.getPrice('keys') || 1000.0) : 1000.0;
+      const buyCostAda = Math.round(keyAmount * keyPrice);
+
+      const carnivalBalance = (typeof treasury !== 'undefined' && treasury.getPool) ? treasury.getPool('carnival') : ((typeof treasury !== 'undefined' && treasury.state?.pools?.carnival) || 0);
+      const adaToSpend = carnivalBalance > 0 ? Math.min(carnivalBalance, buyCostAda) : buyCostAda;
+
+      if (typeof treasury !== 'undefined' && adaToSpend > 0 && (treasury.state?.pools?.carnival || 0) > 0) {
+        const actualDeduct = Math.min(treasury.state.pools.carnival, adaToSpend);
+        treasury.state.pools.carnival = Math.max(0, treasury.state.pools.carnival - actualDeduct);
+        if (!treasury.state.outflow) treasury.state.outflow = {};
+        treasury.state.outflow.carnival = (treasury.state.outflow.carnival || 0) + actualDeduct;
+        treasury.save();
+      }
+
+      // AMM DEX Marketinden Buyback: Pazar havuzuna ADA girer, havuzdan anahtar düşer
+      if (typeof ammMarket !== 'undefined' && ammMarket.pools && ammMarket.pools.keys) {
+        ammMarket.pools.keys.adAstraReserve = (ammMarket.pools.keys.adAstraReserve || 0) + adaToSpend;
+        ammMarket.pools.keys.resourceReserve = Math.max(1, (ammMarket.pools.keys.resourceReserve || 0) - keyAmount);
+        if (typeof ammMarket.savePools === 'function') ammMarket.savePools();
+      }
+
+      // Kullanıcıya teslim edilir
+      this.state.arenaKeys = (this.state.arenaKeys || 0) + keyAmount;
+      rewardSummaryText = `${keyAmount} Pandora Kutusu Anahtarı (🏛️ Karnaval Hazinesinden Market Buyback)`;
+      buybackInfo = { item: `${keyAmount} Pandora Kutusu Anahtarı`, adaSpent: adaToSpend };
+
     } else if (selectedReward.type === 'bot_free') {
       this.buyTavernaAutomationBot(true);
-    } else if (selectedReward.type === 'key') {
-      this.state.arenaKeys = (this.state.arenaKeys || 0) + selectedReward.amount;
     } else if (selectedReward.type === 'scroll') {
       inv[selectedReward.key] = (inv[selectedReward.key] || 0) + selectedReward.amount;
     } else if (selectedReward.type === 'ticket_shard') {
+      // 🎟️ AMORTİ BİLETLERİ: 10'dan 3'e indirildi! 3 adet amorti bileti geldiğinde 1 çark çevirme hakkı verir!
       this.state.wheelTicketShards = (this.state.wheelTicketShards || 0) + 1;
-      if (this.state.wheelTicketShards >= 10) {
-        this.state.wheelTicketShards -= 10;
+      if (this.state.wheelTicketShards >= 3) {
+        this.state.wheelTicketShards -= 3;
         this.state.lotteryTickets = (this.state.lotteryTickets || 0) + 1;
-        rewardSummaryText += ' (🎉 10 Parça birikti: +1 Piyango/Çark Bileti Kazanıldı!)';
+        rewardSummaryText += ' (🎉 3 Parça Birikti: +1 Çark Çevirme / Piyango Bileti Kazanıldı!)';
       }
     } else if (selectedReward.type === 'analysis_code') {
       const code = `ALPHAVAX-COIN-${Date.now().toString(36).toUpperCase()}`;
@@ -3675,8 +3740,9 @@ export class GameStateManager {
       slice: selectedReward,
       rewardSummaryText,
       burnedInfo,
-      message: burnedInfo?.fromTreasuryBuy
-        ? `🎉 Çarktan kazandın: ${rewardSummaryText}! 🏛️ Karnaval Kasasından (${burnedInfo.adaSpent.toLocaleString('tr-TR')} ADA) karşılanarak pazar havuzundan satın alındı ve ${burnedInfo.amount.toLocaleString('tr-TR')} ${burnedInfo.resourceNameTr} kalıcı olarak yakıldı!`
+      buybackInfo,
+      message: buybackInfo
+        ? `🎉 Çarktan kazandın: ${rewardSummaryText}! (🏛️ Karnaval Hazine Kasasından ${buybackInfo.adaSpent.toLocaleString('tr-TR')} ADA ile AMM DEX pazarından buyback yapılıp teslim edildi)`
         : burnedInfo
         ? `🔥 ${burnedInfo.amount.toLocaleString('tr-TR')} ${burnedInfo.resourceNameTr} anında yakıldı ve sistemden silindi! Çarktan kazandın: ${rewardSummaryText}`
         : `🎉 Tebrikler! Çarktan kazandın: ${rewardSummaryText}`
