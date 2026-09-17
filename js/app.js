@@ -2250,16 +2250,6 @@ function openTownZoneModal(zoneId, zoneName) {
           </button>
         </div>
       </div>
-
-
-
-      <!-- Stamina Fullleme -->
-      <div class="clean-card">
-        <div class="card-title">🥩 Ziyafet Sofrası (Stamina Fullleme)</div>
-        <button class="btn-clean btn-clean-purple" id="btn-inn-refill">
-          Staminayı Anında ${gameState.getMaxStamina()}/${gameState.getMaxStamina()} Fullle (50 $ADASTRA)
-        </button>
-      </div>
     `;
   }
 
@@ -6772,19 +6762,6 @@ function initAppEvents() {
       if (res.success) {
         showToast(res.message, 'success');
         openTownZoneModal('tavern', '🍺 Taverna & Han');
-      } else {
-        showToast(res.message, 'error');
-      }
-      renderTopBar();
-      return;
-    }
-
-    // Taverna Stamina Refill
-    if (e.target.closest('#btn-inn-refill')) {
-      const res = gameState.instantRefillStamina();
-      if (res.success) {
-        showToast(res.message, 'success');
-        closeModal();
       } else {
         showToast(res.message, 'error');
       }

@@ -739,24 +739,9 @@ export class GameStateManager {
     return this.refillStaminaExact(needed);
   }
 
-  // 2. Tavernadan AdAstra Karşılığında Staminayı Fullleme
+  // 2. Tavernadan AdAstra Karşılığında Staminayı Fullleme (DEVRE DIŞI - Stamina sadece Buğday ile doldurulabilir)
   instantRefillStamina() {
-    const cost = GAME_CONFIG.STAMINA_INSTANT_REFILL_ADASTRA_COST || 50;
-    const maxStam = this.getMaxStamina();
-    const curBal = Number(this.state.adAstraBalance) || 0;
-    if (curBal < cost) {
-      return { success: false, message: `Yetersiz AdAstra Token! (${cost} ADA gerekli, mevcut: ${curBal.toFixed(1)} ADA)` };
-    }
-    if (this.state.stamina >= maxStam) {
-      return { success: false, message: 'Stamina zaten dolu!' };
-    }
-
-    this.state.adAstraBalance = curBal - cost;
-    this.state.stamina = maxStam;
-    globalPool.recordTokenSpend(cost);
-    sound.playStaminaRefill();
-    this.saveState();
-    return { success: true, message: `🥩 Stamina ${maxStam}/${maxStam} fullendi!` };
+    return { success: false, message: 'Stamina $ADASTRA ile doldurulamaz! Sadece buğday ile doldurulabilir.' };
   }
 
   // =========================================================================

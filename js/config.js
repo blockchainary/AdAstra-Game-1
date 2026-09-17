@@ -30,7 +30,7 @@ export const GAME_CONFIG = {
   STAMINA_COST_PER_EXPEDITION: 20,    // maliyet = 20 + 8·(L-1)
   STAMINA_COST_PER_LEVEL: 8,
   STAMINA_NATURAL_REGEN_INTERVAL: 150,
-  STAMINA_INSTANT_REFILL_ADASTRA_COST: 50,
+  // Stamina artık AdAstra ile doldurulamaz, yalnızca buğday ile doldurulabilir:
   WHEAT_REFILL_RATIO: 0.21,           // 1 Stamina = Dk başı buğday (15) * %21 = 3.15 Buğday
   WHEAT_PER_STAMINA: 3.15,            // 1 Stamina doldurmak için gereken buğday miktarı (Fix 3.15)
 

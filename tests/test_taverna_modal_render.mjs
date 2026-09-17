@@ -34,4 +34,16 @@ assert.doesNotThrow(() => {
   botCalc.dailyBotCostAda.toLocaleString();
 }, 'Taverna modalı render edilirken toLocaleString() hatası alınmamalı');
 
-console.log('✅ Taverna ekranı ve bot finansal hesaplama motoru %100 doğrulandı.');
+// AdAstra ile stamina doldurma devre dışı olmalı; sadece buğday ile doldurulabilir
+const adastraRefillRes = gs.instantRefillStamina();
+assert.equal(adastraRefillRes.success, false, 'AdAstra ile stamina doldurma kesinlikle başarısız olmalı');
+assert(adastraRefillRes.message.includes('buğday'), 'Mesaj buğday ile doldurulabileceğini belirtmeli');
+
+// Buğday ile doldurma mekanizması sorunsuz çalışmalı
+gs.state.stamina = 10;
+gs.state.inventory.wheat = 1000;
+const wheatRefillRes = gs.refillStaminaToMaxWithWheat();
+assert.equal(wheatRefillRes.success, true, 'Buğday ile stamina doldurma başarılı olmalı');
+assert(gs.state.stamina > 10, 'Stamina buğday ile artmış olmalı');
+
+console.log('✅ Taverna ekranı, bot hesaplaması ve buğdaylı stamina kuralı %100 doğrulandı.');
