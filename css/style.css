@@ -1102,21 +1102,21 @@ body.modal-open .realm-tooltip {
 .toast.success { border-color: #10b981; color: #6ee7b7; }
 .toast.error { border-color: #ef4444; color: #fca5a5; }
 
-/* Loading Screen */
+/* Loading Screen — Realm of Astra Royal Scroll Edition */
 .loading-screen-overlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: #0d0703;
+  background: radial-gradient(circle at center, #1e130c 0%, #0d0703 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 16px;
   z-index: 99999;
-  transition: opacity 0.4s ease;
+  transition: opacity 0.5s ease;
 }
 
 .loading-screen-overlay.hidden {
@@ -1125,30 +1125,157 @@ body.modal-open .realm-tooltip {
   display: none;
 }
 
-.loading-logo {
+/* Royal Scroll Card */
+.royal-scroll-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 820px;
+  width: 90vw;
+  background: rgba(18, 10, 6, 0.85);
+  border: 2px solid rgba(234, 179, 8, 0.45);
+  border-radius: 20px;
+  padding: 18px 24px 24px 24px;
+  box-shadow: 0 16px 60px rgba(0, 0, 0, 0.95), 0 0 40px rgba(234, 179, 8, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(16px);
+  animation: royalScrollFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes royalScrollFadeIn {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.royal-scroll-banner-wrap {
+  width: 100%;
+  max-height: 380px;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 2px solid #ca8a04;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.8), 0 0 25px rgba(202, 138, 4, 0.35);
+  position: relative;
+  background: #000;
+}
+
+.royal-scroll-banner-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));
+}
+
+.royal-scroll-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin-top: 18px;
+  gap: 8px;
+}
+
+.royal-scroll-title {
   font-family: var(--font-game);
-  font-size: 2.2rem;
+  font-size: 2.1rem;
   font-weight: 800;
   color: #fde047;
-  text-shadow: 0 4px 12px rgba(250, 204, 21, 0.4);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  text-shadow: 0 4px 16px rgba(250, 204, 21, 0.6), 0 2px 4px rgba(0,0,0,0.9);
+}
+
+.loading-subtext {
+  font-family: var(--font-game);
+  font-size: 0.92rem;
+  color: #fef08a;
+  opacity: 0.85;
+  text-align: center;
+  font-style: italic;
 }
 
 .loading-bar-container {
-  width: 320px;
+  width: 100%;
+  max-width: 440px;
   height: 20px;
   background: #170d06;
-  border: 2.5px solid #ca8a04;
+  border: 2px solid #ca8a04;
   border-radius: 12px;
   overflow: hidden;
   padding: 2px;
+  margin-top: 6px;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.8);
 }
 
 .loading-bar-fill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, #f59e0b, #10b981);
+  background: linear-gradient(90deg, #ca8a04, #f59e0b, #10b981);
   border-radius: 8px;
   transition: width 0.1s ease;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.7);
+}
+
+.royal-scroll-pct {
+  font-family: var(--font-game);
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #fde047;
+  text-shadow: 0 0 8px rgba(250, 204, 21, 0.5);
+}
+
+/* Üst Bar Sol Marka Rozeti (Top Brand Logo Wrap) */
+.top-brand-logo-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 12px 3px 6px;
+  background: linear-gradient(135deg, rgba(30, 18, 12, 0.85) 0%, rgba(15, 8, 5, 0.95) 100%);
+  border: 1.5px solid rgba(234, 179, 8, 0.5);
+  border-radius: 14px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+.top-brand-logo-wrap:hover {
+  transform: translateY(-2px);
+  border-color: #fde047;
+  box-shadow: 0 0 18px rgba(250, 204, 21, 0.45);
+}
+
+.top-brand-seal-img {
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  object-fit: cover;
+  object-position: 28% 48%; /* Mühür ve kalkan kısmına odaklan */
+  border: 1.5px solid #ca8a04;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  flex-shrink: 0;
+}
+
+.top-brand-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.top-brand-title {
+  font-family: var(--font-game);
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #fde047;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+}
+
+.top-brand-tag {
+  font-size: 0.68rem;
+  color: #c084fc;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  line-height: 1;
 }
 
 /* =========================================================================

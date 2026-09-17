@@ -1,5 +1,6 @@
-// AdAstra: Genesis Realm - Karakter Seviyesi, Kışla Ordusu, Taverna Güçlendirmeleri & AMM Konfigürasyonu
+// Realm of Astra - Karakter Seviyesi, Kışla Ordusu, Taverna Güçlendirmeleri & AMM Konfigürasyonu
 export const GAME_CONFIG = {
+  GAME_TITLE: 'Realm of Astra',
   EPOCH_DURATION_SECONDS: 24 * 3600, // 24 Saatlik Günlük Havuz
   
   // 📢 CANLI DUYURU & RİSK BİLDİRİM PANELİ KONFİGÜRASYONU

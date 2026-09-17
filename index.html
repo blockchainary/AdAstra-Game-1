@@ -3,23 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AdAstra: Genesis Realm - Pixiland Edition</title>
+  <title>Realm of Astra - Official Web3 RPG</title>
+  <link rel="icon" type="image/jpeg" href="realm_of_astra_banner.jpg">
   <link rel="stylesheet" href="css/style.css">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 </head>
 <body>
 
   <!-- ============================================================
-       0. CINEMATIC LOADING SCREEN
+       0. CINEMATIC LOADING & ROYAL SCROLL SCREEN (REALM OF ASTRA)
        ============================================================ -->
-  <div id="loading-screen" class="loading-screen-overlay">
-    <div class="crystal-glow" style="font-size: 3.2rem;">⚔️</div>
-    <div class="loading-logo crystal-glow">ADASTRA: GENESIS REALM</div>
-    <div id="loading-quote" class="loading-subtext">Dağ zindan mağaraları ve canavarlar yükleniyor...</div>
-    <div class="loading-bar-container">
-      <div id="loading-bar-fill" class="loading-bar-fill"></div>
+  <div id="loading-screen" class="loading-screen-overlay royal-scroll-loading">
+    <div class="royal-scroll-card">
+      <div class="royal-scroll-banner-wrap">
+        <img src="realm_of_astra_banner.jpg" alt="Realm of Astra Royal Charter" class="royal-scroll-banner-img" />
+      </div>
+      <div class="royal-scroll-content">
+        <div class="royal-scroll-title">REALM OF ASTRA</div>
+        <div id="loading-quote" class="loading-subtext">Kadim Krallık Fermanı Açılıyor, Kaynaklar Yükleniyor...</div>
+        <div class="loading-bar-container">
+          <div id="loading-bar-fill" class="loading-bar-fill"></div>
+        </div>
+        <div id="loading-percentage" class="royal-scroll-pct">%0</div>
+      </div>
     </div>
-    <div id="loading-percentage" style="font-family: var(--font-game); font-size: 0.95rem; font-weight: 800; color: #fde047;">%0</div>
   </div>
   <script>
     // Failsafe: Loading screen her durumda 3 saniyede kapanır (JS modül hatasından bağımsız)
@@ -39,8 +46,8 @@
         if (fill) fill.style.width = '100%';
         if (pct) pct.innerText = '%100';
         setTimeout(function() {
-          if (screen) { screen.style.opacity = '0'; setTimeout(function(){ screen.style.display = 'none'; }, 400); }
-        }, 200);
+          if (screen) { screen.style.opacity = '0'; setTimeout(function(){ screen.style.display = 'none'; }, 500); }
+        }, 300);
       }, 2500);
     })();
   </script>
@@ -64,7 +71,16 @@
        1. TOP GAME MENU STRIP (HARİTADAN AYRI ÜST ŞERİT MENÜ)
        ============================================================ -->
   <header id="top-nav-strip" class="top-nav-strip">
-    <!-- SOL: Karakter Profili & Cüzdan -->
+    <!-- SOL: REALM OF ASTRA Marka Logosu & Karakter Profili -->
+    <div class="top-brand-logo-wrap" title="Realm of Astra">
+      <img src="realm_of_astra_banner.jpg" alt="Realm of Astra" class="top-brand-seal-img" />
+      <div class="top-brand-text">
+        <span class="top-brand-title">REALM OF ASTRA</span>
+        <span class="top-brand-tag">Web3 GameFi</span>
+      </div>
+    </div>
+
+    <!-- Karakter Profili & Cüzdan -->
     <div class="top-profile-badge" id="profile-badge-btn" style="cursor: pointer;" title="Karakter Seviyesi & Envanteri Aç">
       <div class="top-avatar-frame">🧙‍♂️</div>
       <div class="top-profile-info">
