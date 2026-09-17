@@ -1223,61 +1223,6 @@ body.modal-open .realm-tooltip {
   text-shadow: 0 0 8px rgba(250, 204, 21, 0.5);
 }
 
-/* Üst Bar Sol Marka Rozeti (Top Brand Logo Wrap) */
-.top-brand-logo-wrap {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 3px 12px 3px 6px;
-  background: linear-gradient(135deg, rgba(30, 18, 12, 0.85) 0%, rgba(15, 8, 5, 0.95) 100%);
-  border: 1.5px solid rgba(234, 179, 8, 0.5);
-  border-radius: 14px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.15);
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  flex-shrink: 0;
-}
-
-.top-brand-logo-wrap:hover {
-  transform: translateY(-2px);
-  border-color: #fde047;
-  box-shadow: 0 0 18px rgba(250, 204, 21, 0.45);
-}
-
-.top-brand-seal-img {
-  width: 38px;
-  height: 38px;
-  border-radius: 9px;
-  object-fit: cover;
-  object-position: 28% 48%; /* Mühür ve kalkan kısmına odaklan */
-  border: 1.5px solid #ca8a04;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
-  flex-shrink: 0;
-}
-
-.top-brand-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.top-brand-title {
-  font-family: var(--font-game);
-  font-size: 0.88rem;
-  font-weight: 800;
-  color: #fde047;
-  letter-spacing: 0.5px;
-  line-height: 1.2;
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
-}
-
-.top-brand-tag {
-  font-size: 0.68rem;
-  color: #c084fc;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  line-height: 1;
-}
-
 /* =========================================================================
    4. FIXED DUNGEON FLOOR SELECTOR (SABİT 6 KAT MENÜSÜ)
    ========================================================================= */
