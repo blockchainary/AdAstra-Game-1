@@ -17,6 +17,12 @@ export class GameStateManager {
       this.state.lotteryAmortiPool = Math.round(this.state.lotteryTickets * ticketCost * amortiRate);
       this.saveState();
     }
+    // 🗑️ Sefer Hızlandırıcı İksirlerin Sistemden Tamamen Temizlenmesi
+    if (this.state.activeBuffs) {
+      delete this.state.activeBuffs['speed_potion_1'];
+      delete this.state.activeBuffs['speed_potion_2'];
+      delete this.state.activeBuffs['speed_potion_3'];
+    }
     if (typeof ammMarket !== 'undefined' && ammMarket && ammMarket.subscribe) {
       ammMarket.subscribe(() => {
         this.tickUpgradeCostBot(0);
@@ -816,10 +822,6 @@ export class GameStateManager {
   }
 
   getExpeditionSpeedMultiplier() {
-    if (this.isBuffActive('speed_potion_3')) return 2.0;
-    if (this.isBuffActive('speed_potion_2')) return 1.75;
-    if (this.isBuffActive('speed_potion_1')) return 1.5;
-    if (this.isBuffActive('speed_wood') || this.isBuffActive('speed_iron') || this.isBuffActive('speed_wheat')) return 1.5;
     return 1.0;
   }
 
@@ -1436,10 +1438,6 @@ export class GameStateManager {
 
     const ratePm = this.getResourceRatePerMinute(nodeId);
 
-    // v1 HATASI: burada `speed_${nodeId}` (yani 40 ADA'lık eski buff) okunuyordu.
-    // Oyuncunun tavernada 4.500–45.000 ADA'ya aldığı speed_potion_1/2/3
-    // iksirleri verimi HİÇ etkilemiyordu — 40 ADA'lık ürün 45.000 ADA'lıktan
-    // 1.125 kat daha verimliydi (F-17). Artık gerçek çarpan okunuyor.
     const speedMult = this.getExpeditionSpeedMultiplier();
     const durationMins = exp.durationMinutes || Math.round((exp.durationHours || 0.3) * 60) || Math.max(1, Math.round(exp.durationSeconds / 60));
     const durationHours = exp.durationHours || parseFloat((durationMins / 60).toFixed(2));

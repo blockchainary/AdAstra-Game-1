@@ -2153,15 +2153,11 @@ function openTownZoneModal(zoneId, zoneName) {
     const botCalc = gameState.calculateTavernaBotProfitAndCost();
     const isSiloAutoUpgrade = gameState.state.botSiloAutoUpgrade !== false;
 
-    const isPotion1 = gameState.isBuffActive('speed_potion_1');
-    const isPotion2 = gameState.isBuffActive('speed_potion_2');
-    const isPotion3 = gameState.isBuffActive('speed_potion_3');
-
     html = `
       <div class="clean-card">
-        <div class="card-title">🍺 Taverna Güçlendirmeleri & Otomasyon</div>
+        <div class="card-title">🍺 Taverna & Otomasyon Merkezi</div>
         <div class="clean-desc">
-          Ekonomik dengeye göre optimize edilmiş sefer hızlandırıcı iksirler ve net kâr ortaklığı ile çalışan 24 saatlik otonom sefer botu.
+          Net kâr ortaklığı ile çalışan 24 saatlik otonom sefer ve tamir botu ile ziyafet sofrası.
         </div>
       </div>
 
@@ -2255,46 +2251,7 @@ function openTownZoneModal(zoneId, zoneName) {
         </div>
       </div>
 
-      <!-- 2. Üç Kademeli Sefer İksirleri -->
-      <div class="clean-card">
-        <div class="card-title">⚡ Sefer Hızlandırıcı İksir Paketleri</div>
-        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
 
-          <!-- Kısa Darbe -->
-          <div style="background: #140e08; padding: 10px 12px; border-radius: 8px; border: 1px solid #583007; display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <div style="font-weight: 800; font-size: 0.95rem; color: #38bdf8;">⚡ Kısa Darbe İksiri (1.50x Hız)</div>
-              <div style="font-size: 0.78rem; color: #94a3b8;">2 Saat • 4.500 $ADASTRA</div>
-            </div>
-            <button class="btn-clean btn-clean-outline btn-modal-buybuff" data-buff="speed_potion_1" style="padding: 6px 12px; font-size: 0.8rem; width: auto;" ${isPotion1 ? 'disabled' : ''}>
-              ${isPotion1 ? 'Aktif' : '4.500 ADA'}
-            </button>
-          </div>
-
-          <!-- Standart Sefer -->
-          <div style="background: #140e08; padding: 10px 12px; border-radius: 8px; border: 1px solid #583007; display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <div style="font-weight: 800; font-size: 0.95rem; color: #facc15;">⚡ Standart Sefer İksiri (1.75x Hız)</div>
-              <div style="font-size: 0.78rem; color: #94a3b8;">6 Saat • 15.000 $ADASTRA</div>
-            </div>
-            <button class="btn-clean btn-clean-gold btn-modal-buybuff" data-buff="speed_potion_2" style="padding: 6px 12px; font-size: 0.8rem; width: auto;" ${isPotion2 ? 'disabled' : ''}>
-              ${isPotion2 ? 'Aktif' : '15.000 ADA'}
-            </button>
-          </div>
-
-          <!-- Büyük Sefer -->
-          <div style="background: #140e08; padding: 10px 12px; border-radius: 8px; border: 1px solid #583007; display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <div style="font-weight: 800; font-size: 0.95rem; color: #c084fc;">⚡ Büyük Sefer İksiri (2.00x Hız - Balina)</div>
-              <div style="font-size: 0.78rem; color: #94a3b8;">24 Saat • 45.000 $ADASTRA</div>
-            </div>
-            <button class="btn-clean btn-clean-purple btn-modal-buybuff" data-buff="speed_potion_3" style="padding: 6px 12px; font-size: 0.8rem; width: auto;" ${isPotion3 ? 'disabled' : ''}>
-              ${isPotion3 ? 'Aktif' : '45.000 ADA'}
-            </button>
-          </div>
-
-        </div>
-      </div>
 
       <!-- Stamina Fullleme -->
       <div class="clean-card">
@@ -6437,8 +6394,7 @@ function initAppEvents() {
           toastMsg = '🤖 30 Günlük Otomasyon Botu Aktifleştirildi!';
           break;
         case 'enable_buffs':
-          gameState.activateTavernBuff('speed_potion_3', 7);
-          toastMsg = '⚡ 2.00x Büyük Sefer İksiri 7 Günlük Aktifleştirildi!';
+          toastMsg = 'ℹ️ Sefer iksirleri sistemden tamamen kaldırılmıştır.';
           break;
         case 'finish_expeditions':
           gameState.cheatFinishAllExpeditions();

@@ -434,33 +434,6 @@ export const GAME_CONFIG = {
       durationSeconds: 30 * 24 * 3600,
       costAdAstra: 37800,
       desc: '30 gün boyunca kesintisiz tam otomasyon! Kaynakları toplar, aletleri otomatik tamir eder ve seferleri yönetir (%30 İndirimli).'
-    },
-    speed_potion_1: {
-      id: 'speed_potion_1',
-      name: 'Kısa Darbe İksiri (1.50x Hız & Verim)',
-      icon: '⚡',
-      durationSeconds: 2 * 3600,
-      costAdAstra: 350,
-      speedMultiplier: 1.50,
-      desc: '2 saat boyunca seferlerin hem süresini hem verimini 1.50 kat artırır.'
-    },
-    speed_potion_2: {
-      id: 'speed_potion_2',
-      name: 'Standart Sefer İksiri (1.75x Hız & Verim)',
-      icon: '⚡',
-      durationSeconds: 6 * 3600,
-      costAdAstra: 1200,
-      speedMultiplier: 1.75,
-      desc: '6 saat boyunca seferlerin hem süresini hem verimini 1.75 kat artırır.'
-    },
-    speed_potion_3: {
-      id: 'speed_potion_3',
-      name: 'Büyük Sefer İksiri (2.00x Hız & Verim)',
-      icon: '⚡',
-      durationSeconds: 24 * 3600,
-      costAdAstra: 4200,
-      speedMultiplier: 2.00,
-      desc: '24 saat boyunca seferlerin hem süresini hem verimini 2.00 kat artırır.'
     }
   },
   
