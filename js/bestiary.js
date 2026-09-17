@@ -15,34 +15,34 @@ import { createUnit, DEFAULT_BOSS_PHASES } from './combat.js';
 // 6 kat × 3 seviye = 18 bölüm. Her katın kendi canavar profili ve yetenekleri var.
 export const DUNGEON_LEVELS = [
   // ── 1. KAT: Kristal Mağarası ─────────────────────────────────────────
-  { level: 1,  name: 'Bataklık Balçığı',        icon: '🟢', floor: 1, cls: 'guardian', abilities: [] },
-  { level: 2,  name: 'Mağara Goblini',          icon: '👺', floor: 1, cls: 'ranger',   abilities: ['swoop'] },
-  { level: 3,  name: 'Gölge Kurdu',             icon: '🐺', floor: 1, cls: 'ranger',   abilities: ['swoop'], isFloorGuard: true },
+  { level: 1,  name: 'Bataklık Balçığı',        icon: '🟢', floor: 1, row: 'front', abilities: [] },
+  { level: 2,  name: 'Mağara Goblini',          icon: '👺', floor: 1, row: 'back',  abilities: ['swoop'] },
+  { level: 3,  name: 'Gölge Kurdu',             icon: '🐺', floor: 1, row: 'back',  abilities: ['swoop'], isFloorGuard: true },
 
   // ── 2. KAT: Kemik Mahzeni ─────────────────────────────────────────────
-  { level: 4,  name: 'Kemik Mahzeni İskeleti',  icon: '💀', floor: 2, cls: 'guardian', abilities: ['sunder'] },
-  { level: 5,  name: 'Lanetli Kemik Büyücüsü',  icon: '🧙‍♂️', floor: 2, cls: 'mage',     abilities: ['terrify'] },
-  { level: 6,  name: 'Kemik Taht Muhafızı',     icon: '🗡️', floor: 2, cls: 'paladin',  abilities: ['cleave', 'regenerate'], isFloorGuard: true },
+  { level: 4,  name: 'Kemik Mahzeni İskeleti',  icon: '💀', floor: 2, row: 'front', abilities: ['sunder'] },
+  { level: 5,  name: 'Lanetli Kemik Büyücüsü',  icon: '🧙‍♂️', floor: 2, row: 'back',  abilities: ['terrify'] },
+  { level: 6,  name: 'Kemik Taht Muhafızı',     icon: '🗡️', floor: 2, row: 'front', abilities: ['cleave', 'regenerate'], isFloorGuard: true },
 
   // ── 3. KAT: Kadim Tapınak — ARA BOSS ──────────────────────────────────
-  { level: 7,  name: 'Karanlık Tarikatçı',      icon: '🧙‍♂️', floor: 3, cls: 'mage',     abilities: ['terrify'] },
-  { level: 8,  name: 'Cehennem Tazısı',         icon: '🐺', floor: 3, cls: 'ranger',   abilities: ['swoop', 'cleave'] },
-  { level: 9,  name: 'Kadim Taş Golyat',        icon: '🗿', floor: 3, cls: 'guardian', abilities: ['cleave', 'sunder', 'regenerate'], isBoss: true, bossLabel: 'ARA BOSS', bossPhases: DEFAULT_BOSS_PHASES[9] },
+  { level: 7,  name: 'Karanlık Tarikatçı',      icon: '🧙‍♂️', floor: 3, row: 'back',  abilities: ['terrify'] },
+  { level: 8,  name: 'Cehennem Tazısı',         icon: '🐺', floor: 3, row: 'back',  abilities: ['swoop', 'cleave'] },
+  { level: 9,  name: 'Kadim Taş Golyat',        icon: '🗿', floor: 3, row: 'front', abilities: ['cleave', 'sunder', 'regenerate'], isBoss: true, bossLabel: 'ARA BOSS', bossPhases: DEFAULT_BOSS_PHASES[9] },
 
   // ── 4. KAT: Lanetli Firavun Mezarı ────────────────────────────────────
-  { level: 10, name: 'Sargılı Mumya',           icon: '🧟', floor: 4, cls: 'guardian', abilities: ['sunder'] },
-  { level: 11, name: 'Gölge Hayalet',           icon: '👻', floor: 4, cls: 'mage',     abilities: ['swoop', 'terrify'] },
-  { level: 12, name: 'Lanetli Firavun',         icon: '👑', floor: 4, cls: 'paladin',  abilities: ['cleave', 'regenerate', 'terrify'], isFloorGuard: true },
+  { level: 10, name: 'Sargılı Mumya',           icon: '🧟', floor: 4, row: 'front', abilities: ['sunder'] },
+  { level: 11, name: 'Gölge Hayalet',           icon: '👻', floor: 4, row: 'back',  abilities: ['swoop', 'terrify'] },
+  { level: 12, name: 'Lanetli Firavun',         icon: '👑', floor: 4, row: 'front', abilities: ['cleave', 'regenerate', 'terrify'], isFloorGuard: true },
 
   // ── 5. KAT: Kaynayan Lav Çukuru ──────────────────────────────────────
-  { level: 13, name: 'Ateş İblisi',             icon: '😈', floor: 5, cls: 'ranger',   abilities: ['cleave'] },
-  { level: 14, name: 'Lav Elementali',          icon: '🌋', floor: 5, cls: 'mage',     abilities: ['cleave', 'regenerate'] },
-  { level: 15, name: 'Obsidyen Berserker',      icon: '⚔️', floor: 5, cls: 'ranger',   abilities: ['cleave', 'sunder'], isFloorGuard: true },
+  { level: 13, name: 'Ateş İblisi',             icon: '😈', floor: 5, row: 'back',  abilities: ['cleave'] },
+  { level: 14, name: 'Lav Elementali',          icon: '🌋', floor: 5, row: 'back',  abilities: ['cleave', 'regenerate'] },
+  { level: 15, name: 'Obsidyen Berserker',      icon: '⚔️', floor: 5, row: 'back',  abilities: ['cleave', 'sunder'], isFloorGuard: true },
 
   // ── 6. KAT: Kıyamet Mabedi — FİNAL ───────────────────────────────────
-  { level: 16, name: 'Kıyamet Şövalyesi',       icon: '🛡️', floor: 6, cls: 'paladin',  abilities: ['cleave', 'sunder'] },
-  { level: 17, name: 'Kadim Gölge Lordu',       icon: '👁️', floor: 6, cls: 'mage',     abilities: ['terrify', 'swoop', 'cleave'] },
-  { level: 18, name: 'Kıyamet Ejderhası IGNIS', icon: '🐉', floor: 6, cls: 'guardian', abilities: ['cleave', 'sunder', 'swoop', 'regenerate'], isBoss: true, bossLabel: 'BÜYÜK BOSS', bossPhases: DEFAULT_BOSS_PHASES[18] }
+  { level: 16, name: 'Kıyamet Şövalyesi',       icon: '🛡️', floor: 6, row: 'front', abilities: ['cleave', 'sunder'] },
+  { level: 17, name: 'Kadim Gölge Lordu',       icon: '👁️', floor: 6, row: 'back',  abilities: ['terrify', 'swoop', 'cleave'] },
+  { level: 18, name: 'Kıyamet Ejderhası IGNIS', icon: '🐉', floor: 6, row: 'front', abilities: ['cleave', 'sunder', 'swoop', 'regenerate'], isBoss: true, bossLabel: 'BÜYÜK BOSS', bossPhases: DEFAULT_BOSS_PHASES[18] }
 ];
 
 // Kat başına refakatçi yaratıklar (odalar tek düşmandan ibaret değil)
@@ -127,19 +127,15 @@ export function expectedSquad(level) {
   const setB = eqPieces >= 5 ? 1.25 : eqPieces >= 4 ? 1.12 : eqPieces >= 2 ? 1.05 : 1;
   eqAtk *= setB; eqHp *= setB;
 
-  const baseHp = 100 + 15 * (solLevel - 1);
-  const baseAtk = 20 + 5 * (solLevel - 1);
-
-  // Dengeli kadro varsayımı: guardian/ranger/paladin/mage döngüsü
-  const classes = Object.values(GAME_CONFIG.COMBAT_CLASSES);
-  const avgHpMult = classes.reduce((s, c) => s + c.hpMult, 0) / classes.length;
-  const avgAtkMult = classes.reduce((s, c) => s + c.atkMult, 0) / classes.length;
+  // Tek Tip Asker Whitepaper Eğrisi (Lv.1 - Lv.81)
+  const baseHp = 100 + 25 * (solLevel - 1);
+  const baseAtk = 25 + 6 * (solLevel - 1);
 
   return {
     count,
     solLevel,
-    totalAtk: count * (baseAtk + eqAtk) * avgAtkMult,
-    totalHp: count * (baseHp + eqHp) * avgHpMult
+    totalAtk: count * (baseAtk + eqAtk),
+    totalHp: count * (baseHp + eqHp)
   };
 }
 
@@ -216,16 +212,10 @@ export function buildMonster(level, squadSize = 6, role = 'main', index = 0, sha
     atkMult *= 1.25;
   }
 
-  const cls = role === 'minion' ? 'guardian' : entry.cls;
-  const mainRow = (entry.cls === 'guardian' || entry.cls === 'paladin') ? 'front' : 'back';
-
-  // Kritik şansı ve zırh delme AÇIKÇA verilir. Aksi hâlde createUnit bunları
-  // sınıf şablonundan miras alır ve "ranger" tipli bir canavar %28 kritik +
-  // 40 delme ile aynı seviyedeki "guardian" tipli canavardan kat kat ölümcül
-  // olur — zorluk eğrisi seviyeden seviyeye zıplar. Sınıf yalnızca hafif bir
-  // karakter farkı yaratır, uçurum değil.
-  const flavor = { ranger: 0.07, mage: 0.03, paladin: 0.02, guardian: 0 }[cls] || 0;
-  const penFlavor = { ranger: 14, mage: 8, paladin: 4, guardian: 0 }[cls] || 0;
+  const mainRow = entry.row || 'front';
+  const isBackRow = mainRow === 'back';
+  const flavor = isBackRow ? 0.05 : 0;
+  const penFlavor = isBackRow ? 10 : 0;
 
   return createUnit({
     crit: Math.min(0.30, 0.05 + level * 0.006 + (role === 'minion' ? 0 : flavor)),
@@ -233,10 +223,10 @@ export function buildMonster(level, squadSize = 6, role = 'main', index = 0, sha
     uid: `mon_${level}_${role}_${index}`,
     name,
     icon,
-    cls,
     level,
+    abilities,
     // Refakatçiler ÖN SAFTA durur: ana yaratığa ulaşmak için önce onları
-    // kırman gerekir. Okçunun "Delici Ok"u işte burada değer kazanır.
+    // kırman gerekir.
     row: role === 'minion' ? 'front' : mainRow,
     maxHp: Math.max(1, Math.round(s.hp * hpMult)),
     hp: Math.max(1, Math.round(s.hp * hpMult)),
@@ -340,14 +330,12 @@ export function buildWorldBoss(bossHp, bossAtk, squadSize = 18) {
     uid: 'world_boss',
     name: 'Kadim Kıyamet Behemoth\'u',
     icon: '🌋',
-    cls: 'guardian',
     level: 30,
     maxHp: bossHp,
     hp: bossHp,
     atk: bossAtk,
     armor: 140,
     speed: 12,
-    element: 'fire',
     row: 'front',
     abilities: ['cleave', 'sunder', 'swoop', 'terrify'],
     abilityCooldown: 2,

@@ -574,45 +574,15 @@ export const GAME_CONFIG = {
     FIELD_HOSPITAL_ADA_PER_HP: 2.2
   },
 
-  COMBAT_CLASSES: {
-    guardian: {
-      id: 'guardian', name: 'Kraliyet Muhafızı', icon: '🛡️', preferredRow: 'front',
-      hpMult: 1.35, atkMult: 0.75, baseArmor: 55, baseSpeed: 8, baseCrit: 0.05, basePen: 0,
-      cooldown: 3,
-      ability: 'Kalkan Duvarı',
-      desc: 'Düşman ateşini üzerine çeker (taunt), zırhını %45 artırır ve kalkan kazanır. Safı ayakta tutan birim.'
-    },
-    ranger: {
-      id: 'ranger', name: 'Zümrüt Okçusu', icon: '🏹', preferredRow: 'back',
-      hpMult: 0.75, atkMult: 1.25, baseArmor: 15, baseSpeed: 14, baseCrit: 0.28, basePen: 40,
-      cooldown: 2,
-      ability: 'Delici Ok',
-      desc: 'Zırhı tamamen yok sayan 1,65× hasar. Arka saftaki büyücü ve şifacıları infaz eder.'
-    },
-    mage: {
-      id: 'mage', name: 'Element Büyücüsü', icon: '🔮', preferredRow: 'back',
-      hpMult: 0.70, atkMult: 1.15, baseArmor: 10, baseSpeed: 11, baseCrit: 0.15, basePen: 25,
-      cooldown: 3,
-      ability: 'Element Patlaması',
-      desc: 'Tüm düşman safına 0,8× hasar + elementine göre yanma / donma / zehir uygular.'
-    },
-    paladin: {
-      id: 'paladin', name: 'Paladin Şampiyonu', icon: '⚔️', preferredRow: 'front',
-      hpMult: 1.15, atkMult: 1.00, baseArmor: 38, baseSpeed: 10, baseCrit: 0.12, basePen: 15,
-      cooldown: 3,
-      ability: 'Kutsal Işık',
-      desc: 'En yaralı müttefiki iyileştirir, lanetleri temizler. Pasif: savaşta bir kez düşen müttefiki %25 canla ayağa kaldırır.'
-    }
-  },
-
-  // Element üçgeni: Ateş → Doğa → Buz → Ateş
-  ELEMENT_TRIANGLE: {
-    fire:    { name: 'Ateş',  icon: '🔥', strongVs: 'nature' },
-    nature:  { name: 'Doğa',  icon: '🌿', strongVs: 'ice' },
-    ice:     { name: 'Buz',   icon: '❄️', strongVs: 'fire' },
-    neutral: { name: 'Nötr',  icon: '⚪', strongVs: null },
-    STRONG_MULT: 1.35,
-    WEAK_MULT: 0.75
+  DEFAULT_SOLDIER_STATS: {
+    name: 'AdAstra Şampiyonu',
+    icon: '⚔️',
+    baseHp: 100,
+    baseAtk: 25,
+    baseArmor: 10,
+    baseSpeed: 10,
+    baseCrit: 0.05,
+    basePen: 5
   },
 
   // Haftalık rotasyonlu kat etkileri — aynı zindan her hafta farklı oynanır
@@ -676,9 +646,9 @@ export const GAME_CONFIG = {
     SEED_VAULT_ADA: 8000000,
     // Stake edilen ordu Pazar'a kadar zindanda ve arenada KULLANILAMAZ
     LOCK_UNTIL_BATTLE: true,
-    // Rol katkısı: dengeli kadro tek tip ordudan daha çok hasar üretir
-    ROLE_SYNERGY: { guardian: 0.22, ranger: 0.30, mage: 0.28, paladin: 0.20 },
-    SYNERGY_MAX_BONUS: 0.35,
+    // Skill Çeşitliliği Katkısı: Ordudaki her farklı rol (Tank, AoE, Şifa, Kırıcı, Kontrol) için hasar bonusu
+    SKILL_DIVERSITY_BONUS_PER_ROLE: 0.06,
+    MAX_SKILL_DIVERSITY_BONUS: 0.30,
     PHASES: [
       { atPct: 0.66, name: 'Kanatlar Açılıyor', text: 'Behemoth arka safı hedeflemeye başladı!' },
       { atPct: 0.33, name: 'Kıyamet Öfkesi',    text: 'Boss çıldırdı — hasarı ve hızı arttı!' }

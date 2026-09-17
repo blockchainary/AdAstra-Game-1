@@ -289,23 +289,23 @@
 
 ## 6. 💀 Zindan Katları & Canavar Seviye Tablosu (1 – 18)
 
-| Kat | Zindan Seviyesi | Canavar Adı | İkon | Element | Sınıfı | Özel Yetenekler | Türü / Unvanı |
-| :---: | :---: | :--- | :---: | :---: | :---: | :--- | :--- |
-| Kat 1 | **Seviye 1** | Bataklık Balçığı | 🟢 | NATURE | guardian | Temel Vuruş | ⚔️ Normal Yaratık |
-| Kat 1 | **Seviye 2** | Mağara Goblini | 👺 | NATURE | ranger | swoop | ⚔️ Normal Yaratık |
-| Kat 1 | **Seviye 3** | Gölge Kurdu | 🐺 | NATURE | ranger | swoop | 🛡️ Kat Muhafızı |
-| Kat 2 | **Seviye 4** | Kemik Mahzeni İskeleti | 💀 | ICE | guardian | sunder | ⚔️ Normal Yaratık |
-| Kat 2 | **Seviye 5** | Lanetli Kemik Büyücüsü | 🧙‍♂️ | ICE | mage | terrify | ⚔️ Normal Yaratık |
-| Kat 2 | **Seviye 6** | Kemik Taht Muhafızı | 🗡️ | ICE | paladin | cleave, regenerate | 🛡️ Kat Muhafızı |
-| Kat 3 | **Seviye 7** | Karanlık Tarikatçı | 🧙‍♂️ | NEUTRAL | mage | terrify | ⚔️ Normal Yaratık |
-| Kat 3 | **Seviye 8** | Cehennem Tazısı | 🐺 | FIRE | ranger | swoop, cleave | ⚔️ Normal Yaratık |
-| Kat 3 | **Seviye 9** | Kadim Taş Golyat | 🗿 | NEUTRAL | guardian | cleave, sunder, regenerate | 🔥 **ARA BOSS** (+%100 Ganimet) |
-| Kat 4 | **Seviye 10** | Sargılı Mumya | 🧟 | ICE | guardian | sunder | ⚔️ Normal Yaratık |
-| Kat 4 | **Seviye 11** | Gölge Hayalet | 👻 | ICE | mage | swoop, terrify | ⚔️ Normal Yaratık |
-| Kat 4 | **Seviye 12** | Lanetli Firavun | 👑 | ICE | paladin | cleave, regenerate, terrify | 🛡️ Kat Muhafızı |
-| Kat 5 | **Seviye 13** | Ateş İblisi | 😈 | FIRE | ranger | cleave | ⚔️ Normal Yaratık |
-| Kat 5 | **Seviye 14** | Lav Elementali | 🌋 | FIRE | mage | cleave, regenerate | ⚔️ Normal Yaratık |
-| Kat 5 | **Seviye 15** | Obsidyen Berserker | ⚔️ | FIRE | ranger | cleave, sunder | 🛡️ Kat Muhafızı |
-| Kat 6 | **Seviye 16** | Kıyamet Şövalyesi | 🛡️ | FIRE | paladin | cleave, sunder | ⚔️ Normal Yaratık |
-| Kat 6 | **Seviye 17** | Kadim Gölge Lordu | 👁️ | NEUTRAL | mage | terrify, swoop, cleave | ⚔️ Normal Yaratık |
-| Kat 6 | **Seviye 18** | Kıyamet Ejderhası IGNIS | 🐉 | FIRE | guardian | cleave, sunder, swoop, regenerate | 🔥 **BÜYÜK BOSS** (+%100 Ganimet) |
+| Kat | Zindan Seviyesi | Canavar Adı | İkon | Mevzi | Özel Yetenekler & Taktiksel Davranış | Türü / Unvanı |
+| :---: | :---: | :--- | :---: | :---: | :--- | :--- |
+| Kat 1 | **Seviye 1** | Bataklık Balçığı | 🟢 | Ön Saf | Temel Vuruş | ⚔️ Normal Yaratık |
+| Kat 1 | **Seviye 2** | Mağara Goblini | 👺 | Arka Saf | swoop (Arka Safa Havadan Saldırı) | ⚔️ Normal Yaratık |
+| Kat 1 | **Seviye 3** | Gölge Kurdu | 🐺 | Arka Saf | swoop (Hızlı Atılma) | 🛡️ Kat Muhafızı |
+| Kat 2 | **Seviye 4** | Kemik Mahzeni İskeleti | 💀 | Ön Saf | sunder (Zırh Parçalama) | ⚔️ Normal Yaratık |
+| Kat 2 | **Seviye 5** | Lanetli Kemik Büyücüsü | 🧙‍♂️ | Arka Saf | terrify (Korkutma / Sersemletme) | ⚔️ Normal Yaratık |
+| Kat 2 | **Seviye 6** | Kemik Taht Muhafızı | 🗡️ | Ön Saf | cleave (Çoklu Vuruş), regenerate (Can Yenileme) | 🛡️ Kat Muhafızı |
+| Kat 3 | **Seviye 7** | Karanlık Tarikatçı | 🧙‍♂️ | Arka Saf | terrify (Korkutma) | ⚔️ Normal Yaratık |
+| Kat 3 | **Seviye 8** | Cehennem Tazısı | 🐺 | Arka Saf | swoop, cleave | ⚔️ Normal Yaratık |
+| Kat 3 | **Seviye 9** | Kadim Taş Golyat | 🗿 | Ön Saf | cleave, sunder • **%50 HP: Taş Kabuk (+%35 DEF)** | 🔥 **ARA BOSS** (+%100 Ganimet) |
+| Kat 4 | **Seviye 10** | Sargılı Mumya | 🧟 | Ön Saf | sunder (Zırh Parçalama) | ⚔️ Normal Yaratık |
+| Kat 4 | **Seviye 11** | Gölge Hayalet | 👻 | Arka Saf | swoop, terrify | ⚔️ Normal Yaratık |
+| Kat 4 | **Seviye 12** | Lanetli Firavun | 👑 | Ön Saf | cleave, regenerate, terrify | 🛡️ Kat Muhafızı |
+| Kat 5 | **Seviye 13** | Ateş İblisi | 😈 | Arka Saf | cleave (Ön Saf Süpürme) | ⚔️ Normal Yaratık |
+| Kat 5 | **Seviye 14** | Lav Elementali | 🌋 | Arka Saf | cleave, regenerate | ⚔️ Normal Yaratık |
+| Kat 5 | **Seviye 15** | Obsidyen Berserker | ⚔️ | Arka Saf | cleave, sunder | 🛡️ Kat Muhafızı |
+| Kat 6 | **Seviye 16** | Kıyamet Şövalyesi | 🛡️ | Ön Saf | cleave, sunder | ⚔️ Normal Yaratık |
+| Kat 6 | **Seviye 17** | Kadim Gölge Lordu | 👁️ | Arka Saf | terrify, swoop, cleave | ⚔️ Normal Yaratık |
+| Kat 6 | **Seviye 18** | Kıyamet Ejderhası IGNIS | 🐉 | Ön Saf | cleave, sunder • **%60 HP: Ejderha Gazabı • %25 HP: Kıyamet Alevi** | 🔥 **BÜYÜK BOSS** (+%100 Ganimet) |

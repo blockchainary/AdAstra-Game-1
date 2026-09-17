@@ -112,15 +112,11 @@ export class GameStateManager {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // ASKER BİRİMİ — v2: DÖRT SINIF, DÖRT ROL (F-19)
+  // ASKER BİRİMİ — TEK TİP ASKER + SKILL LOADOUT & TAKTİKSEL MEVZİ
   // ═══════════════════════════════════════════════════════════════════════
-  // v1'de her asker `class: 'warrior'`, `baseAtk: 20`, `maxHp: 100` idi.
-  // Config'de Muhafız / Okçu / Paladin tanımlıydı ama hiç kullanılmıyordu;
-  // savaşta tüm askerler birbirinin aynıydı ve kadro kurma diye bir karar yoktu.
-  //
-  // v2'de asker satın alırken sınıf seçilir. Sınıflar canı, saldırıyı, zırhı,
-  // hızı, kritiği ve saf tercihini değiştirir; her birinin kendi yeteneği vardır.
-  static SOLDIER_ROTATION = ['guardian', 'ranger', 'paladin', 'mage'];
+  // Askerler sınıf kısıtı olmaksızın eşit Whitepaper stat eğrisini ($100 + 25*(L-1)$ HP,
+  // $25 + 6*(L-1)$ ATK) takip eder. Taktiksel farklılaşma, her askerin taşıdığı
+  // bağımsız Skill Loadout (1-3 aktif + pasif yetenek) ve Ön/Arka Saf (row) konumundan gelir.
 
   createSoldierUnit(index) {
     const level = 1;

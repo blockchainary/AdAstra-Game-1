@@ -31,19 +31,6 @@ export function makeRng(seed) {
   };
 }
 
-// Element sistemi devre dışı — askerler nötr. Her zaman 1.0 döndürür.
-export function elementMultiplier(attacker, defender) {
-  return 1;
-}
-
-// Sınıf adına göre geriye dönük varsayılan yetenek haritası
-function specClsSkills(cls) {
-  if (cls === 'ranger') return ['shockwave'];
-  if (cls === 'paladin') return ['fieldMedic'];
-  if (cls === 'mage') return ['shockwave'];
-  return ['shieldWall'];
-}
-
 // 👑 Seviye 9 ve Seviye 18 için Düz HP-Yüzdesi Tetikleyicili Boss Fazları
 export const DEFAULT_BOSS_PHASES = {
   9: [
@@ -98,48 +85,33 @@ function mitigation(armor, penetration) {
 // Birim oluşturma (Tek Tip Asker + Skill Loadout)
 // ─────────────────────────────────────────────────────────────────────────
 export function createUnit(spec) {
-  const cls = (GAME_CONFIG.COMBAT_CLASSES && GAME_CONFIG.COMBAT_CLASSES[spec.cls]) || {
-    name: 'AdAstra Şampiyonu',
-    icon: '🛡️',
-    baseArmor: 10,
-    baseSpeed: 10,
-    baseCrit: 0.05,
-    basePen: 5,
-    preferredRow: 'front'
-  };
-
   const maxHp = Math.max(1, Math.round(spec.maxHp != null ? spec.maxHp : 100));
   
-  // Askerin yetenek envanteri (Skill Loadout): 1-3 yetenek
+  // Askerin yetenek yükü (Skill Loadout): 1-3 aktif yetenek + 1 pasif yetenek
   const skills = spec.skills && Array.isArray(spec.skills) && spec.skills.length
     ? [...spec.skills]
-    : (spec.cls === 'ranger' ? ['shockwave']
-      : spec.cls === 'paladin' ? ['fieldMedic']
-      : spec.cls === 'mage' ? ['shockwave']
-      : ['shieldWall']);
+    : ['shieldWall'];
 
   return {
     uid: spec.uid || `u_${Math.random().toString(36).slice(2, 9)}`,
     sourceIndex: spec.sourceIndex != null ? spec.sourceIndex : -1,
-    name: spec.name || cls.name || 'AdAstra Şampiyonu',
-    icon: spec.icon || cls.icon || '🛡️',
-    cls: spec.cls || 'champion',
-    clsName: spec.clsName || cls.name || 'AdAstra Şampiyonu',
+    name: spec.name || 'AdAstra Şampiyonu',
+    icon: spec.icon || '⚔️',
     level: spec.level || 1,
     side: spec.side || 'ally',
 
     maxHp,
     hp: Math.max(0, Math.round(spec.hp != null ? spec.hp : maxHp)),
     atk: Math.max(1, Math.round(spec.atk != null ? spec.atk : 25)),
-    armor: Math.max(0, Math.round(spec.armor != null ? spec.armor : (cls.baseArmor || 10))),
-    speed: Math.max(1, Math.round(spec.speed != null ? spec.speed : (cls.baseSpeed || 10))),
-    crit: spec.crit != null ? spec.crit : (cls.baseCrit || 0.05),
+    armor: Math.max(0, Math.round(spec.armor != null ? spec.armor : 10)),
+    speed: Math.max(1, Math.round(spec.speed != null ? spec.speed : 10)),
+    crit: spec.crit != null ? spec.crit : 0.05,
     critDmg: spec.critDmg != null ? spec.critDmg : GAME_CONFIG.COMBAT.BASE_CRIT_DAMAGE,
-    pen: Math.max(0, spec.pen != null ? spec.pen : (cls.basePen || 5)),
+    pen: Math.max(0, spec.pen != null ? spec.pen : 5),
     lifesteal: spec.lifesteal || 0,
 
     skills,
-    row: spec.row || cls.preferredRow || 'front', // 'front' | 'back'
+    row: spec.row || 'front', // 'front' | 'back'
 
     // Tur başına aksiyon sayısı (Boss mekaniği)
     actionsPerRound: Math.max(1, spec.actionsPerRound || 1),
@@ -231,7 +203,6 @@ function applyDamage(attacker, target, rawDamage, rng, log, { canCrit = true, la
     dmg *= attacker.critDmg;
   }
 
-  dmg *= elementMultiplier(attacker.element, target.element);
   dmg *= mitigation(effectiveArmor(target), attacker.pen);
   // Küçük varyans — tamamen deterministik savaş sıkıcıdır
   dmg *= 0.92 + rng() * 0.16;
@@ -474,13 +445,7 @@ export const PLAYER_SKILLS = {
   }
 };
 
-// Geriye dönük uyumluluk köprüsü
-const ABILITIES = {
-  guardian: (self, allies, enemies, rng, log) => PLAYER_SKILLS.shieldWall.execute(self, allies, enemies, rng, log),
-  ranger: (self, allies, enemies, rng, log) => PLAYER_SKILLS.shockwave.execute(self, allies, enemies, rng, log),
-  mage: (self, allies, enemies, rng, log) => PLAYER_SKILLS.shockwave.execute(self, allies, enemies, rng, log),
-  paladin: (self, allies, enemies, rng, log) => PLAYER_SKILLS.fieldMedic.execute(self, allies, enemies, rng, log)
-};
+
 
 // ─────────────────────────────────────────────────────────────────────────
 // Canavar yetenekleri (zindan / boss tarafı)
@@ -661,10 +626,8 @@ export function simulateBattle({
       let usedAbility = false;
       if (unit.cooldown <= 0) {
         if (unit.side === 'ally') {
-          // Müttefik Asker Skill Loadout taraması
-          const activeSkills = unit.skills && unit.skills.length
-            ? unit.skills
-            : (specClsSkills(unit.cls));
+          // Müttefik Asker Skill Loadout Taraması (1-3 Aktif Yetenek)
+          const activeSkills = unit.skills && unit.skills.length ? unit.skills : ['shieldWall'];
 
           for (const sKey of activeSkills) {
             const sDef = PLAYER_SKILLS[sKey];
@@ -675,11 +638,6 @@ export function simulateBattle({
                 break;
               }
             }
-          }
-          // Eski ABILITIES fallback
-          if (!usedAbility && ABILITIES[unit.cls]) {
-            usedAbility = ABILITIES[unit.cls](unit, own, foes, rng, log);
-            if (usedAbility) unit.cooldown = 3;
           }
         } else {
           // Canavar Yetenek Kiti
@@ -700,23 +658,6 @@ export function simulateBattle({
       if (!usedAbility) {
         const target = selectTarget(unit, foes, rng);
         if (target) applyDamage(unit, target, effectiveAtk(unit), rng, log, { label: 'Saldırı' });
-      }
-
-      // Paladin pasifi: savaşta bir kez düşen müttefiki ayağa kaldırır
-      const fallen = own.find(u => u.hp <= 0 && !u.revivedOnce);
-      if (fallen) {
-        const savior = own.find(u => u.cls === 'paladin' && isAlive(u) && !u.usedRevive);
-        if (savior) {
-          savior.usedRevive = true;
-          fallen.revivedOnce = true;
-          fallen.hp = Math.round(fallen.maxHp * 0.25);
-          fallen.statuses = [];
-          log.push({
-            type: 'revive', actor: savior.name, actorIcon: savior.icon, actorSide: savior.side,
-            target: fallen.name, targetIcon: fallen.icon,
-            text: `✨ ${savior.name} düşen ${fallen.name}'i ayağa kaldırdı! (%25 can)`
-          });
-        }
       }
     }
 

@@ -2274,9 +2274,6 @@ function openTownZoneModal(zoneId, zoneName) {
 // =========================================================================
 // 4.5 PHASE 2: ASKERİ KIŞLA (18 KİŞİLİK ORDU & AKILLI SİLAH DEPOSU)
 // =========================================================================
-const BARRACKS_CLASS_NAMES = { warrior: 'Asker' };
-const BARRACKS_CLASS_ICONS = { warrior: '⚔️' };
-
 function renderBarracksHtml() {
   const state = gameState.state;
   let pendingBannerHtml = '';
@@ -2360,7 +2357,7 @@ function renderBarracksHtml() {
 
             return `
               <div class="armory-soldier-mini ${selectedSoldierIndex === idx ? 'selected' : ''}" data-soldier-idx="${idx}">
-                <span style="font-size:1.1rem;">${BARRACKS_CLASS_ICONS[sol.class] || '🛡️'}</span>
+                <span style="font-size:1.1rem;">${sol.icon || '⚔️'}</span>
                 <div style="flex:1;">
                   <div style="font-weight:700; color:#fff;">#${idx + 1} ${sol.name}</div>
                   <div style="font-size:0.72rem; color:#94a3b8;">
@@ -2420,11 +2417,7 @@ function renderBarracksHtml() {
         });
       });
 
-      const elementBadgeMap = {
-        fire: { icon: '🔥', name: 'Ateş', color: '#f87171', bg: 'rgba(239, 68, 68, 0.15)', border: '#ef4444' },
-        nature: { icon: '🌿', name: 'Doğa', color: '#4ade80', bg: 'rgba(34, 197, 94, 0.15)', border: '#22c55e' },
-        ice: { icon: '❄️', name: 'Buz', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.15)', border: '#0284c7' }
-      };
+
 
       const isHealBlocked = gameState.isArmyPassiveHealBlocked ? gameState.isArmyPassiveHealBlocked() : false;
       const alertBannerHtml = isHealBlocked ? `
@@ -2527,10 +2520,8 @@ function renderBarracksHtml() {
             const eqCount = Object.values(s.equipment || {}).filter(Boolean).length;
             const isAct = idx === actualSelectedIndex;
             const rarity = eqCount >= 5 ? 'rarity-legendary' : eqCount >= 3 ? 'rarity-epic' : eqCount >= 1 ? 'rarity-rare' : 'rarity-common';
-            const heal = gameState.getSoldierHealInfo(idx) || { hp: s.hp, maxHp: s.maxHp, hpPct: 100, isFull: true, isPaused: false };
             const hpBarColor = heal.hpPct <= 25 ? '#ef4444' : heal.hpPct <= 60 ? '#f97316' : '#4ade80';
-            const el = elementBadgeMap[s.element] || elementBadgeMap.fire;
-            const clsIcon = BARRACKS_CLASS_ICONS[s.class] || s.icon || '🛡️';
+
 
             return `
               <div class="soldier-roster-card ${rarity} ${isAct ? 'active' : ''} btn-select-soldier-card" data-soldier-idx="${idx}">
@@ -2646,8 +2637,7 @@ function renderBarracksHtml() {
         }
       }).join('');
 
-      const selEl = elementBadgeMap[selectedSoldier.element] || elementBadgeMap.fire;
-      const selClsIcon = BARRACKS_CLASS_ICONS[selectedSoldier.class] || selectedSoldier.icon || '🛡️';
+
 
       contentHtml = `
         ${alertBannerHtml}
@@ -3914,7 +3904,7 @@ function buildPlayerArenaSquad(state) {
     const fullStats = gameState.getSoldierFullStats(idx) || { totalAtk: soldier.baseAtk || 20, totalMaxHp: soldier.maxHp || 100 };
     // Kışla'da henüz iyileşmemiş askerler Kolezyum'a eksik canla girer (mevcut HP oranı taşınır)
     const woundedRatio = Math.min(1, Math.max(0, (soldier.hp != null ? soldier.hp : (soldier.maxHp || 100)) / (soldier.maxHp || 100)));
-    return { icon: BARRACKS_CLASS_ICONS[soldier.class] || '⚔️', hp: Math.max(1, Math.round(fullStats.totalMaxHp * woundedRatio)), atk: fullStats.totalAtk };
+    return { icon: soldier.icon || '⚔️', hp: Math.max(1, Math.round(fullStats.totalMaxHp * woundedRatio)), atk: fullStats.totalAtk };
   });
 }
 
@@ -4746,7 +4736,7 @@ function openSmartArmoryModal() {
 
         return `
           <div class="armory-soldier-mini ${selectedSoldierIndex === idx ? 'selected' : ''}" data-soldier-idx="${idx}">
-            <span style="font-size:1.1rem;">${BARRACKS_CLASS_ICONS[sol.class] || '🛡️'}</span>
+            <span style="font-size:1.1rem;">${sol.icon || '⚔️'}</span>
             <div style="flex:1;">
               <div style="font-weight:700; color:#fff;">#${idx + 1} ${sol.name}</div>
               <div style="font-size:0.72rem; color:#94a3b8;">
@@ -4941,7 +4931,7 @@ function openPreBattleModal(monster) {
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; background:rgba(30,41,59,0.5); padding:6px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
               <label style="display:flex; align-items:center; gap:8px; flex:1; cursor:pointer; margin:0;">
                 <input type="checkbox" class="prebattle-sol-check" data-idx="${idx}" ${isChecked ? 'checked' : ''}>
-                <span style="font-size:1.1rem;">${BARRACKS_CLASS_ICONS[sol.class] || '🛡️'}</span>
+                <span style="font-size:1.1rem;">${sol.icon || '⚔️'}</span>
                 <div style="flex:1;">
                   <div style="font-weight:700; font-size:0.82rem; color:#fff;">#${idx+1} ${sol.name}</div>
                   <div style="font-size:0.7rem; color:#94a3b8;">${sol.hp || 100} HP • <span style="color:#fde047;">${stats?.totalAtk || 20} ATK</span> • <span title="Yetenekler">${skillIcons}</span></div>

@@ -44,9 +44,13 @@ Oyunda harcama olarak tüketilen **tüm Odun, Demir ve Buğdaylar kalıcı olara
 - Tüm havuzlar `derivePool()` ile `AMM_CORRIDORS`'tan türetilir.
 - Saniyelik canlı bot (`tickUpgradeCostBot`), silo ve seviye atlama için talep edilen hammaddelerin borsa değerini anlık ADA maliyeti olarak yansıtır.
 
-### 6. 💀 6 Katlı & 18 Seviyeli Zindan & Boss Çarpanları
+### 6. 💀 6 Katlı & 18 Seviyeli Zindan, Sıra Tabanlı Motor & Boss Fazları
 - Seviye 1'den Seviye 81'e kadar Teçhizat Parçası düşme oranı **%0.18 $\to$ %18.00**'e, Pandora Sandığı oranı **%0.0018 $\to$ %0.18**'e (tam 100 kat) ölçeklenir.
-- Seviye 9 (Kadim Taş Golyat) ve Seviye 18 (Kıyamet Ejderhası IGNIS) bossları **+%100 Düşürme Çarpanı (2.0x)** ve garanti anahtar ganimeti sunar.
+- **Gerçek Sıra Tabanlı Savaş Motoru (`simulateBattle`):** Ön/Arka saf koruması, müttefik yetenek tetiklenmeleri, kritik vuruşlar ve iyileşmeler tam simülasyonla işletilir.
+- **HP Yüzdesi Tetikleyicili Boss Fazları:**
+  - *Seviye 9 Kadim Taş Golyat:* %50 HP altına düştüğünde *"Faz 2: Taş Kabuk"* (+%35 Zırh kalkanı).
+  - *Seviye 18 Kıyamet Ejderhası IGNIS:* %60 HP altında *"Faz 2: Ejderha Gazabı"* (+%50 ATK), %25 HP altında *"Faz 3: Kıyamet Alevi"* (tüm orduya yakıcı alan hasarı).
+- Bosslar +%100 Düşürme Çarpanı (2.0x) ve garanti anahtar ganimeti sunar.
 
 ### 7. 🪙 10 Milyar Makro Tokenomics & Hazine
 - **Sabit Maksimum Arz:** 10.000.000.000 $ADASTRA.
@@ -72,8 +76,8 @@ adastra-realm/
 │   ├── gameState.js           # Ana State Manager, ordu, envanter, yakım ve tamirat
 │   ├── ammMarket.js           # AMM DEX motoru (x * y = k), harçlar ve fiyat hesaplama
 │   ├── globalPool.js          # Küresel havuzlar, hammadde arzı silme ve 10B muhasebe
-│   ├── bestiary.js            # 18 Seviyeli canavar kütüğü, elementler ve yetenekler
-│   ├── combat.js              # Sıra tabanlı taktiksel zindan savaş motoru
+│   ├── bestiary.js            # 18 Seviyeli canavar kütüğü, mevziler, yetenekler ve HP-yüzdeli boss fazları
+│   ├── combat.js              # Sıra tabanlı taktiksel zindan savaş motoru, skill loadout ve hedefleme
 │   ├── audio.js               # Dinamik sentezlenmiş Web Audio API SFX motoru
 │   ├── grandTownScene.js      # Phaser 3 Krallık / Kasaba sahnesi
 │   ├── dungeonScene.js        # Phaser 3 Zindan ve Boss dövüşü sahnesi
