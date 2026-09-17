@@ -204,13 +204,16 @@ export class GameStateManager {
     });
   }
 
-  // 1 Asker satın alma maliyeti: 180.000 $ADASTRA (180 bin ADA)
+  // Asker satın alma maliyeti: İlk asker 5.000 $ADASTRA, kademeli artan model
   getSoldierCost(index = (this.state.soldierUnits || []).length + 1) {
-    if (!GAME_CONFIG.SOLDIER_COST_EXPONENT || GAME_CONFIG.SOLDIER_COST_EXPONENT === 0) {
-      return GAME_CONFIG.SOLDIER_COST_BASE || 180000;
-    }
     const n = Math.max(1, index);
-    return Math.round(GAME_CONFIG.SOLDIER_COST_BASE * Math.pow(n, GAME_CONFIG.SOLDIER_COST_EXPONENT));
+    const base = GAME_CONFIG.SOLDIER_COST_BASE || 5000;
+    const exponent = (GAME_CONFIG.SOLDIER_COST_EXPONENT != null) ? GAME_CONFIG.SOLDIER_COST_EXPONENT : 1.25;
+    if (exponent === 0 || n === 1) {
+      return base;
+    }
+    const rawCost = base * Math.pow(n, exponent);
+    return Math.round(rawCost / 50) * 50;
   }
 
   buySoldierUnit() {
