@@ -3474,6 +3474,44 @@ function renderCarnivalHtml(activeTab = 'wheel') {
           </div>
         </div>
 
+        <!-- 👑 TALİHLİ KASADAN ÇEKİM: BİLETLERİ YAK & 2X ADA KASADAN ÇEK -->
+        <div class="clean-card" style="border: 2px solid #eab308; background: linear-gradient(135deg, rgba(30,12,38,0.95), rgba(45,20,8,0.95)); box-shadow: 0 0 20px rgba(234,179,8,0.25); padding: 18px;">
+          <div class="card-title-row" style="margin-bottom: 6px;">
+            <div class="card-title" style="color: #fde047; font-size: 1.05rem; display:flex; align-items:center; gap:8px;">
+              <span style="font-size: 1.4rem;">👑</span>
+              <span>Haftalık Piyango Talihlisi: Bilet Yakımı & 2 Katı ADA Çekimi</span>
+            </div>
+            <span class="card-badge" style="background:#eab308; color:#000; font-weight:900; font-size:0.8rem;">
+              2x Kasadan Nakit Çekim
+            </span>
+          </div>
+          <div class="clean-desc" style="font-size:0.85rem; color:#cbd5e1; line-height:1.5;">
+            Haftalık çekilişin talihlisi sen misin? Kazanan talihli elindeki biletleri yakarak, yatırdığı bilet tutarının (1 Bilet = 100 ADA) <strong>tam 2 katını (2x = Bilet Başı 200 $ADASTRA)</strong> doğrudan Piyango Hazne Kasasından anında cüzdanına çekebilir!
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-top: 14px; background: rgba(0,0,0,0.55); padding: 14px 18px; border-radius: 8px; border: 1px solid rgba(250,204,21,0.3);">
+            <div>
+              <div style="font-size: 0.78rem; color: #94a3b8; font-weight: 700;">Mevcut Bilet Sayın:</div>
+              <div style="font-size: 1.3rem; font-weight: 900; color: #4ade80;">
+                ${myTickets} Adet Bilet
+              </div>
+              <div style="font-size: 0.8rem; color: #fde047; margin-top: 3px;">
+                Kasadan Çekilebilir 2x Talihli Tutarı: <strong>+${(myTickets * 200).toLocaleString('tr-TR')} $ADASTRA</strong>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="font-size: 0.82rem; color: #cbd5e1;">Yakılacak:</span>
+                <input type="number" id="winner-burn-ticket-count" value="${Math.max(1, myTickets)}" min="1" max="${Math.max(1, myTickets)}" style="width: 70px; background: #0f172a; color: #fde047; border: 1px solid #eab308; padding: 8px; border-radius: 6px; font-weight: 800; font-size: 0.95rem; text-align: center;" ${myTickets > 0 ? '' : 'disabled'} />
+              </div>
+              <button id="btn-claim-winner-lottery" class="btn-clean" ${myTickets > 0 ? '' : 'disabled'} style="background: linear-gradient(135deg, #f59e0b, #ca8a04); color: #000; font-weight: 900; font-size: 0.92rem; padding: 10px 18px; box-shadow: 0 4px 12px rgba(245,158,11,0.35); cursor: ${myTickets > 0 ? 'pointer' : 'not-allowed'};">
+                🔥 Biletlerimi Yak & Kasadan 2x ADA Çek
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div class="clean-card" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; padding:16px;">
           <div style="display:flex; align-items:center; gap:10px;">
             <span style="font-size:0.88rem; font-weight:700; color:#fff;">Bilet Adedi:</span>
@@ -3761,9 +3799,6 @@ function renderCarnivalHtml(activeTab = 'wheel') {
               <div style="text-align: right;">
                 <div style="font-size: 1.35rem; font-weight: 900; color: #c084fc; text-shadow: 0 0 12px rgba(192,132,252,0.4);">
                   ${eData.lottery.lotteryPool.toLocaleString('tr-TR')} <span style="font-size: 0.85rem; color: #fde047;">$ADASTRA</span>
-                </div>
-                <div style="font-size: 0.72rem; color: #4ade80; margin-top: 2px;">
-                  🏆 Bu Haftaki Talihli Payı (%18): <strong>${eData.lottery.winnerShare.toLocaleString('tr-TR')} ADA</strong>
                 </div>
               </div>
             </div>
@@ -7141,6 +7176,22 @@ function initAppEvents() {
       if (res.success) {
         showToast(res.message, 'success');
         sound.playHarvest();
+        openCarnivalModal('lottery');
+      } else {
+        showToast(res.message, 'error');
+      }
+      renderTopBar();
+      return;
+    }
+
+    // Karnaval: Talihli Biletlerini Yak & 2 Katı ADA Kasadan Çek (#btn-claim-winner-lottery)
+    if (e.target.closest('#btn-claim-winner-lottery')) {
+      const burnInput = dom.modalBody.querySelector('#winner-burn-ticket-count');
+      const count = burnInput ? parseInt(burnInput.value) : null;
+      const res = gameState.claimWinnerLotteryPayout(count);
+      if (res.success) {
+        showToast(res.message, 'success');
+        sound.playLevelUp();
         openCarnivalModal('lottery');
       } else {
         showToast(res.message, 'error');

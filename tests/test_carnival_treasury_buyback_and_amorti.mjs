@@ -152,6 +152,34 @@ const eco = gs.getEconomyAndPoolsSummary();
 assert(eco.ammBurnedResources, 'Özette ammBurnedResources bulunmalı');
 assert.equal(Math.round(eco.ammBurnedResources.wood), Math.round(postBuyAmmBurned.wood), 'Özetteki yakılan odun AMM ile eşleşmeli');
 assert.equal(Math.round(eco.ammBurnedResources.iron), Math.round(postBuyAmmBurned.iron), 'Özetteki yakılan demir AMM ile eşleşmeli');
-console.log('✅ AMM / DEX %2 hammadde yakımı ve canlı istatistik sayacı %100 doğrulandı.');
+// Test 7: Talihlinin Biletlerini Yakıp 2 Katı ADA'yı Piyango Kasasından Çekmesi
+console.log('\n[7/7] Talihli Bilet Yakımı ve 2 Katı ADA Çekimi Test Ediliyor...');
+gs.state.lotteryTickets = 10;
+gs.state.lotteryPool = 20000000;
+const userPreAda = gs.state.adAstraBalance;
+const poolPreAda = gs.state.lotteryPool;
 
-console.log('\n🎉 TÜM KARNAVAL HAZİNE BUYBACK, 3 AMORTİ BİLETİ VE AMM YAKIM TESTLERİ %100 BAŞARIYLA TAMAMLANDI! 🎉\n');
+// 4 adet bilet yakalım -> 4 * 100 * 2 = 800 ADA kasadan çekilmeli
+const winnerRes1 = gs.claimWinnerLotteryPayout(4);
+assert(winnerRes1.success, 'Kısmi bilet yakımı başarılı olmalı');
+assert.equal(winnerRes1.burnedTickets, 4, 'Tam 4 bilet yakılmalı');
+assert.equal(winnerRes1.payoutAda, 800, 'Tam 800 ADA (2x) kasadan ödenmeli');
+assert.equal(gs.state.lotteryTickets, 6, 'Kalan bilet sayısı 6 olmalı');
+assert.equal(gs.state.lotteryPool, poolPreAda - 800, 'Piyango kasasından 800 ADA eksilmeli');
+assert.equal(gs.state.adAstraBalance, userPreAda + 800, 'Kullanıcı bakiyesine +800 ADA eklenmeli');
+
+// Kalan 6 bileti tek seferde yakalım (null count -> tüm biletler)
+const winnerRes2 = gs.claimWinnerLotteryPayout();
+assert(winnerRes2.success, 'Tüm biletleri yakma başarılı olmalı');
+assert.equal(winnerRes2.burnedTickets, 6, 'Kalan 6 biletin hepsi yakılmalı');
+assert.equal(winnerRes2.payoutAda, 1200, '6 bilet için 1200 ADA (2x) ödenmeli');
+assert.equal(gs.state.lotteryTickets, 0, 'Bilet sayısı 0 olmalı');
+assert.equal(gs.state.lotteryPool, poolPreAda - 2000, 'Toplam 2000 ADA kasadan düşmüş olmalı');
+assert.equal(gs.state.adAstraBalance, userPreAda + 2000, 'Kullanıcıya toplam +2000 ADA aktarılmış olmalı');
+
+// Bilet yokken tekrar deneme engellenmeli
+const winnerRes3 = gs.claimWinnerLotteryPayout();
+assert(!winnerRes3.success, 'Bilet kalmadığında işlem reddedilmeli');
+console.log('✅ Talihli bilet yakımı ve 2 katı ADA piyango kasasından çekimi %100 doğrulandı.');
+
+console.log('\n🎉 TÜM KARNAVAL HAZİNE BUYBACK, 3 AMORTİ BİLETİ, AMM YAKIM VE TALİHLİ KASADAN ÇEKİM TESTLERİ %100 BAŞARIYLA TAMAMLANDI! 🎉\n');

@@ -3918,6 +3918,41 @@ export class GameStateManager {
     };
   }
 
+  // 👑 TALİHLİ BİLET YAKIMI & 2 KATINA KASADAN ADA ÇEKİMİ
+  claimWinnerLotteryPayout(count = null) {
+    const userTickets = this.state.lotteryTickets || 0;
+    if (userTickets <= 0) {
+      return { success: false, message: 'Yakılacak piyango biletin bulunmuyor!' };
+    }
+
+    const toBurn = (count !== null && count !== undefined && parseInt(count) > 0)
+      ? Math.min(userTickets, parseInt(count))
+      : userTickets;
+
+    const ticketValAda = GAME_CONFIG.CARNIVAL?.LOTTERY?.TICKET_COST_ADA || 100;
+    const multiplier = GAME_CONFIG.CARNIVAL?.LOTTERY?.WINNER_MULTIPLIER || 2.0;
+    const payoutAda = Math.round(toBurn * ticketValAda * multiplier);
+
+    const pool = this.state.lotteryPool || 20000000;
+    const actualPayout = Math.min(pool, payoutAda);
+
+    this.state.lotteryTickets = Math.max(0, userTickets - toBurn);
+    this.state.lotteryPool = Math.max(0, pool - actualPayout);
+    this.state.adAstraBalance += actualPayout;
+
+    sound.playLevelUp();
+    this.saveState();
+
+    return {
+      success: true,
+      burnedTickets: toBurn,
+      payoutAda: actualPayout,
+      remainingTickets: this.state.lotteryTickets,
+      remainingPool: this.state.lotteryPool,
+      message: `🏆 TEBRİKLER TALİHLİ! ${toBurn} adet piyango biletin fırında yakıldı ve bilet değerinin tam 2 katı (+${actualPayout.toLocaleString('tr-TR')} $ADASTRA) Piyango Hazne Kasasından çekilerek cüzdanına aktarıldı!`
+    };
+  }
+
   useLotteryTicketForWheel() {
     return this.spinCarnivalWheel('ticket');
   }
