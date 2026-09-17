@@ -2520,6 +2520,7 @@ function renderBarracksHtml() {
             const eqCount = Object.values(s.equipment || {}).filter(Boolean).length;
             const isAct = idx === actualSelectedIndex;
             const rarity = eqCount >= 5 ? 'rarity-legendary' : eqCount >= 3 ? 'rarity-epic' : eqCount >= 1 ? 'rarity-rare' : 'rarity-common';
+            const heal = gameState.getSoldierHealInfo(idx) || { hp: s.hp, maxHp: s.maxHp, hpPct: 100, isFull: true, isPaused: false };
             const hpBarColor = heal.hpPct <= 25 ? '#ef4444' : heal.hpPct <= 60 ? '#f97316' : '#4ade80';
 
 
