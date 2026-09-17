@@ -1013,9 +1013,11 @@ body.modal-open .realm-tooltip {
 }
 
 .btn-clean:disabled {
-  opacity: 0.45;
+  opacity: 0.68;
   cursor: not-allowed;
-  filter: grayscale(0.8);
+  filter: grayscale(0.6);
+  color: #cbd5e1 !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
 .btn-clean-green {
@@ -3242,6 +3244,19 @@ body:not(.in-dungeon) .top-nav-menu {
   padding: 10px 14px;
   margin-bottom: 12px;
   backdrop-filter: blur(10px);
+}
+
+.barracks-quick-actions .btn-clean:disabled,
+#btn-buy-soldier-unit:disabled,
+.soldier-sheet-card .btn-clean:disabled,
+.btn-soldier-instant-heal:disabled {
+  color: #cbd5e1 !important;
+  opacity: 0.75 !important;
+  filter: grayscale(0.5) !important;
+  border-color: rgba(148, 163, 184, 0.35) !important;
+  background: rgba(30, 41, 59, 0.8) !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+  cursor: not-allowed;
 }
 
 /* 3. 18 Kişilik Ordu Roster Vitrini */
