@@ -1,120 +1,28 @@
-# 🌌 AdAstra: Genesis Realm — Kapsamlı Oyun Tasarımı & Ekonomi Dokümantasyonu (Master Whitepaper)
+# 📊 AdAstra: Genesis Realm — Tüm Sistemlerin Seviye İlerleme & Denge Tabloları (Master Reference)
 
-> **Avalanche (AVAX) Ekosisteminde 10 Yıllık Sürdürülebilir Web3 RPG & GameFi Başyapıtı**  
-> **Resmi Web3 Dokümantasyon Standardı (DeFi Kingdoms Mimarisinden İlham Alınmıştır)**  
-> **Geliştirici & Vizyoner:** Kağan (AlphAvax)  
-> **Teknoloji Mimarisi:** Phaser 3.80 Canvas Rendering • Vanilla ES6+ Modüler State Motoru • Avalanche C-Chain / Pangolin DEX AMM Modeli  
-> **Son Güncelleme:** 2026-09-17 • Sürüm 2.4.0 (Enterprise)
+> **Resmi Dengeleme, Seviye Atlama ve İstatistik Rehberi**  
+> Bu doküman, **AdAstra: Genesis Realm** evreninde seviye atlatılabilen tüm varlıkların (Hesap, Silo, Asker, Teçhizat ve Zindan) Seviye 1'den son seviyeye kadar olan tüm değerlerini matematiksel kesinlikle listeler.
 
 ---
 
 ## 📑 İÇİNDEKİLER
-
-1. [Proje Vizyonu & DeFi Kingdoms Standardında Ekosistem](#1-proje-vizyonu--defi-kingdoms-standardında-ekosistem)
-2. [10 Milyar Makro Tokenomics & Büyük Krallık Hazinesi](#2-10-milyar-makro-tokenomics--büyük-krallık-hazinesi)
-3. [🔥 Evrensel Hammadde Yakımı (Universal Burn) & Deflasyon Protokolü](#3-evrensel-hammadde-yakımı-universal-burn--deflasyon-protokolü)
-4. [💱 AMM DEX Pazar Yeri ($x \cdot y = k$) & Canlı Fiyat Botu](#4-amm-dex-pazar-yeri-x-cdot-y--k--canlı-fiyat-botu)
-5. [🧙‍♂️ Gezgin (Hesap) Seviyesi İlerleme Tablosu (Seviye 1 – 81)](#5-gezgin-hesap-seviyesi-ilerleme-tablosu-seviye-1--81)
-6. [🏰 Silo (Ambar) Kapasite & Yükseltme Tablosu (Seviye 1 – 18)](#6-silo-ambar-kapasite--yükseltme-tablosu-seviye-1--18)
-7. [⚔️ Ordu, Kışla & Asker İlerleme Tabloları (1. – 18. Asker & Lv.1 – 81)](#7-ordu-kışla--asker-ilerleme-tabloları-1--18-asker--lv1--81)
-8. [🔨 Cephanelik, Teçhizat Dövme & Geliştirme Tabloları (Lv.1 – 10)](#8-cephanelik-teçhizat-dövme--geliştirme-tabloları-lv1--10)
-9. [💀 6 Katlı & 18 Seviyeli Zindan, Canavarlar & Boss Tablosu](#9-6-katlı--18-seviyeli-zindan-canavarlar--boss-tablosu)
-10. [🔧 Aletler, İşçilik & 72 Saatlik Aşınma Mekaniği](#10-aletler-işçilik--72-saatlik-aşınma-mekaniği)
-11. [🤖 Taverna: 24 Saatlik Otonom Sefer & Tamir Botu](#11-taverna-24-saatlik-otonom-sefer--tamir-botu)
-12. [🎡 Karnaval & Sirk (14 Ödüllü Şans Çarkı & Haftalık Piyango)](#12-karnaval--sirk-14-ödüllü-şans-çarkı--haftalık-piyango)
-13. [🛡️ Kurumsal Güvenlik Denetimi & Kalite Güvencesi (QA)](#13-kurumsal-güvenlik-denetimi--kalite-güvencesi-qa)
+1. [1. Gezgin (Hesap) Seviyesi Tablosu (Seviye 1 – 81)](docs/LEVEL_PROGRESSION_TABLES.md#1-gezgin-hesap-seviyesi-tam-tablosu-seviye-1--81)
+2. [2. Silo / Ambar Kapasite ve Maliyet Tablosu (Seviye 1 – 18)](docs/LEVEL_PROGRESSION_TABLES.md#2-silo-ambar-kapasite-ve-maliyet-tablosu-seviye-1--18)
+3. [3. Kışla Asker Alım Kademeleri (1. – 18. Asker)](docs/LEVEL_PROGRESSION_TABLES.md#3-kışla-asker-alım-kademeleri-1--18-asker)
+4. [4. Asker Seviye İlerleme Tablosu (Seviye 1 – 81)](docs/LEVEL_PROGRESSION_TABLES.md#4-asker-seviye-ilerleme-tablosu-seviye-1--81)
+5. [5. Teçhizat Dövme (Craft) ve Seviye Atlama Tablosu (Seviye 1 – 10)](docs/LEVEL_PROGRESSION_TABLES.md#5-teçhizat-dövme-craft-ve-seviye-atlama-tablosu-seviye-1--10)
+6. [6. Zindan Katları & Canavar Seviye Tablosu (1 – 18)](docs/LEVEL_PROGRESSION_TABLES.md#6-zindan-katları--canavar-seviye-tablosu-1--18)
 
 ---
 
-## 1. 🌐 Proje Vizyonu & DeFi Kingdoms Standardında Ekosistem
-
-**AdAstra: Genesis Realm**, Web3 yayıncılığının öncüsü **AlphAvax** markası tarafından hayata geçirilen; Avalanche (AVAX) blokzincirinin hızını, klasik izometrik RPG derinliğini ve DeFi Kingdoms tarzı merkeziyetsiz finans (DeFi) mekaniklerini tek bir potada eriten yeni nesil bir GameFi ekosistemidir.
-
-```mermaid
-graph TD
-    User[🎮 Oyuncu / Gezgin] -->|Sefer Görevleri| Res[🌲 Odun / ⛏️ Demir / 🌾 Buğday]
-    Res -->|Demirci & Kışla| Army[⚔️ Ordu & 10 Seviye Teçhizat]
-    Army -->|Zindan & Boss Savaşları| Loot[🟣 $ADASTRA / 🧩 Parça / 📦 Pandora / 🗝️ Anahtar]
-    Res -->|Silo / Tamir / Dövme / Stamina| BurnRes[🔥 Evrensel Hammadde Yakımı - Arzdan Kalıcı Silinme]
-    Loot -->|AMM DEX Alış / Satış| AMM[💱 %2 Havuz Harcı]
-    AMM -->|%13 Kalıcı Yakım| BurnToken[🔥 Token Yakımı]
-    AMM -->|%78 Hazine / %6 UBI / %3 Telif| Treasury[🏛️ Krallık Kasası & UBI Havuzu]
-```
-
-### Temel Prensipler:
-1. **Gerçek Mülkiyet & Kıtlık:** Haftalık kaynak kotası aşılmaz. Dolaşımdaki her hammadde ve $ADASTRA token matematiksel formüllerle korunur.
-2. **Hiper-Deflasyonist Döngü:** Yalnızca tokenlar değil, oyunda harcanan **tüm Odun, Demir ve Buğdaylar kalıcı olarak yakılır (burn)** ve küresel haftalık toplam arzdan silinir.
-3. **Adil Ekonomi:** Token çıkarma (faucet) yoktur; tüm ödüller oyuncunun harcadığı zaman, strateji ve zindan başarılarına göre Krallık Hazinesinden dağıtılır.
-
----
-
-## 2. 🪙 10 Milyar Makro Tokenomics & Büyük Krallık Hazinesi
-
-AdAstra protokolü, **10.000.000.000 (10 Milyar) $ADASTRA** sabit maksimum arz üzerine kurgulanmıştır.
-
-### Token Harcama ve Gelir Paylaşım Anayasası (%100 Dağılım):
-Oyunda bir token harcandığında (AMM harçları, seviye atlama, bot kâr ortaklığı vb.) aşağıdaki kesin oranlarla dağıtılır:
-
-| Havuz / Fon Adı | Pay | Görevi ve Kullanım Amacı |
-| :--- | :---: | :--- |
-| **🔥 Kalıcı Token Yakımı (Burn)** | **%13** | Geri dönüşsüz kara delik adresine gönderilir; arzı sürekli daraltır. |
-| **🏛️ Krallık Hazine Kasaları** | **%78** | Zindan, Arena, Dünya Bossu, DEX Geri Alım ve Karnaval havuzlarını besler. |
-| **🤝 Evrensel Temel Gelir (UBI)** | **%6** | Oyuncu seviyesine göre ($W(L) = L^{1.85}$) haftalık pasif gelir olarak dağıtılır. |
-| **🎨 Yapımcı & Geliştirici Telifi** | **%3** | Protokol geliştirme cüzdanına aktarılır (`0x58DBCF66bdd7BfA9da98aDba1965b3794321087C`). |
-
-### 🏛️ Hazine Kasaları Dağılım Matrisi (%78 Hazine İçi Kırılım):
-- **🏰 Zindan Ganimet Kasası (%35):** 6 Kat ve 18 Seviyeli zindan canavarlarını ve bosslarını yenenlere dağıtılır.
-- **⚔️ Kolezyum Gladyatör Arenası (%20):** 18v18 Gladyatör ligi şampiyonlarına haftalık ödül olarak verilir.
-- **🌋 Dünya Bossu Kasası (%20):** Haftalık ordusunu Dünya Bossuna stake eden oyuncuların verdiği hasara göre dağıtılır.
-- **💱 AMM DEX Likidite Geri Alımı (%15):** Avalanche C-Chain üzerindeki piyasa taban fiyatını desteklemek için protokol geri alımlarında kullanılır.
-- **🎡 Karnaval & Şans Çarkı Kasası (%10):** 14 ödüllü şans çarkında çıkan doğrudan token ikramiyelerinin emisyon kasasıdır.
-
----
-
-## 3. 🔥 Evrensel Hammadde Yakımı (Universal Burn) & Deflasyon Protokolü
-
-AdAstra: Genesis Realm'i diğer Web3 oyunlarından ayıran en radikal mekanik, **tüm tüketim hammaddelerinin anında yakılmasıdır**. 
-
-### Yasa: "Tüketilen Her Şey Yok Olur"
-Oyunda hammadde **tüketim / harcama** olarak nerede kullanılırsa kullanılsın, o hammadde hiçbir havuza devredilmez, oyunculara geri dönmez; **doğrudan yakılır ve sistemin total haftalık küresel arzından kalıcı olarak silinir**:
-
-1. **🏰 Silo (Ambar) Yükseltme:** Harcanan tüm Odun, Demir ve Buğday yakılır.
-2. **🧙‍♂️ Hesap Seviyesi Atlama:** Harcanan tüm Odun, Demir ve Buğday yakılır.
-3. **🔧 Alet Onarımı (Tekil & Toplu):** Harcanan tüm Odun ve Demir yakılır.
-4. **🗡️ Teçhizat Dövme (Craft):** Dövülen eşyanın Odun ve Demir gideri yakılır.
-5. **✨ Teçhizat Yükseltme (Upgrade):** Seviye atlatma için verilen Odun ve Demir yakılır.
-6. **🔨 Teçhizat Onarımı (Tekil & Cephanelik):** Tamirat için verilen Odun ve Demir yakılır.
-7. **⚡ Stamina Doldurma:** Yalnızca depodaki buğday ile doldurulabilir; tüketilen buğday anında yakılır.
-8. **❤️ Asker İyileştirme (Pasif & Hızlı):** Tüketilen tüm buğday yakılır.
-9. **🎡 Karnaval Şans Çarkı:** Hammadde ödemesiyle çevrilen çarkın hammadde bedeli yakılır.
-
-Küresel havuzda `globalPool.state.resources[key].totalCap` değeri harcanan miktar kadar küçülür. Bu sayede aktif oyuncu sayısı arttıkça dünya kaynakları hızla kıtlaşır ve AMM pazarındaki hammadde değeri yükselir.
-
----
-
-## 4. 💱 AMM DEX Pazar Yeri ($x \cdot y = k$) & Canlı Fiyat Botu
-
-Oyun içi hammadde takası, Uniswap v2 / Pangolin mimarisindeki **Sabit Çarpım Piyasa Yapıcısı (Constant Product Market Maker)** formülüyle yönetilir:
-
-$$x \cdot y = k$$
-
-- **İşlem Harcı:** Tüm alım ve satımlarda **%2.00 AMM Harcı** kesilir. Kesilen harç doğrudan Krallık Hazinesine aktarılır, %13'ü yakılır ve %6'sı UBI havuzuna eklenir.
-- **Dinamik Fiyatlandırma:** Hammadde satıldığında havuzdaki hammadde artar, ADA azalır $\to$ Fiyat düşer. Hammadde alındığında tersi gerçekleşir $\to$ Fiyat yükselir.
-- **🤖 Saniyelik Canlı Maliyet Botu (`tickUpgradeCostBot`):**
-  Silo yükseltme, seviye atlama ve teçhizat üretiminde gereken hammaddelerin **AMM DEX pazarındaki o anki toplam $ADASTRA değeri** anlık hesaplanır. Bot her saniye fiyat değişimlerini dinler ve arayüzü canlı borsa verisi gibi günceller.
-
----
-
-## 5. 🧙‍♂️ Gezgin (Hesap) Seviyesi İlerleme Tablosu (Seviye 1 – 81)
-
-Gezgin seviyesi, krallığın omurgasıdır. Sefer sürelerini, stamina tavanını, sefer maliyetlerini, zindan ganimet şanslarını ve UBI gelirini belirler.
+## 1. 🧙‍♂️ Gezgin (Hesap) Seviyesi Tam Tablosu (Seviye 1 – 81)
 
 * Formüller:
-  - $\text{Maksimum Stamina} = 100 + 25 \cdot (\text{Level} - 1)$
-  - $\text{Sefer Stamina Maliyeti} = 20 + 8 \cdot (\text{Level} - 1)$ (Her seviyede 3 paralel sefer açılabilir)
-  - $\text{Zindan Parça Düşme Şansı} = 0.18\% \to 18.00\%$ (Hesap seviyesiyle 100 kat artar)
-  - $\text{Pandora Kutusu Düşme Şansı} = 0.0018\% \to 0.1800\%$ (Hesap seviyesiyle 100 kat artar)
-  - $\text{UBI Katsayısı } W(L) = L^{1.85}$
+  - $\text{Maksimum Stamina} = 100 + 25 \cdot (L - 1)$
+  - $\text{Sefer Stamina Tüketimi} = 20 + 8 \cdot (L - 1)$
+  - $\text{Zindan Parça Düşme Şansı} = 0.18\% + (L - 1) \cdot \frac{18.00\% - 0.18\%}{80}$
+  - $\text{Pandora Kutusu Düşme Şansı} = 0.0018\% + (L - 1) \cdot \frac{0.18\% - 0.0018\%}{80}$
+  - $\text{Evrensel Temel Gelir Katsayısı } W(L) = L^{1.85}$
 
 | Seviye | Sefer Süresi | Sefer Başı Stamina | Max Stamina (⚡) | Zindan Parça Şansı | Pandora Sandığı Şansı | UBI Dağıtım Katsayısı W(L) |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -202,13 +110,11 @@ Gezgin seviyesi, krallığın omurgasıdır. Sefer sürelerini, stamina tavanın
 
 ---
 
-## 6. 🏰 Silo (Ambar) Kapasite & Yükseltme Tablosu (Seviye 1 – 18)
+## 2. 🏰 Silo / Ambar Kapasite ve Maliyet Tablosu (Seviye 1 – 18)
 
-Silo, krallıkta toplanan tüm Odun, Demir, Buğday ve Teçhizat Parçalarının depolandığı merkez yapıdır.
-
-- **Kapasite Ölçekleme Kuralı:** Seviye 1 (1.080 Odun / 720 Demir / 900 Buğday) $\to$ Seviye 18'de küresel haftalık çıkarma limitinin tam %50'sine (90.000 Odun / 65.000 Demir / 245.000 Buğday) ulaşır.
-- **Yükseltme Maliyeti:** Mevcut kapasitenin tam yarısı (Cap / 2) kadar hammadde ve bu hammaddelerin AMM DEX pazarındaki anlık $ADASTRA değeri talep edilir.
-- **Evrensel Yakım:** Yükseltmede verilen tüm hammaddeler anında yakılarak total arzdan silinir!
+* Formül: Seviye 1 (1.080 Odun, 720 Demir, 900 Buğday) $\to$ Seviye 18'de (90.000 Odun, 65.000 Demir, 245.000 Buğday).
+* Maliyet: Mevcut Kapasitenin Yarısı + AMM DEX ADA Karşılığı.
+* **Tüm harcanan hammaddeler anında yakılır ve total arzdan silinir.**
 
 | Seviye | 🌲 Odun Kapasitesi | ⛏️ Demir Kapasitesi | 🌾 Buğday Kapasitesi | 🧩 Parça Kapasitesi | Gerekli Odun | Gerekli Demir | Gerekli Buğday | Gerekli ADA (AMM Karşılığı) |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -233,12 +139,10 @@ Silo, krallıkta toplanan tüm Odun, Demir, Buğday ve Teçhizat Parçalarının
 
 ---
 
-## 7. ⚔️ Ordu, Kışla & Asker İlerleme Tabloları (1. – 18. Asker & Lv.1 – 81)
+## 3. ⚔️ Kışla Asker Alım Kademeleri (1. – 18. Asker)
 
-Krallık ordusunda tek bir elit savaşçı sınıfı bulunur: **AdAstra Şampiyonu**. Ordu sınırsız sayıda büyütülebilir.
-
-### A) 1. Askerden 18. Askere Satın Alma Maliyeti Tablosu:
-Asker alım maliyeti sabit 180k modelinden, ilk askerin erişilebilir (5.000 ADA) olduğu ve 18. askerin tam **1.800.000 (1.8 Milyon) $ADASTRA** olduğu logaritmik üssel modele ($5000 \cdot n^{2.03645}$) dönüştürülmüştür.
+* Formül: $\text{Maliyet}(n) = 5000 \cdot n^{2.0364522368}$ (18. asker hedefi: tam 1.800.000 $ADASTRA).
+* Alınan asker tutarları protokole işlenir ve doğrudan yakım/hazine kasalarına aktarılır.
 
 | Asker Sırası | Satın Alma Bedeli ($ADASTRA) | Seviye 1 Taban HP | Seviye 1 Taban ATK | Seviye Başı HP Artışı | Seviye Başı ATK Artışı | Tam İyileşme Süresi |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -261,40 +165,104 @@ Asker alım maliyeti sabit 180k modelinden, ilk askerin erişilebilir (5.000 ADA
 | **17. Asker** | **1.602.200 ADA** | 100 HP | 25 ATK | +25 HP / Lv | +6 ATK / Lv | 24 Saat (1440 Dk) |
 | **18. Asker** | **1.800.000 ADA** | 100 HP | 25 ATK | +25 HP / Lv | +6 ATK / Lv | 24 Saat (1440 Dk) |
 
-### B) Asker Seviye İlerlemesi Tablosu (Seviye 1 – 81):
-Her asker zindan savaşlarından kazandığı tecrübe puanıyla bağımsız seviye atlar.
-* $\text{Asker Canı (HP)} = 100 + 25 \cdot (\text{Level} - 1)$
-* $\text{Asker Saldırısı (ATK)} = 25 + 6 \cdot (\text{Level} - 1)$
+---
+
+## 4. 🛡️ Asker Seviye İlerleme Tablosu (Seviye 1 – 81)
+
+* Formüller:
+  - $\text{HP} = 100 + 25 \cdot (\text{Level} - 1)$
+  - $\text{ATK} = 25 + 6 \cdot (\text{Level} - 1)$
+  - Taban Zırh: 10 Def • Hız: 10 Spd • Kritik: %5.0 • Zırh Delme: 5 Pen
 
 | Asker Seviyesi | Toplam HP | Toplam ATK | Zırh | Hız | Kritik Şansı | Zırh Delme |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **Lv.1** | 100 HP | 25 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.2** | 125 HP | 31 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.3** | 150 HP | 37 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.4** | 175 HP | 43 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
 | **Lv.5** | 200 HP | 49 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.6** | 225 HP | 55 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.7** | 250 HP | 61 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.8** | 275 HP | 67 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.9** | 300 HP | 73 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
 | **Lv.10** | 325 HP | 79 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.11** | 350 HP | 85 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.12** | 375 HP | 91 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.13** | 400 HP | 97 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.14** | 425 HP | 103 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
 | **Lv.15** | 450 HP | 109 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.16** | 475 HP | 115 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.17** | 500 HP | 121 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.18** | 525 HP | 127 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.19** | 550 HP | 133 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
 | **Lv.20** | 575 HP | 139 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.21** | 600 HP | 145 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.22** | 625 HP | 151 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.23** | 650 HP | 157 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.24** | 675 HP | 163 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
 | **Lv.25** | 700 HP | 169 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.26** | 725 HP | 175 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.27** | 750 HP | 181 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.28** | 775 HP | 187 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.29** | 800 HP | 193 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
 | **Lv.30** | 825 HP | 199 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.31** | 850 HP | 205 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.32** | 875 HP | 211 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.33** | 900 HP | 217 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.34** | 925 HP | 223 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
 | **Lv.35** | 950 HP | 229 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.36** | 975 HP | 235 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.37** | 1.000 HP | 241 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.38** | 1.025 HP | 247 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.39** | 1.050 HP | 253 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
 | **Lv.40** | 1.075 HP | 259 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.41** | 1.100 HP | 265 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.42** | 1.125 HP | 271 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.43** | 1.150 HP | 277 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.44** | 1.175 HP | 283 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
 | **Lv.45** | 1.200 HP | 289 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.46** | 1.225 HP | 295 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.47** | 1.250 HP | 301 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.48** | 1.275 HP | 307 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.49** | 1.300 HP | 313 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
 | **Lv.50** | 1.325 HP | 319 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.51** | 1.350 HP | 325 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.52** | 1.375 HP | 331 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.53** | 1.400 HP | 337 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.54** | 1.425 HP | 343 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.55** | 1.450 HP | 349 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.56** | 1.475 HP | 355 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.57** | 1.500 HP | 361 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.58** | 1.525 HP | 367 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.59** | 1.550 HP | 373 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
 | **Lv.60** | 1.575 HP | 379 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.61** | 1.600 HP | 385 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.62** | 1.625 HP | 391 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.63** | 1.650 HP | 397 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.64** | 1.675 HP | 403 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.65** | 1.700 HP | 409 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.66** | 1.725 HP | 415 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.67** | 1.750 HP | 421 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.68** | 1.775 HP | 427 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.69** | 1.800 HP | 433 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
 | **Lv.70** | 1.825 HP | 439 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.71** | 1.850 HP | 445 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.72** | 1.875 HP | 451 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.73** | 1.900 HP | 457 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.74** | 1.925 HP | 463 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.75** | 1.950 HP | 469 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.76** | 1.975 HP | 475 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.77** | 2.000 HP | 481 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.78** | 2.025 HP | 487 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
+| **Lv.79** | 2.050 HP | 493 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
 | **Lv.80** | 2.075 HP | 499 ATK | 10 Def | 10 Spd | %5.0 | 5 Pen |
 | **Lv.81 (MAX)** | **2.100 HP** | **505 ATK** | **10 Def** | **10 Spd** | **%5.0** | **5 Pen** |
 
-*(Not: Tablonun 1'den 81'e kadar tüm satırları için [docs/LEVEL_PROGRESSION_TABLES.md](docs/LEVEL_PROGRESSION_TABLES.md) dokümanına başvurabilirsiniz).*
-
 ---
 
-## 8. 🔨 Cephanelik, Teçhizat Dövme & Geliştirme Tabloları (Lv.1 – 10)
+## 5. 🔨 Teçhizat Dövme (Craft) ve Seviye Atlama Tablosu (Seviye 1 – 10)
 
-Demirci ocağında dövülen 5 parça ekipman, askerin üzerine doğrudan giydirilebilir veya cephanelikte saklanabilir.
-
-### A) Seviye 1 Teçhizat Üretim (Craft) Maliyetleri:
-Her ekipman zindanlardan düşen **Teçhizat Parçası (Fragments)**, Odun, Demir ve AMM DEX $ADASTRA maliyetiyle dövülür.
-
+### A) Seviye 1 Üretim (Craft) Tablosu:
 | Ekipman Yuvası | İkon | Tip | Seviye 1 Taban Stat | Gerekli Odun | Gerekli Demir | Gerekli Parça | Gerekli ADA (AMM Karşılığı) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **Kadim Savaş Silahı** | 🗡️ | ATK | +10 Saldırı | 8.100 | 5.400 | 1 Parça | ~40.927 ADA |
@@ -303,9 +271,7 @@ Her ekipman zindanlardan düşen **Teçhizat Parçası (Fragments)**, Odun, Demi
 | **Muhafız Zırhlı Pantolonu** | 👖 | HP | +15 Can | 16.740 | 11.160 | 1 Parça | ~84.395 ADA |
 | **Fırtına Süvari Çizmesi** | 🥾 | HP | +15 Can | 10.152 | 6.768 | 1 Parça | ~51.268 ADA |
 
-### B) Teçhizat Seviye Atlama (Upgrade) Tablosu (Seviye 1 – 10):
-Her seviye atlamada eşyanın dayanıklılığı otomatik olarak **13/13** tamir edilir.
-
+### B) Seviye 1 – 10 Yükseltme (Upgrade) Tablosu:
 | Ekipman Seviyesi | Silah ATK Bonusu | Zırh/Miğfer/Pantolon/Çizme HP Bonusu | Dayanıklılık | Gerekli Odun | Gerekli Demir | Gerekli Parça | Gerekli ADA (AMM Karşılığı) |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **Seviye 1** | +10 ATK | +15 HP | 13/13 | *Craft ile Yapılır* | *Craft ile Yapılır* | *Craft ile Yapılır* | *Craft ile Yapılır* |
@@ -319,17 +285,9 @@ Her seviye atlamada eşyanın dayanıklılığı otomatik olarak **13/13** tamir
 | **Seviye 9** | +144 ATK | +217 HP | 13/13 | 46.279 | 30.853 | 256 Parça | ~231.556 ADA |
 | **Seviye 10 (MAX)** | **+174 ATK** | **+261 HP** | **13/13** | **60.358** | **40.238** | **512 Parça** | **~300.913 ADA** |
 
-### C) Ekipman Set Bonusları:
-Bir asker üzerine aynı anda giydirilen sağlam eşya sayısına göre özel pasifler devreye girer:
-* **2 Parça Seti:** +15 Saldırı Gücü (ATK) & +50 Can (HP)
-* **4 Parça Seti:** +35 Saldırı Gücü (ATK) & +120 Can (HP)
-* **5 Parça Tam Set (Grand Champion):** +75 Saldırı Gücü (ATK), +250 Can (HP) & %10 Zırh Delme (Armor Penetration)
-
 ---
 
-## 9. 💀 6 Katlı & 18 Seviyeli Zindan, Canavarlar & Boss Tablosu
-
-Zindanlar, 6 farklı tematik kat ve her katta 3 seviye olmak üzere toplam 18 aşamadan oluşur.
+## 6. 💀 Zindan Katları & Canavar Seviye Tablosu (1 – 18)
 
 | Kat | Zindan Seviyesi | Canavar Adı | İkon | Element | Sınıfı | Özel Yetenekler | Türü / Unvanı |
 | :---: | :---: | :--- | :---: | :---: | :---: | :--- | :--- |
@@ -351,59 +309,3 @@ Zindanlar, 6 farklı tematik kat ve her katta 3 seviye olmak üzere toplam 18 a�
 | Kat 6 | **Seviye 16** | Kıyamet Şövalyesi | 🛡️ | FIRE | paladin | cleave, sunder | ⚔️ Normal Yaratık |
 | Kat 6 | **Seviye 17** | Kadim Gölge Lordu | 👁️ | NEUTRAL | mage | terrify, swoop, cleave | ⚔️ Normal Yaratık |
 | Kat 6 | **Seviye 18** | Kıyamet Ejderhası IGNIS | 🐉 | FIRE | guardian | cleave, sunder, swoop, regenerate | 🔥 **BÜYÜK BOSS** (+%100 Ganimet) |
-
-### Boss Mekanikleri & Çarpanları:
-- **Ara Boss (Seviye 9 - Kadim Taş Golyat) & Büyük Boss (Seviye 18 - IGNIS):**
-  - **+%100 Düşürme Çarpanı (2.0x):** Hesap seviyesindeki parça ve kutu düşme şansını ikiye katlar.
-  - **Garanti Anahtar:** Bossları alt eden oyuncular Zindan Kasası Anahtarı kazanır.
-  - Bosslar çoklu tur aksiyonuna ve can yenileme (regenerate) yeteneklerine sahiptir.
-
----
-
-## 10. 🔧 Aletler, İşçilik & 72 Saatlik Aşınma Mekaniği
-
-Seferlere gönderilen işçilerin aletleri dakika başı aşınır:
-- **Maksimum Dayanıklılık:** 4.320 Dakika (Tam 72 Saat = 3 Gün).
-- **Alet Türleri:** Acemi Baltası (Odun), Acemi Kazması (Demir), Acemi Orağı (Buğday).
-- **Tamir Maliyeti:** Eksik dakika başına hammadde ve AMM DEX $ADASTRA karşılığı talep edilir. Harcanan tüm tamir malzemeleri evrensel yakım protokolüyle yakılır.
-
----
-
-## 11. 🤖 Taverna: 24 Saatlik Otonom Sefer & Tamir Botu
-
-Taverna botu, oyuncu oyunda olmasa dahi 24 saat boyunca seferleri toplayan, başlatan, aletleri tamir eden ve siloyu yöneten akıllı yapay zeka operatörüdür.
-
-### Temel Kurallar ve Güvenceler:
-1. **Dinamik Kâr Ortaklığı Bedeli (%50):** 24 saatlik tahmini brüt gelirden buğday (stamina) ve alet tamir giderleri düşülür; elde edilen **net saf kârın tam %50'si** bot ücreti olarak $ADASTRA ile ödenir.
-2. **50x Kaynak Önkoşulu ve Otomatik Süre Dondurma (Freeze):**
-   - Botun çalışması için depoda en az 50 Odun, 50 Demir ve 50 Buğday bulunmalıdır.
-   - Herhangi bir kaynak 50'nin altına düşerse **bot süresi anında dondurulur (pause)**. Süre asla boşa akmaz; kaynak temin edildiği an kalan süreden devam eder.
-3. **Yetersiz ADA Durumunda Otomatik Finansman:**
-   - Bot çalışırken tamirat veya işlem için ADA 50'nin altına düşerse durmak yerine depodaki Odun, Demir ve Buğdaydan **eşit miktarda satarak** 50 ADA temin eder ve çalışmayı kesintisiz sürdürür.
-4. **Kapsamlı Akıllı Silo Alanı Yönetimi:**
-   - **"Siloyu Yükselt" Modu:** Silo doluluğu %80'in altındayken kaynaklar asla erken panik satışı ile satılmaz; ambar yükseltme için korunur. Sadece ambar tamamen dolduğunda sefer hasadı kadar yer açacak hassas satış yapılır.
-   - **Kısmi Sefer Bekletme:** Siloda yer yoksa toplanan mahsulün bir kısmı depoya alınır, kalanı seferde bekletilir; hiçbir emek veya hammadde kaybolmaz.
-
----
-
-## 12. 🎡 Karnaval & Sirk (14 Ödüllü Şans Çarkı & Haftalık Piyango)
-
-### A) 14 Ödüllü Şans Çarkı:
-Oyuncular 100 ADA, 100 ADA değerinde hammadde veya 1 Piyango Bileti vererek çarkı çevirebilir. Hammaddeyle ödeme yapıldığında verilen Odun, Demir veya Buğday anında yakılır.
-* **Ödüller:** 500 ADA Büyük İkramiye, 150 ADA, 50 ADA, 3x Zindan Anahtarı, 1x Pandora Kutusu, 50x Teçhizat Parçası, Hammadde Paketleri ve Teselli Puanları.
-
-### B) Haftalık Krallık Piyangosu:
-* **Bilet Ücreti:** 100 $ADASTRA / Bilet (Haftalık maksimum 100 bilet).
-* **2x Kazanç Çarpanı:** Kazanan oyuncu sahip olduğu biletlerin maliyetinin tam 2 katını kasadan çeker.
-* **Biletler Asla Yanmaz:** Çekilişte ikramiye çıkmayan biletler yanmaz, otomatik olarak sonraki haftanın çekilişine devreder.
-* **%2 Amorti İade Havuzu:** Biletini yakmak isteyen oyuncular, amorti kasasında biriken $ADASTRA'ları anında nakde dönüştürebilir.
-
----
-
-## 13. 🛡️ Kurumsal Güvenlik Denetimi & Kalite Güvencesi (QA)
-
-AdAstra protokolü 2026 bağımsız mimari denetim standartlarına (F-01 ila F-20 bulguları) tam uyumludur:
-- Sıfır muhasebe açığı (Tüm asker alımları, alet tamirleri ve piyango amortileri defter kaydına işlenmiştir).
-- Deterministik zindan yapısı kırılmış, elementel karşıtlıklar ve boss çoklu turları getirilmiştir.
-- Pazar harçları matematiksel anayasaya (%13 burn, %78 hazine, %6 UBI, %3 telif) tam entegre edilmiştir.
-- Tüm sistemler **36 bağımsız birim test paketiyle** `%100 Passed` güvencesindedir.

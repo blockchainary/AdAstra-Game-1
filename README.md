@@ -1,106 +1,123 @@
-# 🌌 AdAstra: Genesis Realm (v2.0.0 Enterprise)
+# 🌌 AdAstra: Genesis Realm (v2.4.0 Enterprise)
 
-> **Avalanche (AVAX) Ekosistemi için Yeni Nesil Web3 GameFi & Strateji RPG Oyunu**
-
-Bu depo, **AdAstra Token ($ADASTRA)** hiper-deflasyonist mikro/makro ekonomisi üzerine kurulu, Phaser 3 Canvas grafik motoru ve Vanilla ES6+ modüler State Yönetim Mimarisiyle geliştirilmiş **AdAstra: Genesis Realm** oyununun tam ve optimize edilmiş kurumsal kaynak kodlarını içerir.
-
-📖 **Kapsamlı Ekonomi & Oyun Tasarım Dokümanı (Whitepaper):** [docs/GAME_DESIGN_AND_ECONOMY_WHITEPAPER.md](docs/GAME_DESIGN_AND_ECONOMY_WHITEPAPER.md)
+> **Avalanche (AVAX) Ekosisteminde Yeni Nesil Web3 GameFi & Strateji RPG Başyapıtı**  
+> *DeFi Kingdoms standartlarında hiper-deflasyonist mikro/makro ekonomi, Phaser 3 Canvas rendering motoru ve Vanilla ES6+ modüler State mimarisi.*
 
 ---
 
-## 🏛️ Mimari ve Teknoloji Yığını
+## 📚 Kapsamlı Dokümantasyon & Referanslar
 
-* **Frontend & Engine:** Vanilla JavaScript (ES Modules), HTML5 Canvas, Phaser 3.80.1, Vanilla CSS (Glassmorphism & Pixel-Art Custom Design System).
-* **Build & Dev Tooling:** Vite 5 (`vite --port 5173`).
-* **AMM DEX Pazar Motoru:** $x \cdot y = k$ Constant Product Market Maker (Pangolin & Uniswap v2 tabanlı AMM Likidite Havuzları).
-* **Otomatik Canlı Piyasa Botu:** Saniye başı AMM DEX fiyatlarını dinleyerek Silo ve Seviye Atlama ADA maliyetlerini gerçek zamanlı güncelleyen entegre bot.
-* **Blockchain Entegrasyonu:** Avalanche C-Chain ($ADASTRA Tokenomics, Hazine & Otomatik %18 / %82 Burn/Hazine Mekanizması).
-* **Test & Kalite Güvencesi:** Node.js ES Modules birim & entegrasyon test suiteleri.
+* 📖 **[Master Whitepaper & Oyun Tasarımı](docs/GAME_DESIGN_AND_ECONOMY_WHITEPAPER.md):** 10 Yıllık Makro Ekonomi, AMM Likidite Modeli, Hazine Anayasası ve Tüm Sistemlerin Detaylı Rehberi.
+* 📊 **[Tüm Sistemlerin Seviye Atlama & Denge Tabloları](docs/LEVEL_PROGRESSION_TABLES.md):** Hesap Seviyesi (1-81), Silo (1-18), Asker Alımı (1-18), Asker Statları (1-81), 5 Ekipman Parçası (1-10) ve Zindan Seviyelerinin tek tek matematiksel tabloları.
 
 ---
 
-## 📁 Sistem ve Dizin Yapısı
+## 🌟 Öne Çıkan Temel Sistemler ve Güncel Mekanikler (v2.4.0)
+
+### 1. 🔥 Evrensel Hammadde Yakımı (Universal Resource Burn)
+Oyunda harcama olarak tüketilen **tüm Odun, Demir ve Buğdaylar kalıcı olarak yakılır (burn)** ve küresel haftalık toplam arzdan silinir:
+- Silo yükseltme, hesap seviyesi atlama, alet tamiri, teçhizat dövme (craft), teçhizat seviye yükseltme, teçhizat onarımı, stamina doldurma, asker iyileştirme ve çark çevirme harcamaları anında yakılarak deflasyona uğrar.
+- Küresel havuzdaki kaynak kotası (`totalCap`) harcanan miktar kadar küçülür; hiçbir kaynak havuza geri dönmez.
+
+### 2. ⚡ Buğday Odaklı Saf Stamina Mekaniği
+- Taverna menüsündeki $ADASTRA ile anında stamina satın alma kaldırılmıştır.
+- Stamina **yalnızca depodaki Buğday** ile doldurulabilir (1 Stamina = 3.15 Buğday). Tüketilen buğday doğrudan yakılır.
+
+### 3. ⚔️ Kademeli 1.8 Milyon $ADASTRA Asker Modeli
+- Kışlada ordu sınırı kaldırılmıştır; sınırsız sayıda asker alınabilir.
+- İlk askerin bedeli erişilebilir taban maliyetiyle **5.000 $ADASTRA**'dır.
+- 18. askere kadar maliyet logaritmik üssel modelle artar ve **18. asker tam 1.800.000 (1.8 Milyon) $ADASTRA** olarak yapılandırılmıştır.
+
+### 4. 🤖 Taverna: 24 Saatlik Otonom Sefer & Tamir Botu
+- **Saf Kâr Ortaklığı (%50):** 24 saatlik tahmini net saf kâr üzerinden hesaplanan adil ortaklık bedeli.
+- **50x Kaynak Önkoşul ve Süre Dondurma (Freeze):** Depoda en az 50 Odun, Demir veya Buğday kalmadığında bot süresi anında dondurulur; süre boşa akmaz.
+- **Yetersiz ADA Oto-Finansmanı:** Bot çalışırken ADA yetersizliği oluşursa depodaki malzemelerden eşit miktarda satarak 50 ADA temin eder ve çalışmayı sürdürür.
+- **Akıllı Silo Alanı Yönetimi:** %80 barajı koruması, erken panik satışının engellenmesi ve ambar yetersizliğinde kısmi hasadın seferde bekletilmesi.
+
+### 5. 💱 AMM DEX ($x \cdot y = k$) & Canlı Maliyet Botu
+- Spot piyasa fiyatları sabit çarpım formülüyle belirlenir; her işlemden **%2.00 AMM Harcı** kesilir.
+- Saniyelik canlı bot (`tickUpgradeCostBot`), silo ve seviye atlama için talep edilen hammaddelerin borsa değerini anlık ADA maliyeti olarak yansıtır.
+
+### 6. 💀 6 Katlı & 18 Seviyeli Zindan & Boss Çarpanları
+- Seviye 1'den Seviye 81'e kadar Teçhizat Parçası düşme oranı **%0.18 $\to$ %18.00**'e, Pandora Sandığı oranı **%0.0018 $\to$ %0.18**'e (tam 100 kat) ölçeklenir.
+- Seviye 9 (Kadim Taş Golyat) ve Seviye 18 (Kıyamet Ejderhası IGNIS) bossları **+%100 Düşürme Çarpanı (2.0x)** ve garanti anahtar ganimeti sunar.
+
+### 7. 🪙 10 Milyar Makro Tokenomics & Hazine
+- **Sabit Maksimum Arz:** 10.000.000.000 $ADASTRA.
+- **Gelir Dağılım Anayasası:** %13 Kalıcı Yakım • %78 Krallık Hazinesi • %6 Evrensel Temel Gelir (UBI) • %3 Yapımcı Telifi.
+
+---
+
+## 📁 Dizin ve Mimari Yapısı
 
 ```
 adastra-realm/
-├── index.html                 # Ana HTML5 UI Shell, Üst Bilgi Barı, HUD & Modal İskeleti
-├── vite.config.js             # Vite geliştirme ve yerel sunucu yapılandırması
-├── package.json               # Bağımlılıklar, ortam ayarları ve npm test/dev scriptleri
-├── .gitignore                 # Kurumsal dosya dışlama yapılandırması
+├── index.html                 # Ana HTML5 UI Shell, HUD & Modal İskeleti
+├── vite.config.js             # Vite 5 derleyici yapılandırması
+├── package.json               # Paket bağımlılıkları ve test komutları
 │
 ├── docs/                      # 📚 Kapsamlı Dokümantasyon & Whitepaper
-│   └── GAME_DESIGN_AND_ECONOMY_WHITEPAPER.md # Oyun Tasarımı, Kıtlık Modeli & 10 Yıllık Tokenomics
+│   ├── GAME_DESIGN_AND_ECONOMY_WHITEPAPER.md # DeFi Kingdoms Tarzı Master Whitepaper
+│   └── LEVEL_PROGRESSION_TABLES.md           # Seviye 1-81 Tüm Denge Tabloları
 │
-├── js/                        # 🧠 Oyun Motoru ve Mantık Katmanı (State & Logic)
-│   ├── config.js              # Oyun sabitleri, havuz koridorları, sefer süreleri, ekipman ve asker dengeleri
-│   ├── gameState.js           # Ana State Manager (Can, iyileşme, seviye atlama, envanter, AMM canlı botu)
-│   ├── ammMarket.js           # Automated Market Maker (x * y = k DEX Swap, likidite havuzları, spot/çıkış fiyatları)
-│   ├── globalPool.js          # Küresel Kıtlık Havuzları, Hazine & 10B Makro Tokenomics Yöneticisi
-│   ├── bestiary.js            # Canavar veritabanı, boss dövüş mekanikleri, taktiksel kart & aksiyon havuzu
-│   ├── audio.js               # Web Audio API tabanlı dinamik sentezlenmiş SFX ses motoru
-│   ├── grandTownScene.js      # Phaser 3 Krallık / Kasaba Açık Dünya Sahnesi
-│   ├── dungeonScene.js        # Phaser 3 Zindan Katları & Boss Haritaları Sahnesi
-│   └── app.js                 # UI Controller, Canlı Ticker, Modal Yöneticisi, Kısayollar & Game Loop
+├── js/                        # 🧠 Oyun Mantığı ve State Motoru (ES Modules)
+│   ├── config.js              # Oyun sabitleri, havuz kotaları, scaling formülleri
+│   ├── gameState.js           # Ana State Manager, ordu, envanter, yakım ve tamirat
+│   ├── ammMarket.js           # AMM DEX motoru (x * y = k), harçlar ve fiyat hesaplama
+│   ├── globalPool.js          # Küresel havuzlar, hammadde arzı silme ve 10B muhasebe
+│   ├── bestiary.js            # 18 Seviyeli canavar kütüğü, elementler ve yetenekler
+│   ├── combat.js              # Sıra tabanlı taktiksel zindan savaş motoru
+│   ├── audio.js               # Dinamik sentezlenmiş Web Audio API SFX motoru
+│   ├── grandTownScene.js      # Phaser 3 Krallık / Kasaba sahnesi
+│   ├── dungeonScene.js        # Phaser 3 Zindan ve Boss dövüşü sahnesi
+│   └── app.js                 # UI Controller, HUD, Modal ve Oyun Döngüsü
 │
-├── css/
-│   └── style.css              # Tasarım Sistemi, Dashboard Grid, Kolezyum, Zindan ve UI Teması
+├── tests/                     # 🧪 Kapsamlı Birim ve Entegrasyon Testleri (36 Paket)
+│   ├── test_universal_resource_burn.mjs        # Evrensel hammadde yakımı testleri
+│   ├── test_tiered_soldier_recruitment_cost.mjs # 18. Asker 1.8M ADA maliyet testleri
+│   ├── test_taverna_24h_bot_complete.mjs       # Otonom bot tam doğrulama testleri
+│   ├── test_bot_auto_fund_ada_deficit.mjs      # ADA oto-finansman testleri
+│   └── ... (36 test dosyası)
 │
-├── assets/                    # Pixel art sprite'lar, harita dokuları ve ses efektleri
-└── public/                    # Statik web varlıkları ve ikonlar
+├── css/style.css              # Glassmorphism, pixel art & RPG UI tasarım sistemi
+├── assets/                    # Pixel art sprite'lar, sesler ve harita dokuları
+└── scripts/                   # Tablo ve veri üretim otomasyon araçları
 ```
-
----
-
-## ⚙️ Temel Sistemler ve Yenilikler (v2.0)
-
-### 1. 🤖 AMM DEX Canlı Fiyat Botu & Dinamik Yükseltme Maliyeti
-- **Silo & Seviye Atlama Maliyetleri:** Seviye atlamak ve Silo kapasitesini büyütmek için istenen Odun, Demir ve Buğday hammaddelerinin **AMM DEX Pazar Yeri'ndeki anlık toplam $ADASTRA değeri** ekstra token maliyeti olarak talep edilir.
-- **Saniyelik Canlı Bot (`tickUpgradeCostBot`):** Oyun döngüsünde saniyede bir otomatik çalışan bot, AMM havuzlarındaki anlık likidite ve fiyat hareketlerini okur; açık pencerelerdeki maliyetleri canlı borsa ticker'ı gibi günceller.
-- Harcanan tüm $ADASTRA tokenları protokol kuralları uyarınca yakım ve hazine havuzlarına aktarılır.
-
-### 2. ⚔️ Sınırsız Ordu & 180.000 ADA Asker Alımı
-- Eski ordu sınırı kaldırılmış olup oyuncular sınırsız sayıda asker alabilmektedir.
-- Her 1 askerin satın alma maliyeti sabit **180.000 $ADASTRA** olarak yapılandırılmıştır.
-- Askerler savaştan sonra kışlada depodaki buğdayla pasif olarak veya anında ADA ile iyileştirilebilir.
-
-### 3. 💀 Zindan Sistemi, Boss Çarpanları & Nadir Ganimetler
-- **Teçhizat Parçaları & Pandora Kutusu:** Zindanlardan düşen parçaların ve kutuların düşme oranları zindan seviyesinden bağımsız, doğrudan **Hesap Seviyesine** bağlanmıştır.
-  - Seviye 1'den Seviye 81'e kadar tam **100 kat** artış:
-    - *Teçhizat Parçaları:* `%0,18` $\rightarrow$ `%18,00`
-    - *Pandora Kutusu:* `%0,0018` $\rightarrow$ `%0,18`
-- **Kat 3 (Kadim Taş Golyat) ve Kat 6 (Kıyamet Ejderhası IGNIS) Bossları:**
-  - Özel **+%100 Düşürme Çarpanı (2.0x)** tanımlanmıştır (Lv.81'de Parça %36, Kutu %0,36).
-  - Bosslar çoklu tur aksiyonları ve yüksek can havuzu ile stratejik meydan okuma sunar.
-  - Kat 5'ten Kat 6'ya geçiş portalı taş butonu ile doğrudan ışınlanma desteklenmektedir.
-
-### 4. 🌾 Sefer Taşma Koruması & Krallık Merkezi
-- Seferden dönen kaynak oyuncunun silosunu taşıracaksa sistem otomatik koruma uyarısı verir: *"Silo'nuz dolu! Lütfen ilgili kaynağın seferini tamamlamak için silonuzu büyütün ve yer açın."*
-- Krallık merkezinde *"Tüm Seferleri Başlat"* tuşunda stamina yetersizliği kontrolü ve net kullanıcı bilgilendirmesi bulunur.
-
-### 5. 🍦 Vanilla Sıfırlama
-- Test menüsünde yer alan Vanilla Sıfırlama, oyun ekonomisini ve AMM havuzlarını bozmadan yalnızca kişisel hesap ilerlemesini sıfırlar.
 
 ---
 
 ## 🚀 Kurulum ve Çalıştırma
 
-### Gereksinimler
-* Node.js (v18+ önerilir)
-* npm veya pnpm
+### Gereksinimler:
+* **Node.js:** v18.0.0 veya üzeri
+* **Paket Yöneticisi:** `npm` veya `pnpm`
 
-### Projeyi Başlatma
+### Yerel Geliştirme:
 ```bash
-# Bağımlılıkları yükleyin
+# 1. Depoyu klonlayın veya dizine geçin
+cd adastra-realm
+
+# 2. Bağımlılıkları yükleyin
 npm install
 
-# Yerel geliştirme sunucusunu başlatın (Port: 5173)
+# 3. Geliştirme sunucusunu başlatın (Port: 5173)
 npm run dev
 
-# Doğrulama testlerini çalıştırın
+# 4. Tarayıcınızda açın:
+# http://localhost:5173/
+```
+
+### Kalite Güvencesi & Testler:
+```bash
+# Tüm 36 birim ve entegrasyon test paketini çalıştırın:
 npm test
+
+# Üretim derlemesini (Production Build) doğrulayın:
+npm run build
 ```
 
 ---
 
-## 📜 Lisans & Telif Hakkı
-Bu proje **AdAstra Ekosistemi & AlphAvax** tarafından geliştirilmiştir. Tüm hakları saklıdır.
+## 📜 Lisans & Telif
+
+© 2026 **AlphAvax (Kağan)**. Tüm hakları saklıdır. Avalanche ekosistemi için geliştirilmiştir.
