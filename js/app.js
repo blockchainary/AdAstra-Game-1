@@ -3596,6 +3596,44 @@ function renderCarnivalHtml(activeTab = 'wheel') {
           </div>
         </div>
 
+        <!-- 2.5. AMM / DEX İŞLEMLERİNDE ALINAN %2 İLE YAKILAN HAMMADDELER -->
+        <div class="clean-card" style="border-left: 4px solid #38bdf8; background: rgba(8,24,40,0.7); margin-top: 12px;">
+          <div class="card-title-row">
+            <div class="card-title" style="color: #38bdf8; font-size: 1rem; display:flex; align-items:center; gap:8px;">
+              <span>🔥</span>
+              <span>AMM / DEX Pazar İşlemlerinde Yakılan Hammaddeler (%2 Harç)</span>
+            </div>
+            <span class="card-badge" style="background:#0284c7; color:#fff; font-weight:800;">Dolaşımdan Kalıcı Silinir</span>
+          </div>
+          <div class="clean-desc" style="font-size:0.83rem; color:#cbd5e1; line-height:1.4;">
+            🛡️ <strong>Kural Güvencesi:</strong> AMM DEX pazarında alım ve satım işlemlerinde kesilen <strong>%2.00 hammadde harcı</strong> pazar havuzuna girmez. İşlem anında kalıcı olarak fırında yakılır ve küresel toplam arzdan ebediyen silinir.
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px;">
+            <div style="background: rgba(0,0,0,0.5); border: 1px solid rgba(56,189,248,0.3); border-radius: 8px; padding: 10px 12px; text-align: center;">
+              <div style="font-size: 1.5rem;">🌲</div>
+              <div style="font-size: 0.78rem; color: #94a3b8; font-weight: 700; margin-top: 2px;">Yakılan Odun</div>
+              <div style="font-size: 1.2rem; font-weight: 900; color: #4ade80; margin-top: 4px;">
+                ${(eData.ammBurnedResources?.wood || 0).toLocaleString('tr-TR', { maximumFractionDigits: 1 })} <span style="font-size:0.75rem; color:#cbd5e1;">Adet</span>
+              </div>
+            </div>
+            <div style="background: rgba(0,0,0,0.5); border: 1px solid rgba(56,189,248,0.3); border-radius: 8px; padding: 10px 12px; text-align: center;">
+              <div style="font-size: 1.5rem;">⛏️</div>
+              <div style="font-size: 0.78rem; color: #94a3b8; font-weight: 700; margin-top: 2px;">Yakılan Demir</div>
+              <div style="font-size: 1.2rem; font-weight: 900; color: #38bdf8; margin-top: 4px;">
+                ${(eData.ammBurnedResources?.iron || 0).toLocaleString('tr-TR', { maximumFractionDigits: 1 })} <span style="font-size:0.75rem; color:#cbd5e1;">Adet</span>
+              </div>
+            </div>
+            <div style="background: rgba(0,0,0,0.5); border: 1px solid rgba(56,189,248,0.3); border-radius: 8px; padding: 10px 12px; text-align: center;">
+              <div style="font-size: 1.5rem;">🌾</div>
+              <div style="font-size: 0.78rem; color: #94a3b8; font-weight: 700; margin-top: 2px;">Yakılan Buğday</div>
+              <div style="font-size: 1.2rem; font-weight: 900; color: #facc15; margin-top: 4px;">
+                ${(eData.ammBurnedResources?.wheat || 0).toLocaleString('tr-TR', { maximumFractionDigits: 1 })} <span style="font-size:0.75rem; color:#cbd5e1;">Adet</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- 3. HANGİ HAVUZA NE KADAR GİDİYOR? (GELİR DAĞILIM ŞEMASI) -->
         <div class="clean-card" style="border-color: #38bdf8; background: #0c1622;">
           <div class="card-title-row">

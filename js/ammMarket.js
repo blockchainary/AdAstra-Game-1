@@ -115,12 +115,24 @@ export class AMMMarketEngine {
   }
 
   loadFeeStats() {
-    if (typeof localStorage === 'undefined') return { collected: 0, burned: 0 };
+    if (typeof localStorage === 'undefined') return { collected: 0, burned: 0, burnedResources: { wood: 0, iron: 0, wheat: 0 } };
     try {
-      return JSON.parse(localStorage.getItem(this.storageKey + '_fees')) || { collected: 0, burned: 0 };
+      const data = JSON.parse(localStorage.getItem(this.storageKey + '_fees')) || { collected: 0, burned: 0 };
+      if (!data.burnedResources) data.burnedResources = { wood: 0, iron: 0, wheat: 0 };
+      return data;
     } catch (_) {
-      return { collected: 0, burned: 0 };
+      return { collected: 0, burned: 0, burnedResources: { wood: 0, iron: 0, wheat: 0 } };
     }
+  }
+
+  getBurnedResources() {
+    if (!this.feeStats) this.feeStats = this.loadFeeStats();
+    if (!this.feeStats.burnedResources) this.feeStats.burnedResources = { wood: 0, iron: 0, wheat: 0 };
+    return {
+      wood: Math.round((this.feeStats.burnedResources.wood || 0) * 10) / 10,
+      iron: Math.round((this.feeStats.burnedResources.iron || 0) * 10) / 10,
+      wheat: Math.round((this.feeStats.burnedResources.wheat || 0) * 10) / 10
+    };
   }
 
   savePools() {
@@ -137,7 +149,7 @@ export class AMMMarketEngine {
       localStorage.removeItem(this.storageKey + '_fees');
     }
     this.pools = buildDefaultPools();
-    this.feeStats = { collected: 0, burned: 0 };
+    this.feeStats = { collected: 0, burned: 0, burnedResources: { wood: 0, iron: 0, wheat: 0 } };
     this.savePools();
     return this.pools;
   }
@@ -261,8 +273,14 @@ export class AMMMarketEngine {
 
     // 🔥 Hammadde Yakımı (%2 Fee): Satılan malzemeden %2 fee kesilir, anında yakılır ve total arzdan silinir
     const resourceBurnFee = resourceAmount * (GAME_CONFIG.AMM_RESOURCE_FEE_RATE || GAME_CONFIG.AMM_FEE_RATE || 0.02);
-    if (resourceBurnFee > 0 && typeof globalPool !== 'undefined' && typeof globalPool.recordResourceBurn === 'function') {
-      globalPool.recordResourceBurn(resourceKey, resourceBurnFee);
+    if (resourceBurnFee > 0) {
+      if (!this.feeStats.burnedResources) this.feeStats.burnedResources = { wood: 0, iron: 0, wheat: 0 };
+      if (this.feeStats.burnedResources[resourceKey] !== undefined) {
+        this.feeStats.burnedResources[resourceKey] = (this.feeStats.burnedResources[resourceKey] || 0) + resourceBurnFee;
+      }
+      if (typeof globalPool !== 'undefined' && typeof globalPool.recordResourceBurn === 'function') {
+        globalPool.recordResourceBurn(resourceKey, resourceBurnFee);
+      }
     }
 
     // Havuz: hammadde girer, brüt ADA çıkar
@@ -318,8 +336,14 @@ export class AMMMarketEngine {
 
     // 🔥 Hammadde Yakımı (%2 Fee): Satın alınan malzemeden %2 fee kesilir, anında yakılır ve total arzdan silinir
     const resourceBurnFee = resourceAmount * (GAME_CONFIG.AMM_RESOURCE_FEE_RATE || GAME_CONFIG.AMM_FEE_RATE || 0.02);
-    if (resourceBurnFee > 0 && typeof globalPool !== 'undefined' && typeof globalPool.recordResourceBurn === 'function') {
-      globalPool.recordResourceBurn(resourceKey, resourceBurnFee);
+    if (resourceBurnFee > 0) {
+      if (!this.feeStats.burnedResources) this.feeStats.burnedResources = { wood: 0, iron: 0, wheat: 0 };
+      if (this.feeStats.burnedResources[resourceKey] !== undefined) {
+        this.feeStats.burnedResources[resourceKey] = (this.feeStats.burnedResources[resourceKey] || 0) + resourceBurnFee;
+      }
+      if (typeof globalPool !== 'undefined' && typeof globalPool.recordResourceBurn === 'function') {
+        globalPool.recordResourceBurn(resourceKey, resourceBurnFee);
+      }
     }
 
     pool.adAstraReserve += net;

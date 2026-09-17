@@ -4561,6 +4561,9 @@ export class GameStateManager {
       totalPoolsBalance,
       lifetimeBurnedAda,
       burnedResources,
+      ammBurnedResources: (typeof ammMarket !== 'undefined' && ammMarket.getBurnedResources)
+        ? ammMarket.getBurnedResources()
+        : { wood: 0, iron: 0, wheat: 0 },
       lottery: {
         lotteryPool,
         amortiPool,

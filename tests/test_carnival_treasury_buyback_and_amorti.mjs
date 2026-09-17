@@ -128,4 +128,30 @@ assert(spinFrag.rewardSummaryText.includes('Market Buyback'), 'Açıklamada buyb
 // Restore original rewards
 GAME_CONFIG.CARNIVAL.WHEEL_REWARDS = origRewards;
 
-console.log('\n🎉 TÜM KARNAVAL HAZİNE BUYBACK & 3 AMORTİ BİLETİ TESTLERİ %100 BAŞARIYLA TAMAMLANDI! 🎉\n');
+// Test 6: AMM / DEX İşlemlerinde %2 Hammadde Yakımı ve Sayaç Doğrulaması
+console.log('\n[6/6] AMM / DEX İşlemlerinde %2 Hammadde Yakımı Test Ediliyor...');
+const preAmmBurned = ammMarket.getBurnedResources();
+// 1000 Odun satışı yapalım -> %2 fee = 20 odun yakılmalı
+const sellRes = ammMarket.executeSell('wood', 1000);
+assert(sellRes.success, 'Odun satışı başarılı olmalı');
+assert.equal(sellRes.resourceBurnFee, 20, '1000 Odun satışından tam 20 Odun yakılmalı');
+
+const postAmmBurned = ammMarket.getBurnedResources();
+assert.equal(Math.round(postAmmBurned.wood), Math.round(preAmmBurned.wood + 20), 'AMM yakılan odun sayacı 20 artmalı');
+
+// 500 Demir alımı yapalım -> %2 fee = 10 demir yakılmalı
+const buyRes = ammMarket.executeBuyAmount('iron', 500);
+assert(buyRes.success, 'Demir alımı başarılı olmalı');
+assert.equal(buyRes.resourceBurnFee, 10, '500 Demir alımından tam 10 Demir yakılmalı');
+
+const postBuyAmmBurned = ammMarket.getBurnedResources();
+assert.equal(Math.round(postBuyAmmBurned.iron), Math.round(preAmmBurned.iron + 10), 'AMM yakılan demir sayacı 10 artmalı');
+
+// getEconomyAndPoolsSummary çıktısı kontrolü
+const eco = gs.getEconomyAndPoolsSummary();
+assert(eco.ammBurnedResources, 'Özette ammBurnedResources bulunmalı');
+assert.equal(Math.round(eco.ammBurnedResources.wood), Math.round(postBuyAmmBurned.wood), 'Özetteki yakılan odun AMM ile eşleşmeli');
+assert.equal(Math.round(eco.ammBurnedResources.iron), Math.round(postBuyAmmBurned.iron), 'Özetteki yakılan demir AMM ile eşleşmeli');
+console.log('✅ AMM / DEX %2 hammadde yakımı ve canlı istatistik sayacı %100 doğrulandı.');
+
+console.log('\n🎉 TÜM KARNAVAL HAZİNE BUYBACK, 3 AMORTİ BİLETİ VE AMM YAKIM TESTLERİ %100 BAŞARIYLA TAMAMLANDI! 🎉\n');
