@@ -3808,6 +3808,29 @@ function openBattlefieldModal() {
   const isStaked = boss.userStaked;
   const power = gameState.calculateUserWorldBossPower();
   const claimable = boss.claimableRewardAda || 0;
+  const adaRate = boss.maxBossHp > 0 ? (boss.weeklyAdaPool / boss.maxBossHp) : 0;
+
+  // Henüz kilitlenmemişse mevcut ordunun potansiyel hesaplaması
+  let currentArmyAtk = 0;
+  let currentArmyHp = 0;
+  soldiers.forEach((_, i) => {
+    const sStats = gameState.getSoldierFullStats(i);
+    if (sStats) {
+      currentArmyAtk += sStats.totalAtk;
+      currentArmyHp += sStats.totalMaxHp;
+    }
+  });
+  const diversity = gameState.calculateSquadSkillDiversity();
+  const potentialBaseDamage = Math.floor((currentArmyAtk * 1.0) + (currentArmyHp * 0.25));
+  const potentialDamage = Math.floor(potentialBaseDamage * diversity.diversityMultiplier);
+  const potentialAda = Math.floor((potentialDamage * boss.weeklyAdaPool) / (boss.maxBossHp || 1));
+
+  const displaySoldiersCount = isStaked ? (boss.userStakedSoldiersCount || 0) : soldiers.length;
+  const displayAtk = isStaked ? power.atk : currentArmyAtk;
+  const displayAtkContrib = isStaked ? power.atkContribution : Math.floor(currentArmyAtk * 1.0);
+  const displayHpContrib = isStaked ? power.hpContribution : Math.floor(currentArmyHp * 0.25);
+  const displayDamage = isStaked ? power.calculatedDamage : potentialDamage;
+  const displayExpectedAda = isStaked ? power.estimatedAda : potentialAda;
 
   dom.modalTitle.innerHTML = `<span>🌋</span> <span>BÜYÜK SAVAŞ ALANI & WORLD BOSS ETKİNLİĞİ</span>`;
 
@@ -3815,7 +3838,7 @@ function openBattlefieldModal() {
     <div class="clean-card" style="border-color: #ef4444; background: #1c0a0a;">
       <div class="card-title-row">
         <div class="card-title">🌋 Haftalık Savaş Alanı & World Boss Etkinliği</div>
-        <span class="card-badge" style="color: #fde047; border-color: #fde047;">Ödül Havuzu: 🟣 ${boss.weeklyAdaPool.toLocaleString()} ADA</span>
+        <span class="card-badge" style="color: #fde047; border-color: #fde047;">Ödül Havuzu: 🟣 ${boss.weeklyAdaPool.toLocaleString('tr-TR')} ADA</span>
       </div>
       <div class="clean-desc" style="line-height: 1.5; color: #cbd5e1;">
         ⏰ <strong>Otomatik Savaş Mekaniği:</strong> Oyuncular manuel saldırmaz. Hafta boyunca kilitlenen orduların saldırı ve can puanları üzerinden toplam hasar gücü hesaplanır. <strong>Her Pazar TSİ 18:00'da</strong> savaşlar tek seferlik <strong>otomatik</strong> gerçekleşir ve hak edilen $ADASTRA ödülü bu ekrana düşer.
@@ -3838,31 +3861,33 @@ function openBattlefieldModal() {
 
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-top: 8px;">
         <div style="background: #0f0a06; padding: 10px; border-radius: 6px; border: 1px solid #4a250a; text-align: center;">
-          <div style="font-size: 0.72rem; color: #94a3b8;">Kilitli Asker</div>
-          <div style="font-size: 1.1rem; font-weight: 800; color: #38bdf8;">⚔️ ${boss.userStakedSoldiersCount || 0} Asker</div>
+          <div style="font-size: 0.72rem; color: #94a3b8;">${isStaked ? 'Kilitli Asker' : 'Hazır Asker'}</div>
+          <div style="font-size: 1.1rem; font-weight: 800; color: #38bdf8;">⚔️ ${displaySoldiersCount} Asker</div>
         </div>
         <div style="background: #0f0a06; padding: 10px; border-radius: 6px; border: 1px solid #4a250a; text-align: center;">
           <div style="font-size: 0.72rem; color: #94a3b8;">Saldırı Gücü (1:1)</div>
-          <div style="font-size: 1.1rem; font-weight: 800; color: #4ade80;">💥 +${power.atkContribution.toLocaleString()}</div>
+          <div style="font-size: 1.1rem; font-weight: 800; color: #4ade80;">💥 +${displayAtkContrib.toLocaleString('tr-TR')}</div>
         </div>
         <div style="background: #0f0a06; padding: 10px; border-radius: 6px; border: 1px solid #4a250a; text-align: center;">
           <div style="font-size: 0.72rem; color: #94a3b8;">Can Katkısı (1:0.25)</div>
-          <div style="font-size: 1.1rem; font-weight: 800; color: #facc15;">❤️ +${power.hpContribution.toLocaleString()}</div>
+          <div style="font-size: 1.1rem; font-weight: 800; color: #facc15;">❤️ +${displayHpContrib.toLocaleString('tr-TR')}</div>
         </div>
         <div style="background: #0f0a06; padding: 10px; border-radius: 6px; border: 1px solid #eab308; text-align: center;">
           <div style="font-size: 0.72rem; color: #fef08a; font-weight: 700;">HESAPLANAN HASAR</div>
-          <div style="font-size: 1.25rem; font-weight: 900; color: #fde047;">🎯 ${power.calculatedDamage.toLocaleString()}</div>
+          <div style="font-size: 1.25rem; font-weight: 900; color: #fde047;">🎯 ${displayDamage.toLocaleString('tr-TR')}</div>
         </div>
       </div>
 
       <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center; background: #0c0805; padding: 10px 14px; border-radius: 8px; flex-wrap: wrap; gap: 8px;">
-        <div style="font-size: 0.82rem; color: #cbd5e1;">
-          🔮 <strong>Tahmini Pazar Günü Kazancı:</strong> <span style="color: #fde047; font-weight: 800;">~${power.estimatedAda.toLocaleString()} $ADASTRA</span>
+        <div style="font-size: 0.85rem; color: #cbd5e1;">
+          🔮 <strong>${isStaked ? 'Kilitli Ordu Pazar Günü Kazancı:' : 'Tahmini Pazar Günü Kazancı:'}</strong>
+          <span style="color: #fde047; font-weight: 900; font-size: 1.05rem;">~${displayExpectedAda.toLocaleString('tr-TR')} $ADASTRA</span>
+          <span style="color: #94a3b8; font-size: 0.75rem; margin-left: 4px;">(${displayDamage.toLocaleString('tr-TR')} Hasar × ${adaRate.toFixed(3)} ADA)</span>
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           ${isStaked ? `
             <button id="btn-emergency-unstake-boss" class="btn-clean btn-clean-red" style="width: auto; padding: 8px 14px; font-size: 0.8rem;" title="Pazar gününden önce erken çekilme cezası (%18)">
-              🔓 %18 Ceza ile Erken Çek (${Math.max(1, Math.round(power.estimatedAda * 0.18)).toLocaleString()} ADA)
+              🔓 %18 Ceza ile Erken Çek (${Math.max(1, Math.round(power.estimatedAda * 0.18)).toLocaleString('tr-TR')} ADA)
             </button>
           ` : ''}
           <button id="btn-stake-army-boss" class="btn-clean ${isStaked ? 'btn-clean-outline' : 'btn-clean-gold'}" style="width: auto; padding: 8px 18px;" ${!hasSoldiers ? 'disabled' : ''}>
@@ -3882,16 +3907,68 @@ function openBattlefieldModal() {
       <div style="margin: 10px 0;">
         <div style="display: flex; justify-content: space-between; font-size: 0.82rem; font-weight: 700; margin-bottom: 4px;">
           <span style="color: #fca5a5;">Boss Canı:</span>
-          <span style="color: #fde047;">${boss.bossHp.toLocaleString()} / ${boss.maxBossHp.toLocaleString()} HP (%${Math.floor((boss.bossHp / boss.maxBossHp) * 100)})</span>
+          <span style="color: #fde047;">${boss.bossHp.toLocaleString('tr-TR')} / ${boss.maxBossHp.toLocaleString('tr-TR')} HP (%${Math.floor((boss.bossHp / boss.maxBossHp) * 100)})</span>
         </div>
         <div style="background: #2b0c0c; height: 14px; border-radius: 7px; overflow: hidden; border: 1px solid #7f1d1d;">
           <div style="width: ${(boss.bossHp / boss.maxBossHp) * 100}%; background: linear-gradient(90deg, #ef4444, #f59e0b); height: 100%; transition: width 0.3s ease;"></div>
         </div>
       </div>
 
-      <div style="background: #0f0505; padding: 10px 14px; border-radius: 6px; font-size: 0.82rem; color: #cbd5e1; line-height: 1.5; margin-bottom: 10px;">
-        <div>📊 <strong>Hasar Başına ADA Dağıtım Oranı:</strong> 1 Hasar = ${(boss.weeklyAdaPool / boss.maxBossHp).toFixed(3)} $ADASTRA</div>
-        <div>💥 <strong>Önceki Savaşta Verdiğin Toplam Hasar:</strong> <span style="color:#4ade80; font-weight:800;">${(boss.userDamage || 0).toLocaleString()} Hasar</span></div>
+      <div style="background: #0f0505; padding: 12px 14px; border-radius: 8px; font-size: 0.82rem; color: #cbd5e1; line-height: 1.6; margin-bottom: 10px; border: 1px solid rgba(239, 68, 68, 0.3);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+          <div>📊 <strong>Hasar Başına ADA Dağıtım Oranı:</strong> <span style="color:#fde047; font-weight:800;">1 Hasar = ${adaRate.toFixed(3)} $ADASTRA</span></div>
+          <div>💥 <strong>Önceki Savaşta Verdiğin Toplam Hasar:</strong> <span style="color:#4ade80; font-weight:800;">${(boss.userDamage || 0).toLocaleString('tr-TR')} Hasar</span></div>
+        </div>
+
+        <!-- KULLANICININ İSTEDİĞİ CANLI KİLİTLİ SALDIRI VE HAFTALIK ADA KAZANÇ PANELİ -->
+        ${isStaked ? `
+          <div style="margin-top: 10px; background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%); border: 1.5px solid #22c55e; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; box-shadow: 0 4px 14px rgba(34, 197, 94, 0.15);">
+            <div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span class="card-badge" style="background: #22c55e; color: #000; font-weight: 900; font-size: 0.72rem; padding: 2px 8px; border: none;">KİLİTLİ ORDU AKTİF</span>
+                <span style="font-size: 0.82rem; color: #94a3b8; font-weight: 700;">Toplam Saldırı & Hasar Gücü:</span>
+              </div>
+              <div style="font-size: 1.15rem; font-weight: 900; color: #ffffff; margin-top: 3px;">
+                💥 <span style="color: #4ade80;">${displayDamage.toLocaleString('tr-TR')} Saldırı / Hasar</span>
+                <span style="font-size: 0.78rem; color: #94a3b8; font-weight: 600;">(${displayAtk.toLocaleString('tr-TR')} ATK + ${displayHpContrib.toLocaleString('tr-TR')} HP)</span>
+              </div>
+              <div style="font-size: 0.75rem; color: #cbd5e1; margin-top: 2px;">
+                📐 Dağıtım Çarpanı: 1 Saldırı = <strong style="color: #fde047;">${adaRate.toFixed(3)} $ADASTRA</strong>
+              </div>
+            </div>
+            <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(234, 179, 8, 0.4); border-radius: 8px; padding: 8px 16px; text-align: right; min-width: 220px;">
+              <div style="font-size: 0.72rem; color: #fef08a; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">🏆 BU HAFTA WORLD BOSS'TA KAZANILACAK:</div>
+              <div style="font-size: 1.45rem; font-weight: 900; color: #fde047; text-shadow: 0 0 12px rgba(253, 224, 71, 0.5); line-height: 1.2; margin: 2px 0;">
+                ~${displayExpectedAda.toLocaleString('tr-TR')} <span style="font-size: 0.95rem; color: #c084fc;">$ADASTRA</span>
+              </div>
+              <div style="font-size: 0.72rem; color: #94a3b8; font-weight: 600;">
+                Hesap: ${displayDamage.toLocaleString('tr-TR')} Saldırı × ${adaRate.toFixed(3)} ADA
+              </div>
+            </div>
+          </div>
+        ` : `
+          <div style="margin-top: 10px; background: rgba(234, 179, 8, 0.08); border: 1.5px dashed rgba(234, 179, 8, 0.4); border-radius: 8px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <div style="font-size: 0.82rem; color: #fde047; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                <span>⚠️ Ordun Henüz World Boss İçin Kilitlenmedi</span>
+              </div>
+              <div style="font-size: 0.76rem; color: #cbd5e1; margin-top: 2px;">
+                ${hasSoldiers ? `Mevcut ${soldiers.length} kişilik ordunu kilitlediğinde toplam <strong style="color:#4ade80;">${displayDamage.toLocaleString('tr-TR')} Saldırı Gücü</strong> devreye girer.` : 'Kışladan asker alıp ordunu kilitlediğinde saldırı gücünle orantılı $ADASTRA kazanırsın.'}
+              </div>
+            </div>
+            ${hasSoldiers ? `
+              <div style="text-align: right;">
+                <div style="font-size: 0.7rem; color: #94a3b8; font-weight: 700;">KİLİTLERSEN BU HAFTA TAHMİNİ KAZANÇ:</div>
+                <div style="font-size: 1.2rem; font-weight: 900; color: #fde047;">
+                  ~${displayExpectedAda.toLocaleString('tr-TR')} <span style="font-size: 0.85rem; color: #c084fc;">$ADASTRA</span>
+                </div>
+                <div style="font-size: 0.68rem; color: #94a3b8;">
+                  (${displayDamage.toLocaleString('tr-TR')} Saldırı × ${adaRate.toFixed(3)} ADA)
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        `}
       </div>
 
       <!-- 3. ÖDÜL TOPLAMA (CLAIM) BÖLÜMÜ -->
