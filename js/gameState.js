@@ -3820,8 +3820,8 @@ export class GameStateManager {
     const isMajorBoss = isBoss || lvl === 9 || lvl === 18;
     const bossMultiplier = isMajorBoss ? (GAME_CONFIG.BOSS_DROP_MULTIPLIER || 2.0) : 1.0;
 
-    const xpGained = Math.floor(40 * lvl * (isMajorBoss ? 3.0 : 1));
-    const targetAdAstra = Math.floor(15 * lvl * (isMajorBoss ? 3.0 : 1));
+    const xpGained = Math.floor(200 * lvl * (isMajorBoss ? 3.0 : 1));
+    const targetAdAstra = Math.floor(90 * lvl * (isMajorBoss ? 3.0 : 1));
     const draw = (typeof treasury !== 'undefined' && treasury && treasury.withdraw)
       ? treasury.withdraw('dungeon', targetAdAstra)
       : { granted: targetAdAstra };

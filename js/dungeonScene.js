@@ -29,9 +29,9 @@ const PAGES = [
     ],
     portal: { px: 0.940, py: 0.945, bw: 0.115, bh: 0.085 },
     levels: [
-      { level: 1, name: 'Bataklık Balçığı', icon: '🟢', hp: 200, atk: 30, rewardAdAstra: 15, rewardXp: 40, color: 0x22c55e },
-      { level: 2, name: 'Mağara Goblini', icon: '👺', hp: 380, atk: 50, rewardAdAstra: 30, rewardXp: 80, color: 0x06b6d4 },
-      { level: 3, name: 'Gölge Kurdu', icon: '🐺', hp: 600, atk: 75, rewardAdAstra: 55, rewardXp: 130, color: 0xf59e0b }
+      { level: 1, name: 'Bataklık Balçığı', icon: '🟢', hp: 200, atk: 30, rewardAdAstra: 100, rewardXp: 40, color: 0x22c55e },
+      { level: 2, name: 'Mağara Goblini', icon: '👺', hp: 380, atk: 50, rewardAdAstra: 175, rewardXp: 80, color: 0x06b6d4 },
+      { level: 3, name: 'Gölge Kurdu', icon: '🐺', hp: 600, atk: 75, rewardAdAstra: 250, rewardXp: 130, color: 0xf59e0b }
     ]
   },
   // 2. KAT: KEMİK MAHZENİ & İSKELET KRİPTOSU
@@ -47,9 +47,9 @@ const PAGES = [
     ],
     portal: { px: 0.940, py: 0.952, bw: 0.115, bh: 0.085 },
     levels: [
-      { level: 4, name: 'Kemik Mahzeni İskeletleri', icon: '💀', hp: 850, atk: 105, rewardAdAstra: 85, rewardXp: 200, color: 0x22c55e },
-      { level: 5, name: 'Lanetli Kemik Büyücüsü', icon: '🧙‍♂️', hp: 1150, atk: 130, rewardAdAstra: 110, rewardXp: 260, color: 0x06b6d4 },
-      { level: 6, name: 'Kemik Taht Muhafızı', icon: '🗡️', hp: 1450, atk: 155, rewardAdAstra: 140, rewardXp: 320, color: 0xf59e0b }
+      { level: 4, name: 'Kemik Mahzeni İskeletleri', icon: '💀', hp: 850, atk: 105, rewardAdAstra: 350, rewardXp: 200, color: 0x22c55e },
+      { level: 5, name: 'Lanetli Kemik Büyücüsü', icon: '🧙‍♂️', hp: 1150, atk: 130, rewardAdAstra: 450, rewardXp: 260, color: 0x06b6d4 },
+      { level: 6, name: 'Kemik Taht Muhafızı', icon: '🗡️', hp: 1450, atk: 155, rewardAdAstra: 575, rewardXp: 320, color: 0xf59e0b }
     ]
   },
   // 3. KAT: KADİM TAPINAK & TAŞ GOLYAT (ARA BOSS)
@@ -65,9 +65,9 @@ const PAGES = [
     ],
     portal: { px: 0.950, py: 0.970, bw: 0.098, bh: 0.060 },
     levels: [
-      { level: 7, name: 'Karanlık Tarikatçı', icon: '🧙‍♂️', hp: 1800, atk: 185, rewardAdAstra: 175, rewardXp: 400, color: 0x22c55e },
-      { level: 8, name: 'Cehennem Tazısı', icon: '🐺', hp: 2200, atk: 215, rewardAdAstra: 210, rewardXp: 480, color: 0x06b6d4 },
-      { level: 9, name: 'Kadim Taş Golyat', icon: '🗿', hp: 9500, atk: 520, rewardAdAstra: 800, rewardXp: 1800, color: 0xef4444, isBoss: true, bossLabel: 'ARA BOSS' }
+      { level: 7, name: 'Karanlık Tarikatçı', icon: '🧙‍♂️', hp: 1800, atk: 185, rewardAdAstra: 700, rewardXp: 400, color: 0x22c55e },
+      { level: 8, name: 'Cehennem Tazısı', icon: '🐺', hp: 2200, atk: 215, rewardAdAstra: 850, rewardXp: 480, color: 0x06b6d4 },
+      { level: 9, name: 'Kadim Taş Golyat', icon: '🗿', hp: 9500, atk: 520, rewardAdAstra: 6000, rewardXp: 1800, color: 0xef4444, isBoss: true, bossLabel: 'ARA BOSS' }
     ]
   },
   // 4. KAT: LANETLİ FİRAVUN MEZARI & HAYALETLER
@@ -83,9 +83,9 @@ const PAGES = [
     ],
     portal: { px: 0.940, py: 0.952, bw: 0.115, bh: 0.085 },
     levels: [
-      { level: 10, name: 'Sargılı Mumyalar', icon: '🧟', hp: 2800, atk: 245, rewardAdAstra: 260, rewardXp: 560, color: 0x22c55e },
-      { level: 11, name: 'Gölge Hayaletler', icon: '👻', hp: 3200, atk: 270, rewardAdAstra: 300, rewardXp: 640, color: 0x06b6d4 },
-      { level: 12, name: 'Lanetli Firavun', icon: '👑', hp: 3700, atk: 300, rewardAdAstra: 340, rewardXp: 720, color: 0xf59e0b }
+      { level: 10, name: 'Sargılı Mumyalar', icon: '🧟', hp: 2800, atk: 245, rewardAdAstra: 1100, rewardXp: 560, color: 0x22c55e },
+      { level: 11, name: 'Gölge Hayaletler', icon: '👻', hp: 3200, atk: 270, rewardAdAstra: 1300, rewardXp: 640, color: 0x06b6d4 },
+      { level: 12, name: 'Lanetli Firavun', icon: '👑', hp: 3700, atk: 300, rewardAdAstra: 1500, rewardXp: 720, color: 0xf59e0b }
     ]
   },
   // 5. KAT: KAYNAYAN LAV MAĞARASI & İBLİSLER
@@ -104,9 +104,9 @@ const PAGES = [
       { px: 0.955, py: 0.460, bw: 0.090, bh: 0.220 }  // Sağdaki Lav Portal Kapısı
     ],
     levels: [
-      { level: 13, name: 'Ateş İblisleri', icon: '😈', hp: 4200, atk: 330, rewardAdAstra: 380, rewardXp: 800, color: 0x22c55e },
-      { level: 14, name: 'Lav Elementalleri', icon: '🌋', hp: 4700, atk: 360, rewardAdAstra: 420, rewardXp: 880, color: 0x06b6d4 },
-      { level: 15, name: 'Obsidyen Berserker', icon: '⚔️', hp: 5300, atk: 395, rewardAdAstra: 470, rewardXp: 960, color: 0xf59e0b }
+      { level: 13, name: 'Ateş İblisleri', icon: '😈', hp: 4200, atk: 330, rewardAdAstra: 1750, rewardXp: 800, color: 0x22c55e },
+      { level: 14, name: 'Lav Elementalleri', icon: '🌋', hp: 4700, atk: 360, rewardAdAstra: 2000, rewardXp: 880, color: 0x06b6d4 },
+      { level: 15, name: 'Obsidyen Berserker', icon: '⚔️', hp: 5300, atk: 395, rewardAdAstra: 2300, rewardXp: 960, color: 0xf59e0b }
     ]
   },
   // 6. KAT: KIYAMET MABEDİ & BÜYÜK BOSS (EFSANEVİ EJDERHA)
@@ -122,9 +122,9 @@ const PAGES = [
     ],
     portal: null, // Son kat
     levels: [
-      { level: 16, name: 'Kıyamet Şövalyesi', icon: '🛡️', hp: 6000, atk: 430, rewardAdAstra: 550, rewardXp: 1100, color: 0x22c55e },
-      { level: 17, name: 'Kadim Gölge Lordu', icon: '👁️', hp: 7000, atk: 470, rewardAdAstra: 650, rewardXp: 1300, color: 0x06b6d4 },
-      { level: 18, name: 'Kıyamet Ejderhası IGNIS', icon: '🐉', hp: 38000, atk: 1250, rewardAdAstra: 3000, rewardXp: 6000, color: 0xef4444, isBoss: true, bossLabel: 'BÜYÜK BOSS' }
+      { level: 16, name: 'Kıyamet Şövalyesi', icon: '🛡️', hp: 6000, atk: 430, rewardAdAstra: 2700, rewardXp: 1100, color: 0x22c55e },
+      { level: 17, name: 'Kadim Gölge Lordu', icon: '👁️', hp: 7000, atk: 470, rewardAdAstra: 3200, rewardXp: 1300, color: 0x06b6d4 },
+      { level: 18, name: 'Kıyamet Ejderhası IGNIS', icon: '🐉', hp: 38000, atk: 1250, rewardAdAstra: 22000, rewardXp: 6000, color: 0xef4444, isBoss: true, bossLabel: 'BÜYÜK BOSS' }
     ]
   }
 ];
