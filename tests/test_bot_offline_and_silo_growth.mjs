@@ -60,11 +60,11 @@ test('🌾 Botun Kaynak Biriktirme, Silo Büyütme ve 3 Saatlik Çevrimdışı �
 
   await t.test('2. Depolar doldukça ve %80 barajı aşıldığında silo otomatik yükseltilmeli', () => {
     gs.state.botSiloAutoUpgrade = true;
-    // Seviye 1'de Kapasiteler: Wood: 1080, Iron: 720, Wheat: 900
-    // %80 doluluk: Wood: 864, Iron: 576, Wheat: 720
+    // Seviye 1'de Kapasiteler: Wood: 1080, Iron: 720, Wheat: 1800
+    // %80 doluluk: Wood: 864, Iron: 576, Wheat: 1440
     gs.state.inventory.wood = 900;
     gs.state.inventory.iron = 600;
-    gs.state.inventory.wheat = 750; // %80 aşıldı!
+    gs.state.inventory.wheat = 1500; // %80 (1440) aşıldı!
     gs.state.adAstraBalance = 100000;
 
     const initialLvl = gs.state.warehouseLevel;

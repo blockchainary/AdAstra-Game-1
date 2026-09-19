@@ -15,34 +15,34 @@ import { createUnit, DEFAULT_BOSS_PHASES } from './combat.js';
 // 6 kat × 3 seviye = 18 bölüm. Her katın kendi canavar profili ve yetenekleri var.
 export const DUNGEON_LEVELS = [
   // ── 1. KAT: Kristal Mağarası ─────────────────────────────────────────
-  { level: 1,  name: 'Bataklık Balçığı',        icon: '🟢', floor: 1, abilities: [] },
-  { level: 2,  name: 'Mağara Goblini',          icon: '👺', floor: 1, abilities: ['swoop'] },
-  { level: 3,  name: 'Gölge Kurdu',             icon: '🐺', floor: 1, abilities: ['swoop'], isFloorGuard: true },
+  { level: 1,  name: 'Bataklık Balçığı',        icon: '🟢', avatar: 'assets/monster_swamp_slime.jpg', floor: 1, abilities: [] },
+  { level: 2,  name: 'Mağara Goblini',          icon: '👺', avatar: 'assets/monster_cave_goblin.jpg', floor: 1, abilities: ['swoop'] },
+  { level: 3,  name: 'Gölge Kurdu',             icon: '🐺', avatar: 'assets/monster_shadow_wolf.jpg', floor: 1, abilities: ['swoop'], isFloorGuard: true },
 
   // ── 2. KAT: Kemik Mahzeni ─────────────────────────────────────────────
-  { level: 4,  name: 'Kemik Mahzeni İskeleti',  icon: '💀', floor: 2, abilities: ['sunder'] },
-  { level: 5,  name: 'Lanetli Kemik Büyücüsü',  icon: '🧙‍♂️', floor: 2, abilities: ['terrify'] },
-  { level: 6,  name: 'Kemik Taht Muhafızı',     icon: '🗡️', floor: 2, abilities: ['cleave', 'regenerate'], isFloorGuard: true },
+  { level: 4,  name: 'Kemik Mahzeni İskeleti',  icon: '💀', avatar: 'assets/monster_skeleton.jpg', floor: 2, abilities: ['sunder'] },
+  { level: 5,  name: 'Lanetli Kemik Büyücüsü',  icon: '🧙‍♂️', avatar: 'assets/monster_skeleton.jpg', floor: 2, abilities: ['terrify'] },
+  { level: 6,  name: 'Kemik Taht Muhafızı',     icon: '🗡️', avatar: 'assets/monster_skeleton.jpg', floor: 2, abilities: ['cleave', 'regenerate'], isFloorGuard: true },
 
   // ── 3. KAT: Kadim Tapınak — ARA BOSS ──────────────────────────────────
-  { level: 7,  name: 'Karanlık Tarikatçı',      icon: '🧙‍♂️', floor: 3, abilities: ['terrify'] },
-  { level: 8,  name: 'Cehennem Tazısı',         icon: '🐺', floor: 3, abilities: ['swoop', 'cleave'] },
-  { level: 9,  name: 'Kadim Taş Golyat',        icon: '🗿', floor: 3, abilities: ['cleave', 'sunder', 'regenerate'], isBoss: true, bossLabel: 'ARA BOSS', bossPhases: DEFAULT_BOSS_PHASES[9] },
+  { level: 7,  name: 'Karanlık Tarikatçı',      icon: '🧙‍♂️', avatar: 'assets/monster_stone_goliath.jpg', floor: 3, abilities: ['terrify'] },
+  { level: 8,  name: 'Cehennem Tazısı',         icon: '🐺', avatar: 'assets/monster_shadow_wolf.jpg', floor: 3, abilities: ['swoop', 'cleave'] },
+  { level: 9,  name: 'Kadim Taş Golyat',        icon: '🗿', avatar: 'assets/monster_stone_goliath.jpg', floor: 3, abilities: ['cleave', 'sunder', 'regenerate'], isBoss: true, bossLabel: 'ARA BOSS', bossPhases: DEFAULT_BOSS_PHASES[9] },
 
   // ── 4. KAT: Lanetli Firavun Mezarı ────────────────────────────────────
-  { level: 10, name: 'Sargılı Mumya',           icon: '🧟', floor: 4, abilities: ['sunder'] },
-  { level: 11, name: 'Gölge Hayalet',           icon: '👻', floor: 4, abilities: ['swoop', 'terrify'] },
-  { level: 12, name: 'Lanetli Firavun',         icon: '👑', floor: 4, abilities: ['cleave', 'regenerate', 'terrify'], isFloorGuard: true },
+  { level: 10, name: 'Sargılı Mumya',           icon: '🧟', avatar: 'assets/monster_skeleton.jpg', floor: 4, abilities: ['sunder'] },
+  { level: 11, name: 'Gölge Hayalet',           icon: '👻', avatar: 'assets/monster_shadow_wolf.jpg', floor: 4, abilities: ['swoop', 'terrify'] },
+  { level: 12, name: 'Lanetli Firavun',         icon: '👑', avatar: 'assets/monster_stone_goliath.jpg', floor: 4, abilities: ['cleave', 'regenerate', 'terrify'], isFloorGuard: true },
 
   // ── 5. KAT: Kaynayan Lav Çukuru ──────────────────────────────────────
-  { level: 13, name: 'Ateş İblisi',             icon: '😈', floor: 5, abilities: ['cleave'] },
-  { level: 14, name: 'Lav Elementali',          icon: '🌋', floor: 5, abilities: ['cleave', 'regenerate'] },
-  { level: 15, name: 'Obsidyen Berserker',      icon: '⚔️', floor: 5, abilities: ['cleave', 'sunder'], isFloorGuard: true },
+  { level: 13, name: 'Ateş İblisi',             icon: '😈', avatar: 'assets/monster_fire_demon.jpg', floor: 5, abilities: ['cleave'] },
+  { level: 14, name: 'Lav Elementali',          icon: '🌋', avatar: 'assets/monster_fire_demon.jpg', floor: 5, abilities: ['cleave', 'regenerate'] },
+  { level: 15, name: 'Obsidyen Berserker',      icon: '⚔️', avatar: 'assets/monster_fire_demon.jpg', floor: 5, abilities: ['cleave', 'sunder'], isFloorGuard: true },
 
   // ── 6. KAT: Kıyamet Mabedi — FİNAL ───────────────────────────────────
-  { level: 16, name: 'Kıyamet Şövalyesi',       icon: '🛡️', floor: 6, abilities: ['cleave', 'sunder'] },
-  { level: 17, name: 'Kadim Gölge Lordu',       icon: '👁️', floor: 6, abilities: ['terrify', 'swoop', 'cleave'] },
-  { level: 18, name: 'Kıyamet Ejderhası IGNIS', icon: '🐉', floor: 6, abilities: ['cleave', 'sunder', 'swoop', 'regenerate'], isBoss: true, bossLabel: 'BÜYÜK BOSS', bossPhases: DEFAULT_BOSS_PHASES[18] }
+  { level: 16, name: 'Kıyamet Şövalyesi',       icon: '🛡️', avatar: 'assets/monster_fire_demon.jpg', floor: 6, abilities: ['cleave', 'sunder'] },
+  { level: 17, name: 'Kadim Gölge Lordu',       icon: '👁️', avatar: 'assets/monster_dragon_ignis.jpg', floor: 6, abilities: ['terrify', 'swoop', 'cleave'] },
+  { level: 18, name: 'Kıyamet Ejderhası IGNIS', icon: '🐉', avatar: 'assets/monster_dragon_ignis.jpg', floor: 6, abilities: ['cleave', 'sunder', 'swoop', 'regenerate'], isBoss: true, bossLabel: 'BÜYÜK BOSS', bossPhases: DEFAULT_BOSS_PHASES[18] }
 ];
 
 // Kat başına refakatçi yaratıklar (odalar tek düşmandan ibaret değil)

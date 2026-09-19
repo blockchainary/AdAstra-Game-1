@@ -5,7 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Realm of Astra - Official Web3 RPG</title>
   <link rel="icon" type="image/jpeg" href="realm_of_astra_banner.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/battle-arena.css">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 </head>
 <body>
@@ -144,9 +148,9 @@
       </div>
 
       <!-- Güncelleme Logu (Changelog) Rozeti -->
-      <div class="top-res-pill changelog-pill" id="btn-changelog-pill" title="📜 Sürüm Geçmişi & Güncelleme Günlüğü (v1.22)" style="cursor:pointer; background:rgba(56,189,248,0.15); border:1px solid #38bdf8; color:#38bdf8; font-weight:800; padding:6px 12px; border-radius:20px;">
+      <div class="top-res-pill changelog-pill" id="btn-changelog-pill" title="📜 Sürüm Geçmişi & Güncelleme Günlüğü (v1.24)" style="cursor:pointer; background:rgba(56,189,248,0.15); border:1px solid #38bdf8; color:#38bdf8; font-weight:800; padding:6px 12px; border-radius:20px;">
         <span>📜</span>
-        <span>v1.22</span>
+        <span>v1.24</span>
       </div>
 
       <!-- Karnaval & Şans Çarkı / Piyango Butonu -->
@@ -559,6 +563,78 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       BATTLE ARENA OVERLAY (CANLI SAVAŞ ARENASI - ZİNDAN & KOLEZYUM)
+       ============================================================ -->
+  <div id="battle-arena-modal" class="battle-arena-modal-overlay">
+    <div class="shell aa-arena" data-mode="dungeon">
+
+      <!-- HUD -->
+      <div class="hud">
+        <div class="brand"><span class="star">★</span> AdAstra <span class="tagline" style="color:var(--ink-dim); font-family:var(--font-body); font-weight:500; font-size:.72rem;">Canlı Savaş</span></div>
+        <div class="mode-badge-wrap" id="aa-modeBadgeWrap">
+          <div class="mode-badge dungeon" id="aa-modeBadgeDungeon">🗡️ Zindan Savaşı</div>
+          <div class="mode-badge colosseum" id="aa-modeBadgeColosseum" style="display:none;">🏟️ Kolezyum Düellosu</div>
+        </div>
+        <div class="hud-spacer"></div>
+        <div class="hud-stat"><div class="label">Tur</div><div class="value" id="aa-roundVal">0</div></div>
+        <div class="hud-stat"><div class="label">Durum</div><div class="value" id="aa-stateVal" style="font-size:.82rem;">Hazır</div></div>
+        <button class="aa-exit-btn" id="aa-closeBtn" style="background:rgba(239,68,68,0.2); border:1px solid #ef4444; color:#fca5a5; border-radius:6px; padding:6px 12px; font-weight:800; cursor:pointer; margin-left:12px; font-size:0.85rem;" title="Savaştan Çık / Kasabaya Dön">✕ Çık</button>
+      </div>
+
+      <!-- context -->
+      <div class="context-strip">
+        <div id="aa-contextText">Kat 3 · Seviye 9 — <strong>Kadim Taş Golyat</strong> (Ara Boss)</div>
+        <div class="rank-pill" id="aa-rankPill">+%100 Ganimet</div>
+      </div>
+
+      <!-- battlefield -->
+      <div class="stage-wrap">
+        <div class="stage" id="aa-stage">
+          <div class="torch l"></div><div class="torch r"></div>
+          <div class="crowd"></div><div class="sand-line"></div>
+
+          <div class="flank ally" id="aa-allyFlank"></div>
+          <div class="vs-mark">VS</div>
+          <div class="flank enemy" id="aa-enemyFlank"></div>
+
+          <div class="fx-layer" id="aa-fxLayer"></div>
+          <div class="phase-banner" id="aa-phaseBanner"><div class="txt" id="aa-phaseTxt"></div></div>
+          <div class="result-banner" id="aa-resultBanner">
+            <div class="title" id="aa-resultTitle"></div>
+            <div class="loot" id="aa-resultLoot"></div>
+            <div style="display:flex; gap:10px; justify-content:center; margin-top:12px; flex-wrap:wrap;">
+              <button id="aa-resultBtn" class="ctrl-btn">↺ Tekrar İzle</button>
+              <button id="aa-resultCloseBtn" class="ctrl-btn primary">✨ Tamamla & Devam Et</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- initiative queue -->
+      <div class="queue-bar">
+        <div class="queue-label">Sıradakiler</div>
+        <div class="queue-track" id="aa-queueTrack"></div>
+      </div>
+
+      <!-- log -->
+      <div class="log-wrap" id="aa-logWrap"></div>
+
+      <!-- controls -->
+      <div class="controls">
+        <button class="ctrl-btn primary" id="aa-playBtn">▶ Savaşı Başlat</button>
+        <button class="ctrl-btn" id="aa-skipBtn" style="background:rgba(234,179,8,0.2); border-color:#eab308; color:#fde047;">⏭️ Anında Bitir</button>
+        <button class="ctrl-btn" id="aa-resetBtn">↺ Sıfırla</button>
+        <div class="speed-group">
+          <button class="speed-btn active" data-speed="1">1×</button>
+          <button class="speed-btn" data-speed="2">2×</button>
+          <button class="speed-btn" data-speed="0.5">0.5×</button>
+        </div>
+      </div>
+
     </div>
   </div>
 

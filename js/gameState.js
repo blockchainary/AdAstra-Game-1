@@ -50,6 +50,10 @@ export class GameStateManager {
         try {
           parsed = JSON.parse(saved) || {};
           delete parsed.dailyQuests;
+          if (parsed.characterXp != null) {
+            parsed.currentXp = (Number(parsed.currentXp) || 0) + Number(parsed.characterXp);
+            delete parsed.characterXp;
+          }
         } catch (e) {
           console.error('Save state error:', e);
         }
@@ -58,6 +62,7 @@ export class GameStateManager {
     return {
       ...GAME_CONFIG.STARTING_PROFILE,
       ...parsed,
+      currentXp: parsed.currentXp != null ? Number(parsed.currentXp) : (GAME_CONFIG.STARTING_PROFILE.currentXp || 0),
       inventory: { ...GAME_CONFIG.STARTING_PROFILE.inventory, ...(parsed.inventory || {}) },
       tools: this.mergeTools(parsed.tools),
       army: { ...GAME_CONFIG.STARTING_PROFILE.army, ...(parsed.army || {}) },
@@ -87,6 +92,7 @@ export class GameStateManager {
         : Math.round((parsed.lotteryTickets || 0) * (GAME_CONFIG.CARNIVAL?.LOTTERY?.TICKET_COST_ADA || 100) * (GAME_CONFIG.CARNIVAL?.LOTTERY?.AMORTI_SHARE || 0.02)),
       wheelTicketShards: parsed.wheelTicketShards || 0,
       botSiloAutoUpgrade: parsed.botSiloAutoUpgrade !== undefined ? parsed.botSiloAutoUpgrade : true,
+      botAutoRenew24h: parsed.botAutoRenew24h !== undefined ? parsed.botAutoRenew24h : false,
       botActiveUntil: parsed.botActiveUntil || 0,
       redeemCodes: Array.isArray(parsed.redeemCodes) ? parsed.redeemCodes : [],
       burnedResources: parsed.burnedResources || { wood: 0, iron: 0, wheat: 0 },
@@ -159,6 +165,7 @@ export class GameStateManager {
       classId: 'adastra_champion',
       className: 'AdAstra Şampiyonu',
       icon: '⚔️',
+      avatar: 'assets/soldier_avatar.jpg',
       row: index <= 2 ? 'front' : 'back',
       skills: initialSkills,
       level,
@@ -216,6 +223,7 @@ export class GameStateManager {
         class: 'adastra_champion',
         className: 'AdAstra Şampiyonu',
         icon: '⚔️',
+        avatar: s.avatar || 'assets/soldier_avatar.jpg',
         row: s.row || (i < 2 ? 'front' : 'back'),
         skills,
         level,
@@ -616,6 +624,7 @@ export class GameStateManager {
   }
 
   saveState() {
+    this.enforceWarehouseLimits();
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(this.storageKey, JSON.stringify(this.state));
     }
@@ -931,51 +940,57 @@ export class GameStateManager {
     // Eğer bot aktifse ve geçen süre 1 seferden (örn. 1080s) uzunsa:
     // 3 sefer alanını (Odun, Demir, Buğday) paralel simüle ederek ardışık tüm döngüleri işlet!
     if (isBot && maxDiff > 1080) {
-      let remainingTime = maxDiff;
-      let safetyCounter = 80; // Maksimum 80 sefer (~24 saat)
-      while (remainingTime > 0 && safetyCounter-- > 0) {
-        let minNeeded = remainingTime;
-        let anyActive = false;
-        for (const nodeId of ['wood', 'iron', 'wheat']) {
-          const exp = this.state.activeExpeditions ? this.state.activeExpeditions[nodeId] : null;
-          if (exp && !exp.isCompleted) {
-            anyActive = true;
-            const needed = Math.max(1, (exp.durationSeconds - (exp.elapsedSeconds || 0)) / speedMult);
-            if (needed < minNeeded) minNeeded = needed;
-          }
-        }
-
-        if (!anyActive) {
-          this.runTavernaAutomationCycle();
-          hasChanges = true;
-          const hasAny = Object.keys(this.state.activeExpeditions || {}).length > 0;
-          if (!hasAny || this.isBotPaused()) break;
-          continue;
-        }
-
-        const stepToApply = Math.min(remainingTime, minNeeded);
-        remainingTime -= stepToApply;
-
-        for (const nodeId of ['wood', 'iron', 'wheat']) {
-          const exp = this.state.activeExpeditions ? this.state.activeExpeditions[nodeId] : null;
-          if (exp && !exp.isCompleted) {
-            exp.elapsedSeconds = Math.min(exp.durationSeconds, (exp.elapsedSeconds || 0) + (stepToApply * speedMult));
-            exp.lastTickAt = now;
-            if (exp.elapsedSeconds >= exp.durationSeconds) {
-              exp.isCompleted = true;
+      this._isFastForwarding = true;
+      try {
+        let remainingTime = maxDiff;
+        let safetyCounter = 80; // Maksimum 80 sefer (~24 saat)
+        while (remainingTime > 0 && safetyCounter-- > 0) {
+          let minNeeded = remainingTime;
+          let anyActive = false;
+          for (const nodeId of ['wood', 'iron', 'wheat']) {
+            const exp = this.state.activeExpeditions ? this.state.activeExpeditions[nodeId] : null;
+            if (exp && !exp.isCompleted) {
+              anyActive = true;
+              const needed = Math.max(1, (exp.durationSeconds - (exp.elapsedSeconds || 0)) / speedMult);
+              if (needed < minNeeded) minNeeded = needed;
             }
           }
+
+          if (!anyActive) {
+            this.runTavernaAutomationCycle();
+            hasChanges = true;
+            const hasAny = Object.keys(this.state.activeExpeditions || {}).length > 0;
+            if (!hasAny || this.isBotPaused()) break;
+            continue;
+          }
+
+          const stepToApply = Math.min(remainingTime, minNeeded);
+          remainingTime -= stepToApply;
+
+          for (const nodeId of ['wood', 'iron', 'wheat']) {
+            const exp = this.state.activeExpeditions ? this.state.activeExpeditions[nodeId] : null;
+            if (exp && !exp.isCompleted) {
+              exp.elapsedSeconds = Math.min(exp.durationSeconds, (exp.elapsedSeconds || 0) + (stepToApply * speedMult));
+              exp.lastTickAt = now;
+              if (exp.elapsedSeconds >= exp.durationSeconds) {
+                exp.isCompleted = true;
+              }
+            }
+          }
+          hasChanges = true;
+
+          this.runTavernaAutomationCycle();
+          if (this.isBotPaused()) break;
         }
-        hasChanges = true;
 
-        this.runTavernaAutomationCycle();
-        if (this.isBotPaused()) break;
+        for (const nodeId of Object.keys(this.state.activeExpeditions || {})) {
+          const exp = this.state.activeExpeditions[nodeId];
+          if (exp) exp.lastTickAt = now;
+        }
+      } finally {
+        this._isFastForwarding = false;
       }
-
-      for (const nodeId of Object.keys(this.state.activeExpeditions || {})) {
-        const exp = this.state.activeExpeditions[nodeId];
-        if (exp) exp.lastTickAt = now;
-      }
+      this.enforceWarehouseLimits();
       this.saveState();
       return;
     }
@@ -1033,9 +1048,9 @@ export class GameStateManager {
     const actions = [];
 
     // =========================================================================
-    // 0. BOT ADA & HAMMADDE ÖN-KONTROLÜ & OTOMATİK ÇİFT YÖNLÜ FİNANSMAN / TEDARİK
-    // A) Yetersiz $ADASTRA varsa depodan eşit miktarda satış yap
-    // B) Yetersiz Hammadde (Odun, Demir, Buğday) varsa kasadaki ADA ile AMM'den satın al
+    // 0. BOT ADA ÖN-KONTROLÜ & OTOMATİK FİNANSMAN (SATIŞ YOLUYLA)
+    // Alet tamirleri ve operasyon için ADA yetersizse depodan eşit miktarda satış yaparak ADA temin eder.
+    // Bot bir üreticidir; kasadaki ADA ile AMM'den asla zorla hammadde satın almaz (satın alma fiyatları artırır).
     // =========================================================================
     if ((this.state.adAstraBalance || 0) < 50) {
       const fundRes = this.autoFundBotAdaDeficit(50);
@@ -1044,19 +1059,12 @@ export class GameStateManager {
       }
     }
 
-    const cycleInv = this.state.inventory || {};
-    if (((cycleInv.wood || 0) < 50 || (cycleInv.iron || 0) < 50 || (cycleInv.wheat || 0) < 50) && (this.state.adAstraBalance || 0) >= 10) {
-      const buyRes = this.autoBuyBotResourceDeficit();
-      if (buyRes && buyRes.bought) {
-        actions.push(buyRes.message);
-      }
-    }
-
     // =========================================================================
     // 1. ÖNCE TAMAMLANAN SEFERLERİ TOPLA (Hasat)
     // Sefer bitmişse veya süresi dolmuşsa derhal toplanır.
     // Bu sayede ambara buğday, demir ve odun girer; yetersizlik çözülür.
     // =========================================================================
+    let hasClaimedAny = false;
     for (const nodeId of nodes) {
       const exp = this.state.activeExpeditions ? this.state.activeExpeditions[nodeId] : null;
       if (exp && (exp.isCompleted || (exp.elapsedSeconds >= exp.durationSeconds))) {
@@ -1064,28 +1072,37 @@ export class GameStateManager {
         const claimRes = this.claimExpedition(nodeId);
         if (claimRes && claimRes.success) {
           actions.push(`✅ ${GAME_CONFIG.GLOBAL_RESOURCE_CAPS[nodeId].name} seferi toplandı.`);
+          hasClaimedAny = true;
         }
       }
     }
 
     // =========================================================================
     // 2. ALETLERİ ONAR
-    // Kırık veya sıfır dayanıklılığa sahip aletleri depodaki kaynaklarla tamir et
+    // Aşınmış veya hasar görmüş aletleri depodaki kaynaklarla otonom tamir et
     // =========================================================================
     for (const nodeId of nodes) {
       const toolId = GAME_CONFIG.GLOBAL_RESOURCE_CAPS[nodeId].requiredTool;
       const tool = this.state.tools ? this.state.tools[toolId] : null;
-      if (tool && tool.durability <= 0) {
+      const maxDur = GAME_CONFIG.TOOLS[toolId]?.maxDurability || 4320;
+      if (tool && tool.durability < maxDur) {
         const repCost = this.calculateRepairCost(toolId);
-        const inv = this.state.inventory || {};
-        if (repCost && (inv.wood || 0) >= repCost.woodCost && (inv.iron || 0) >= repCost.ironCost) {
+        if (repCost && repCost.missingDurability > 0) {
+          // A) ADA yetersizse aletleri onarmak için ihtiyaç duyduğu ADA miktarı kadar depodaki kaynaklardan eşit miktarda satarak pazardan ADA elde eder
           if ((this.state.adAstraBalance || 0) < repCost.adAstraCost) {
-            this.autoFundBotAdaDeficit(Math.max(50, repCost.adAstraCost + 5));
+            const fundRes = this.autoFundBotAdaDeficit(repCost.adAstraCost, { wood: repCost.woodCost, iron: repCost.ironCost });
+            if (fundRes && fundRes.funded) {
+              actions.push(`⚖️ Bot Alet Tamir Finansmanı: Tamir için gereken ${repCost.adAstraCost} ADA için kaynaklardan eşit miktarda (${fundRes.toSell?.wood || 0} Odun, ${fundRes.toSell?.iron || 0} Demir, ${fundRes.toSell?.wheat || 0} Buğday) satılarak +${fundRes.totalEarned?.toFixed(1)} ADA temin edildi.`);
+            }
           }
-          if ((this.state.adAstraBalance || 0) >= repCost.adAstraCost) {
+          // B) Yeterli kaynak varsa onarımı gerçekleştir (Kaynak eksikse seferlerden gelmesi beklenir, AMM'den alıp fiyat şişirilmez)
+          const curInv = this.state.inventory || {};
+          if ((curInv.wood || 0) >= repCost.woodCost && 
+              (curInv.iron || 0) >= repCost.ironCost && 
+              (this.state.adAstraBalance || 0) >= repCost.adAstraCost) {
             const repRes = this.repairTool(toolId);
             if (repRes && repRes.success) {
-              actions.push(`🔨 ${GAME_CONFIG.TOOLS[toolId].name} otomatik tamir edildi.`);
+              actions.push(`🔨 ${GAME_CONFIG.TOOLS[toolId].name} otomatik tamir edildi (${maxDur}/${maxDur}).`);
             }
           }
         }
@@ -1123,26 +1140,30 @@ export class GameStateManager {
     }
 
     // =========================================================================
-    // 4. SİLO DURUMUNU KONTROL ET & SİLOYU YÜKSELT
-    // Kullanıcı "Siloyu Yükselt" (botSiloAutoUpgrade = true) seçtiyse her döngüde
-    // depoların %80 doluluğunu kontrol eder ve siloyu üst seviyeye taşır.
-    // Asla kaynakları AMM pazarında erken satıp harcamaz!
-    // =========================================================================
-    // =========================================================================
     // 4. SİLO DURUMUNU KONTROL ET & SİLOYU YÜKSELT (Veya Kaynakları Sat)
+    // SADECE VE SADECE bu döngüde tamamlanan bir sefer toplanmışsa (hasClaimedAny) kontrol edilir!
+    // Bu sayede bot satın alındığı ilk milisaniyede veya boşta beklerken kontrolsüz ani seviye atlayıp
+    // kullanıcının kasasındaki ADA'yı eritmesi kökten engellenir.
     // =========================================================================
     if (this.state.botSiloAutoUpgrade) {
-      const upgradeRes = this.tryAutoUpgradeWarehouseWithAdaFinancing();
-      if (upgradeRes && upgradeRes.upgraded) {
-        actions.push(`🏰 Silo otomatik Seviye ${this.state.warehouseLevel}'e yükseltildi!`);
+      if (hasClaimedAny) {
+        const upCost = this.getWarehouseUpgradeCost();
+        if (upCost && upCost.is80PercentFull) {
+          const upgradeRes = this.tryAutoUpgradeWarehouseWithAdaFinancing();
+          if (upgradeRes && upgradeRes.upgraded) {
+            actions.push(`🏰 Silo otomatik Seviye ${this.state.warehouseLevel}'e yükseltildi!`);
+          }
+        }
       }
     } else {
-      // Kullanıcı açıkça "Kaynakları Sat" seçtiyse:
-      // Silonun yarısını (%50) rezerve koru, fazlasını sürekli AMM'de sat
-      for (const nid of nodes) {
-        const spaceRes = this.handleBotSiloSpace(nid, 1);
-        if (spaceRes && spaceRes.action === 'sold') {
-          actions.push(`⚖️ Satış Modu (%50 Rezerve): ${spaceRes.amountSold} ${nid} satıldı (+${spaceRes.adAstraReceived?.toFixed(1)} ADA).`);
+      if (hasClaimedAny) {
+        // Kullanıcı açıkça "Kaynakları Sat" seçtiyse:
+        // Silonun yarısını (%50) rezerve koru, fazlasını sürekli AMM'de sat
+        for (const nid of nodes) {
+          const spaceRes = this.handleBotSiloSpace(nid, 1);
+          if (spaceRes && spaceRes.action === 'sold') {
+            actions.push(`⚖️ Satış Modu (%50 Rezerve): ${spaceRes.amountSold} ${nid} satıldı (+${spaceRes.adAstraReceived?.toFixed(1)} ADA).`);
+          }
         }
       }
     }
@@ -1216,11 +1237,13 @@ export class GameStateManager {
 
   /**
    * 🤖 Bot Çalışırken ADA Yetersizliği Durumunda Depodan Eşit Miktarda Kaynak Satışı
-   * Kullanıcı kuralı: Bot çalışırken yetersiz $ADASTRA olup durursa (veya durmaması için),
-   * depodaki tüm malzemelerden (Odun, Demir, Buğday) eşit miktarda satıp botun tekrar
-   * çalışması için ihtiyaç olan $ADASTRA'yı (en az 50 $ADASTRA) marketten elde eder.
+   * Kullanıcı kuralı: Bot alet onarırken veya çalışırken hesapta yeteri kadar ADA yok ise bot,
+   * aletleri onarmak için ihtiyaç duyduğu ADA miktarı kadar elindeki kaynaklardan
+   * eşit miktarda satarak pazardan ADA elde eder.
+   * @param {number} neededTarget - Hedef ADA tutarı (Örn: aletin onarım bedeli)
+   * @param {Object|null} preserveResources - Satılmaması gereken hammadde rezervi (Örn: tamirde harcanacak {wood, iron})
    */
-  autoFundBotAdaDeficit(neededTarget = 50) {
+  autoFundBotAdaDeficit(neededTarget = 50, preserveResources = null) {
     const curAda = Number(this.state.adAstraBalance) || 0;
     if (curAda >= neededTarget) {
       return { funded: false, reason: 'sufficient_ada', currentBalance: curAda };
@@ -1231,13 +1254,13 @@ export class GameStateManager {
     }
 
     const deficit = Math.max(0, neededTarget - curAda);
-    // Küçük bir tampon (+5 ADA) ekleyerek en az 55 ADA'ya ulaştır ki anında tekrar düşüp durmasın
-    const targetToRaise = Math.max(1, Math.ceil(deficit + 5));
+    // Küçük tampon (+2 ADA ve %3 marj) ekleyerek AMM slippage/fiyat kayması olsa bile hedefe tam ulaş
+    const targetToRaise = Math.max(1, Math.ceil(deficit * 1.03 + 2));
 
     const inv = this.state.inventory = this.state.inventory || {};
     const nodes = ['wood', 'iron', 'wheat'];
 
-    // Her malzemenin satış fiyatını al
+    // Her malzemenin anlık satış fiyatını al
     const prices = {};
     let sumPrices = 0;
     for (const node of nodes) {
@@ -1254,15 +1277,15 @@ export class GameStateManager {
 
     if (sumPrices <= 0) return { funded: false, reason: 'zero_prices' };
 
-    // 1. ADIM: Eşit miktarda x satılacak: x * sumPrices >= targetToRaise
+    // 1. ADIM: Eşit miktarda satılacak birim: unitsPerNode * sumPrices >= targetToRaise
     let unitsPerNode = Math.ceil(targetToRaise / sumPrices);
     if (unitsPerNode < 1) unitsPerNode = 1;
 
-    // Depodaki stokları kontrol et
+    // Depodaki kullanılabilir stokları kontrol et (preserveResources hariç tutulur)
     const curStocks = {
-      wood: Number(inv.wood) || 0,
-      iron: Number(inv.iron) || 0,
-      wheat: Number(inv.wheat) || 0
+      wood: Math.max(0, (Number(inv.wood) || 0) - (preserveResources?.wood || 0)),
+      iron: Math.max(0, (Number(inv.iron) || 0) - (preserveResources?.iron || 0)),
+      wheat: Math.max(0, (Number(inv.wheat) || 0) - (preserveResources?.wheat || 0))
     };
 
     // Tüm malzemelerden eşit miktarda satmayı hedefle
@@ -1284,7 +1307,6 @@ export class GameStateManager {
       let remainingToRaise = Math.max(0, targetToRaise - raisedSoFar);
 
       if (remainingToRaise > 0) {
-        // Stoğu minStock'tan fazla olan kaynaklar
         const surplusNodes = nodes.filter(n => (curStocks[n] - minStock) > 0);
         if (surplusNodes.length > 0) {
           const surplusSumPrice = surplusNodes.reduce((acc, n) => acc + prices[n], 0);
@@ -1336,7 +1358,7 @@ export class GameStateManager {
       this.state.adAstraBalance = (this.state.adAstraBalance || 0) + totalEarned;
       this.saveState();
 
-      const actionMsg = `⚖️ Bot Oto-Finansman: Yetersiz ADA giderildi. Depodan eşit miktarda (${toSell.wood} Odun, ${toSell.iron} Demir, ${toSell.wheat} Buğday) satılarak +${totalEarned.toFixed(1)} $ADASTRA elde edildi.`;
+      const actionMsg = `⚖️ Bot Oto-Finansman: Alet onarımı / tamir için gereken ADA açığı giderildi. Depodan eşit miktarda (${toSell.wood} Odun, ${toSell.iron} Demir, ${toSell.wheat} Buğday) satılarak pazardan +${totalEarned.toFixed(1)} $ADASTRA elde edildi.`;
       if (!this.state.lastBotActions) this.state.lastBotActions = [];
       this.state.lastBotActions.push(actionMsg);
 
@@ -1473,11 +1495,18 @@ export class GameStateManager {
       }
 
       if (qtyToBuy > 0) {
+        const cap = this.getWarehouseCapacity();
+        const spaceLeft = Math.max(0, (cap[node] || 1000) - (Number(inv[node]) || 0));
+        qtyToBuy = Math.min(qtyToBuy, spaceLeft);
+      }
+
+      if (qtyToBuy > 0) {
         const buyRes = ammMarket.executeBuyAmount(node, qtyToBuy);
         if (buyRes && buyRes.success) {
           curAda = Math.max(0, curAda - buyRes.cost);
           this.state.adAstraBalance = curAda;
-          inv[node] = (inv[node] || 0) + buyRes.resourceReceived;
+          const cap = this.getWarehouseCapacity();
+          inv[node] = Math.min(cap[node] || 1000, (Number(inv[node]) || 0) + buyRes.resourceReceived);
           totalSpentAda += buyRes.cost;
           boughtBreakdown[node] = {
             units: buyRes.resourceReceived,
@@ -1512,9 +1541,17 @@ export class GameStateManager {
     const now = Date.now();
     const isTavernaBotPurchased = (this.state.tavernaBotActive && (this.state.tavernaBotExpiresAt || 0) > now) ||
                                   (this.state.botActiveUntil && this.state.botActiveUntil > now) ||
+                                  (this.state.activeBuffs && this.state.activeBuffs['auto_collector'] && (this.state.activeBuffs['auto_collector'].expiresAt || 0) > now) ||
                                   (this.state.botPaused && (this.state.botPausedRemainingMs || 0) > 0);
 
     if (!isTavernaBotPurchased) {
+      // 🔄 24 Saat Bittiğinde Otomatik Yenileme Kontrolü
+      if (this.state.botAutoRenew24h && (this.state.botActiveUntil || this.state.tavernaBotExpiresAt || (this.state.activeBuffs && this.state.activeBuffs['auto_collector']))) {
+        const renewed = this.checkAndProcessBotAutoRenew();
+        if (renewed) {
+          return { isBotPurchased: true, isPaused: false, justRenewed: true };
+        }
+      }
       if (this.state.botPaused) {
         this.state.botPaused = false;
         this.state.botPausedRemainingMs = null;
@@ -1775,6 +1812,7 @@ export class GameStateManager {
 
     const xpGained = Math.max(1, Math.floor((accruedInfo.accruedXp || 1) * (harvestedAmount / accruedInfo.accruedAmount)));
     const levelResult = this.addXp(xpGained);
+    exp.claimedXp = (exp.claimedXp || 0) + xpGained;
 
     // Kısmi tahsilatı claimedAmount'a ekle
     exp.claimedAmount = (exp.claimedAmount || accruedInfo.alreadyClaimed || 0) + harvestedAmount;
@@ -1804,13 +1842,27 @@ export class GameStateManager {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // DEPO KAPASİTESİ — v2: ARTIK GERÇEKTEN UYGULANIYOR (F-16)
   // ═══════════════════════════════════════════════════════════════════════
+  // DEPO KAPASİTESİ — HARD CAP KORUMASI & TAŞMA ENGELLEME
+  // ═══════════════════════════════════════════════════════════════════════
+  enforceWarehouseLimits() {
+    if (!this.state || !this.state.inventory) return;
+    const cap = this.getWarehouseCapacity();
+    for (const res of ['wood', 'iron', 'wheat']) {
+      const limit = cap[res];
+      if (limit != null && typeof limit === 'number' && limit > 0) {
+        if ((Number(this.state.inventory[res]) || 0) > limit) {
+          this.state.inventory[res] = limit;
+        }
+      }
+    }
+  }
+
   storeResource(resourceKey, amount) {
     if (!(amount > 0)) return { stored: 0, overflow: 0 };
     const cap = this.getWarehouseCapacity();
     const limit = cap[resourceKey];
-    const current = this.state.inventory[resourceKey] || 0;
+    const current = Math.min(limit != null ? limit : Infinity, Number(this.state.inventory[resourceKey]) || 0);
 
     if (limit == null) {
       this.state.inventory[resourceKey] = current + amount;
@@ -1820,7 +1872,7 @@ export class GameStateManager {
     const room = Math.max(0, limit - current);
     const stored = Math.min(amount, room);
     const overflow = amount - stored;
-    this.state.inventory[resourceKey] = current + stored;
+    this.state.inventory[resourceKey] = Math.min(limit, current + stored);
     return { stored, overflow };
   }
 
@@ -1866,8 +1918,8 @@ export class GameStateManager {
     const isBotActive = this.isAutoCollectorActive() || this.hasPurchasedBot();
     if (isBotActive) {
       const spaceRes = this.handleBotSiloSpace(nodeId, remainingToClaim);
-      if (spaceRes && spaceRes.action === 'sold') {
-        botSurplusSold = spaceRes.amountSold || 0;
+      if (spaceRes && (spaceRes.action === 'sold' || spaceRes.action === 'sold_for_ada' || spaceRes.action === 'upgraded')) {
+        botSurplusSold = spaceRes.amountSold || (spaceRes.action === 'upgraded' ? 1 : 0);
         botSurplusAdaEarned = spaceRes.adAstraReceived || 0;
       }
       currentAmount = Number(this.state.inventory[nodeId]) || 0;
@@ -1912,13 +1964,21 @@ export class GameStateManager {
 
     const stillRemaining = Math.max(0, totalYield - exp.claimedAmount);
 
+    // ✨ Deneyim (XP) Hesabı: Sefer süresine göre tam XP (Karakter Seviyesi ve Level Up için)
+    const durationHours = exp.durationHours || parseFloat((durationMinutes / 60).toFixed(2)) || 0.3;
+    const totalExpXp = Math.max(5, Math.floor(35 * durationHours));
+    const prevClaimedXp = exp.claimedXp || 0;
+    let xpGained = 0;
+
     // Eğer seferden kalan miktar tamamen bittiyse (0 kaldıysa): Seferi bitir ve temizle!
     if (stillRemaining <= 0) {
       playerTool.durability = Math.max(0, (playerTool.durability != null ? playerTool.durability : 4320) - durationMinutes);
 
-      const durationHours = exp.durationHours || parseFloat((durationMinutes / 60).toFixed(2));
-      const xpGained = Math.max(5, Math.floor(35 * durationHours));
-      this.state.characterXp = (this.state.characterXp || 0) + xpGained;
+      xpGained = Math.max(0, totalExpXp - prevClaimedXp);
+      if (xpGained > 0) {
+        this.addXp(xpGained);
+        exp.claimedXp = prevClaimedXp + xpGained;
+      }
 
       delete this.state.activeExpeditions[nodeId];
 
@@ -1932,9 +1992,9 @@ export class GameStateManager {
 
       this.saveState();
 
-      let msg = `🌾 ${harvestedAmount} ${nodeConfig.name} başarıyla toplandı ve ambarınıza eklendi!`;
+      let msg = `🌾 ${harvestedAmount} ${nodeConfig.name} başarıyla toplandı ve ambarınıza eklendi! (+${xpGained} XP)`;
       if (botSurplusSold > 0) {
-        msg = `🤖 Ambar doldu: ${harvestedAmount} ${nodeConfig.name} depolandı (%100 silo). Fazla gelen ${botSurplusSold} ${nodeConfig.name} AMM'de satıldı (+${botSurplusAdaEarned.toFixed(1)} ADA). Sefer tamamlandı!`;
+        msg = `🤖 Ambar doldu: ${harvestedAmount} ${nodeConfig.name} depolandı (%100 silo). Fazla gelen ${botSurplusSold} ${nodeConfig.name} AMM'de satıldı (+${botSurplusAdaEarned.toFixed(1)} ADA, +${xpGained} XP). Sefer tamamlandı!`;
       }
 
       return {
@@ -1942,6 +2002,9 @@ export class GameStateManager {
         isPartialSiloFill: false,
         amount: totalClaimedThisStep,
         harvestedAmount,
+        xpGained,
+        totalExpXp,
+        resourceName: nodeConfig.name,
         botSurplusSold,
         botSurplusAdaEarned,
         stillRemaining: 0,
@@ -1949,6 +2012,16 @@ export class GameStateManager {
       };
     } else {
       // Depo doldu, kalan miktar seferde bekliyor!
+      // Siloya aktarılan miktar oranında XP'yi hesaba işle
+      if (harvestedAmount > 0 && totalYield > 0) {
+        const targetXp = Math.floor(totalExpXp * Math.min(1, exp.claimedAmount / totalYield));
+        xpGained = Math.max(0, targetXp - prevClaimedXp);
+        if (xpGained > 0) {
+          this.addXp(xpGained);
+          exp.claimedXp = prevClaimedXp + xpGained;
+        }
+      }
+
       sound.playHarvest();
       this.saveState();
 
@@ -1957,10 +2030,13 @@ export class GameStateManager {
         isPartialSiloFill: true,
         amount: harvestedAmount,
         harvestedAmount,
+        xpGained,
+        totalExpXp,
+        resourceName: nodeConfig.name,
         stillRemaining,
         currentAmount: this.state.inventory[nodeId],
         limit,
-        message: `📥 Silodaki boş alan kadar +${harvestedAmount} ${nodeConfig.name} depoya aktarıldı ve ambarınız doldu (${this.state.inventory[nodeId]}/${limit})! Kalan ${stillRemaining} ${nodeConfig.name} seferde bekletiliyor. Depoda yer açtığınızda veya silonuzu büyüttüğünüzde kalan mahsulü de toplayabilirsiniz.`
+        message: `📥 Silodaki boş alan kadar +${harvestedAmount} ${nodeConfig.name} depoya aktarıldı ve ambarınız doldu (${this.state.inventory[nodeId]}/${limit})! (+${xpGained} XP) Kalan ${stillRemaining} ${nodeConfig.name} seferde bekletiliyor. Depoda yer açtığınızda veya silonuzu büyüttüğünüzde kalan mahsulü de toplayabilirsiniz.`
       };
     }
   }
@@ -2132,10 +2208,24 @@ export class GameStateManager {
   }
 
   // Sefer/zindan kazanımlarından gelen XP'yi karaktere ekler.
+  // Kural: XP tankı dolduğunda fazladan XP, tankı aşamaz. Full (örn. 2000/2000) olarak bekler
+  // ve oyuncu seviye atlamadığı sürece yeni XP biriktirilemez.
   // NOT: Seviye atlama otomatik değildir; oyuncu "levelUp()" ile ayrı bir eylem olarak yükselir.
   addXp(amount) {
-    this.state.currentXp = (this.state.currentXp || 0) + amount;
-    return null;
+    if (!amount || amount <= 0) return null;
+    const req = this.getNextLevelRequirement();
+    const maxXp = req && req.xp ? req.xp : Infinity;
+    const current = Number(this.state.currentXp) || 0;
+
+    if (current >= maxXp) {
+      this.state.currentXp = maxXp;
+      return { capped: true, added: 0, currentXp: maxXp };
+    }
+
+    const nextXp = Math.min(maxXp, current + amount);
+    const added = nextXp - current;
+    this.state.currentXp = nextXp;
+    return { capped: nextXp >= maxXp, added, currentXp: nextXp };
   }
 
   // =========================================================================
@@ -2362,7 +2452,7 @@ export class GameStateManager {
     const playerTool = this.state.tools ? this.state.tools[toolId] : null;
     if (!toolConfig || !playerTool) return null;
 
-    const maxDur = toolConfig.maxDurability || 4320;
+    const maxDur = (playerTool && playerTool.maxDurability != null) ? playerTool.maxDurability : (toolConfig.maxDurability || 4320);
     const curDur = Math.min(maxDur, Math.max(0, playerTool.durability != null ? playerTool.durability : maxDur));
     const missingDurability = maxDur - curDur; // Eksilen dakika sayısı
 
@@ -2445,6 +2535,16 @@ export class GameStateManager {
       };
     }
     if (this.state.adAstraBalance < cost.adAstraCost) {
+      // 🤖 KULLANICI KURALI: Eğer alet onarırken hesapta yeteri kadar ADA yok ise bot,
+      // aletleri onarmak için ihtiyaç duyduğu ADA miktarı kadar elindeki kaynaklardan
+      // eşit miktarda satarak pazardan ADA elde eder!
+      const isBotActive = this.isAutoCollectorActive() || this.hasPurchasedBot();
+      if (isBotActive) {
+        this.autoFundBotAdaDeficit(cost.adAstraCost, { wood: cost.woodCost, iron: cost.ironCost });
+      }
+    }
+
+    if (this.state.adAstraBalance < cost.adAstraCost) {
       return {
         success: false,
         message: `Yetersiz AdAstra! (${cost.adAstraCost} $ADASTRA gerekli, sende: ${Number(this.state.adAstraBalance || 0).toFixed(1)} ADA)`
@@ -2457,7 +2557,7 @@ export class GameStateManager {
     this.state.adAstraBalance -= cost.adAstraCost;
     globalPool.recordTokenSpend(cost.adAstraCost);
 
-    const maxDur = GAME_CONFIG.TOOLS[toolId]?.maxDurability || 4320;
+    const maxDur = (this.state.tools[toolId]?.maxDurability != null) ? this.state.tools[toolId].maxDurability : (GAME_CONFIG.TOOLS[toolId]?.maxDurability || 4320);
     this.state.tools[toolId].durability = maxDur;
 
     sound.playRepair();
@@ -2484,7 +2584,7 @@ export class GameStateManager {
   // 7. SİLO / DEPO YÖNETİMİ & YÜKSELTMELERİ (WAREHOUSE / SILO)
   // =========================================================================
   // Maksimum Seviye: 18 (İstifçiliği önleme kuralı)
-  // Başlangıç (Seviye 1): 1080 Odun, 720 Demir, 900 Buğday
+  // Başlangıç (Seviye 1): 1080 Odun, 720 Demir, 1800 Buğday (30/dk x 60 dk = tam 1 saatlik üretim dengesi)
   // Maksimum (Seviye 18): Haftalık havuz limitlerinin %50'si:
   //   - Odun: 90.000 (180k haftalık havuz limitinin %50'si)
   //   - Demir: 65.000 (130k haftalık havuz limitinin %50'si)
@@ -2497,12 +2597,12 @@ export class GameStateManager {
     const step = lvl - 1;
     const rWood = Math.pow(90000 / 1080, 1 / 17);
     const rIron = Math.pow(65000 / 720, 1 / 17);
-    const rWheat = Math.pow(245000 / 900, 1 / 17);
+    const rWheat = Math.pow(245000 / 1800, 1 / 17);
 
     return {
       wood: Math.round(1080 * Math.pow(rWood, step)),
       iron: Math.round(720 * Math.pow(rIron, step)),
-      wheat: Math.round(900 * Math.pow(rWheat, step)),
+      wheat: Math.round(1800 * Math.pow(rWheat, step)),
       fragments: Math.round(100 + step * 140)
     };
   }
@@ -2624,22 +2724,6 @@ export class GameStateManager {
 
     this.state.warehouseLevel += 1;
     sound.playLevelUp();
-
-    // 🤖 KULLANICI KURALI & BOT KESİNTİSİZ ÇALIŞMA GÜVENCESİ:
-    // Silo Seviye 3, 4 veya üzerine yükseltilip ambarlar sıfırlandığı o milisaniyede:
-    // Kişi hesap seviyesini artırdıkça sefer süresi uzayacağı için alet tamir ve stamina bedelleri de artar.
-    // Sabit 50 yerine, o anki hesap seviyesinde sefer süresi üzerinden gereken tamirat bedelinin
-    // en az %50 daha fazlası (+%50 tampon) kadar malzeme AMM DEX pazarından satın alınır!
-    // Böylece seviye atlatmalarda botun durma problemi kökünden çözülür!
-    if (this.hasPurchasedBot && this.hasPurchasedBot()) {
-      const dynamicReq = this.getBotDynamicResourceDeficitTargets();
-      const dynTargets = dynamicReq.targets;
-      if ((inv.wood || 0) < dynTargets.wood || (inv.iron || 0) < dynTargets.iron || (inv.wheat || 0) < dynTargets.wheat) {
-        if ((this.state.adAstraBalance || 0) >= 1) {
-          this.autoBuyBotResourceDeficit();
-        }
-      }
-    }
 
     this.saveState();
 
@@ -3235,6 +3319,15 @@ export class GameStateManager {
     let scrappedCount = 0;
     let gainedFragments = 0;
     let gainedIron = 0;
+    const scrappedItems = [];
+
+    const slotIcons = {
+      weapon: '🗡️',
+      helmet: '🪖',
+      armor: '🛡️',
+      legs: '👖',
+      boots: '👢'
+    };
 
     // Cephanelikteki boşta kalan eşyaları filtrele
     const remaining = [];
@@ -3245,6 +3338,14 @@ export class GameStateManager {
         const ironGained = Math.max(5, Math.floor((item.level || 1) * 10));
         gainedFragments += fragGained;
         gainedIron += ironGained;
+        scrappedItems.push({
+          name: item.name || `${item.slot || 'Eşya'}`,
+          icon: item.icon || slotIcons[item.slot] || '⚔️',
+          slot: item.slot || 'weapon',
+          level: item.level || 1,
+          fragGained,
+          ironGained
+        });
       } else if (item) {
         remaining.push(item);
       }
@@ -3261,23 +3362,43 @@ export class GameStateManager {
         const ironGained = Math.max(5, Math.floor((item.level || 1) * 10));
         gainedFragments += fragGained;
         gainedIron += ironGained;
+        scrappedItems.push({
+          name: item.name || `${slot} Yuvası`,
+          icon: item.icon || slotIcons[slot] || '⚔️',
+          slot,
+          level: item.level || 1,
+          fragGained,
+          ironGained
+        });
         delete this.state.equipment[slot];
       }
     });
 
     if (scrappedCount === 0) {
-      return { success: false, message: 'Hurdaya çevrilecek boşta Lv.1 veya düşük eşya bulunamadı.' };
+      return {
+        success: false,
+        scrappedCount: 0,
+        gainedFragments: 0,
+        gainedIron: 0,
+        scrappedItems: [],
+        message: 'Hurdaya çevrilecek boşta Lv.1 veya düşük seviye eşya bulunamadı.'
+      };
     }
 
     this.state.inventory.fragments = (this.state.inventory.fragments || 0) + gainedFragments;
     this.state.inventory.iron = (this.state.inventory.iron || 0) + gainedIron;
 
-    sound.playRepair();
+    if (typeof sound !== 'undefined' && sound && sound.playRepair) {
+      sound.playRepair();
+    }
     this.saveState();
 
     return {
       success: true,
       scrappedCount,
+      gainedFragments,
+      gainedIron,
+      scrappedItems,
       message: `♻️ ${scrappedCount} adet düşük seviye boşta eşya hurdaya ayrıldı! (+${gainedFragments} 💎 Teçhizat Parçaları, +${gainedIron} ⛏️ Demir)`
     };
   }
@@ -3504,6 +3625,58 @@ export class GameStateManager {
     return { success: true, autoUpgrade: this.state.botSiloAutoUpgrade };
   }
 
+  setBotAutoRenew24h(enabled = true) {
+    this.state.botAutoRenew24h = !!enabled;
+    this.saveState();
+    return { success: true, autoRenew: this.state.botAutoRenew24h };
+  }
+
+  /**
+   * 🔄 24 Saatlik Botun Süresi Bittiğinde Otomatik Yeniden Satın Alınması
+   * Kullanıcı kuralı: Kişi 24 saatlik bot alırsa ve "24 saat bitince hesapta yeterli adastra
+   * varsa tekrar bot al ve devam et" seçeneğini seçerse, hesapta yeteri kadar ADA olursa
+   * bot 24 saat bitince otomatik yine satın alınır ve bir 24 saat daha çalışmaya devam eder.
+   */
+  checkAndProcessBotAutoRenew() {
+    if (!this.state.botAutoRenew24h) return false;
+    const now = Date.now();
+    const rawExp = Math.max(
+      this.state.botActiveUntil || 0,
+      this.state.tavernaBotExpiresAt || 0,
+      this.state.activeBuffs?.auto_collector?.expiresAt || 0
+    );
+
+    // Eğer bot hiç başlatılmamışsa (rawExp === 0) veya süresi henüz bitmemişse yenileme yapma
+    if (rawExp === 0 || rawExp > now) return false;
+
+    // Eğer bot eksik kaynak nedeniyle duraklatılmış ve dondurulmuş süresi varsa yenileme yapma
+    if (this.state.botPaused && (this.state.botPausedRemainingMs || 0) > 0) return false;
+
+    const calc = this.calculateTavernaBotProfitAndCost();
+    const cost = calc.dailyBotCostAda || calc.botCostAda || 0;
+
+    if (this.state.adAstraBalance >= cost && cost > 0) {
+      const buyRes = this.buyTavernaAutomationBot(false);
+      if (buyRes && buyRes.success) {
+        if (!this.state.lastBotActions) this.state.lastBotActions = [];
+        this.state.lastBotActions.push(`🔄 Bot Otomatik Yenilendi: 24 saat tamamlandı. Kasadaki ${cost.toLocaleString()} $ADASTRA ile bot 24 saat daha uzatıldı ve kesintisiz çalışıyor.`);
+        this.saveState();
+        return true;
+      }
+    } else {
+      if (!this.state.lastBotActions) this.state.lastBotActions = [];
+      this.state.lastBotActions.push(`⚠️ Bot Otomatik Yenilenemedi: 24 saat tamamlandı ancak hesapta yeterli $ADASTRA (${(this.state.adAstraBalance || 0).toFixed(1)} / ${cost.toLocaleString()} ADA) olmadığı için bot durduruldu.`);
+      this.state.botActiveUntil = 0;
+      this.state.tavernaBotActive = false;
+      this.state.tavernaBotExpiresAt = 0;
+      if (this.state.activeBuffs && this.state.activeBuffs['auto_collector']) {
+        delete this.state.activeBuffs['auto_collector'];
+      }
+      this.saveState();
+    }
+    return false;
+  }
+
   /**
    * 🤖 24 Saatlik Otomasyon Botu - Kapsamlı Akıllı Silo Alanı Yönetimi
    * Kullanıcı Talimatları Doğrultusunda:
@@ -3526,11 +3699,15 @@ export class GameStateManager {
 
     // KURAL 0: Her sefer sonlandığında silonun yükseltilip yükseltilemeyeceğini kontrol et.
     // Yükseltilebiliyorsa ve kullanıcı "silo yükseltme" seçeneğini seçmişse HER ZAMAN ÖNCE SİLOYU YÜKSELT!
-    if (this.state.botSiloAutoUpgrade) {
+    const now = Date.now();
+    const canAutoUpgradeTime = this._isFastForwarding || !this.state.lastAutoWarehouseUpgradeTime || (now - this.state.lastAutoWarehouseUpgradeTime >= 3000);
+
+    if (this.state.botSiloAutoUpgrade && canAutoUpgradeTime) {
       const upCost = this.getWarehouseUpgradeCost();
       if (upCost && upCost.canUpgrade) {
         const upRes = this.upgradeWarehouse();
         if (upRes && upRes.success) {
+          this.state.lastAutoWarehouseUpgradeTime = now;
           const newCap = this.getWarehouseCapacity()[nodeId];
           return { handled: true, action: 'upgraded', newCapacity: newCap };
         }
@@ -3570,9 +3747,10 @@ export class GameStateManager {
 
               // Satış sonrası ADA tamamlandıysa anında yükseltmeyi dene!
               const freshCost = this.getWarehouseUpgradeCost();
-              if (freshCost && freshCost.canUpgrade) {
+              if (freshCost && freshCost.canUpgrade && canAutoUpgradeTime) {
                 const freshUp = this.upgradeWarehouse();
                 if (freshUp && freshUp.success) {
+                  this.state.lastAutoWarehouseUpgradeTime = now;
                   return { handled: true, action: 'upgraded', newCapacity: this.getWarehouseCapacity()[nodeId] };
                 }
               }
@@ -3676,19 +3854,30 @@ export class GameStateManager {
   tryAutoUpgradeWarehouseWithAdaFinancing() {
     if (!this.state.botSiloAutoUpgrade) return { success: false, reason: 'auto_upgrade_disabled' };
 
+    const now = Date.now();
+    if (!this._isFastForwarding && this.state.lastAutoWarehouseUpgradeTime && (now - this.state.lastAutoWarehouseUpgradeTime < 3000)) {
+      return { success: false, reason: 'cooldown' };
+    }
+
     let cost = this.getWarehouseUpgradeCost();
     if (!cost) return { success: false, reason: 'max_level' };
 
+    // 🛡️ BOT İŞLETME REZERVİ KORUMASI:
+    // Bot alet tamiratı ve operasyonlarını sürdürebilmek için kasada en az 500 ADA güvenlik tamponu korur.
+    // Eğer kasadaki ADA doğrudan harcandığında bakiye 500 ADA altına inecekse;
+    // Kasadaki nakit yerine ambarlardaki %80 üzeri fazlalık kaynaklar AMM'de satılarak ADA temin edilir.
+    // Böylece hem piyasa fiyatları düşer hem de kullanıcının kasası sıfırlanmaz!
     // Eğer zaten yükseltilebiliyorsa doğrudan yükselt!
     if (cost.canUpgrade) {
       const upRes = this.upgradeWarehouse();
       if (upRes && upRes.success) {
+        this.state.lastAutoWarehouseUpgradeTime = now;
         return { success: true, upgraded: true, newLevel: this.state.warehouseLevel };
       }
     }
 
     // %80 Barajında ADA Finansmanı:
-    // Depolar %80 dolu mu?
+    // Depolar %80 dolu mu fakat ADA eksik mi?
     if (cost.is80PercentFull && !cost.canAffordCost) {
       const inv = this.state.inventory || {};
       const hasWood = (inv.wood || 0) >= cost.wood;
@@ -3698,6 +3887,7 @@ export class GameStateManager {
       // Hammaddeler yeterli, sadece ADA eksikse:
       if (hasWood && hasIron && hasWheat) {
         let adaDeficit = Math.max(0, cost.adAstra - (this.state.adAstraBalance || 0));
+
         if (adaDeficit > 0 && typeof ammMarket !== 'undefined' && ammMarket.executeSell) {
           const cap = cost.currentCap || this.getWarehouseCapacity();
           const nodes = ['wood', 'iron', 'wheat'];
@@ -3711,7 +3901,7 @@ export class GameStateManager {
 
             if (surplus > 0) {
               const price = (ammMarket.getPrice && ammMarket.getPrice(node)) ? ammMarket.getPrice(node) : 1;
-              const neededUnits = Math.max(1, Math.ceil(adaDeficit / price));
+              const neededUnits = Math.max(1, Math.ceil((adaDeficit * 1.03 + 2) / price));
               const amountToSell = Math.min(surplus, neededUnits);
 
               if (amountToSell > 0) {
@@ -3734,6 +3924,7 @@ export class GameStateManager {
           if (freshCost && freshCost.canUpgrade) {
             const freshUp = this.upgradeWarehouse();
             if (freshUp && freshUp.success) {
+              this.state.lastAutoWarehouseUpgradeTime = now;
               return { success: true, upgraded: true, newLevel: this.state.warehouseLevel, totalSoldAda };
             }
           }
@@ -4216,7 +4407,7 @@ export class GameStateManager {
       ? treasury.withdraw('dungeon', targetAdAstra)
       : { granted: targetAdAstra };
     const adAstraGained = Math.max(1, Math.round(draw.granted != null ? draw.granted : targetAdAstra));
-    this.state.currentXp += xpGained;
+    this.addXp(xpGained);
     this.state.adAstraBalance += adAstraGained;
 
     let fragmentsGained = 0;
@@ -4434,18 +4625,21 @@ export class GameStateManager {
   }
 
   fastForwardTime(hours) {
-    const totalSeconds = hours * 3600;
-    const now = Date.now();
-    const hasBot = this.hasPurchasedBot();
-    const isPaused = this.isBotPaused();
+    this._isFastForwarding = true;
+    try {
+      const totalSeconds = hours * 3600;
+      const now = Date.now();
+      const hasBot = this.hasPurchasedBot();
+      const isPaused = this.isBotPaused();
 
-    const initialInv = {
-      wood: Number(this.state.inventory?.wood) || 0,
-      iron: Number(this.state.inventory?.iron) || 0,
-      wheat: Number(this.state.inventory?.wheat) || 0
-    };
+      const initialInv = {
+        wood: Number(this.state.inventory?.wood) || 0,
+        iron: Number(this.state.inventory?.iron) || 0,
+        wheat: Number(this.state.inventory?.wheat) || 0
+      };
     const initialAda = Number(this.state.adAstraBalance) || 0;
     const initialWarehouseLevel = Number(this.state.warehouseLevel) || 1;
+    const initialXp = Number(this.state.currentXp) || 0;
 
     let totalExpeditionsClaimed = 0;
     let botExecutionStatus = 'inactive'; // 'ran', 'paused', 'expired', 'inactive'
@@ -4455,37 +4649,34 @@ export class GameStateManager {
       botExecutionStatus = 'ran';
       const currentExpiry = this.getAutoCollectorExpiry();
       const remainingMs = Math.max(0, currentExpiry - now);
-      const remainingBotSec = Math.floor(remainingMs / 1000);
+      let remainingBotSec = Math.floor(remainingMs / 1000);
+
+      // 🔄 Eğer offline ilerletilen süre kalan bot süresinden uzunsa ve otomatik yenileme açıksa:
+      while (remainingBotSec < totalSeconds && this.state.botAutoRenew24h) {
+        const calc = this.calculateTavernaBotProfitAndCost();
+        const cost = calc.dailyBotCostAda || calc.botCostAda || 0;
+        if (this.state.adAstraBalance >= cost && cost > 0) {
+          this.state.adAstraBalance -= cost;
+          globalPool.recordTokenSpend(cost);
+          remainingBotSec += 24 * 3600;
+          this.state.botActiveUntil = Math.max(now, this.state.botActiveUntil || now) + (24 * 3600 * 1000);
+          this.state.tavernaBotActive = true;
+          this.state.tavernaBotExpiresAt = this.state.botActiveUntil;
+          if (!this.state.activeBuffs) this.state.activeBuffs = {};
+          this.state.activeBuffs['auto_collector'] = {
+            id: 'auto_collector',
+            name: '24 Saatlik Otomasyon Botu',
+            expiresAt: this.state.botActiveUntil
+          };
+          if (!this.state.lastBotActions) this.state.lastBotActions = [];
+          this.state.lastBotActions.push(`🔄 Bot Çevrimdışı Oto-Yenileme: 24 saat tamamlandı. Kasadaki ${cost.toLocaleString()} $ADASTRA ile bot otomatik satın alındı ve devam ediyor.`);
+        } else {
+          break;
+        }
+      }
 
       // Simüle edilecek bot çalışma süresi (kalan bot süresini aşamaz)
       const botWorkSec = Math.min(totalSeconds, remainingBotSec);
-
-      // Bot süresini totalSeconds kadar düşür
-      if (this.state.botActiveUntil) {
-        this.state.botActiveUntil -= totalSeconds * 1000;
-        if (this.state.botActiveUntil <= now) {
-          this.state.botActiveUntil = 0;
-        }
-      }
-      if (this.state.tavernaBotExpiresAt) {
-        this.state.tavernaBotExpiresAt -= totalSeconds * 1000;
-        if (this.state.tavernaBotExpiresAt <= now) {
-          this.state.tavernaBotExpiresAt = 0;
-          this.state.tavernaBotActive = false;
-        }
-      }
-      for (const id of ['auto_collector', 'auto_collector_weekly', 'auto_collector_monthly']) {
-        if (this.state.activeBuffs && this.state.activeBuffs[id]) {
-          this.state.activeBuffs[id].expiresAt -= totalSeconds * 1000;
-          if (this.state.activeBuffs[id].expiresAt <= now) {
-            delete this.state.activeBuffs[id];
-          }
-        }
-      }
-
-      if (remainingBotSec < totalSeconds) {
-        botExecutionStatus = 'expired';
-      }
 
       // Adım adım simülasyon: botWorkSec boyunca ardışık seferler ve döngüler
       let remainingSimTime = botWorkSec;
@@ -4549,6 +4740,38 @@ export class GameStateManager {
         }
       }
 
+      // 🔄 Simülasyon Bitişinde Botun Aşınmış Aletleri Son Sefer Hasadından Sonra Onarması
+      if (!this.isBotPaused()) {
+        this.runTavernaAutomationCycle();
+      }
+
+      // ⏱️ Simülasyon tamamlandıktan sonra bot süresini totalSeconds kadar düşür
+      if (this.state.botActiveUntil) {
+        this.state.botActiveUntil -= totalSeconds * 1000;
+        if (this.state.botActiveUntil <= now) {
+          this.state.botActiveUntil = 0;
+        }
+      }
+      if (this.state.tavernaBotExpiresAt) {
+        this.state.tavernaBotExpiresAt -= totalSeconds * 1000;
+        if (this.state.tavernaBotExpiresAt <= now) {
+          this.state.tavernaBotExpiresAt = 0;
+          this.state.tavernaBotActive = false;
+        }
+      }
+      for (const id of ['auto_collector', 'auto_collector_weekly', 'auto_collector_monthly']) {
+        if (this.state.activeBuffs && this.state.activeBuffs[id]) {
+          this.state.activeBuffs[id].expiresAt -= totalSeconds * 1000;
+          if (this.state.activeBuffs[id].expiresAt <= now) {
+            delete this.state.activeBuffs[id];
+          }
+        }
+      }
+
+      if (remainingBotSec < totalSeconds) {
+        botExecutionStatus = 'expired';
+      }
+
       // Kalan simüle edilmemiş (veya bot süresi bittikten sonraki) zaman varsa aktif seferleri ilerlet
       if (totalSeconds > botWorkSec) {
         const extraSec = totalSeconds - botWorkSec;
@@ -4604,6 +4827,15 @@ export class GameStateManager {
     // 3. Ordunun (soldierUnits) Buğday ile Pasif İyileşmesini İlerlet
     this.processSoldierPassiveHealing(totalSeconds);
 
+    // 4. Günlük Otonom AMM Buyback & Yakım Kontrolü (Zaman İlerlemesi)
+    if (hours >= 24) {
+      const daysPassed = Math.floor(hours / 24);
+      for (let d = 0; d < Math.min(daysPassed, 7); d++) {
+        this.executeAmmTreasuryBuyback(0.15);
+      }
+      this.state.lastAmmBuybackDate = new Date().toISOString().slice(0, 10);
+    }
+
     this.saveState();
 
     // Rapor ve Sonuç Bilgisi Oluştur
@@ -4622,21 +4854,25 @@ export class GameStateManager {
       botRemainingText = `${h} saat ${m} dakika${this.isBotPaused() ? ' (Donduruldu)' : ''}`;
     }
 
-    return {
-      hours,
-      hasBot,
-      botExecutionStatus,
-      isPaused: this.isBotPaused(),
-      missingText: this.checkBotPrerequisites().missingText,
-      totalExpeditionsClaimed,
-      woodGain: Math.max(0, finalWood - initialInv.wood),
-      ironGain: Math.max(0, finalIron - initialInv.iron),
-      wheatGain: Math.max(0, finalWheat - initialInv.wheat),
-      adaDiff: finalAda - initialAda,
-      warehouseUpgraded: finalWarehouseLevel > initialWarehouseLevel,
-      currentWarehouseLevel: finalWarehouseLevel,
-      botRemainingText
-    };
+      return {
+        hours,
+        hasBot,
+        botExecutionStatus,
+        isPaused: this.isBotPaused(),
+        missingText: this.checkBotPrerequisites().missingText,
+        totalExpeditionsClaimed,
+        woodGain: Math.max(0, finalWood - initialInv.wood),
+        ironGain: Math.max(0, finalIron - initialInv.iron),
+        wheatGain: Math.max(0, finalWheat - initialInv.wheat),
+        adaDiff: finalAda - initialAda,
+        warehouseUpgraded: finalWarehouseLevel > initialWarehouseLevel,
+        currentWarehouseLevel: finalWarehouseLevel,
+        botRemainingText,
+        xpGain: Math.max(0, (Number(this.state.currentXp) || 0) - initialXp)
+      };
+    } finally {
+      this._isFastForwarding = false;
+    }
   }
 
   completeAllExpeditionsNow() {
@@ -4726,8 +4962,12 @@ export class GameStateManager {
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem(this.storageKey);
     }
-    if (typeof globalPool !== 'undefined' && globalPool && globalPool.resetEpoch) {
-      globalPool.resetEpoch();
+    if (typeof globalPool !== 'undefined' && globalPool) {
+      if (typeof globalPool.vanillaReset === 'function') {
+        globalPool.vanillaReset();
+      } else if (globalPool.resetEpoch) {
+        globalPool.resetEpoch();
+      }
     }
     if (typeof ammMarket !== 'undefined' && ammMarket && ammMarket.resetPools) {
       ammMarket.resetPools();
@@ -4783,12 +5023,16 @@ export class GameStateManager {
       lotteryAmortiPool: 0,
       wheelTicketShards: 0,
       botSiloAutoUpgrade: true,
+      botAutoRenew24h: false,
       botActiveUntil: 0,
       tavernaBotActive: false,
       redeemCodes: [],
       burnedResources: { wood: 0, iron: 0, wheat: 0 },
       lastClaimedUbiEpoch: 0,
       totalUbiEarned: 0,
+      lastAutoWarehouseUpgradeTime: 0,
+      lastBotActions: [],
+      lastBotSiloAction: null,
       // 🏟️ KOLEZYUM GLADYATÖR ARENASI İLK DAĞITIM VE DURUM SIFIRLAMA
       colosseumStats: {
         wins: 0,
@@ -5044,17 +5288,21 @@ export class GameStateManager {
     const boss = this.getWorldBossInfo();
     const colosseum = state.colosseumStats || { wins: 0, losses: 0, totalAdaWon: 0 };
     
-    // 1. Ödül Havuzları (Gerçek Hazine Kasaları ve AMM Likidite Değerleri)
+    // 1. Ödül Havuzları (Gerçek Hazine Kasaları, UBI ve AMM Likidite Değerleri)
     const worldBossPool = (typeof treasury !== 'undefined' && treasury.getPool) ? Math.round(treasury.getPool('worldBoss')) : (boss.weeklyAdaPool || 8000000);
     const colosseumPool = (typeof treasury !== 'undefined' && treasury.getPool) ? Math.round(treasury.getPool('arena')) : 8000000;
     const dungeonLootVault = (typeof treasury !== 'undefined' && treasury.getPool) ? Math.round(treasury.getPool('dungeon')) : 14000000;
     const carnivalPool = (typeof treasury !== 'undefined' && treasury.getPool) ? Math.round(treasury.getPool('carnival')) : 4000000;
     const ammBuybackPool = (typeof treasury !== 'undefined' && treasury.getPool) ? Math.round(treasury.getPool('ammBuyback')) : 6000000;
+    const parliamentStakingPool = (typeof treasury !== 'undefined' && treasury.getPool) ? Math.round(treasury.getPool('season')) : 6000000;
+    const ubiPool = (typeof globalPool !== 'undefined' && globalPool.state && globalPool.state.ubiPool)
+      ? Math.round(globalPool.state.ubiPool)
+      : ((GAME_CONFIG.UBI_CONFIG && GAME_CONFIG.UBI_CONFIG.INITIAL_SEED_POOL) || 2400000);
     const burnedNftPool = 42500 + ((state.genesisNftMinted ? 1 : 0) * 18000);
     const totalAmmLiquidityAda = (typeof ammMarket !== 'undefined' && ammMarket.getTotalAdAstraLiquidity) ? ammMarket.getTotalAdAstraLiquidity() : 40000000;
     const lotteryPoolAda = Math.round(state.lotteryPool || 20000000);
 
-    const totalVaultAda = worldBossPool + colosseumPool + dungeonLootVault + carnivalPool + ammBuybackPool + totalAmmLiquidityAda;
+    const totalVaultAda = worldBossPool + colosseumPool + dungeonLootVault + carnivalPool + ammBuybackPool + parliamentStakingPool + ubiPool + totalAmmLiquidityAda;
 
     // 2. Kullanıcının Hak Edişleri & Payları
     const userBossDamage = boss.userDamage || 0;
@@ -5096,6 +5344,32 @@ export class GameStateManager {
           actionText: '🏟️ Arenaya Git'
         },
         {
+          id: 'ubi_pool',
+          name: 'Evrensel Temel Gelir (UBI) & Seviye Havuzu',
+          icon: '🤝',
+          color: '#d8b4fe',
+          totalPoolAda: ubiPool,
+          description: 'Tüm oyun ve silo harcamalarından %6 pay alan, her hafta Pazar gecesi 00:01\'de seviyenize göre dağıtılan pasif gelir fonu.',
+          userShareText: `Mevcut Seviyeniz (Lv.${state.level || 1}) • Haftalık Hak: ${typeof globalPool !== 'undefined' ? globalPool.getUbiPoolInfo(state.level || 1).payout.toFixed(2) : '0.00'} ADA`,
+          userClaimableAda: 0,
+          statusBadge: '🏛️ UBI Payı (%6)',
+          actionType: 'ubi',
+          actionText: '🤝 UBI Kartını Aç'
+        },
+        {
+          id: 'amm_buyback',
+          name: 'AMM DEX Otonom Buyback & Yakım Kasası',
+          icon: '🛡️',
+          color: '#38bdf8',
+          totalPoolAda: ammBuybackPool,
+          description: 'Harcamalardan biriken hazine fonuyla her gün sonu piyasadan dipteki malzemeleri alıp kalıcı yakan stabilizasyon kasası.',
+          userShareText: `Gün Sonu Alım Bütçesi: ~${Math.round(ammBuybackPool * 0.15).toLocaleString()} ADA`,
+          userClaimableAda: 0,
+          statusBadge: '🔄 Otonom Buyback',
+          actionType: 'amm_buyback',
+          actionText: '📊 Pazar & Buyback'
+        },
+        {
           id: 'parliament_staking',
           name: 'AdAstra Meclisi & Staking Getiri Havuzu',
           icon: '👑',
@@ -5122,6 +5396,19 @@ export class GameStateManager {
           actionText: '💀 Zindana Gir'
         },
         {
+          id: 'carnival_events',
+          name: 'Karnaval & Çark-ı Felek Şenlik Havuzu',
+          icon: '🎪',
+          color: '#ec4899',
+          totalPoolAda: carnivalPool,
+          description: 'Karnaval çarkı ve piyango oyunlarına tahsis edilen ödül kasası.',
+          userShareText: `${state.lotteryTickets || 0} Piyango Bileti • ${state.wheelTicketShards || 0} Çark Parçası`,
+          userClaimableAda: 0,
+          statusBadge: '🎪 Aktif Şenlik',
+          actionType: 'carnival',
+          actionText: '🎪 Karnavala Git'
+        },
+        {
           id: 'nft_burn',
           name: 'Deflasyonist NFT Yakım (Burn) Kasası',
           icon: '🔥',
@@ -5138,8 +5425,8 @@ export class GameStateManager {
     };
   }
 
-  // 🛡️ AMM DEX Otonom Buyback & Yakım Operasyonu (Döngü Başına)
-  executeAmmTreasuryBuyback(cycleBudgetCap = 0.10) {
+  // 🛡️ AMM DEX Otonom Buyback & Yakım Operasyonu
+  executeAmmTreasuryBuyback(cycleBudgetCap = 0.15) {
     if (typeof ammMarket !== 'undefined' && typeof ammMarket.executeAutonomousBuyback === 'function') {
       const res = ammMarket.executeAutonomousBuyback(cycleBudgetCap);
       this.saveState();
@@ -5148,7 +5435,25 @@ export class GameStateManager {
     return { success: false, message: 'AMM Market motoru bulunamadı.' };
   }
 
-  getAmmBuybackAnalysis(cycleBudgetCap = 0.10) {
+  // 🔄 Gün Sonu Otonom Buyback & Yakım Kontrolü (Günde 1 kez çalışır)
+  checkDailyAutonomousBuyback(forcedToday = null) {
+    const today = forcedToday || new Date().toISOString().slice(0, 10);
+    if (!this.state.lastAmmBuybackDate) {
+      this.state.lastAmmBuybackDate = today;
+      return { executed: false, reason: 'initial_marker' };
+    }
+    if (this.state.lastAmmBuybackDate !== today) {
+      this.state.lastAmmBuybackDate = today;
+      const res = this.executeAmmTreasuryBuyback(0.15);
+      if (res && res.executed) {
+        console.log(`[AMM Buyback] Gün sonu otonom buyback çalıştırıldı (${today}):`, res);
+      }
+      return { executed: true, result: res, date: today };
+    }
+    return { executed: false, reason: 'already_run_today' };
+  }
+
+  getAmmBuybackAnalysis(cycleBudgetCap = 0.15) {
     if (typeof ammMarket !== 'undefined' && typeof ammMarket.getBuybackAnalysis === 'function') {
       return ammMarket.getBuybackAnalysis(cycleBudgetCap);
     }
@@ -5219,10 +5524,14 @@ export class GameStateManager {
   }
 
   repairAllTools() {
-    const results = { repaired: 0, totalWood: 0, totalIron: 0, totalWheat: 0, totalAda: 0, messages: [] };
+    const results = { repaired: 0, totalWood: 0, totalIron: 0, totalWheat: 0, totalAda: 0, messages: [], hasDamagedTools: false, missingAda: false };
     for (const toolId of Object.keys(this.state.tools || {})) {
       const cost = this.calculateRepairCost(toolId);
       if (cost && cost.missingDurability > 0) {
+        results.hasDamagedTools = true;
+        if ((this.state.adAstraBalance || 0) < cost.adAstraCost) {
+          results.missingAda = true;
+        }
         const res = this.repairTool(toolId);
         if (res.success) {
           results.repaired++;
@@ -5236,9 +5545,15 @@ export class GameStateManager {
       }
     }
     results.success = results.repaired > 0;
-    results.message = results.success
-      ? `🔨 ${results.repaired} Adet Alet Başarıyla Onarıldı! (-${results.totalWood} Odun, -${results.totalIron} Demir, -${results.totalAda} ADA)`
-      : (results.messages.length > 0 ? results.messages[0] : 'Onarılacak hasarlı alet bulunamadı veya yetersiz kaynak.');
+    if (results.success) {
+      results.message = `🔨 ${results.repaired} Adet Alet Başarıyla Onarıldı! (-${results.totalWood} Odun, -${results.totalIron} Demir, -${results.totalAda} ADA)`;
+    } else if (results.hasDamagedTools && results.missingAda) {
+      results.message = '⚠️ Hesapta yeteri kadar $ADASTRA yok!';
+    } else if (results.messages.length > 0) {
+      results.message = results.messages[0];
+    } else {
+      results.message = 'Tamir edilecek alet yok (Tüm aletler tam sağlam).';
+    }
     return results;
   }
 
@@ -5602,11 +5917,15 @@ export class GameStateManager {
       championName: champion.name,
       opponentName: opponent.name,
       opponentIcon: opponent.icon,
+      opponentAtk: opponent.atk,
+      opponentHp: opponent.hp,
       damageTaken,
       currentHp: champion.hp,
       maxHp: champion.maxHp,
       rewardAda,
       rewardKeys,
+      ratingDelta,
+      newRating: this.state.colosseumStats.rating,
       combatLog,
       colosseumStats: this.state.colosseumStats,
       tier

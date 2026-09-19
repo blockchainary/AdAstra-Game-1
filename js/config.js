@@ -330,7 +330,7 @@ export const GAME_CONFIG = {
     initialCapacities: {
       wood: 1080,
       iron: 720,
-      wheat: 900,
+      wheat: 1800,
       fragments: 100
     },
     maxCapacities: {
@@ -991,6 +991,29 @@ export const GAME_CONFIG = {
         'Hazır Taktik Kolaylığı: İster Zindan ister Kolezyum öncesi tek tıkla Preset 1, 2 veya 3 seçilerek savaşlara zahmetsizce girilebilir.',
         'Kışla, Zindan savaş hazırlık ve Kolezyum arayüzlerine dinamik ön/arka saf değiştiriciler ve preset yönetim butonları entegre edildi.'
       ]
+    },
+    {
+      version: 'v1.23',
+      title: '🏰 Silo Otomatik Yükseltme Hız Freni & Vanilla Reset Sonrası Kontrolsüz Yükselme Koruması',
+      date: 'Eylül 2026',
+      changes: [
+        'Bot çalışırken idle 60 FPS oyun döngüsünde silonun kontrolsüz biçimde saliseler içinde Seviye 9 veya 12\'ye fırlamasına neden olan tetikleme açığı giderildi.',
+        'Silo yükseltme ve kaynak satışı kontrolleri yalnızca o döngüde tamamlanan bir sefer hasadı toplanmışsa (hasClaimedAny) çalışacak şekilde sınırlandı.',
+        'Hem tryAutoUpgradeWarehouseWithAdaFinancing hem de handleBotSiloSpace motorlarına 10 saniyelik güvenlik bekleme süresi (cooldown) entegre edilerek ardışık karelerde ardı ardına yükseltme döngüsü engellendi.',
+        'Zaman ileri sarma (fast forward) simülasyonlarında ise _isFastForwarding bayrağıyla saat bazlı sefer tamamlanmalarında doğal yükseltmelerin sağlıklı işlemesi korundu.'
+      ]
+    },
+    {
+      version: 'v1.24',
+      title: '👑 Realm of Astra Yeniden Doğuşu & 24s Bot Alımında Ani Silo Yükselmesi ve AMM Fiyat Şişme Koruması',
+      date: 'Eylül 2026',
+      changes: [
+        'Projenin resmi adı "Realm of Astra" olarak tescillendi ve arayüz başlıkları yenilendi.',
+        'Bot Satın Alımında Ani Silo Seviye 2 Koruması: Bot satın alındığı sıfırıncı saniyede henüz sefer toplanmamışken kullanıcının kalan ~3.884 ADA parasını anında siloya gömen kontrolsüz yükseltme kökünden engellendi. Silonun yükseltilmesi yalnızca botun sefer tamamlayıp depoyu doldurması kuralına bağlandı.',
+        'AMM Market Fiyat Şişirme Engeli: Botun kasadaki ADA ile AMM\'den zorla odun/demir/buğday satın alıp piyasa fiyatlarını artıran ve kullanıcının ADA\'sını tüketen alım çağrıları kaldırıldı. Bot bir hammadde üreticisidir; alet tamiri veya silo için ADA lazımsa depodaki hammaddeyi AMM\'de SATARAK ADA temin eder ve pazar fiyatlarının düşmesini sağlar.',
+        'Taverna Bot Satın Alma Radyo Seçeneği Senkronizasyonu: Satın alma anında kullanıcının seçtiği "Siloyu Yükselt" veya "Akıllı Satış" tercihi anında state\'e kaydedilir.',
+        '38 birim testin tamamı (tüm zindan, dövüş, ekonomi ve bot testleri) sıfır hata ile %100 doğrulandı.'
+      ]
     }
   ],
 
@@ -1006,9 +1029,9 @@ export const GAME_CONFIG = {
   // 📢 Canlı Gösterge Paneli / Marquee Uyarı ve Duyurular
   ANNOUNCEMENTS: [
     {
-      id: 'v122_combat_presets',
-      badge: '🛡️ v1.22 YAYINDA',
-      text: 'Zindan ve Kolezyum savaşlarında Ön Saf / Arka Saf mevzi sistemi geri döndü! 3 Adet Taktiksel Savaş Preseti ile ordu dizilimini kaydet, zindan ve kolezyumda tek tıkla hazır taktiklerinle savaşa gir!',
+      id: 'v124_realm_of_astra',
+      badge: '👑 v1.24 REALM OF ASTRA',
+      text: 'Realm of Astra resmi olarak yayında! 24s Bot alımında ani silo yükselmesi ve AMM pazar fiyatlarının artmasına neden olan bot oto-tedarik alımları tamamen düzeltildi!',
       active: true,
       priority: 1
     },
@@ -1079,9 +1102,9 @@ export const GAME_CONFIG = {
     },
     {
       id: 'ecosystem-notice',
-      badge: '👑 ADASTRA REALM',
+      badge: '👑 ADASTRA REALM v1.16',
       badgeColor: '#f59e0b',
-      text: 'AdAstra Krallığı v1.15 yayında! 100 Milyon $ADASTRA tohum fonu, AMM DEX canlı pazar entegrasyonu ve haftalık devreden ödül kasaları aktif.',
+      text: 'AdAstra Krallığı v1.16 devrede! Buğday silo kapasitesi (1.800) dengelendi, XP tankı hard cap ile taşma engellendi, AMM DEX serbest piyasa satış engeli kaldırıldı ve her gün sonu otonom buyback & yakım döngüsü bağlandı.',
       active: true,
       priority: 2
     }

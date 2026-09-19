@@ -16,10 +16,11 @@ globalThis.localStorage = {
 // 1. Yeni bir gameState oluştur
 const gs = new GameStateManager();
 gs.state.adAstraBalance = 500000;
-gs.state.inventory = { iron: 50000, wood: 50000, wheat: 50000, fragments: 500 };
+gs.state.inventory = { iron: 500000, wood: 500000, wheat: 500000, fragments: 5000 };
 
 // 2. Asker satın al
 const buyRes = gs.buySoldierUnit();
+gs.state.inventory = { iron: 500000, wood: 500000, wheat: 500000, fragments: 5000 };
 assert(buyRes.success, 'Asker satın alınabilmeli');
 assert(gs.state.soldierUnits.length === 1, '1 asker olmalı');
 const soldier = gs.state.soldierUnits[0];
@@ -71,7 +72,10 @@ assert(repairRes.success, 'Askerin silahı tamir edilebilmeli');
 assert.equal(soldier.equipment.weapon.durability, 13, 'Tamir sonrası silah yeniden 13/13 olmalı');
 
 // 10. Krallık envanterindeki silah için test
-gs.craftEquipment('weapon');
+gs.state.inventory = { iron: 500000, wood: 500000, wheat: 500000, fragments: 5000 };
+gs.state.adAstraBalance = 500000;
+const secondCraft = gs.craftEquipment('weapon');
+assert(secondCraft.success, 'İkinci silah dövülebilmeli');
 assert(gs.state.equipment.weapon, 'Krallıkta yeni silah olmalı');
 gs.state.equipment.weapon.durability = 10;
 const repKingdomCost = gs.calculateEquipmentRepairCost('weapon', null);

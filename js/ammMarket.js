@@ -277,16 +277,6 @@ export class AMMMarketEngine {
     const pool = this.pools[resourceKey];
     if (!pool || resourceAmount <= 0) return { success: false, message: 'Geçersiz miktar!' };
 
-    const corridor = this.getCorridor(resourceKey);
-    const priceAfter = this.previewPriceAfterSell(resourceKey, resourceAmount);
-    if (corridor && priceAfter < corridor.minPriceAda) {
-      return {
-        success: false,
-        message: `⛔ Bu satış ${pool.name} fiyatını koridor tabanının (${corridor.minPriceAda} ADA) altına indirir. Daha küçük bir miktar dene — piyasa taban koruması devrede.`,
-        corridorBlocked: true
-      };
-    }
-
     const gross = (pool.adAstraReserve * resourceAmount) / (pool.resourceReserve + resourceAmount);
     const fee = gross * GAME_CONFIG.AMM_FEE_RATE;
     const net = gross - fee;

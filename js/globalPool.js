@@ -158,9 +158,9 @@ export class GlobalResourceManager {
       // 🪙 10 MİLYAR MAKRO TOKENOMİK VE MUHASEBE
       maxSupply: MAX_SUPPLY,
       contractAddress: CONTRACT_ADDRESS,
-      totalSpent: prevState ? prevState.totalSpent || 54200 : 54200,
-      totalBurned: prevState ? prevState.totalBurned || 18450 : 18450, // %13 Kalıcı Yakım
-      creatorRoyaltyTotal: prevState ? prevState.creatorRoyaltyTotal || 0 : 0, // %3 Yapımcı Telifi
+      totalSpent: prevState ? (prevState.totalSpent || 0) : 0,
+      totalBurned: prevState ? (prevState.totalBurned || 0) : 0, // %13 Kalıcı Yakım
+      creatorRoyaltyTotal: prevState ? (prevState.creatorRoyaltyTotal || 0) : 0, // %3 Yapımcı Telifi
       creatorWallet: GAME_CONFIG.CREATOR_WALLET_ADDRESS || '0x58DBCF66bdd7BfA9da98aDba1965b3794321087C',
       ubiPool: prevState ? prevState.ubiPool || (GAME_CONFIG.UBI_CONFIG ? GAME_CONFIG.UBI_CONFIG.INITIAL_SEED_POOL : 2400000) : 2400000, // %6 Evrensel Temel Gelir Havuzu
       ubiWeeklyDistributed: prevState ? prevState.ubiWeeklyDistributed || 0 : 0,
@@ -179,8 +179,8 @@ export class GlobalResourceManager {
         carnival: 4000000
       },
       totalActiveMiners: 342,
-      buybackFromBroadcasting: prevState ? prevState.buybackFromBroadcasting || 12500 : 12500, // %35 Avalanche Arena yayın buyback havuzu
-      totalBurnedResources: prevState ? prevState.totalBurnedResources || { wood: 0, iron: 0, wheat: 0 } : { wood: 0, iron: 0, wheat: 0 }
+      buybackFromBroadcasting: prevState ? (prevState.buybackFromBroadcasting || 0) : 0,
+      totalBurnedResources: prevState ? (prevState.totalBurnedResources || { wood: 0, iron: 0, wheat: 0 }) : { wood: 0, iron: 0, wheat: 0 }
     };
 
     this.state = state;
@@ -547,6 +547,21 @@ export class GlobalResourceManager {
 
   resetEpoch() {
     this.state = this.createNewEpoch();
+    this.saveState();
+    return this.state;
+  }
+
+  // 🏛️ Vanilla Reset: Tokenomik yakım, harcama ve sayaçları tam 0'a sıfırlar
+  vanillaReset() {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(this.storageKey);
+    }
+    this.state = this.createNewEpoch(null);
+    this.state.totalSpent = 0;
+    this.state.totalBurned = 0;
+    this.state.creatorRoyaltyTotal = 0;
+    this.state.buybackFromBroadcasting = 0;
+    this.state.totalBurnedResources = { wood: 0, iron: 0, wheat: 0 };
     this.saveState();
     return this.state;
   }

@@ -96,6 +96,7 @@ console.log(`✅ Boss zaferlerinde parşömen düşme mekaniği doğrulandı (${
 
 // Test 5: Karnaval Çarkında Demir, Odun ve Buğdayların Anında Yakılması & Sistemden Silinmesi
 console.log('\n[5/6] Karnaval Çarkında Demir, Odun ve Buğdayların Yakılması Test Ediliyor...');
+gs.state.warehouseLevel = 18;
 gs.state.inventory.wood = 5000;
 gs.state.inventory.iron = 5000;
 gs.state.inventory.wheat = 5000;

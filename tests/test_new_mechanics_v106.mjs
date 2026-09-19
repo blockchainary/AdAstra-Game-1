@@ -119,6 +119,7 @@ assert(weaponCraftCost.woodCost > 0, 'Silah odun maliyeti olmalı');
 assert(weaponCraftCost.adaCost > 0, 'Silah AMM DEX ADA maliyeti olmalı');
 assert.equal(weaponCraftCost.fragCost, 1, 'Lv.1 üretim 1 parça talep etmeli');
 
+gs.state.warehouseLevel = 18;
 gs.state.adAstraBalance = 5000000;
 gs.state.inventory = { iron: 500000, wood: 500000, wheat: 500000, fragments: 5000 };
 const craftW = gs.craftEquipment('weapon');

@@ -7,12 +7,45 @@ import { sound } from './audio.js';
 import { GrandTownScene } from './grandTownScene.js';
 import { DungeonScene } from './dungeonScene.js';
 import { createUnit, simulateBattle, DEFAULT_BOSS_PHASES, PLAYER_SKILLS } from './combat.js';
+import { AdAstraBattleArena, getMonsterAvatar, getUnitAvatar } from './battleArena.js';
 
 let speedMultiplier = 1;
 let lastTickTime = performance.now();
 let phaserGame = null;
+let battleArenaInstance = null;
 window.gameState = gameState;
 window.globalPool = globalPool;
+
+function getBattleArena() {
+  if (!battleArenaInstance) {
+    const rootEl = document.getElementById('battle-arena-modal');
+    if (rootEl) {
+      battleArenaInstance = new AdAstraBattleArena(rootEl);
+    }
+  }
+  return battleArenaInstance;
+}
+
+function openBattleArenaModal() {
+  const modal = document.getElementById('battle-arena-modal');
+  if (modal) {
+    modal.classList.add('active');
+    document.body.classList.add('modal-open');
+  }
+}
+
+function closeBattleArenaModal() {
+  const modal = document.getElementById('battle-arena-modal');
+  if (modal) {
+    modal.classList.remove('active');
+    document.body.classList.remove('modal-open');
+  }
+  if (battleArenaInstance) {
+    battleArenaInstance.stop();
+  }
+}
+window.openBattleArenaModal = openBattleArenaModal;
+window.closeBattleArenaModal = closeBattleArenaModal;
 
 // PHASE 2: GAMEFI & RPG EKONOMİSİ - MODAL SEKME & GEÇİCİ DURUM DEĞİŞKENLERİ
 let barracksActiveTab = 'army';
@@ -261,6 +294,7 @@ function renderTopBar() {
     updateDungeonLiveDropRatesUI();
   }
 }
+window.renderHUD = renderTopBar;
 
 // Akıllı Kral Danışmanı DOM Güncellemesi
 function updateRoyalAdvisorUI() {
@@ -2366,6 +2400,22 @@ function openTownZoneModal(zoneId, zoneName) {
             <input type="radio" name="bot_silo_opt" value="sell" ${!isSiloAutoUpgrade ? 'checked' : ''} />
             <span><strong>Akıllı Satış (Döngü Kazancı + %5 Marj):</strong> Markette satış baskısı yaratmamak için ambarı boşaltmaz; yalnızca bir sonraki sefer döngüsünde kazanılacak miktar kadar (+%5 güvenlik payı ile) AMM pazarında satarak yer açar.</span>
           </label>
+        </div>
+
+        <!-- 🔄 24 Saat Bitince Otomatik Yenileme Seçeneği -->
+        <div style="background: rgba(16,185,129,0.08); padding: 12px; border-radius: 8px; border: 1px solid rgba(16,185,129,0.35); margin-bottom: 10px;">
+          <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
+            <input type="checkbox" id="chk-bot-auto-renew" style="margin-top: 3px; transform: scale(1.25); accent-color: #10b981; cursor: pointer;" ${gameState.state.botAutoRenew24h ? 'checked' : ''} />
+            <div>
+              <div style="font-weight: 800; font-size: 0.86rem; color: #34d399;">
+                🔄 24 saat bitince hesapta yeterli adastra varsa tekrar bot al ve devam et
+              </div>
+              <div style="font-size: 0.76rem; color: #cbd5e1; margin-top: 3px; line-height: 1.4;">
+                Bu seçenek işaretlendiğinde; 24 saat dolunca hesabınızda yeterli $ADASTRA bulunuyorsa bot otomatik olarak tekrar satın alınır ve bir 24 saat daha kesintisiz çalışmaya devam eder.
+              </div>
+            </div>
+          </label>
+        </div>
         <!-- Canlı Otonom Sefer Durum Konsolu -->
         <div style="background: rgba(0,0,0,0.5); border-radius: 8px; padding: 12px; margin-bottom: 10px; border: 1px solid ${isBotActive ? 'rgba(74,222,128,0.3)' : 'rgba(255,255,255,0.1)'};">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -3773,11 +3823,11 @@ function renderCarnivalHtml(activeTab = 'wheel') {
       ubiRatePct: 6,
       teamRatePct: 3,
       treasuryRatePct: 78,
-      totalPoolsBalance: 31200000,
-      lifetimeBurnedAda: 45000,
+      totalPoolsBalance: 40000000,
+      lifetimeBurnedAda: 0,
       solvencyPct: 100,
-      totalDeposited: 180000,
-      totalWithdrawn: 42000,
+      totalDeposited: 0,
+      totalWithdrawn: 0,
       burnedResources: { wood: 0, iron: 0, wheat: 0 },
       lottery: { lotteryPool: 20000000, winnerMultiplier: 2.0, amortiShare: 400000, rolloverShare: 19600000 },
       pools: []
@@ -4626,47 +4676,85 @@ function openColosseumModal() {
     });
   }
 
-  // 1v1 Kolezyuma Çık Butonu
+  // 1v1 Kolezyuma Çık Butonu (Canlı Savaş Arenası Entegrasyonu)
   const duelBtn = document.getElementById('btn-start-1v1-duel');
   if (duelBtn) {
     duelBtn.addEventListener('click', () => {
-      duelBtn.disabled = true;
-      duelBtn.innerText = '⚔️ Rakip Eşleşiyor & Savaş Başlıyor...';
+      const champ = (gameState.state.soldierUnits || [])[selectedColosseumChampionIdx];
+      if (!champ) {
+        showToast('Kolezyuma çıkacak bir şampiyon bulunamadı!', 'error');
+        return;
+      }
+      if ((champ.hp || 0) <= 15) {
+        showToast(`⚠️ ${champ.name} ağır yaralı (Can: ${champ.hp}/${champ.maxHp}). Kolezyuma çıkmadan önce buğdayla iyileştirilmelidir!`, 'error');
+        return;
+      }
 
-      const logEl = document.getElementById('colosseum-duel-log');
-      if (logEl) logEl.innerHTML = `🌀 <em>Kolezyum kumlarında rakip aranıyor...</em>`;
+      const res = gameState.executeColosseum1v1Match(selectedColosseumChampionIdx);
+      if (!res.success) {
+        showToast(res.message, 'error');
+        return;
+      }
 
-      setTimeout(() => {
-        const res = gameState.executeColosseum1v1Match(selectedColosseumChampionIdx);
-        if (!res.success) {
-          showToast(res.message, 'error');
-          duelBtn.disabled = false;
-          duelBtn.innerText = '⚔️ KOLEZYUMA ÇIK (1v1 EŞLEŞ)';
-          return;
-        }
+      const arena = getBattleArena();
+      if (!arena) return;
 
-        let step = 0;
-        const logIv = setInterval(() => {
-          if (step < res.combatLog.length) {
-            logEl.innerHTML = res.combatLog.slice(0, step + 1).join('<br>');
-            step++;
-            sound.playPickaxe();
-          } else {
-            clearInterval(logIv);
-            if (res.isVictory) {
-              logEl.innerHTML += `<div style="color: #4ade80; font-weight: 800; margin-top: 10px; font-size: 1rem;">🏆 ZAFER! ${res.opponentIcon} ${res.opponentName} yere serildi!<br><span style="color: #fde047; font-size: 0.9rem;">+${res.rewardAda} $ADASTRA ${res.rewardKeys > 0 ? '• 🔑 +1 Arena Anahtarı!' : ''}</span></div>`;
-              showToast(`🏆 Zafer! +${res.rewardAda} $ADASTRA kazanıldı!`, 'success');
-            } else {
-              logEl.innerHTML += `<div style="color: #ef4444; font-weight: 800; margin-top: 10px;">💀 MAĞLUBİYET! Şampiyonun darbe aldı. Kalan Can: ${res.currentHp}/${res.maxHp} (Buğday ile iyileştirilmeli)</div>`;
-              showToast('💀 Mağlubiyet! Şampiyonun yaralandı.', 'error');
-            }
-            duelBtn.innerText = 'YENİDEN DÜELLOYA ÇIK';
-            duelBtn.disabled = false;
-            duelBtn.onclick = () => openColosseumModal();
-            renderTopBar();
+      closeModal();
+      openBattleArenaModal();
+
+      const champStats = gameState.getSoldierFullStats(selectedColosseumChampionIdx) || { totalAtk: 65, totalMaxHp: 500 };
+      const allyUnit = {
+        name: res.championName || champ.name,
+        icon: champ.icon || '🦁',
+        avatar: champ.avatar || 'assets/soldier_avatar.jpg',
+        sourceIndex: selectedColosseumChampionIdx,
+        hp: champ.hp || champStats.totalMaxHp,
+        maxHp: champStats.totalMaxHp,
+        atk: champStats.totalAtk,
+        skills: Array.isArray(champ.skills) && champ.skills.length ? champ.skills : ['shieldWall', 'armorBreaker'],
+        row: champ.row || 'front'
+      };
+
+      const enemyUnit = {
+        name: res.opponentName,
+        icon: res.opponentIcon || '🥷',
+        avatar: 'assets/gladiator_rival.jpg',
+        hp: res.opponentHp || 350,
+        maxHp: res.opponentHp || 350,
+        atk: res.opponentAtk || 50,
+        skills: ['armorBreaker', 'cleave'],
+        row: 'front'
+      };
+
+      const loot = [
+        `🪙 +${res.rewardAda} $ADASTRA`,
+        `⭐ ${res.ratingDelta >= 0 ? '+' : ''}${res.ratingDelta} ELO (Yeni Puan: ${res.newRating})`,
+        res.rewardKeys > 0 ? '🔑 +1 Arena Anahtarı' : '🏆 Haftalık Lig Puanı (+3)'
+      ];
+
+      arena.startBattle({
+        mode: 'colosseum',
+        context: `Haftalık Kolezyum · <strong>${res.opponentName}</strong> ile 1v1 Düello`,
+        rank: `ELO ${res.newRating} · ${res.tier ? res.tier.name : 'Lig Maçı'}`,
+        allies: [allyUnit],
+        enemies: [enemyUnit],
+        loot,
+        onComplete: ({ win, units }) => {
+          const survivingAlly = units.find(u => u.side === 'ally');
+          if (survivingAlly && (gameState.state.soldierUnits || [])[selectedColosseumChampionIdx]) {
+            gameState.state.soldierUnits[selectedColosseumChampionIdx].hp = Math.max(1, Math.round(survivingAlly.hp));
+            gameState.saveState();
           }
-        }, 600);
-      }, 700);
+          renderTopBar();
+          if (win) {
+            sound.playLevelUp();
+            showToast(`🏆 Zafer! +${res.rewardAda} $ADASTRA ve ${res.ratingDelta >= 0 ? '+' : ''}${res.ratingDelta} ELO kazanıldı!`, 'success');
+          } else {
+            sound.playBreakWarning();
+            showToast('💀 Mağlubiyet! Şampiyonun yaralandı.', 'error');
+          }
+        }
+      });
     });
   }
 }
@@ -5321,6 +5409,103 @@ function openSmartArmoryModal() {
 }
 
 // =========================================================================
+// ♻️ DEMİRCİ HURDA VE GERİ DÖNÜŞÜM RAPORU AÇILIR PENCERESİ (MODAL)
+// =========================================================================
+function openScrapReportModal(report) {
+  dom.modalTitle.innerHTML = `<span>♻️</span> <span>DEMİRCİ HURDA & GERİ DÖNÜŞÜM RAPORU</span>`;
+
+  const items = report.scrappedItems || [];
+
+  dom.modalBody.innerHTML = `
+    <div class="clean-card" style="border-color: #22c55e; background: linear-gradient(135deg, #091a12 0%, #06110b 100%); margin-bottom: 14px;">
+      <div class="card-title-row" style="margin-bottom: 6px;">
+        <div class="card-title" style="color: #4ade80; font-size: 1.15rem;">
+          ✨ Geri Dönüşüm Başarıyla Tamamlandı!
+        </div>
+        <span class="card-badge" style="color: #4ade80; border-color: #22c55e; font-size: 0.85rem; padding: 4px 10px;">
+          ♻️ ${report.scrappedCount} Eşya Parçalandı
+        </span>
+      </div>
+      <div class="clean-desc" style="color: #cbd5e1; font-size: 0.84rem; line-height: 1.5;">
+        Askerlerinin üzerindeki kuşanılmış teçhizatlar korunmuştur. Yalnızca cephanelikte boşta duran 
+        <strong>Seviye 1</strong> fazlalık eşyalar Demirci ocağında eritilerek hammadde ve teçhizat parçalarına dönüştürüldü.
+      </div>
+    </div>
+
+    <!-- 🎁 KAZANILAN KAYNAKLAR ÖZET KARTLARI -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+      <div style="background: rgba(168,85,247,0.12); border: 1.5px solid #a855f7; border-radius: 10px; padding: 14px; text-align: center; box-shadow: 0 0 15px rgba(168,85,247,0.15);">
+        <div style="font-size: 1.8rem; margin-bottom: 4px;">💎</div>
+        <div style="font-size: 0.8rem; color: #d8b4fe; font-weight: 700; text-transform: uppercase;">Kazanılan Teçhizat Parçası</div>
+        <div style="font-size: 1.5rem; font-weight: 900; color: #c084fc; margin-top: 2px;">
+          +${report.gainedFragments} ADET
+        </div>
+        <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 4px;">Demirci'de üst seviye eşyalar dövmek için kullanılır</div>
+      </div>
+
+      <div style="background: rgba(148,163,184,0.12); border: 1.5px solid #94a3b8; border-radius: 10px; padding: 14px; text-align: center; box-shadow: 0 0 15px rgba(148,163,184,0.12);">
+        <div style="font-size: 1.8rem; margin-bottom: 4px;">⛏️</div>
+        <div style="font-size: 0.8rem; color: #cbd5e1; font-weight: 700; text-transform: uppercase;">Geri Kazanılan Demir Cevheri</div>
+        <div style="font-size: 1.5rem; font-weight: 900; color: #f1f5f9; margin-top: 2px;">
+          +${report.gainedIron} ADET
+        </div>
+        <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 4px;">Ambarındaki demir stoğuna doğrudan eklendi</div>
+      </div>
+    </div>
+
+    <!-- 📋 PARÇALANAN EŞYALARIN LİSTESİ -->
+    <div class="clean-card" style="margin-bottom: 14px;">
+      <div style="font-weight: 800; font-size: 0.88rem; color: #fde047; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+        <span>📋 Eritilen Eşyaların Dökümü (${items.length} Kalem)</span>
+        <span style="font-size: 0.75rem; color: #94a3b8; font-weight: normal;">(Her eşya: +2 💎 +10 ⛏️)</span>
+      </div>
+      <div style="max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px;">
+        ${items.map(it => `
+          <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(30,41,59,0.5); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 1.3rem;">${it.icon}</span>
+              <div>
+                <div style="font-weight: 700; font-size: 0.85rem; color: #fff;">${it.name}</div>
+                <div style="font-size: 0.72rem; color: #94a3b8;">Seviye ${it.level} • Boşta Durumundaydı</div>
+              </div>
+            </div>
+            <div style="text-align: right; font-size: 0.78rem; font-weight: 800;">
+              <span style="color: #c084fc;">+${it.fragGained} 💎</span> • <span style="color: #cbd5e1;">+${it.ironGained} ⛏️</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <!-- 🔘 İŞLEM BUTONLARI -->
+    <div style="display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;">
+      <button class="btn-clean btn-clean-outline" id="btn-scrap-close" style="width: auto; padding: 10px 20px;">
+        Kapat
+      </button>
+      <button class="btn-clean btn-clean-gold" id="btn-goto-forge-from-scrap" style="width: auto; padding: 10px 22px; font-weight: 800;">
+        ⚒️ Demirciye Git & Yeni Eşya Döv
+      </button>
+    </div>
+  `;
+
+  displayModal();
+
+  const closeBtn = document.getElementById('btn-scrap-close');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      openBarracksModal();
+    });
+  }
+
+  const gotoForgeBtn = document.getElementById('btn-goto-forge-from-scrap');
+  if (gotoForgeBtn) {
+    gotoForgeBtn.addEventListener('click', () => {
+      openTownZoneModal('iron', '⛏️ DERİN DEMİR MADENİ & KRALLIK DEMİRCİSİ');
+    });
+  }
+}
+
+// =========================================================================
 // 4.12 SAVAŞ ÖNCESİ TAKTİK & FORMASYON HAZIRLIĞI (PRE-BATTLE FORMATION)
 // =========================================================================
 let preBattleSelectedSoldiers = [0];
@@ -5371,10 +5556,14 @@ function openPreBattleModal(monster) {
     </div>
   `;
 
+  const monsterAvatarSrc = monster.avatar || getMonsterAvatar(monster.level, monster.name);
   const enemyCardHtml = `
     <div class="prebattle-enemy-card">
-      <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-        <span style="font-size:2.2rem;">${monster.icon || '💀'}</span>
+      <div style="display:flex; align-items:center; gap:14px; margin-bottom:12px;">
+        <div style="width:58px; height:58px; border-radius:50%; overflow:hidden; border:2.5px solid rgba(239,68,68,0.75); flex-shrink:0; box-shadow:0 0 16px rgba(239,68,68,0.45); display:flex; align-items:center; justify-content:center; background:#1a1224;">
+          <img src="${monsterAvatarSrc}" alt="${monster.name}" style="width:100%; height:100%; object-fit:cover; display:block;" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='block';" />
+          <span style="font-size:2rem; display:none;">${monster.icon || '💀'}</span>
+        </div>
         <div>
           <div style="font-weight:800; font-size:1.1rem; color:#f87171;">${monster.name}</div>
           <div style="font-size:0.8rem; color:#94a3b8;">${monster.level}. Kat Zindan Muhafızı</div>
@@ -5493,9 +5682,12 @@ function openPreBattleModal(monster) {
             const skillIcons = (sol.skills || ['shieldWall']).map(skId => (PLAYER_SKILLS[skId]?.icon || '⚡')).join(' ');
             return `
               <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; background:rgba(30,41,59,0.5); padding:6px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
-                <label style="display:flex; align-items:center; gap:8px; flex:1; cursor:pointer; margin:0;">
+                <label style="display:flex; align-items:center; gap:10px; flex:1; cursor:pointer; margin:0;">
                   <input type="checkbox" class="prebattle-sol-check" data-idx="${idx}" ${isChecked ? 'checked' : ''}>
-                  <span style="font-size:1.1rem;">${sol.icon || '⚔️'}</span>
+                  <div style="width:34px; height:34px; border-radius:50%; overflow:hidden; border:1.5px solid rgba(232,185,78,0.75); flex-shrink:0; display:flex; align-items:center; justify-content:center; background:#1a1224; box-shadow:0 0 10px rgba(232,185,78,0.3);">
+                    <img src="${sol.avatar || 'assets/soldier_avatar.jpg'}" alt="${sol.name}" style="width:100%; height:100%; object-fit:cover; display:block;" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='block';" />
+                    <span style="font-size:0.95rem; display:none;">${sol.icon || '⚔️'}</span>
+                  </div>
                   <div style="flex:1;">
                     <div style="font-weight:700; font-size:0.82rem; color:#fff;">#${idx+1} ${sol.name}</div>
                     <div style="font-size:0.7rem; color:#94a3b8;">${sol.hp || 100} HP • <span style="color:#fde047;">${stats?.totalAtk || 20} ATK</span> • <span title="Yetenekler">${skillIcons}</span></div>
@@ -5651,8 +5843,6 @@ function openPreBattleModal(monster) {
 }
 
 function executeMonsterBattle(monster, selectedIndices) {
-  dom.modalTitle.innerHTML = `<span>⚔️</span> <span>ZİNDAN SAVAŞI: ${monster.name.toUpperCase()}</span>`;
-
   const state = gameState.state;
   const soldiers = state.soldierUnits || [];
 
@@ -5666,368 +5856,138 @@ function executeMonsterBattle(monster, selectedIndices) {
   }
   renderTopBar();
 
+  const arena = getBattleArena();
+  if (!arena) {
+    showToast('Savaş arenası başlatılamadı!', 'error');
+    return;
+  }
+
   // 1. Müttefik Asker Birimleri Oluşturma (Tek Tip Asker + Skill Loadout + Mevzi)
-  const allies = selectedIndices
+  const arenaAllies = selectedIndices
     .filter(idx => soldiers[idx])
     .map(idx => {
       const stats = gameState.getSoldierFullStats(idx) || { totalAtk: 25, totalMaxHp: 100 };
       const sol = soldiers[idx];
-      return createUnit({
-        uid: `soldier_${idx}`,
-        sourceIndex: idx,
+      return {
         name: sol.name,
         icon: sol.icon || '⚔️',
+        avatar: sol.avatar || 'assets/soldier_avatar.jpg',
+        sourceIndex: idx,
         hp: sol.hp != null ? sol.hp : stats.totalMaxHp,
         maxHp: stats.totalMaxHp,
         atk: stats.totalAtk,
-        armor: sol.baseArmor || 10,
-        skills: sol.skills || ['shieldWall'],
-        row: sol.row || 'front'
-      });
+        row: sol.row || 'front',
+        skills: Array.isArray(sol.skills) && sol.skills.length ? sol.skills : ['shieldWall', 'armorBreaker']
+      };
     });
 
-  if (allies.length === 0) {
+  if (arenaAllies.length === 0) {
     showToast('Savaşa katılacak geçerli bir asker bulunamadı!', 'error');
     return;
   }
 
   let eCurHp = gameState.getMonsterCurrentHp(monster.level, monster.hp);
-  const enemyStartHpPct = Math.min(100, Math.max(0, Math.round((eCurHp / monster.hp) * 100)));
+  const isBossMonster = !!(monster.isBoss || monster.level === 9 || monster.level === 18);
 
   // 2. Canavar Birimi ve Boss Fazları
-  const isBossMonster = !!(monster.isBoss || monster.level === 9 || monster.level === 18);
-  const enemyUnit = createUnit({
-    uid: `mon_${monster.level}`,
+  const arenaEnemy = {
     name: monster.name,
     icon: monster.icon || '💀',
+    avatar: monster.avatar || getMonsterAvatar(monster.level, monster.name),
+    level: monster.level,
     hp: eCurHp,
     maxHp: monster.hp,
     atk: monster.atk,
-    abilities: monster.abilities || [],
-    actionsPerRound: isBossMonster ? 2 : 1,
-    side: 'enemy',
-    row: 'front'
-  });
+    boss: isBossMonster,
+    row: 'front',
+    skills: monster.abilities || (isBossMonster ? ['cleave', 'roar'] : ['cleave']),
+    phases: DEFAULT_BOSS_PHASES[monster.level] ? DEFAULT_BOSS_PHASES[monster.level].map(p => ({
+      at: p.atPct || 0.5,
+      text: p.name || 'ÖFKE PATLAMASI',
+      sub: p.text || 'Düşman gücünü topluyor!'
+    })) : []
+  };
 
-  const bossPhases = DEFAULT_BOSS_PHASES[monster.level] || null;
+  const lootPreview = [
+    `🟣 +${monster.rewardAdAstra || (monster.level * 25)} $ADASTRA`,
+    `✨ +${monster.rewardXp || (monster.level * 15)} Asker XP`,
+    `🧩 Teçhizat Parçası (${gameState.getFragmentDropRate(state.level)}% Şans)`,
+    `📦 Pandora Kutusu (${gameState.getBoxDropRate(state.level)}% Şans)`
+  ];
 
-  // 3. Gerçek combat.js simulateBattle Simülasyonu
-  const simResult = simulateBattle({
-    allies,
-    enemies: [enemyUnit],
-    bossPhases,
-    seed: Date.now()
-  });
+  closeModal(); // Eski modalı kapat
+  openBattleArenaModal(); // Canlı Savaş Arenasını Aç
 
-  const playerTotalMaxHp = allies.reduce((s, u) => s + u.maxHp, 0);
-  let playerTotalCurrentHp = allies.reduce((s, u) => s + u.hp, 0);
+  arena.startBattle({
+    mode: 'dungeon',
+    context: `Kat ${monster.level} · Seviye ${monster.level} — <strong>${monster.name}</strong> ${isBossMonster ? '(Zindan Bossu)' : ''}`,
+    rank: `+100% Ganimet · Stamina: -${staminaCost} ⚡`,
+    allies: arenaAllies,
+    enemies: [arenaEnemy],
+    loot: lootPreview,
+    onComplete: ({ win, units }) => {
+      // 1. Askerlerin gerçek canlarının güncellenmesi ve silah aşınması
+      const weaponsWorn = [];
+      units.filter(u => u.side === 'ally').forEach(a => {
+        const idx = a.sourceIndex;
+        if (soldiers[idx]) {
+          soldiers[idx].hp = Math.max(1, Math.round(a.hp));
 
-  dom.modalBody.innerHTML = `
-    <div class="clean-card" style="border-color: #ef4444; background: #1c1012;">
-      <div class="card-title-row">
-        <div class="card-title">💀 ${monster.name} ile Taktiksel Savaş</div>
-        <span class="card-badge">${monster.level}. Kat Muhafızı</span>
-      </div>
-    </div>
-
-    <div class="arena-battlefield">
-      <div class="arena-squad player-squad">
-        <div class="arena-squad-title">🛡️ Seçilen Ordu (${allies.length} Asker)</div>
-        <div class="arena-hp-track"><div id="dungeon-player-hp-fill" class="arena-hp-fill player" style="width: 100%;"></div></div>
-        <div style="font-size:0.8rem; text-align:center; color:#34d399;" id="dungeon-player-hp-text">${playerTotalCurrentHp} / ${playerTotalMaxHp} HP</div>
-      </div>
-      <div class="arena-vs-badge">VS</div>
-      <div class="arena-squad enemy-squad">
-        <div class="arena-squad-title">💀 ${monster.name}</div>
-        <div class="arena-hp-track"><div id="dungeon-enemy-hp-fill" class="arena-hp-fill enemy" style="width: ${enemyStartHpPct}%;"></div></div>
-        <div style="font-size:0.8rem; text-align:center; color:#ef4444;" id="dungeon-enemy-hp-text">${eCurHp} / ${monster.hp} HP</div>
-      </div>
-    </div>
-
-    <div id="dungeon-combat-log" class="clean-card arena-combat-log" style="max-height: 180px; overflow-y: auto; font-family: monospace; font-size: 0.82rem; line-height: 1.5;">
-      ⚔️ Taktiksel savaş motoru devrede... <span style="color:#38bdf8;">(⚡ -${staminaCost} Stamina harcandı)</span>
-    </div>
-  `;
-
-  const pHpFill = document.getElementById('dungeon-player-hp-fill');
-  const eHpFill = document.getElementById('dungeon-enemy-hp-fill');
-  const pHpText = document.getElementById('dungeon-player-hp-text');
-  const eHpText = document.getElementById('dungeon-enemy-hp-text');
-  const logEl = document.getElementById('dungeon-combat-log');
-
-  const logEntries = simResult.log || [];
-  let logIdx = 0;
-
-  if (currentBattleInterval) {
-    clearInterval(currentBattleInterval);
-    currentBattleInterval = null;
-  }
-
-  // 4. Tur ve Olayların Ekrana Sıralı Animasyonla Akıtılması
-  const battleInt = setInterval(() => {
-    currentBattleInterval = battleInt;
-
-    if (logIdx >= logEntries.length) {
-      clearInterval(battleInt);
-      currentBattleInterval = null;
-      finalizeBattle();
-      return;
-    }
-
-    const entry = logEntries[logIdx];
-    logIdx++;
-
-    // Ses ve görsel efektler
-    if (entry.type === 'damage') {
-      sound.playPickaxe();
-      if (entry.actorSide === 'ally') {
-        eCurHp = Math.max(0, entry.targetHp);
-      } else {
-        playerTotalCurrentHp = Math.max(0, playerTotalCurrentHp - entry.amount);
-      }
-    } else if (entry.type === 'ability') {
-      sound.playLevelUp();
-    }
-
-    // UI Güncelleme
-    if (eHpFill) eHpFill.style.width = `${Math.round((eCurHp / monster.hp) * 100)}%`;
-    if (pHpFill) pHpFill.style.width = `${Math.round((playerTotalCurrentHp / playerTotalMaxHp) * 100)}%`;
-    if (eHpText) eHpText.innerText = `${eCurHp} / ${monster.hp} HP`;
-    if (pHpText) pHpText.innerText = `${playerTotalCurrentHp} / ${playerTotalMaxHp} HP`;
-
-    if (logEl) {
-      const line = document.createElement('div');
-      if (entry.type === 'ability') {
-        line.innerHTML = `<span style="color:#fde047;">⚡ [YETENEK]</span> ${entry.text}`;
-      } else if (entry.type === 'damage') {
-        line.innerHTML = `<span>⚔️</span> ${entry.actor} ➔ ${entry.target}: <strong>-${entry.amount} HP</strong> ${entry.isCrit ? '💥 (KRİTİK!)' : ''} ${entry.label ? `[${entry.label}]` : ''}`;
-      } else if (entry.type === 'heal') {
-        line.innerHTML = `<span style="color:#34d399;">✨ [İYİLEŞME]</span> ${entry.actor} ➔ ${entry.target}: <strong>+${entry.amount} HP</strong>`;
-      } else if (entry.type === 'phase') {
-        line.innerHTML = `<span style="color:#ef4444; font-weight:bold;">🔥 [BOSS FAZI]</span> ${entry.text}`;
-      } else if (entry.type === 'rage') {
-        line.innerHTML = `<span style="color:#ea580c; font-weight:bold;">🌋 [ÖFKE]</span> ${entry.text}`;
-      } else if (entry.text) {
-        line.innerText = entry.text;
-      }
-      logEl.appendChild(line);
-      logEl.scrollTop = logEl.scrollHeight;
-    }
-  }, 220);
-
-  function finalizeBattle() {
-    const isVictory = !!(simResult.victory || simResult.winner === 'ally' || eCurHp <= 0);
-
-    // Askerlerin gerçek canlarının güncellenmesi (Askeri Koruma: 1 HP altına düşmez)
-    const weaponsWorn = [];
-    allies.forEach(a => {
-      const idx = a.sourceIndex;
-      if (soldiers[idx]) {
-        soldiers[idx].hp = Math.max(1, a.hp);
-
-        // Silah aşınması
-        if (soldiers[idx].equipment?.weapon) {
-          const w = soldiers[idx].equipment.weapon;
-          const maxD = w.maxDurability || 13;
-          w.durability = Math.max(0, (w.durability != null ? w.durability : maxD) - 1);
-          weaponsWorn.push(`${soldiers[idx].name} silahı (${w.durability}/${maxD})`);
-        } else if (state.equipment?.weapon) {
-          const w = state.equipment.weapon;
-          const maxD = w.maxDurability || 13;
-          w.durability = Math.max(0, (w.durability != null ? w.durability : maxD) - 1);
-          weaponsWorn.push(`Krallık Kılıcı (${w.durability}/${maxD})`);
-        }
-      }
-    });
-
-    const dropRes = gameState.addDungeonXpAndDrops(monster.level, isBossMonster);
-    const adaReward = dropRes.adAstraGained || monster.rewardAdAstra || (monster.level * 25);
-
-    if (isVictory) {
-      sound.playLevelUp();
-      gameState.clearMonsterHp(monster.level);
-
-      let levelUpNotice = [];
-      selectedIndices.forEach(idx => {
-        const sRes = gameState.addSoldierXp(idx, monster.rewardXp);
-        if (sRes && sRes.leveledUp) {
-          levelUpNotice.push(`Asker #${idx + 1} Lv.${sRes.newLevel}'e Yükseldi!`);
-          if (sRes.unlockedSkills && sRes.unlockedSkills.length) {
-            levelUpNotice.push(`✨ Yeni Yetenek Açıldı: ${sRes.unlockedSkills.join(', ')}!`);
+          // Silah aşınması
+          if (soldiers[idx].equipment?.weapon) {
+            const w = soldiers[idx].equipment.weapon;
+            const maxD = w.maxDurability || 13;
+            w.durability = Math.max(0, (w.durability != null ? w.durability : maxD) - 1);
+            weaponsWorn.push(`${soldiers[idx].name} silahı (${w.durability}/${maxD})`);
+          } else if (state.equipment?.weapon) {
+            const w = state.equipment.weapon;
+            const maxD = w.maxDurability || 13;
+            w.durability = Math.max(0, (w.durability != null ? w.durability : maxD) - 1);
+            weaponsWorn.push(`Krallık Kılıcı (${w.durability}/${maxD})`);
           }
         }
       });
 
-      state.dungeonProgress = Math.max(state.dungeonProgress || 1, monster.level + 1);
+      if (win) {
+        sound.playLevelUp();
+        gameState.clearMonsterHp(monster.level);
+        const dropRes = gameState.addDungeonXpAndDrops(monster.level, isBossMonster);
+        const adaReward = dropRes.adAstraGained || monster.rewardAdAstra || (monster.level * 25);
 
-      const lvlMsg = levelUpNotice.length > 0 ? ` • 🎉 ${levelUpNotice.join(', ')}` : '';
-      const wearMsg = weaponsWorn.length > 0 ? ` • ⚔️ Silah Aşınması: ${weaponsWorn.join(', ')}` : '';
-      const scrollNotice = dropRes.scrollGained ? ` • 📜 ${dropRes.scrollGained.name} DÜŞTÜ!` : '';
-      addNotification('🏆', `${monster.name} yenildi! +${adaReward} ADA kazandın (⚡ -${staminaCost} Stamina).${scrollNotice} Savaşa katılan askerlerin +${monster.rewardXp} Asker XP kazandı.${lvlMsg}${wearMsg}`);
-
-      if (weaponsWorn.length > 0) {
-        showToast(`⚔️ Silahların dayanıklılığı -1 azaldı: ${weaponsWorn.join(', ')}`, 'info');
-      }
-
-      let dropsMsg = [];
-      const visualDrops = [];
-
-      // 1. $ADASTRA Token Ödülü
-      visualDrops.push({
-        name: '$ADASTRA',
-        qty: `+${adaReward}`,
-        img: 'assets/loot_adastra.jpg',
-        border: 'gold-border',
-        desc: 'Krallık Para Birimi'
-      });
-
-      // 2. Parşömen Düşüşü (Ordu İyileştirme veya 100 Stamina)
-      if (dropRes.scrollGained) {
-        const isHeal = dropRes.scrollGained.type === 'scroll_heal';
-        dropsMsg.push(`${dropRes.scrollGained.icon} ${dropRes.scrollGained.name}`);
-        visualDrops.push({
-          name: isHeal ? 'İyileştirme Parşömeni' : 'Stamina Parşömeni',
-          qty: '+1',
-          img: isHeal ? 'assets/scroll_heal.jpg' : 'assets/scroll_stamina.jpg',
-          border: isHeal ? 'green-border' : 'cyan-border',
-          isScroll: true,
-          fullName: dropRes.scrollGained.name,
-          desc: isHeal ? 'Askerine anında +10 Can kazandırır.' : 'Enerjine anında +100 Stamina kazandırır.'
+        let levelUpNotice = [];
+        selectedIndices.forEach(idx => {
+          const sRes = gameState.addSoldierXp(idx, monster.rewardXp);
+          if (sRes && sRes.leveledUp) {
+            levelUpNotice.push(`Asker #${idx + 1} Lv.${sRes.newLevel}'e Yükseldi!`);
+            if (sRes.unlockedSkills && sRes.unlockedSkills.length) {
+              levelUpNotice.push(`✨ Yeni Yetenek Açıldı: ${sRes.unlockedSkills.join(', ')}!`);
+            }
+          }
         });
-        showToast(`🎉 MİSTİK PARŞÖMEN DÜŞTÜ: ${dropRes.scrollGained.name}!`, 'success');
+
+        state.dungeonProgress = Math.max(state.dungeonProgress || 1, monster.level + 1);
+
+        const lvlMsg = levelUpNotice.length > 0 ? ` • 🎉 ${levelUpNotice.join(', ')}` : '';
+        const wearMsg = weaponsWorn.length > 0 ? ` • ⚔️ Silah Aşınması: ${weaponsWorn.join(', ')}` : '';
+        const scrollNotice = dropRes.scrollGained ? ` • 📜 ${dropRes.scrollGained.name} DÜŞTÜ!` : '';
+        addNotification('🏆', `${monster.name} yenildi! +${adaReward} ADA kazandın (⚡ -${staminaCost} Stamina).${scrollNotice} Savaşa katılan askerlerin +${monster.rewardXp} Asker XP kazandı.${lvlMsg}${wearMsg}`);
+
+        if (weaponsWorn.length > 0) {
+          showToast(`⚔️ Silahların dayanıklılığı -1 azaldı: ${weaponsWorn.join(', ')}`, 'info');
+        }
+        showToast(`🏆 Zafer! ${monster.name} mağlup edildi! (+${adaReward} ADA)`, 'success');
+      } else {
+        sound.playBreakWarning();
+        const enemySurvivor = units.find(u => u.side === 'enemy');
+        const remainingEnemyHp = enemySurvivor ? Math.max(1, Math.round(enemySurvivor.hp)) : 50;
+        gameState.recordMonsterHp(monster.level, remainingEnemyHp);
+        showToast(`💀 Bozgun! Ordun ${monster.name} karşısında geri çekildi. Kalan Can: ${remainingEnemyHp}/${monster.hp}`, 'error');
       }
 
-      // 3. Teçhizat Parçaları
-      if (dropRes.fragmentsGained > 0) {
-        dropsMsg.push(`🧩 +${dropRes.fragmentsGained} Teçhizat Parçaları`);
-        visualDrops.push({
-          name: 'Teçhizat Parçası',
-          qty: `+${dropRes.fragmentsGained}`,
-          img: 'assets/loot_fragments.jpg',
-          border: 'purple-border',
-          desc: 'Demirci Dövme Malzemesi'
-        });
-      }
-
-      // 4. Pandora Kutusu
-      if (dropRes.boxGained > 0) {
-        dropsMsg.push(`📦 +${dropRes.boxGained} Pandora Kutusu`);
-        visualDrops.push({
-          name: 'Pandora Sandığı',
-          qty: `+${dropRes.boxGained}`,
-          img: 'assets/loot_box.jpg',
-          border: 'purple-border',
-          desc: 'Mistik Hazine Sandığı'
-        });
-      }
-
-      // 5. Arena Anahtarı (Boss canavarlardan)
-      if (isBossMonster) {
-        dropsMsg.push(`🔑 +1 Arena Anahtarı`);
-        visualDrops.push({
-          name: 'Arena Anahtarı',
-          qty: '+1',
-          img: 'assets/loot_key.jpg',
-          border: 'gold-border',
-          desc: 'Kolezyum Giriş Bileti'
-        });
-      }
-
-      // 6. Koleksiyon Eseri
-      if (dropRes.artifactDiscovered) {
-        dropsMsg.push(`${dropRes.artifactDiscovered.icon} ${dropRes.artifactDiscovered.name}`);
-        visualDrops.push({
-          name: dropRes.artifactDiscovered.name,
-          qty: 'ESER',
-          icon: dropRes.artifactDiscovered.icon || '🏺',
-          border: 'gold-border',
-          desc: 'Kadim Krallık Eseri'
-        });
-      }
-
-      // Canavar öldüğünde can kaydı sıfırlanır
-      gameState.clearMonsterHp(monster.level);
-
-      if (monster.level === 18) {
-        state.dungeonProgress = 1;
-        showToast('🏆 ZİNDAN DÖNGÜSÜ TAMAMLANDI! 1. Kat 1. Seviyeden yeniden başladı!', 'success');
-      }
-
-      if (logEl) {
-        // Eğer parşömen düşmüşse özel parıltılı rün bannerı
-        const scrollDrop = visualDrops.find(d => d.isScroll);
-        const scrollBannerHtml = scrollDrop ? `
-          <div class="dungeon-scroll-drop-banner">
-            <img src="${scrollDrop.img}" alt="${scrollDrop.fullName}" class="dungeon-scroll-thumb-large" />
-            <div class="dungeon-scroll-info">
-              <span class="dungeon-scroll-tag">✨ EFSANEVİ PARŞÖMEN DÜŞTÜ!</span>
-              <div class="dungeon-scroll-title">📜 ${scrollDrop.fullName}</div>
-              <div class="dungeon-scroll-desc">
-                ${scrollDrop.desc} <em>(Envanterden veya savaş öncesi formasyon ekranından hemen kullanabilirsin!)</em>
-              </div>
-            </div>
-          </div>
-        ` : '';
-
-        // Tüm ganimetlerin resimli vitrin kartları
-        const cardsHtml = visualDrops.map(item => `
-          <div class="dungeon-loot-card ${item.border}" title="${item.desc || item.name}">
-            <div class="dungeon-loot-thumb-wrap">
-              ${item.img 
-                ? `<img src="${item.img}" alt="${item.name}" class="dungeon-loot-thumb" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
-                   <div style="display:none; width:100%; height:100%; align-items:center; justify-content:center; font-size:1.5rem;">${item.icon || '🎁'}</div>`
-                : `<div style="display:flex; width:100%; height:100%; align-items:center; justify-content:center; font-size:1.5rem;">${item.icon || '🎁'}</div>`
-              }
-              <span class="dungeon-loot-qty">${item.qty}</span>
-            </div>
-            <div class="dungeon-loot-name">${item.name}</div>
-          </div>
-        `).join('');
-
-        const visualLootShowcaseHtml = `
-          <div class="dungeon-loot-container">
-            <div class="dungeon-loot-header">
-              <span>🎁 SAVAŞ GANİMETLERİ & KAZANILAN VARLIKLAR</span>
-            </div>
-            <div class="dungeon-loot-grid">
-              ${cardsHtml}
-            </div>
-            ${scrollBannerHtml}
-          </div>
-        `;
-
-        logEl.innerHTML = `
-          <div style="color:#4ade80; font-weight:800; font-size:1.15rem; text-align:center;">
-            🏆 ZAFER! ${monster.name} yok edildi!
-          </div>
-          <div style="text-align:center; color:#fde047; margin-top:4px; font-weight:600;">
-            +${adaReward} $ADASTRA • Savaşa katılan askerlerine +${monster.rewardXp} Asker XP! ${lvlMsg}
-          </div>
-          ${visualLootShowcaseHtml}
-          <div style="text-align:center; font-size:0.8rem; margin-top:8px; color:${weaponsWorn.length > 0 ? '#fca5a5' : '#94a3b8'};">
-            ${weaponsWorn.length > 0 
-              ? `⚔️ Savaşta kullanılan silahların dayanıklılığı -1 azaldı: <strong>${weaponsWorn.join(', ')}</strong>` 
-              : '⚔️ Savaşta silah aşınması gerçekleşmedi (Kuşanılmış silah yok).'}
-          </div>
-        `;
-      }
-    } else {
-      gameState.recordMonsterHp(monster.level, eCurHp);
-      if (logEl) {
-        logEl.innerHTML = `
-          <div style="color:#ef4444; font-weight:800; font-size:1.1rem; text-align:center;">
-            💀 BOZGUN! Ordun ${monster.name} karşısında geri çekilmek zorunda kaldı.
-          </div>
-          <div style="text-align:center; color:#fca5a5; margin-top:6px; font-size:0.85rem;">
-            🩸 Canavarın Kalan Canı: <strong>${eCurHp} / ${monster.hp} HP</strong> (Canavarın canı dolmadı! Askerlerini doyurup kaldığın yerden savaşa devam edebilirsin.)
-          </div>
-        `;
-      }
+      gameState.saveState();
+      renderTopBar();
     }
-
-    gameState.saveState();
-    renderTopBar();
-  }
+  });
 }
 
 // =========================================================================
@@ -6146,7 +6106,13 @@ function executeCommand(actionId) {
       break;
     case 'repairAll':
       const rRes = gameState.repairAllTools();
-      showToast(rRes.repaired > 0 ? `🔨 ${rRes.repaired} alet tamir edildi!` : 'Tamir edilecek alet yok.', 'success');
+      if (rRes.repaired > 0) {
+        showToast(`🔨 ${rRes.repaired} alet tamir edildi!`, 'success');
+      } else if (rRes.hasDamagedTools && rRes.missingAda) {
+        showToast('⚠️ Hesapta yeteri kadar $ADASTRA yok!', 'error');
+      } else {
+        showToast(rRes.message || 'Tamir edilecek alet yok.', 'info');
+      }
       renderTopBar();
       break;
     case 'healAll':
@@ -6594,8 +6560,10 @@ function initAppEvents() {
       if (res.repaired > 0) {
         showToast(`🔨 ${res.repaired} alet tamir edildi: -${res.totalWood}🌲 -${res.totalIron}⛏️ -${res.totalAda}🟣`, 'success');
         sound.playRepair();
+      } else if (res.hasDamagedTools && res.missingAda) {
+        showToast('⚠️ Hesapta yeteri kadar $ADASTRA yok!', 'error');
       } else {
-        showToast('Tamir edilecek alet yok.', 'info');
+        showToast(res.message || 'Tamir edilecek alet yok.', 'info');
       }
       openDashboardModal();
       renderTopBar();
@@ -6918,10 +6886,14 @@ function initAppEvents() {
     const smartScrapBtn = e.target.closest('.btn-smart-scrap-low-tier');
     if (smartScrapBtn) {
       const res = gameState.scrapAllLowTierEquipment(1);
-      showToast(res.message, res.success ? 'success' : 'info');
-      if (barracksActiveTab === 'armory') openBarracksModal();
-      else if (dom.modalTitle && dom.modalTitle.innerText.includes('Akıllı Silah')) openSmartArmoryModal();
-      else openBarracksModal();
+      if (res.success) {
+        if (typeof sound !== 'undefined' && sound && sound.playLevelUp) {
+          sound.playLevelUp();
+        }
+        openScrapReportModal(res);
+      } else {
+        showToast(res.message, 'info');
+      }
       renderTopBar();
       return;
     }
@@ -7231,12 +7203,28 @@ function initAppEvents() {
         return;
       }
 
+      if (['wood', 'iron', 'wheat'].includes(resKey)) {
+        const cap = gameState.getWarehouseCapacity();
+        const limit = cap[resKey];
+        const cur = gameState.state.inventory[resKey] || 0;
+        if (limit != null && cur + qty > limit) {
+          showToast(`Silo kapasitesi aşılamaz! Maksimum alabileceğin boş alan: ${Math.max(0, limit - cur)} ${resKey}`, 'warning');
+          return;
+        }
+      }
+
       const res = ammMarket.executeBuyAmount(resKey, qty);
       if (res.success) {
         gameState.state.adAstraBalance -= res.cost;
         if (resKey === 'boxes') gameState.state.lockedBoxes = (gameState.state.lockedBoxes || 0) + res.resourceReceived;
         else if (resKey === 'keys') gameState.state.arenaKeys = (gameState.state.arenaKeys || 0) + res.resourceReceived;
-        else gameState.state.inventory[resKey] = (gameState.state.inventory[resKey] || 0) + res.resourceReceived;
+        else {
+          const cap = gameState.getWarehouseCapacity();
+          const limit = cap[resKey];
+          gameState.state.inventory[resKey] = limit != null
+            ? Math.min(limit, (gameState.state.inventory[resKey] || 0) + res.resourceReceived)
+            : ((gameState.state.inventory[resKey] || 0) + res.resourceReceived);
+        }
 
         gameState.saveState();
         const burnInfo = res.resourceBurnFee > 0 ? ` (🔥 %2 Yakım: ${res.resourceBurnFee.toLocaleString('tr-TR')} ${res.resourceName} kalıcı silindi)` : '';
@@ -7538,6 +7526,14 @@ function initAppEvents() {
 
     // Taverna: 24 Saatlik Otomasyon & Tamir Botu Başlat/Uzat (#btn-buy-taverna-bot)
     if (e.target.closest('#btn-buy-taverna-bot')) {
+      const chkRenew = document.getElementById('chk-bot-auto-renew');
+      if (chkRenew) {
+        gameState.setBotAutoRenew24h(chkRenew.checked);
+      }
+      const siloOpt = document.querySelector('input[name="bot_silo_opt"]:checked');
+      if (siloOpt) {
+        gameState.setBotSiloOption(siloOpt.value === 'upgrade');
+      }
       const res = gameState.buyTavernaAutomationBot(false);
       if (res.success) {
         showToast(res.message, 'success');
@@ -7958,6 +7954,18 @@ function initAppEvents() {
       showToast(autoUpgrade ? '🤖 Bot: Silo dolunca otomatik yükseltme modu seçildi.' : '🤖 Bot: Silo dolunca Akıllı Satış modu (Döngü Kazancı + %5 Güvenlik Marjı) seçildi.', 'info');
       return;
     }
+
+    // Taverna 24s Bot Otomatik Yenileme Seçeneği Değişimi
+    if (e.target && e.target.id === 'chk-bot-auto-renew') {
+      const isAutoRenew = !!e.target.checked;
+      gameState.setBotAutoRenew24h(isAutoRenew);
+      if (isAutoRenew) {
+        showToast('🔄 24 saat bitince hesapta yeterli ADA varsa bot otomatik olarak tekrar satın alınıp devam edecek.', 'success');
+      } else {
+        showToast('⏸️ 24 saat bitince bot otomatik yenilemesi kapatıldı.', 'info');
+      }
+      return;
+    }
   });
 
   if (dom.btnAudioToggle) {
@@ -7995,6 +8003,7 @@ function syncDevLiveInputs() {
   if (elStam) elStam.value = Math.floor(st.stamina || 0);
   if (elLvl) elLvl.value = st.level || 1;
 }
+window.updateDevLiveInputs = syncDevLiveInputs;
 
 function openDevModal() {
   const modal = document.getElementById('dev-modal');
@@ -8259,9 +8268,18 @@ function initDevPanelEvents() {
 
       case 'fast-forward': {
         const report = gameState.fastForwardTime(hours);
-        updateDevLiveInputs();
-        renderHUD();
+        if (typeof syncDevLiveInputs === 'function') syncDevLiveInputs();
+        renderTopBar();
         renderExpeditionCards();
+        if (typeof refreshLiveUpgradeCostUI === 'function') refreshLiveUpgradeCostUI(0);
+        const modalContainer = document.getElementById('clean-modal');
+        if (modalContainer && !modalContainer.classList.contains('hidden')) {
+          if (dom.modalTitle && dom.modalTitle.innerText.includes('TAVERNA')) {
+            openTownZoneModal('tavern', '🍺 Taverna & Han');
+          } else if (dom.modalTitle && dom.modalTitle.innerText.includes('DASHBOARD')) {
+            openDashboardModal();
+          }
+        }
 
         // Test konsolundaki canlı sonuç paneline yazdır
         const resBox = document.getElementById('dev-time-result-container');
@@ -8299,6 +8317,7 @@ function initDevPanelEvents() {
                 <span style="color:#38bdf8;">⛏️ +${report.ironGain.toLocaleString()} Demir</span>
                 <span style="color:#facc15;">🌾 +${report.wheatGain.toLocaleString()} Buğday</span>
                 <span style="color:#c084fc;">🪙 ${report.adaDiff >= 0 ? '+' : ''}${report.adaDiff.toFixed(1)} ADA</span>
+                <span style="color:#60a5fa;">✨ +${(report.xpGain || 0).toLocaleString()} XP</span>
               </div>
             </div>
             ${report.warehouseUpgraded ? `<div style="color:#22c55e; font-weight:700; font-size:0.78rem; margin-bottom:4px;">🏰 Silo bu sürede otomatik olarak Seviye ${report.currentWarehouseLevel}'e yükseltildi!</div>` : ''}
@@ -8307,11 +8326,11 @@ function initDevPanelEvents() {
         }
 
         if (report.botExecutionStatus === 'ran') {
-          showToast(`⏩ +${hours}s İleri Sarıldı: Bot ${report.totalExpeditionsClaimed} sefer tamamladı! (+${report.woodGain}🌲, +${report.ironGain}⛏️, +${report.wheatGain}🌾)`, 'success');
+          showToast(`⏩ +${hours}s İleri Sarıldı: Bot ${report.totalExpeditionsClaimed} sefer tamamladı! (+${report.woodGain}🌲, +${report.ironGain}⛏️, +${report.wheatGain}🌾, +${report.xpGain || 0}✨ XP)`, 'success');
         } else if (report.botExecutionStatus === 'paused') {
           showToast(`⏸️ +${hours}s İleri Sarıldı: Eksik kaynaklar nedeniyle bot dondurulmuş durumda kaldı.`, 'warning');
         } else {
-          showToast(`⏩ Zaman ${hours} saat ileri sarıldı!`, 'success');
+          showToast(`⏩ Zaman ${hours} saat ileri sarıldı! (+${report.xpGain || 0}✨ XP)`, 'success');
         }
 
         sound.playLevelUp();
@@ -8320,18 +8339,24 @@ function initDevPanelEvents() {
 
       case 'complete-expeditions':
         gameState.completeAllExpeditionsNow();
+        renderTopBar();
+        renderExpeditionCards();
         showToast(`⚡ Tüm aktif işçi seferleri anında tamamlandı!`, 'success');
         sound.playLevelUp();
         break;
 
-      case 'claim-expeditions':
+      case 'claim-expeditions': {
         const claims = gameState.claimAllCompletedExpeditions();
         if (claims && claims.length > 0) {
-          showToast(`🎁 ${claims.length} adet tamamlanan sefer toplandı!`, 'success');
+          const totalEarnedXp = claims.reduce((sum, c) => sum + (c.xpGained || 0), 0);
+          showToast(`🎁 ${claims.length} adet tamamlanan sefer toplandı! (+${totalEarnedXp} XP)`, 'success');
         } else {
           showToast(`⚠️ Toplanacak tamamlanmış sefer bulunamadı.`, 'info');
         }
+        renderTopBar();
+        renderExpeditionCards();
         break;
+      }
 
       case 'reset-daily-limits':
         globalPool.resetEpoch();
@@ -8653,7 +8678,7 @@ function refreshLiveUpgradeCostUI(deltaSeconds = 1) {
 
 function uiGameLoop(currentTime) {
   try {
-    const deltaMs = currentTime - lastTickTime;
+    const deltaMs = Math.min(10000, Math.max(0, currentTime - lastTickTime));
     lastTickTime = currentTime;
     const deltaSeconds = (deltaMs / 1000) * speedMultiplier;
 
@@ -8665,10 +8690,19 @@ function uiGameLoop(currentTime) {
       showToast('🟢 Gerekli tüm kaynaklar tamamlandı! 24s Otomasyon Botu anında devreye girdi.', 'success');
       sound.playLevelUp();
     }
+    if (botPauseStatus && botPauseStatus.justRenewed) {
+      showToast('🔄 24 saat tamamlandı! Bot otomatik olarak yeniden satın alındı ve bir 24 saat daha devam ediyor.', 'success');
+      if (typeof sound !== 'undefined' && sound.playLevelUp) sound.playLevelUp();
+      renderTopBar();
+      if (document.getElementById('clean-modal') && !document.getElementById('clean-modal').classList.contains('hidden')) {
+        openTownZoneModal('tavern', '🍺 Taverna & Han');
+      }
+    }
 
     gameState.runTavernaAutomationCycle();
     gameState.processSoldierPassiveHealing(deltaSeconds);
     gameState.tickUpgradeCostBot(deltaSeconds);
+    gameState.checkDailyAutonomousBuyback();
     globalPool.simulateGlobalActivity(deltaSeconds);
     refreshBarracksLiveUI(deltaSeconds);
     refreshLiveUpgradeCostUI(deltaSeconds);

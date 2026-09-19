@@ -67,6 +67,12 @@ test('🤖 Bot Çalışma Sırası, Hasat Önceliği, Hassas Stamina ve Silo Yö
   });
 
   await t.test('2. Stamina Sadece Bir Sonraki Seferi Karşılayacak Kadar Doldurulmalı (Tüm Buğdayı Tüketmemeli)', () => {
+    // Bot aktif
+    gs.state.botActiveUntil = Date.now() + 24 * 3600 * 1000;
+    gs.state.tavernaBotActive = true;
+    gs.state.tavernaBotExpiresAt = gs.state.botActiveUntil;
+    gs.state.botPaused = false;
+
     // Başlangıç: 0 stamina, 150 buğday (50 rezerv + sefer için gereken)
     gs.state.stamina = 0;
     gs.state.inventory.wheat = 150;
@@ -81,8 +87,8 @@ test('🤖 Bot Çalışma Sırası, Hasat Önceliği, Hassas Stamina ve Silo Yö
     };
     // wheat boşta
 
-    // Alet sağlam olsun
-    gs.state.tools.sickle.durability = 100;
+    // Alet tam sağlam olsun
+    gs.state.tools.sickle = { durability: 4320, maxDurability: 4320 };
 
     // Döngüyü çalıştır
     const res = gs.runTavernaAutomationCycle();

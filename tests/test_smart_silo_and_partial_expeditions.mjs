@@ -121,10 +121,10 @@ gs.state.warehouseLevel = 1;
 gs.setBotSiloOption(true);
 
 // Depoları %80 barajına ve üzerine çıkaralım
-// reqWoodFill: 864, reqIronFill: 576, reqWheatFill: 720
+// reqWoodFill: 864, reqIronFill: 576, reqWheatFill: 1440
 gs.state.inventory.wood = 1000; // 864 barajının 136 üzerinde!
 gs.state.inventory.iron = 600;  // 576 barajının üzerinde
-gs.state.inventory.wheat = 800; // 720 barajının üzerinde
+gs.state.inventory.wheat = 1600; // 1440 barajının üzerinde
 gs.state.adAstraBalance = 0;    // 0 ADA var, yükseltme için ADA eksik!
 
 const upCost = gs.getWarehouseUpgradeCost();
