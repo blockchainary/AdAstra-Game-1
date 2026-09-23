@@ -58,7 +58,7 @@ test('🤖 Bot Çift Yönlü Dengeleme: Eksik Hammadde Oto-Tedarik & Seviyeye G�
     assert.ok(lv3Data.targets.iron >= 560, `Lv 3 Demir hedefi >= 560 olmalı, bulunan: ${lv3Data.targets.iron}`);
   });
 
-  await t.test('2. Depoda Odun:0, Demir:0, Buğday:0 iken autoBuyBotResourceDeficit AMM pazarından asla kaynak alıp siloyu doldurmamalı (Alım devre dışı)', () => {
+  await t.test('2. Depoda Odun:0, Demir:0, Buğday:0 iken autoBuyBotResourceDeficit AMM pazarından asgari önkoşul miktarını satın alarak botun durmasını engellemeli', () => {
     const gs = new GameStateManager();
     gs.state.level = 2; // Oyuncu Seviye 2
     gs.state.inventory = { wood: 0, iron: 0, wheat: 0, fragments: 0 };
@@ -66,11 +66,13 @@ test('🤖 Bot Çift Yönlü Dengeleme: Eksik Hammadde Oto-Tedarik & Seviyeye G�
 
     const buyRes = gs.autoBuyBotResourceDeficit();
 
-    // KULLANICI KURALI: Bot bir üreticidir. AMM DEX pazarından asla kaynak alıp siloyu doldurmaz!
-    assert.equal(buyRes.bought, false, 'AMMden kaynak satın alımı yapılmamalı');
-    assert.equal(buyRes.reason, 'auto_buy_disabled_by_user_policy');
-    assert.equal(gs.state.adAstraBalance, 20000, 'Kullanıcının kasasındaki ADA eksilmemeli');
-    assert.equal(gs.state.inventory.wood, 0, 'Silo yapay şekilde satın alımla doldurulmamalı');
+    // KULLANICI KURALI: Kasada ADA varken botun durmaması için asgari önkoşul satın alınır!
+    assert.equal(buyRes.bought, true, 'AMMden asgari satın alım başarıyla yapılmalı');
+    assert.ok(buyRes.totalSpentAda > 0 && buyRes.totalSpentAda < 2000, 'Siloyu fullemeden sadece asgari harcama yapılmalı');
+    assert.ok(gs.state.inventory.wood >= 50, 'Odun en az 50 olmalı');
+    assert.ok(gs.state.inventory.iron >= 50, 'Demir en az 50 olmalı');
+    assert.ok(gs.state.inventory.wheat >= 50, 'Buğday en az 50 olmalı');
+    assert.ok(gs.state.inventory.wood < 500, 'Silo kontrolsüz biçimde doldurulmamalı');
   });
 
   await t.test('3. Silo Seviye Yükseltildiğinde ambarlar sıfırlansa bile bot aktifse Seviye Tamiratı +%50 kadar satın alıp güvenceye almalı', () => {
@@ -104,7 +106,7 @@ test('🤖 Bot Çift Yönlü Dengeleme: Eksik Hammadde Oto-Tedarik & Seviyeye G�
     assert.equal(gs.isBotPaused(), false, 'Bot asla duraklatılmamış olmalı');
   });
 
-  await t.test('4. Dondurulmuş (Paused) bot, hammadde 0 iken AMMden zorla alım yapmamalı, dondurulmuş kalıp süreyi korumalı', () => {
+  await t.test('4. Dondurulmuş (Paused) bot, kasada ADA varken updateBotPauseState anında asgari tedarikle uyanmalı; ADA yoksa donuk kalmalı', () => {
     const gs = new GameStateManager();
     gs.state.level = 1;
     gs.state.tavernaBotActive = true;
@@ -115,7 +117,7 @@ test('🤖 Bot Çift Yönlü Dengeleme: Eksik Hammadde Oto-Tedarik & Seviyeye G�
     gs.state.inventory.wood = 0;
     gs.state.inventory.iron = 0;
     gs.state.inventory.wheat = 0;
-    gs.state.adAstraBalance = 8000;
+    gs.state.adAstraBalance = 0; // ADA YOK!
     gs.state.stamina = 100;
     gs.state.tools = {
       axe: { durability: 100, maxDurability: 100 },
@@ -123,18 +125,18 @@ test('🤖 Bot Çift Yönlü Dengeleme: Eksik Hammadde Oto-Tedarik & Seviyeye G�
       sickle: { durability: 100, maxDurability: 100 }
     };
 
-    // updateBotPauseState çağrıldığında kasadaki ADA ile AMM'den hammadde ALINMAZ, bot süresi korunur
+    // ADA yokken updateBotPauseState çağrıldığında alım yapamaz ve donuk kalır
     const pauseState = gs.updateBotPauseState();
-    assert.equal(pauseState.isPaused, true, 'Hammadde eksikken bot AMMden alım yapmadan duraklatılmış kalmalı');
+    assert.equal(pauseState.isPaused, true, 'ADA yokken bot donuk kalmalı');
     assert.equal(gs.isBotPaused(), true, 'Bot güvenle duraklatılmış olmalı');
-    assert.equal(gs.state.adAstraBalance, 8000, 'ADA harcanmamalı');
 
-    // Kullanıcı kaynakları temin ettiğinde (>= 50) bot uyanmalı
-    gs.state.inventory.wood = 50;
-    gs.state.inventory.iron = 50;
-    gs.state.inventory.wheat = 50;
+    // Kullanıcı hesaba ADA yatırdığında (Örn: 8.000 ADA) bot asgari kaynak alıp anında uyanmalı
+    gs.state.adAstraBalance = 8000;
     const resumeCheck = gs.updateBotPauseState();
-    assert.equal(resumeCheck.isPaused, false, 'Kaynaklar gelince bot uyanmalı');
+    assert.equal(resumeCheck.isPaused, false, 'ADA gelince asgari kaynak alınıp bot uyanmalı');
     assert.equal(gs.isBotPaused(), false, 'Bot artık duraklatılmış olmamalı');
+    assert.ok(gs.state.inventory.wood >= 50, 'Odun >= 50 olmalı');
+    assert.ok(gs.state.inventory.iron >= 50, 'Demir >= 50 olmalı');
+    assert.ok(gs.state.inventory.wheat >= 50, 'Buğday >= 50 olmalı');
   });
 });

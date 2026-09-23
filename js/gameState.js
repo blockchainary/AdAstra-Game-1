@@ -1048,15 +1048,13 @@ export class GameStateManager {
     const actions = [];
 
     // =========================================================================
-    // 0. BOT ADA ÖN-KONTROLÜ & OTOMATİK FİNANSMAN (SATIŞ YOLUYLA)
-    // Alet tamirleri ve operasyon için ADA yetersizse depodan eşit miktarda satış yaparak ADA temin eder.
-    // Bot bir üreticidir; kasadaki ADA ile AMM'den asla zorla hammadde satın almaz (satın alma fiyatları artırır).
+    // 0. BOT ÇALIŞMA DURUMU & ÖNKOŞUL KONTROLÜ (Oto-Finansman / Asgari Oto-Tedarik)
+    // Eğer hammadde eksikse ve kasada ADA varsa botun durmaması için asgari (50x) tamamlanır.
+    // Kasada ADA yoksa bot duraklatılır ve süre dondurulur.
     // =========================================================================
-    if ((this.state.adAstraBalance || 0) < 50) {
-      const fundRes = this.autoFundBotAdaDeficit(50);
-      if (fundRes && fundRes.funded) {
-        actions.push(`⚖️ Bot Oto-Finansman: Yetersiz ADA için depodan eşit miktarda (${fundRes.toSell?.wood || 0} Odun, ${fundRes.toSell?.iron || 0} Demir, ${fundRes.toSell?.wheat || 0} Buğday) satılarak +${fundRes.totalEarned?.toFixed(1)} $ADASTRA sağlandı.`);
-      }
+    this.updateBotPauseState();
+    if (this.isBotPaused()) {
+      return { active: false, paused: true, actions };
     }
 
     // =========================================================================
@@ -1427,16 +1425,107 @@ export class GameStateManager {
   }
 
   /**
-   * 🤖 Bot Çalışırken Hammadde Yetersizliği Durumunda Kasadaki ADA ile AMM'den Satın Alma (Oto-Tedarik)
-   * Kullanıcı kuralı: Kişi hesap seviyesini artırdıkça sefer süresi uzayacağı için alet tamirat bedelleri
-   * de artar. Bu yüzden sabit 50 yerine, o anki hesap seviyesinde sefer süresi üzerinden gereken tamirat
-   * bedellerinin en az %50 daha fazlası kadar malzeme AMM DEX pazarından satın alınır.
+   * 🤖 Bot Çalışırken Hammadde Yetersizliği Durumunda Kasadaki ADA ile AMM'den Asgari Satın Alma (Oto-Tedarik)
+   * KULLANICI KURALI: Botun durmaması için kasada ADA varken AMM pazarından SADECE ve SADECE
+   * eksik olan miktar kadar (asgari 50 birimlik önkoşulu tamamlayacak kadar minimal) alım yapılır.
+   * Siloyu dolduracak biçimde yüzlerce kaynak asla alınmaz; sadece botun kesintisiz çalışması sağlanır.
    */
   autoBuyBotResourceDeficit(customTarget = null) {
-    // 🛡️ KULLANICI KURALI: Bot bir üreticidir/madencidir. Kasadaki ADA ile AMM marketinden ASLA hammadde satın alıp siloyu doldurmaz!
-    // Hammaddeler seferlerden (Odun, Demir, Buğday) bedelsiz üretilir.
-    // Alet tamiratı veya ADA ihtiyacı durumunda depodaki kaynaklar AMM'de satılır (autoFundBotAdaDeficit).
-    return { bought: false, reason: 'auto_buy_disabled_by_user_policy' };
+    if (typeof ammMarket === 'undefined' || !ammMarket || !ammMarket.executeBuyAmount) {
+      return { bought: false, reason: 'amm_unavailable' };
+    }
+
+    const inv = this.state.inventory = this.state.inventory || {};
+    let curAda = Number(this.state.adAstraBalance) || 0;
+    if (curAda <= 0.5) {
+      return { bought: false, reason: 'no_ada_balance', currentBalance: curAda };
+    }
+
+    // 🎯 ASGARİ HEDEF MİKTARLAR:
+    // Odun & Demir: En az 50 (Önkoşul & Temel Tamirat)
+    // Buğday: 3 paralel seferi başlatacak kadar stamina (3 * staminaMaliyeti * 3.15) + 50 tampon buğday!
+    const staminaCostPerExp = this.getExpeditionStaminaCost ? this.getExpeditionStaminaCost() : 20;
+    const wheatPerStamina = (typeof GAME_CONFIG !== 'undefined' && GAME_CONFIG.WHEAT_PER_STAMINA) ? GAME_CONFIG.WHEAT_PER_STAMINA : 3.15;
+    const minWheatFor3Exp = Math.ceil(3 * staminaCostPerExp * wheatPerStamina) + 50;
+
+    const targets = {
+      wood: (customTarget && typeof customTarget === 'object' && customTarget.wood != null) ? customTarget.wood : 50,
+      iron: (customTarget && typeof customTarget === 'object' && customTarget.iron != null) ? customTarget.iron : 50,
+      wheat: (customTarget && typeof customTarget === 'object' && customTarget.wheat != null) ? customTarget.wheat : Math.max(50, minWheatFor3Exp)
+    };
+
+    const nodes = ['wood', 'iron', 'wheat'];
+    const missingNodes = [];
+    for (const node of nodes) {
+      const cur = Number(inv[node]) || 0;
+      const reqAmount = targets[node] || 50;
+      if (cur < reqAmount) {
+        missingNodes.push({
+          node,
+          current: cur,
+          required: reqAmount,
+          missing: Math.ceil(reqAmount - cur),
+          name: this.getResourceNameTr ? this.getResourceNameTr(node) : node
+        });
+      }
+    }
+
+    if (missingNodes.length === 0) {
+      return { bought: false, reason: 'no_missing_resources' };
+    }
+
+    let totalSpentAda = 0;
+    const boughtBreakdown = {};
+    const itemsPurchasedText = [];
+
+    for (const item of missingNodes) {
+      if (curAda <= 0.1) break;
+      const node = item.node;
+      let qtyToBuy = item.missing;
+
+      // AMM'den tahmini maliyeti kontrol et
+      let estCost = 0;
+      if (typeof ammMarket.getEstimatedCostForBuy === 'function') {
+        estCost = ammMarket.getEstimatedCostForBuy(node, qtyToBuy);
+      }
+      if (!isFinite(estCost) || estCost <= 0 || estCost > curAda) {
+        const p = (typeof ammMarket.getPrice === 'function') ? ammMarket.getPrice(node) : 1;
+        const affordable = Math.floor(curAda / (Math.max(0.01, p) * 1.05));
+        qtyToBuy = Math.min(item.missing, Math.max(1, affordable));
+      }
+
+      if (qtyToBuy > 0) {
+        const buyRes = ammMarket.executeBuyAmount(node, qtyToBuy);
+        if (buyRes && buyRes.success) {
+          curAda = Math.max(0, curAda - buyRes.cost);
+          this.state.adAstraBalance = curAda;
+          inv[node] = (Number(inv[node]) || 0) + buyRes.resourceReceived;
+          totalSpentAda += buyRes.cost;
+          boughtBreakdown[node] = {
+            units: buyRes.resourceReceived,
+            cost: buyRes.cost
+          };
+          itemsPurchasedText.push(`+${buyRes.resourceReceived} ${buyRes.resourceName || node}`);
+        }
+      }
+    }
+
+    if (totalSpentAda > 0) {
+      this.saveState();
+      const actionMsg = `🛒 Bot Asgari Oto-Tedarik: Botun durmaması için kasadaki ADA ile AMM pazarından ${totalSpentAda.toFixed(1)} ADA harcanarak (${itemsPurchasedText.join(', ')}) tamamlandı.`;
+      if (!this.state.lastBotActions) this.state.lastBotActions = [];
+      this.state.lastBotActions.push(actionMsg);
+
+      return {
+        bought: true,
+        totalSpentAda,
+        boughtBreakdown,
+        newBalance: this.state.adAstraBalance,
+        message: actionMsg
+      };
+    }
+
+    return { bought: false, reason: 'buy_execution_failed' };
   }
 
   // ⏸️ Botun Duraklatılması (Pause) ve Süresinin Azalmadan Dondurulması (Freeze) Motoru
@@ -1482,11 +1571,20 @@ export class GameStateManager {
       }
     }
 
-    // 2) KULLANICI KURALI: Bot bir üreticidir. Hammadde eksikliği durumunda AMM'den zorla satın alım ASLA yapılmaz!
-    // Seferler devam ettikçe kaynaklar doğal yoldan depolanır.
+    // 2) KULLANICI KURALI: Eğer Hammadde (Odun, Demir, Buğday) < 50 olduğu için duracaksa ve kasada ADA varsa:
+    // Pazarından SADECE eksik olan kadar (50'ye tamamlayacak kadar minimal) satın al ve botun durmasını engelle!
+    if (!prereq.isMet) {
+      const hasResourceMissing = prereq.missing.some(m => ['wood', 'iron', 'wheat'].includes(m.key));
+      if (hasResourceMissing && (this.state.adAstraBalance || 0) >= 1) {
+        const buyRes = this.autoBuyBotResourceDeficit(50);
+        if (buyRes && buyRes.bought) {
+          prereq = this.checkBotPrerequisites();
+        }
+      }
+    }
 
     if (!prereq.isMet) {
-      // Koşullar sağlanmıyor (Hammadde veya ADA < 50) -> BOT DURAKLATILMALI VE SÜRESİ DONDURULMALI!
+      // Koşullar sağlanmıyor (Hammadde veya ADA < 50 ve kasada satın alacak ADA yok) -> BOT DURAKLATILMALI VE SÜRESİ DONDURULMALI!
       if (!this.state.botPaused) {
         this.state.botPaused = true;
         const remainingMs = Math.max(1000, rawExp - now);
