@@ -1014,6 +1014,16 @@ export const GAME_CONFIG = {
         'Taverna Bot Satın Alma Radyo Seçeneği Senkronizasyonu: Satın alma anında kullanıcının seçtiği "Siloyu Yükselt" veya "Akıllı Satış" tercihi anında state\'e kaydedilir.',
         '38 birim testin tamamı (tüm zindan, dövüş, ekonomi ve bot testleri) sıfır hata ile %100 doğrulandı.'
       ]
+    },
+    {
+      version: 'v1.24.1',
+      title: '🛡️ 24s Bot AMM Oto-Alım Kaldırılması & Başlangıç Demir Rezervi Senkronizasyonu',
+      date: 'Eylül 2026',
+      changes: [
+        'Bot Satın Alımında AMM Marketinden Kaynak Alımı Tamamen Yasaklandı: Bot satın alındığında siloyu doldurmak için kullanıcının kasasındaki ADA ile AMM pazarından zorla kaynak satın alıp fiyatları fırlatan autoBuyBotResourceDeficit fonksiyonu kalıcı olarak devre dışı bırakıldı.',
+        'Başlangıç Profili Demir Stoğu (40 -> 50): Yeni başlayan oyuncunun 50x bot çalışma önkoşulunu (50 Demir, 50 Odun, 50 Buğday, 50 ADA) eksiksiz karşılaması için başlangıç demiri 50 yapıldı.',
+        'Bot Üretici Kimliği Güvencesi: Bot yalnızca seferlerden hammadde toplar. Alet tamiri için ADA gerektiğinde silodaki fazla hammaddeyi AMM\'de satarak hem ADA üretir hem de pazar fiyatlarını düşürür.'
+      ]
     }
   ],
 
@@ -1060,7 +1070,7 @@ export const GAME_CONFIG = {
     adAstraBalance: 250,
     inventory: {
       wood: 60,
-      iron: 40,
+      iron: 50,
       wheat: 80,
       fragments: 0
     },

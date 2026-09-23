@@ -58,22 +58,19 @@ test('🤖 Bot Çift Yönlü Dengeleme: Eksik Hammadde Oto-Tedarik & Seviyeye G�
     assert.ok(lv3Data.targets.iron >= 560, `Lv 3 Demir hedefi >= 560 olmalı, bulunan: ${lv3Data.targets.iron}`);
   });
 
-  await t.test('2. Depoda Odun:0, Demir:0, Buğday:0 iken autoBuyBotResourceDeficit seviyeye göre tamirat +%50 miktarını satın almalı', () => {
+  await t.test('2. Depoda Odun:0, Demir:0, Buğday:0 iken autoBuyBotResourceDeficit AMM pazarından asla kaynak alıp siloyu doldurmamalı (Alım devre dışı)', () => {
     const gs = new GameStateManager();
     gs.state.level = 2; // Oyuncu Seviye 2
     gs.state.inventory = { wood: 0, iron: 0, wheat: 0, fragments: 0 };
     gs.state.adAstraBalance = 20000;
 
-    const dynamicReq = gs.getBotDynamicResourceDeficitTargets(2);
     const buyRes = gs.autoBuyBotResourceDeficit();
 
-    assert.equal(buyRes.bought, true, 'Oto-tedarik başarıyla gerçekleşmeli');
-    assert.ok(buyRes.totalSpentAda > 0, 'ADA harcanmış olmalı');
-
-    // Alınan miktarlar sabit 50 değil, Seviye 2 tamiratının en az %50 fazlası olmalı!
-    assert.ok(gs.state.inventory.wood >= dynamicReq.targets.wood, `Odun en az ${dynamicReq.targets.wood} olmalı, ambar: ${gs.state.inventory.wood}`);
-    assert.ok(gs.state.inventory.iron >= dynamicReq.targets.iron, `Demir en az ${dynamicReq.targets.iron} olmalı, ambar: ${gs.state.inventory.iron}`);
-    assert.ok(gs.state.inventory.wheat >= dynamicReq.targets.wheat, `Buğday en az ${dynamicReq.targets.wheat} olmalı, ambar: ${gs.state.inventory.wheat}`);
+    // KULLANICI KURALI: Bot bir üreticidir. AMM DEX pazarından asla kaynak alıp siloyu doldurmaz!
+    assert.equal(buyRes.bought, false, 'AMMden kaynak satın alımı yapılmamalı');
+    assert.equal(buyRes.reason, 'auto_buy_disabled_by_user_policy');
+    assert.equal(gs.state.adAstraBalance, 20000, 'Kullanıcının kasasındaki ADA eksilmemeli');
+    assert.equal(gs.state.inventory.wood, 0, 'Silo yapay şekilde satın alımla doldurulmamalı');
   });
 
   await t.test('3. Silo Seviye Yükseltildiğinde ambarlar sıfırlansa bile bot aktifse Seviye Tamiratı +%50 kadar satın alıp güvenceye almalı', () => {
@@ -107,11 +104,12 @@ test('🤖 Bot Çift Yönlü Dengeleme: Eksik Hammadde Oto-Tedarik & Seviyeye G�
     assert.equal(gs.isBotPaused(), false, 'Bot asla duraklatılmamış olmalı');
   });
 
-  await t.test('4. Dondurulmuş (Paused) bot, kasada ADA varken updateBotPauseState anında dinamik rezervle uyanmalı', () => {
+  await t.test('4. Dondurulmuş (Paused) bot, hammadde 0 iken AMMden zorla alım yapmamalı, dondurulmuş kalıp süreyi korumalı', () => {
     const gs = new GameStateManager();
     gs.state.level = 1;
     gs.state.tavernaBotActive = true;
-    gs.state.tavernaBotExpiresAt = Date.now() + 20 * 3600 * 1000;
+    const initialExpiry = Date.now() + 20 * 3600 * 1000;
+    gs.state.tavernaBotExpiresAt = initialExpiry;
     gs.state.botPaused = true;
     gs.state.botPausedRemainingMs = 20 * 3600 * 1000; // 20 saat dondurulmuş
     gs.state.inventory.wood = 0;
@@ -125,13 +123,18 @@ test('🤖 Bot Çift Yönlü Dengeleme: Eksik Hammadde Oto-Tedarik & Seviyeye G�
       sickle: { durability: 100, maxDurability: 100 }
     };
 
-    // updateBotPauseState çağrıldığında kasadaki ADA ile dinamik tamirat rezervi alınıp bot uyandırılmalı
+    // updateBotPauseState çağrıldığında kasadaki ADA ile AMM'den hammadde ALINMAZ, bot süresi korunur
     const pauseState = gs.updateBotPauseState();
-    assert.equal(pauseState.isPaused, false, 'updateBotPauseState oto-tedarik yaparak botu uyandırmalı');
-    assert.equal(gs.isBotPaused(), false, 'Bot artık duraklatılmış olmamalı');
+    assert.equal(pauseState.isPaused, true, 'Hammadde eksikken bot AMMden alım yapmadan duraklatılmış kalmalı');
+    assert.equal(gs.isBotPaused(), true, 'Bot güvenle duraklatılmış olmalı');
+    assert.equal(gs.state.adAstraBalance, 8000, 'ADA harcanmamalı');
 
-    const report = gs.fastForwardTime(2); // 2 saat ileri sar
-    assert.equal(report.botExecutionStatus, 'ran', 'Bot uyanıp seferleri çalıştırmalı');
-    assert.ok(report.totalExpeditionsClaimed > 0, 'Seferler toplanmış olmalı');
+    // Kullanıcı kaynakları temin ettiğinde (>= 50) bot uyanmalı
+    gs.state.inventory.wood = 50;
+    gs.state.inventory.iron = 50;
+    gs.state.inventory.wheat = 50;
+    const resumeCheck = gs.updateBotPauseState();
+    assert.equal(resumeCheck.isPaused, false, 'Kaynaklar gelince bot uyanmalı');
+    assert.equal(gs.isBotPaused(), false, 'Bot artık duraklatılmış olmamalı');
   });
 });

@@ -1433,107 +1433,10 @@ export class GameStateManager {
    * bedellerinin en az %50 daha fazlası kadar malzeme AMM DEX pazarından satın alınır.
    */
   autoBuyBotResourceDeficit(customTarget = null) {
-    if (typeof ammMarket === 'undefined' || !ammMarket || !ammMarket.executeBuyAmount) {
-      return { bought: false, reason: 'amm_unavailable' };
-    }
-
-    const inv = this.state.inventory = this.state.inventory || {};
-    let curAda = Number(this.state.adAstraBalance) || 0;
-    if (curAda <= 0) {
-      return { bought: false, reason: 'no_ada_balance', currentBalance: curAda };
-    }
-
-    // Dinamik hedef miktarları hesapla (hesap seviyesi ve sefer süresi üzerinden +%50 tamirat payı)
-    const dynamicData = this.getBotDynamicResourceDeficitTargets();
-    const dynamicTargets = dynamicData.targets;
-
-    const targets = {
-      wood: (customTarget && typeof customTarget === 'object' && customTarget.wood != null) ? customTarget.wood : ((typeof customTarget === 'number') ? Math.max(customTarget, dynamicTargets.wood) : dynamicTargets.wood),
-      iron: (customTarget && typeof customTarget === 'object' && customTarget.iron != null) ? customTarget.iron : ((typeof customTarget === 'number') ? Math.max(customTarget, dynamicTargets.iron) : dynamicTargets.iron),
-      wheat: (customTarget && typeof customTarget === 'object' && customTarget.wheat != null) ? customTarget.wheat : ((typeof customTarget === 'number') ? Math.max(customTarget, dynamicTargets.wheat) : dynamicTargets.wheat)
-    };
-
-    const nodes = ['wood', 'iron', 'wheat'];
-    const missingNodes = [];
-    for (const node of nodes) {
-      const cur = Number(inv[node]) || 0;
-      const targetReq = targets[node] || 50;
-      if (cur < targetReq) {
-        missingNodes.push({
-          node,
-          current: cur,
-          required: targetReq,
-          missing: Math.ceil(targetReq - cur),
-          name: this.getResourceNameTr ? this.getResourceNameTr(node) : node
-        });
-      }
-    }
-
-    if (missingNodes.length === 0) {
-      return { bought: false, reason: 'no_missing_resources', targets };
-    }
-
-    let totalSpentAda = 0;
-    const boughtBreakdown = {};
-    const itemsPurchasedText = [];
-
-    for (const item of missingNodes) {
-      if (curAda <= 0.1) break;
-      const node = item.node;
-      let qtyToBuy = item.missing;
-
-      // AMM'den tahmini maliyeti kontrol et
-      let estCost = 0;
-      if (typeof ammMarket.getEstimatedCostForBuy === 'function') {
-        estCost = ammMarket.getEstimatedCostForBuy(node, qtyToBuy);
-      }
-      if (!isFinite(estCost) || estCost <= 0 || estCost > curAda) {
-        // Mevcut bakiye eksik miktarın tamamını karşılamıyorsa alabileceği kadarını al
-        const p = (typeof ammMarket.getPrice === 'function') ? ammMarket.getPrice(node) : 1;
-        const affordable = Math.floor(curAda / (Math.max(0.01, p) * 1.05));
-        qtyToBuy = Math.min(item.missing, Math.max(1, affordable));
-      }
-
-      if (qtyToBuy > 0) {
-        const cap = this.getWarehouseCapacity();
-        const spaceLeft = Math.max(0, (cap[node] || 1000) - (Number(inv[node]) || 0));
-        qtyToBuy = Math.min(qtyToBuy, spaceLeft);
-      }
-
-      if (qtyToBuy > 0) {
-        const buyRes = ammMarket.executeBuyAmount(node, qtyToBuy);
-        if (buyRes && buyRes.success) {
-          curAda = Math.max(0, curAda - buyRes.cost);
-          this.state.adAstraBalance = curAda;
-          const cap = this.getWarehouseCapacity();
-          inv[node] = Math.min(cap[node] || 1000, (Number(inv[node]) || 0) + buyRes.resourceReceived);
-          totalSpentAda += buyRes.cost;
-          boughtBreakdown[node] = {
-            units: buyRes.resourceReceived,
-            cost: buyRes.cost
-          };
-          itemsPurchasedText.push(`+${buyRes.resourceReceived} ${buyRes.icon || ''} ${buyRes.resourceName || node}`);
-        }
-      }
-    }
-
-    if (totalSpentAda > 0) {
-      this.saveState();
-      const actionMsg = `🛒 Bot Dinamik Oto-Tedarik (Lv.${dynamicData.level} Sefer Tamiratı +%50): Depodaki eksikler için AMM pazarından ${totalSpentAda.toFixed(1)} ADA ile (${itemsPurchasedText.join(', ')}) satın alındı.`;
-      if (!this.state.lastBotActions) this.state.lastBotActions = [];
-      this.state.lastBotActions.push(actionMsg);
-
-      return {
-        bought: true,
-        totalSpentAda,
-        boughtBreakdown,
-        newBalance: this.state.adAstraBalance,
-        dynamicData,
-        message: actionMsg
-      };
-    }
-
-    return { bought: false, reason: 'buy_execution_failed', targets };
+    // 🛡️ KULLANICI KURALI: Bot bir üreticidir/madencidir. Kasadaki ADA ile AMM marketinden ASLA hammadde satın alıp siloyu doldurmaz!
+    // Hammaddeler seferlerden (Odun, Demir, Buğday) bedelsiz üretilir.
+    // Alet tamiratı veya ADA ihtiyacı durumunda depodaki kaynaklar AMM'de satılır (autoFundBotAdaDeficit).
+    return { bought: false, reason: 'auto_buy_disabled_by_user_policy' };
   }
 
   // ⏸️ Botun Duraklatılması (Pause) ve Süresinin Azalmadan Dondurulması (Freeze) Motoru
@@ -1579,20 +1482,11 @@ export class GameStateManager {
       }
     }
 
-    // 2) Eğer Hammadde (Odun, Demir, Buğday) < 50 olduğu için duracaksa kasadaki ADA ile AMM'den satın al:
-    if (!prereq.isMet) {
-      const hasResourceMissing = prereq.missing.some(m => ['wood', 'iron', 'wheat'].includes(m.key));
-      if (hasResourceMissing && (this.state.adAstraBalance || 0) >= 1) {
-        const buyRes = this.autoBuyBotResourceDeficit();
-        if (buyRes && buyRes.bought) {
-          // Satın alım yapıldı ve kaynaklar dinamik seviye gereksinimine göre tamamlandı, koşulları tekrar kontrol et!
-          prereq = this.checkBotPrerequisites();
-        }
-      }
-    }
+    // 2) KULLANICI KURALI: Bot bir üreticidir. Hammadde eksikliği durumunda AMM'den zorla satın alım ASLA yapılmaz!
+    // Seferler devam ettikçe kaynaklar doğal yoldan depolanır.
 
     if (!prereq.isMet) {
-      // Koşullar hala sağlanmıyor (hem hammadde hem ADA tükendiyse) -> BOT DURAKLATILMALI VE SÜRESİ DONDURULMALI!
+      // Koşullar sağlanmıyor (Hammadde veya ADA < 50) -> BOT DURAKLATILMALI VE SÜRESİ DONDURULMALI!
       if (!this.state.botPaused) {
         this.state.botPaused = true;
         const remainingMs = Math.max(1000, rawExp - now);
