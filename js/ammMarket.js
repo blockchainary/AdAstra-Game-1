@@ -100,6 +100,7 @@ export class AMMMarketEngine {
 
   notifyPriceChange() {
     if (!this.listeners || this.listeners.length === 0) return;
+    if (typeof gameState !== 'undefined' && gameState._isFastForwarding) return;
     const prices = this.getAllPrices();
     this.listeners.forEach(fn => {
       try { fn(prices); } catch (e) { console.error('AMM Price listener error:', e); }
@@ -158,6 +159,7 @@ export class AMMMarketEngine {
 
   savePools() {
     if (typeof localStorage === 'undefined') return;
+    if (typeof gameState !== 'undefined' && gameState._isFastForwarding) return;
     localStorage.setItem(this.storageKey, JSON.stringify(this.pools));
     localStorage.setItem(this.storageKey + '_fees', JSON.stringify(this.feeStats));
     this.notifyPriceChange();

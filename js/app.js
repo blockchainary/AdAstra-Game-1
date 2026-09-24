@@ -8270,7 +8270,6 @@ function initDevPanelEvents() {
         const report = gameState.fastForwardTime(hours);
         if (typeof syncDevLiveInputs === 'function') syncDevLiveInputs();
         renderTopBar();
-        renderExpeditionCards();
         if (typeof refreshLiveUpgradeCostUI === 'function') refreshLiveUpgradeCostUI(0);
         const modalContainer = document.getElementById('clean-modal');
         if (modalContainer && !modalContainer.classList.contains('hidden')) {
@@ -8340,7 +8339,6 @@ function initDevPanelEvents() {
       case 'complete-expeditions':
         gameState.completeAllExpeditionsNow();
         renderTopBar();
-        renderExpeditionCards();
         showToast(`⚡ Tüm aktif işçi seferleri anında tamamlandı!`, 'success');
         sound.playLevelUp();
         break;
@@ -8354,7 +8352,6 @@ function initDevPanelEvents() {
           showToast(`⚠️ Toplanacak tamamlanmış sefer bulunamadı.`, 'info');
         }
         renderTopBar();
-        renderExpeditionCards();
         break;
       }
 
@@ -8835,6 +8832,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // 🏛️ AMM DEX Anlık Fiyat Değişimlerini İzle ve Dinamik Maliyetleri Anında Yenile
   if (typeof ammMarket !== 'undefined' && ammMarket.subscribe) {
     ammMarket.subscribe(() => {
+      if (typeof gameState !== 'undefined' && gameState._isFastForwarding) return;
       refreshLiveUpgradeCostUI(1.0);
       renderTopBar();
     });

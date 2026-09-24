@@ -217,6 +217,7 @@ export class GlobalResourceManager {
 
   saveState() {
     if (typeof localStorage === 'undefined') return;
+    if (typeof gameState !== 'undefined' && gameState._isFastForwarding) return;
     if (this.state) {
       this.state.lastSavedTime = this.getTrustedTime();
     }

@@ -625,6 +625,10 @@ export class GameStateManager {
 
   saveState() {
     this.enforceWarehouseLimits();
+    if (this._isFastForwarding) {
+      // 🚀 Simülasyon sırasında diske senkron yazma ve listener tetikleme, sadece bellek içi state güncelle
+      return;
+    }
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(this.storageKey, JSON.stringify(this.state));
     }
@@ -959,8 +963,12 @@ export class GameStateManager {
           if (!anyActive) {
             this.runTavernaAutomationCycle();
             hasChanges = true;
-            const hasAny = Object.keys(this.state.activeExpeditions || {}).length > 0;
-            if (!hasAny || this.isBotPaused()) break;
+            let startedAny = false;
+            for (const nid of ['wood', 'iron', 'wheat']) {
+              const exp = this.state.activeExpeditions ? this.state.activeExpeditions[nid] : null;
+              if (exp && !exp.isCompleted) { startedAny = true; break; }
+            }
+            if (!startedAny || this.isBotPaused()) break;
             continue;
           }
 
@@ -1441,17 +1449,13 @@ export class GameStateManager {
       return { bought: false, reason: 'no_ada_balance', currentBalance: curAda };
     }
 
-    // 🎯 ASGARİ HEDEF MİKTARLAR:
-    // Odun & Demir: En az 50 (Önkoşul & Temel Tamirat)
-    // Buğday: 3 paralel seferi başlatacak kadar stamina (3 * staminaMaliyeti * 3.15) + 50 tampon buğday!
-    const staminaCostPerExp = this.getExpeditionStaminaCost ? this.getExpeditionStaminaCost() : 20;
-    const wheatPerStamina = (typeof GAME_CONFIG !== 'undefined' && GAME_CONFIG.WHEAT_PER_STAMINA) ? GAME_CONFIG.WHEAT_PER_STAMINA : 3.15;
-    const minWheatFor3Exp = Math.ceil(3 * staminaCostPerExp * wheatPerStamina) + 50;
-
+    // 🎯 ASGARİ ÖNKOŞUL HEDEF MİKTARLARI (SADECE VE SADECE 50 BİRİM):
+    // Kullanıcı kuralı: Siloyu dolduracak biçimde yüzlerce kaynak asla alınmaz!
+    // Sadece botun durmasını engelleyecek asgari önkoşul barajı (50 Odun, 50 Demir, 50 Buğday) tamamlanır.
     const targets = {
       wood: (customTarget && typeof customTarget === 'object' && customTarget.wood != null) ? customTarget.wood : 50,
       iron: (customTarget && typeof customTarget === 'object' && customTarget.iron != null) ? customTarget.iron : 50,
-      wheat: (customTarget && typeof customTarget === 'object' && customTarget.wheat != null) ? customTarget.wheat : Math.max(50, minWheatFor3Exp)
+      wheat: (customTarget && typeof customTarget === 'object' && customTarget.wheat != null) ? customTarget.wheat : 50
     };
 
     const nodes = ['wood', 'iron', 'wheat'];
@@ -4689,11 +4693,15 @@ export class GameStateManager {
           }
         }
 
-        // Eğer aktif sefer yoksa hemen runTavernaAutomationCycle ile boş madenleri başlat
+        // Eğer aktif (çalışan) sefer yoksa hemen runTavernaAutomationCycle ile boş madenleri başlat
         if (!anyActive) {
           this.runTavernaAutomationCycle();
-          const hasAny = Object.keys(this.state.activeExpeditions || {}).length > 0;
-          if (!hasAny || this.isBotPaused()) {
+          let startedAny = false;
+          for (const nid of nodes) {
+            const exp = this.state.activeExpeditions ? this.state.activeExpeditions[nid] : null;
+            if (exp && !exp.isCompleted) { startedAny = true; break; }
+          }
+          if (!startedAny || this.isBotPaused()) {
             if (this.isBotPaused()) {
               botExecutionStatus = 'paused';
             }
@@ -4864,6 +4872,13 @@ export class GameStateManager {
       };
     } finally {
       this._isFastForwarding = false;
+      this.saveState();
+      if (typeof globalPool !== 'undefined' && globalPool && typeof globalPool.saveState === 'function') {
+        globalPool.saveState();
+      }
+      if (typeof ammMarket !== 'undefined' && ammMarket && typeof ammMarket.savePools === 'function') {
+        ammMarket.savePools();
+      }
     }
   }
 
