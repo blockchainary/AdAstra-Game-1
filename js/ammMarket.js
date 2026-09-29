@@ -11,6 +11,7 @@
 import { GAME_CONFIG } from './config.js';
 import { globalPool } from './globalPool.js';
 import { treasury } from './treasury.js';
+import { readJSON, writeJSON, removeJSON } from './storage.js';
 
 // 🏛️ Lansman / Genesis Değişmez Başlangıç Fiyatları (Tüm düşüşler buna göre hesaplanır)
 export const GENESIS_PRICES = {
@@ -135,10 +136,9 @@ export class AMMMarketEngine {
     const defaults = buildDefaultPools();
     if (typeof localStorage === 'undefined') return defaults;
 
-    const saved = localStorage.getItem(this.storageKey);
-    if (!saved) return defaults;
+    const { data: parsed } = readJSON(this.storageKey);
+    if (!parsed) return defaults;
     try {
-      const parsed = JSON.parse(saved);
       const merged = {};
       for (const key of Object.keys(defaults)) {
         merged[key] = parsed[key] && parsed[key].resourceReserve > 0
@@ -155,7 +155,7 @@ export class AMMMarketEngine {
   loadFeeStats() {
     if (typeof localStorage === 'undefined') return { collected: 0, burned: 0, burnedResources: { wood: 0, iron: 0, wheat: 0 } };
     try {
-      const data = JSON.parse(localStorage.getItem(this.storageKey + '_fees')) || { collected: 0, burned: 0 };
+      const data = readJSON(this.storageKey + '_fees').data || { collected: 0, burned: 0 };
       if (!data.burnedResources) data.burnedResources = { wood: 0, iron: 0, wheat: 0 };
       return data;
     } catch (_) {
@@ -176,16 +176,16 @@ export class AMMMarketEngine {
   savePools() {
     if (typeof localStorage === 'undefined') return;
     if (typeof gameState !== 'undefined' && gameState._isFastForwarding) return;
-    localStorage.setItem(this.storageKey, JSON.stringify(this.pools));
-    localStorage.setItem(this.storageKey + '_fees', JSON.stringify(this.feeStats));
+    writeJSON(this.storageKey, this.pools);
+    writeJSON(this.storageKey + '_fees', this.feeStats);
     this.notifyPriceChange();
   }
 
   // 🏛️ AMM DEX Havuzlarını İlk 40M $ADASTRA Tohum Dağıtımına Sıfırla
   resetPools() {
     if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem(this.storageKey);
-      localStorage.removeItem(this.storageKey + '_fees');
+      removeJSON(this.storageKey);
+      removeJSON(this.storageKey + '_fees');
     }
     this.pools = buildDefaultPools();
     this.feeStats = { collected: 0, burned: 0, burnedResources: { wood: 0, iron: 0, wheat: 0 } };

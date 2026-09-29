@@ -14,7 +14,7 @@ Bu kural, projede yapılan HER güncelleme, özellik ekleme ve hata düzeltme i�
    - `node --check` ile tüm JS dosyalarının sözdizimi taranır.
 
 4. **Otomasyon Testi & Canlı Doğrulama (E2E & Runtime QA Verification):**
-   - Değişiklik kullanıcıya sunulmadan önce Playwright / Node otomasyon testleri (`sdlc_runner.mjs`) çalıştırılır.
+   - Değişiklik kullanıcıya sunulmadan önce tüm Node testleri `npm test` (tests/run_all.mjs) ile çalıştırılır.
    - Tarayıcı konsol logları taranır (`Errors count === 0`).
    - UI render ve etkileşimleri otomatik olarak test edilip doğrulanır.
    - Hata varsa kullanıcıya bildirmeden önce kod üzerinde düzeltilir ve test tekrarlanır.

@@ -9,6 +9,7 @@
 // ============================================================================
 
 import { GAME_CONFIG } from './config.js';
+import { readJSON, writeJSON, removeJSON } from './storage.js';
 
 const POOL_IDS = ['dungeon', 'arena', 'worldBoss', 'ammBuyback', 'carnival'];
 
@@ -32,10 +33,9 @@ export class TreasuryLedger {
     });
 
     if (typeof localStorage === 'undefined') return seed();
-    const raw = localStorage.getItem(this.storageKey);
-    if (!raw) return seed();
+    const { data: parsed } = readJSON(this.storageKey);
+    if (!parsed) return seed();
     try {
-      const parsed = JSON.parse(raw);
       const base = seed();
       return {
         ...base,
@@ -52,7 +52,7 @@ export class TreasuryLedger {
 
   save() {
     if (typeof localStorage === 'undefined') return;
-    localStorage.setItem(this.storageKey, JSON.stringify(this.state));
+    writeJSON(this.storageKey, this.state);
   }
 
   // ---------------------------------------------------------------------
@@ -185,7 +185,7 @@ export class TreasuryLedger {
   }
 
   reset() {
-    if (typeof localStorage !== 'undefined') localStorage.removeItem(this.storageKey);
+    if (typeof localStorage !== 'undefined') removeJSON(this.storageKey);
     this.state = this.load();
     this.save();
   }

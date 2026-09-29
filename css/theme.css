@@ -796,11 +796,13 @@ body.modal-open .guide-widget { display: none; }
 /* =========================================================================
    BİLDİRİMLER
    ========================================================================= */
+/* Sağ altta: pencere başlıklarını ve kapatma düğmesini örtmez */
 .toast-container {
-  top: calc(var(--hud-h) + 12px) !important;
+  top: auto !important;
   right: 16px !important;
   left: auto !important;
-  bottom: auto !important;
+  bottom: 72px !important;
+  flex-direction: column-reverse !important;
   gap: 8px !important;
   max-width: min(420px, calc(100vw - 32px));
 }
@@ -869,7 +871,8 @@ body.modal-open .guide-widget { display: none; }
   .hud #btn-changelog-pill::before { content: '📜'; font-size: 14px; }
 }
 
-@media (max-width: 1360px) {
+/* 5 menü düğmesi etiketleriyle ancak geniş ekrana sığar; daha dar ekranda yalnız simgeler */
+@media (max-width: 1520px) {
   .hud-btn .hud-btn-label { display: none; }
   .hud-bot .hud-btn-label { display: inline; }
   .hud-btn { padding: 0 11px; }
@@ -996,6 +999,11 @@ body.modal-open .guide-widget { display: none; }
   .rpg-modal-body .clean-card { padding: 14px !important; }
   .rpg-modal-body [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr 1fr; }
 
+}
+
+@media (max-width: 520px) {
+  .hud-wallet { min-width: 0; overflow: hidden; padding: 0 9px; }
+  .hud-wallet .hud-unit { display: none; }
 }
 
 @media (max-width: 420px) {
@@ -1262,3 +1270,155 @@ body.in-dungeon .hud #dungeon-floor-bar .dungeon-home-btn {
 .map-card.is-locked .mc-hint { color: #94a3b8; }
 .grid-menu-btn.is-locked { filter: grayscale(0.9); opacity: 0.55; position: relative; }
 .grid-menu-btn.is-locked::after { content: "🔒"; position: absolute; top: 6px; right: 8px; font-size: 0.8rem; }
+
+/* ── v1.27: Kota, sınır ve giriş bileşenleri (js/ui/limits.js) ───────── */
+.stat-grid,
+.quota-timers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+.stat-tile {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 12px 14px;
+  border-radius: var(--radius-m);
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-line);
+  min-width: 0;
+}
+.stat-tile-label { font-size: 12px; font-weight: 700; color: var(--c-text-3); text-transform: none; }
+.stat-tile > strong { font-size: 18px; font-weight: 800; color: var(--c-text); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.stat-tile-sub { font-size: 12px; color: var(--c-text-2); }
+.tone-gold { color: var(--c-gold-2) !important; }
+.tone-green { color: var(--c-green) !important; }
+.tone-violet { color: var(--c-violet) !important; }
+
+.limit-list { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
+.limit-meter { --lm-color: var(--c-blue); display: flex; flex-direction: column; gap: 6px; }
+.limit-meter.is-high { --lm-color: var(--c-amber); }
+.limit-meter.is-full { --lm-color: var(--c-red); }
+.limit-meter-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 13.5px; }
+.limit-meter-label { color: var(--c-text); font-weight: 700; display: inline-flex; gap: 6px; align-items: baseline; min-width: 0; }
+.limit-meter-value { color: var(--c-text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.limit-meter-value strong { color: var(--c-text); font-weight: 800; }
+.limit-meter-track { height: 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.06); overflow: hidden; }
+.limit-meter-fill { height: 100%; border-radius: inherit; background: var(--lm-color); transition: width 0.3s ease; }
+.limit-meter-foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--c-text-3); }
+.limit-meter.is-full .limit-meter-foot > span:first-child { color: var(--c-red); font-weight: 700; }
+.limit-meter-note { color: var(--c-text-2); }
+
+.day-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin: 10px 0 12px; }
+.day-strip-cell {
+  text-align: center; padding: 6px 0; border-radius: var(--radius-s);
+  font-size: 12px; font-weight: 700;
+  background: var(--c-surface-3); color: var(--c-text-3);
+  border: 1px solid transparent;
+}
+.day-strip-cell.is-open { background: rgba(99, 176, 255, 0.14); color: #cfe6ff; }
+.day-strip-cell.is-today { background: rgba(231, 185, 76, 0.18); color: var(--c-gold-2); border-color: rgba(231, 185, 76, 0.55); }
+.day-strip-cell.is-locked { opacity: 0.7; }
+
+.quota-tracker { display: flex; flex-direction: column; gap: 14px; }
+.quota-section .card-title-row { margin-bottom: 4px; }
+.quota-res-list { display: flex; flex-direction: column; gap: 14px; }
+.quota-res-card { display: flex; flex-direction: column; gap: 7px; }
+.quota-res-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; font-size: 13.5px; }
+.quota-res-name { font-weight: 800; color: var(--res-color); }
+.quota-res-avail { color: var(--c-text-2); }
+.quota-res-avail strong { color: var(--c-text); font-variant-numeric: tabular-nums; }
+.quota-stack { position: relative; height: 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.05); overflow: hidden; }
+.quota-stack > div { position: absolute; left: 0; top: 0; bottom: 0; border-radius: inherit; transition: width 0.3s ease; }
+.quota-stack-released { background: color-mix(in srgb, var(--res-color) 30%, transparent); }
+.quota-stack-harvested { background: var(--res-color); }
+.quota-res-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+.quota-res-legend .lg { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.lg-harvested { background: var(--res-color); }
+.lg-released { background: color-mix(in srgb, var(--res-color) 30%, transparent); }
+.lg-locked { background: rgba(255, 255, 255, 0.08); }
+.quota-ubi {
+  display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  margin-top: 12px; padding: 10px 12px; border-radius: var(--radius-s);
+  background: var(--c-surface-3); font-size: 13px; color: var(--c-text-2);
+}
+.quota-ubi strong { color: var(--c-gold-2); }
+.quota-ubi.is-done strong { color: var(--c-green); }
+
+/* Zindan giriş basamakları */
+.entry-ladder { list-style: none; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin: 10px 0 0; padding: 0; }
+.entry-step {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 7px 4px; border-radius: var(--radius-s);
+  background: var(--c-surface-3); border: 1px solid var(--c-line);
+  text-align: center; min-width: 0;
+}
+.entry-step-n { font-size: 15px; font-weight: 800; color: var(--c-text); line-height: 1.1; }
+.entry-step-label { font-size: 11.5px; font-weight: 700; color: var(--c-text-2); }
+.entry-step-sub { font-size: 10.5px; color: var(--c-text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.entry-step.is-free .entry-step-label { color: var(--c-green); }
+.entry-step.is-fee .entry-step-label { color: var(--c-amber); }
+.entry-step.is-done { opacity: 0.45; }
+.entry-step.is-done .entry-step-n::after { content: " ✓"; font-size: 12px; color: var(--c-green); }
+.entry-step.is-current { border-color: rgba(231, 185, 76, 0.7); background: rgba(231, 185, 76, 0.1); box-shadow: var(--ring); opacity: 1; }
+@media (max-width: 520px) {
+  .entry-ladder { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* Savaş öncesi giriş kartı */
+.prebattle-entry-card {
+  margin-bottom: 10px; padding: 12px 14px; border-radius: var(--radius-m);
+  background: var(--c-surface-2); border: 1px solid rgba(99, 176, 255, 0.3);
+}
+.prebattle-entry-card.is-out { border-color: rgba(242, 178, 58, 0.45); }
+.pe-row { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; color: var(--c-text-2); }
+.pe-row strong { color: var(--c-text); }
+.pe-note { margin-top: 8px; font-size: 12.5px; line-height: 1.5; color: var(--c-text-2); }
+.pe-note.pe-good { color: #b8f5da; }
+.pe-note.pe-warn { color: #ffd9a0; }
+.pe-fee { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; font-size: 13px; color: var(--c-text); cursor: pointer; }
+.pe-fee input { margin-top: 3px; accent-color: var(--c-gold); width: 16px; height: 16px; }
+
+/* Piyango sekmesi */
+.lottery-v2 { display: flex; flex-direction: column; gap: 12px; }
+.lottery-hero { border-left: 3px solid var(--c-gold) !important; }
+.lottery-buy-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.lottery-buy-label { font-size: 13.5px; font-weight: 700; color: var(--c-text); }
+.lottery-buy-input {
+  width: 84px; padding: 8px; border-radius: var(--radius-s);
+  background: var(--c-surface-3); color: var(--c-gold-2);
+  border: 1px solid var(--c-line-strong); font-weight: 800; font-size: 15px; text-align: center;
+}
+.lottery-buy .btn-clean { width: auto; }
+
+/* Yan panel kota özeti */
+.sidebar-quota-head {
+  width: 100%; display: flex; justify-content: space-between; align-items: center;
+  background: none; border: 0; padding: 0; cursor: pointer; text-align: left; font: inherit; color: inherit;
+}
+.sidebar-quota-head:hover .sidebar-quota-timer,
+.sidebar-quota-head:focus-visible .sidebar-quota-timer { color: var(--c-gold-2); }
+.sidebar-quota-head:focus-visible { outline: none; box-shadow: var(--ring); border-radius: 6px; }
+.sidebar-quota-timer { font-size: 11px; color: var(--c-text-3); font-weight: 700; white-space: nowrap; }
+.mini-quota-track { position: relative; }
+.mini-quota-released { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(255, 255, 255, 0.12); border-radius: 3px; transition: width 0.3s ease; }
+.mini-quota-track .mini-quota-fill { position: absolute; top: 0; bottom: 0; }
+.sidebar-personal-limits { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.spl-chip {
+  font-size: 11.5px; font-weight: 700; color: var(--c-text-2);
+  padding: 3px 8px; border-radius: 999px; background: var(--c-surface-3); border: 1px solid var(--c-line);
+  font-variant-numeric: tabular-nums;
+}
+.spl-chip.is-good { color: #b8f5da; border-color: rgba(67, 209, 154, 0.35); }
+
+/* Dokunmatik cihazda klavye kısayolu ipuçları gizlenir */
+@media (hover: none) { .kbd-hint, .cmd-palette-item-shortcut { display: none !important; } }
+
+/* Kolezyum maç bedeli satırı */
+.arena-entry-costs { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; font-size: 13px; color: var(--c-text-2); }
+.arena-entry-costs strong { color: var(--c-text); }
+.arena-entry-costs .is-bad, .arena-entry-costs .is-bad strong { color: var(--c-red); }
+
+/* Yan panel rozetleri: gizliyken görünmez, kilitli karede kilit simgesinin üstüne binmez */
+.sidebar-badge-red.hidden,
+.sidebar-badge-blue.hidden,
+.grid-menu-btn.is-locked .sidebar-badge-red,
+.grid-menu-btn.is-locked .sidebar-badge-blue { display: none !important; }

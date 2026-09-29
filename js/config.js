@@ -1,7 +1,7 @@
 // Realm of Astra - Karakter Seviyesi, Kışla Ordusu, Taverna Güçlendirmeleri & AMM Konfigürasyonu
 export const GAME_CONFIG = {
   GAME_TITLE: 'Realm of Astra',
-  GAME_VERSION: '1.26.0',
+  GAME_VERSION: '1.28.0',
   EPOCH_DURATION_SECONDS: 24 * 3600, // 24 Saatlik Günlük Havuz
   // Not: Duyuru şeridi ayarları (ANNOUNCEMENT_TICKER / ANNOUNCEMENTS) dosyanın sonunda TEK yerde tanımlıdır.
   // v1.25 öncesinde üç ayrı kopya vardı ve yalnızca sonuncusu geçerli oluyordu.
@@ -610,8 +610,13 @@ export const GAME_CONFIG = {
   // 💀 ZİNDAN KOŞUSU — sonsuz farm yerine günlük hak + azalan getiri (F-01)
   // ═══════════════════════════════════════════════════════════════════════
   DUNGEON: {
-    DAILY_RUNS: 5,                    // günde 5 ödüllü giriş (Türkiye saatiyle gece yarısı yenilenir)
-    // v1.25: 5 ödüllü girişten sonra oyuncu isteğe bağlı kapı harcı ödeyerek ödüllü girmeye devam edebilir.
+    // v1.27 günlük giriş kuralları (Türkiye saatiyle gece yarısı yenilenir):
+    //  • Her girişte stamina harcanır.
+    //  • 1. giriş: silahlar aşınmaz.
+    //  • 2.–5. giriş: harçsız ödüllü giriş; silahlar aşınır.
+    //  • 6. girişten itibaren: kapı harcı ödenirse ödüllü, ödenmezse yalnız deneyim veren antrenman.
+    DAILY_RUNS: 5,                    // harçsız ödüllü giriş sayısı
+    FIRST_ENTRY_NO_WEAR: true,        // günün ilk girişinde silahlar aşınmaz
     // Harç, o katın temel ADA ödülünün bu oranı kadardır ve %100'ü zindan kasasına gider.
     GATE_FEE_RATE: 0.20,
     // Zindan kasası bir günde en fazla bakiyesinin bu oranı kadar ADA öder → kasa matematiksel olarak boşalamaz.
@@ -761,10 +766,11 @@ export const GAME_CONFIG = {
     LOTTERY: {
       TICKET_COST_ADA: 100,
       SEED_POOL_ADA: 20000000,     // 20.000.000 ADA AlphaVax Tohum Kasa
-      MAX_TICKETS_PER_ACCOUNT: 100,// Balina istiflemesini önleme: Hesap başı haftalık max 100 bilet (10.000 ADA)
-      WINNER_MULTIPLIER: 2.0,      // Kazanan talihli bilet maliyetinin tam 2 katını (2x) nakit kazanır!
-      AMORTI_SHARE: 0.02,          // %2 Amorti Hazinesine
-      MAX_ROLLOVER_WEEKS: 4        // Çıkmayan biletler sonraki çekilişe devredebilir veya amorti alınabilir
+      // Balina koruması: bir hesap bir haftada en fazla bu kadar bilet satın alabilir.
+      // Kazanmayan biletler yanmaz; sayı sınırı olmadan, kazanana kadar sonraki haftalara devreder.
+      MAX_TICKETS_PER_ACCOUNT: 100,  // haftalık alım sınırı (10.000 ADA)
+      WINNER_MULTIPLIER: 2.0,        // Kazanan, biletlerine ödediğinin 2 katını alır
+      AMORTI_SHARE: 0.02             // Bilet bedelinin %2'si amorti kasasına
     }
   },
 
@@ -1076,6 +1082,33 @@ export const GAME_CONFIG = {
         'Karakter panelinde "Bir sonraki seviyede ne kazanırsın?" tablosu: üretim bonusu, buğday tasarrufu, stamina, sefer süresi, ganimet şansı ve UBI payı.',
         'Hız: ekran yazıları saniyede 4, bot ve hesaplar saniyede 1 kez güncellenir; yan panel açıkken yaşanan yavaşlama giderildi.',
         'Resimler küçültüldü (23,8 MB → 4,2 MB). Ganimet ve parşömen resimleri yayın paketine eklendi (önceden yalnız geliştirme modunda görünüyordu).'
+      ]
+    },
+    {
+      version: 'v1.27',
+      title: '📊 Kota Paneli & Yeni Zindan Giriş Kuralları',
+      date: '29 Eylül 2026',
+      changes: [
+        'Piyango: bir hesap haftada en fazla 100 bilet alabilir. Kazanmayan biletler yanmaz, sayı sınırı olmadan kazanana kadar sonraki haftalara devreder.',
+        'Piyango ekranı gerçek kurallarla yenilendi: haftalık alımın, elindeki bilet, kazanırsan alacağın tutar, şansın ve sonraki çekilişe kalan süre.',
+        'Zindan: her girişte stamina harcanır. Günün 1. girişinde silahlar aşınmaz. 2.–5. giriş harçsız ödüllüdür ve savaşa giren her askerin silahı 1 aşınır. 6. girişten itibaren kapı harcı ödenir, ödenmezse antrenman girişi olur.',
+        'Yeni "Kota ve Sınırlar" paneli (üst bar 📊, yan panel veya K tuşu): dünya kotasının gün gün açılışı, şu an çıkarılabilecek miktar, zindan / kolezyum / piyango sınırların ve geri sayımlar.',
+        'Kolezyum: günlük maç hakkı, anahtar ve stamina bedeli maçtan önce gösterilir; eksik olan kırmızıyla işaretlenir.',
+        'Arayüz: bildirimler sağ alta alındı, mobilde bakiye kısaltıldı (1,97 Mn), dar ekranda üst menü taşmıyor, İngilizce etiketler Türkçeleştirildi, kışlada "Infinity" yazısı düzeltildi.',
+        'Windows: OYUNU-BASLAT.bat oyunu arka planda sürekli açık tutar; pencere kapansa ve bilgisayar yeniden açılsa da http://localhost:5180 çalışır. OYUNU-DURDUR.bat kapatır.'
+      ]
+    },
+    {
+      version: 'v1.28',
+      title: '🛡️ Kayıt Güvenliği, Tutarlı Savaş Sonuçları & Güvenilir Saat',
+      date: '30 Eylül 2026',
+      changes: [
+        'Kayıt güvenliği: kayıt dosyası bozulursa oyun artık sıfırlanmaz; son sağlam yedekten açılır ve bozuk kopya ayrıca saklanır. Tarayıcının depolama alanı dolarsa oyun durmaz, uyarı verir.',
+        'Zindan: savaşın sonucu (can kaybı, silah aşınması, ödül) savaş başlarken kaydedilir; animasyon sırasında sayfayı yenilemek yenilginin bedelini ortadan kaldırmaz.',
+        'Kolezyum: savaş ekranı artık gerçek maçı oynatır. Önceden ekranda görünen zafer/yenilgi verilen ödül ve ELO ile çelişebiliyor, şampiyonun canı yanlış yazılabiliyordu.',
+        'Günlük zindan ve kolezyum hakları ile günlük hazine geri alımı bilgisayar saatine değil, sunucu saatiyle düzeltilmiş saate bağlandı; bilgisayar saatini ileri almak hakları yenilemez.',
+        'Oyun motoru (Phaser) artık oyunla birlikte paketlenir; dış bir siteye (CDN) erişilemediğinde oyunun hiç açılmaması sorunu giderildi.',
+        'Test menüsü düğmeleri iki kez çalışıyordu (+6 saat ileri sarma 12 saat sarıyordu); düzeltildi.'
       ]
     }
   ],
