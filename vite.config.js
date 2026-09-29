@@ -21,6 +21,9 @@ export default defineConfig({
     assetsDir: 'assets',
     rollupOptions: {
       input: 'index.html',
+      // Phaser ayrı dosyada: oyun kodu değiştiğinde tarayıcı önbelleğindeki Phaser yeniden indirilmez
+      output: { manualChunks: { phaser: ['phaser'] } },
     },
+    chunkSizeWarningLimit: 1600,
   },
 });

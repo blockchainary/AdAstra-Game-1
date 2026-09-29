@@ -1,6 +1,7 @@
 // AdAstra: Genesis Realm - 6 Eşsiz Katlı & 18 Seviyeli Master Zindan Motoru (Kilitli Tek Ekran / Sıfır Çökme)
 import { gameState } from './gameState.js';
 import { sound } from './audio.js';
+import Phaser from 'phaser';
 
 const MAX_LEVEL = 18;
 

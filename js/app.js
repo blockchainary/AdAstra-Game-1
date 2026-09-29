@@ -1,4 +1,5 @@
 // AdAstra: Genesis Realm - Pixiland v2.7.0 Modern Controller
+import Phaser from 'phaser';
 import { GAME_CONFIG } from './config.js';
 import { gameState } from './gameState.js';
 import { globalPool } from './globalPool.js';
