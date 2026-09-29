@@ -6228,6 +6228,20 @@ export class GameStateManager {
     return worn;
   }
 
+  // Kolezyum giriş koşulları (ekranda maç öncesi gösterilir; kurallar executeColosseum1v1Match ile aynı)
+  getColosseumEntryStatus() {
+    const cfg = GAME_CONFIG.COLOSSEUM;
+    const counters = this.getDailyCounters();
+    const used = counters.arenaMatches || 0;
+    const keys = this.state.arenaKeys || 0;
+    const stamina = Math.floor(this.state.stamina || 0);
+    let blockReason = '';
+    if (used >= cfg.DAILY_MATCH_CAP) blockReason = `Günlük maç hakkın doldu (${cfg.DAILY_MATCH_CAP}/${cfg.DAILY_MATCH_CAP})`;
+    else if (keys < cfg.ENTRY_KEY_COST) blockReason = `${cfg.ENTRY_KEY_COST} Arena Anahtarı gerekli`;
+    else if (stamina < cfg.ENTRY_STAMINA_COST) blockReason = `${cfg.ENTRY_STAMINA_COST} ⚡ stamina gerekli`;
+    return { used, cap: cfg.DAILY_MATCH_CAP, keys, keyCost: cfg.ENTRY_KEY_COST, stamina, staminaCost: cfg.ENTRY_STAMINA_COST, blockReason };
+  }
+
   executeColosseum1v1Match(championIndex = 0) {
     if (this.isArmyStakedInWorldBoss()) {
       return { success: false, message: '🔒 Ordun World Boss savaşına kilitlendiği için Kolezyum arenasına çıkamaz! Önce Savaş Alanından ordunun kilidini açmalısın.' };
@@ -7189,7 +7203,7 @@ export class GameStateManager {
   // =========================================================================
   getCommandPaletteActions() {
     return [
-      { id: 'dashboard', icon: '🏰', label: 'Krallık Dashboard', shortcut: 'TAB', category: 'Panel' },
+      { id: 'dashboard', icon: '🏰', label: 'Krallık Merkezi', shortcut: 'TAB', category: 'Panel' },
       { id: 'treasury', icon: '🏦', label: 'Krallık Hazinesi & Ödül Havuzları', shortcut: 'H', category: 'Panel' },
       { id: 'forest', icon: '🌲', label: 'Zümrüt Ormanı & Oduncu', shortcut: '1 / S', category: 'Bina' },
       { id: 'mine', icon: '⛏️', label: 'Maden Ocağı & Demirci', shortcut: '2 / I', category: 'Bina' },
@@ -7204,7 +7218,7 @@ export class GameStateManager {
       { id: 'repairAll', icon: '🔨', label: 'Tüm Aletleri Onar', shortcut: '', category: 'Eylem' },
       { id: 'healAll', icon: '🌾', label: 'Tüm Orduyu İyileştir', shortcut: '', category: 'Eylem' },
       { id: 'autoEquip', icon: '⚔️', label: 'En İyi Eşyaları Otomatik Dağıt', shortcut: '', category: 'Eylem' },
-      { id: 'economy', icon: '📈', label: 'Ekonomi & Tokenomics Dashboard', shortcut: '', category: 'Panel' },
+      { id: 'economy', icon: '📈', label: 'Ekonomi ve Tokenomi Paneli', shortcut: '', category: 'Panel' },
     ];
   }
 }

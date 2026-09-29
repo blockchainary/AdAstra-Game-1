@@ -232,7 +232,13 @@ function renderTopBar() {
   const stFill = document.getElementById('hud-stamina-fill');
   if (stFill) stFill.style.width = `${Math.max(0, Math.min(100, (staminaInt / Math.max(1, maxStamina)) * 100))}%`;
 
-  dom.adAstraBalance.innerText = state.adAstraBalance.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // Dar ekranda büyük bakiye kısaltılır (1,97 Mn); tam değer ipucunda
+  const fullBalance = state.adAstraBalance.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const compactBalance = window.innerWidth <= 520 && state.adAstraBalance >= 100000;
+  dom.adAstraBalance.innerText = compactBalance
+    ? state.adAstraBalance.toLocaleString('tr-TR', { notation: 'compact', maximumFractionDigits: 2 })
+    : fullBalance;
+  if (dom.adAstraBalance.parentElement) dom.adAstraBalance.parentElement.title = `$ADASTRA bakiyen: ${fullBalance}`;
 
   const siloCap = gameState.getWarehouseCapacity();
   const fmtRes = (v) => Math.floor(Number(v) || 0).toLocaleString('tr-TR');
@@ -2876,7 +2882,7 @@ function renderBarracksHtml() {
         <div class="clean-card" style="border-color: #38bdf8; margin-bottom: 12px;">
           <div class="card-title-row">
             <div class="card-title">🛡️ Ordu Kadrosu (Asker Seç & Donat)</div>
-            <span class="card-badge" style="color: #38bdf8;">${soldiers.length}/${maxSoldiers} Asker</span>
+            <span class="card-badge" style="color: #38bdf8;">${maxSoldiers === Infinity ? `${soldiers.length} Asker` : `${soldiers.length}/${maxSoldiers} Asker`}</span>
           </div>
           <div class="clean-desc">Aşağıdaki askerlerden birine tıkla; Demirci'de dövdüğün 5 parça teçhizatı (Silah, Miğfer, Zırh, Pantolon, Bot) doğrudan o askerin envanterine kuşandır!</div>
           ${rosterHtml}
@@ -4533,9 +4539,20 @@ function openColosseumModal() {
             </div>
           ` : ''}
 
-          <button id="btn-start-1v1-duel" class="btn-clean btn-clean-green" style="font-size: 1.05rem; padding: 13px; margin-top: 12px; font-weight: 800;" ${(champ.hp || 100) <= 15 ? 'disabled' : ''}>
-            ${(champ.hp || 100) <= 15 ? '⚠️ Şampiyon Ağır Yaralı (Önce İyileştir)' : '⚔️ KOLEZYUMA ÇIK (1v1 EŞLEŞ)'}
-          </button>
+          ${(() => {
+            const ce = gameState.getColosseumEntryStatus();
+            const injured = (champ.hp || 100) <= 15;
+            const block = injured ? 'Şampiyon ağır yaralı, önce iyileştir' : ce.blockReason;
+            return `
+          <div class="arena-entry-costs">
+            <span class="${ce.used >= ce.cap ? 'is-bad' : ''}">🏟️ Bugünkü maç: <strong>${ce.used} / ${ce.cap}</strong></span>
+            <span class="${ce.keys < ce.keyCost ? 'is-bad' : ''}">🔑 Bedel: <strong>${ce.keyCost} anahtar</strong> (sende ${ce.keys})</span>
+            <span class="${ce.stamina < ce.staminaCost ? 'is-bad' : ''}">⚡ Bedel: <strong>${ce.staminaCost} stamina</strong> (sende ${ce.stamina})</span>
+          </div>
+          <button id="btn-start-1v1-duel" class="btn-clean btn-clean-green" style="font-size: 1.05rem; padding: 13px; margin-top: 12px; font-weight: 800;" ${block ? 'disabled' : ''}>
+            ${block ? `🔒 ${block}` : '⚔️ KOLEZYUMA ÇIK (1v1 EŞLEŞ)'}
+          </button>`;
+          })()}
         </div>
 
         <div id="colosseum-duel-log" class="clean-card" style="background: #0b0704; min-height: 80px; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 0.88rem; text-align: center;">
@@ -4982,7 +4999,7 @@ function openDashboardModal() {
   const repairCosts = gameState.getAllRepairCost();
   const healCosts = gameState.getAllHealCost();
 
-  dom.modalTitle.innerHTML = `<span>🏰</span> <span>KRALLIK DASHBOARD & 1-CLICK MERKEZİ</span>`;
+  dom.modalTitle.innerHTML = `<span>🏰</span> <span>KRALLIK MERKEZİ</span>`;
 
   const missingStamina = Math.max(0, summary.maxStamina - Math.floor(summary.stamina));
   const wheatPerStamina = GAME_CONFIG.WHEAT_PER_STAMINA || 3.15;
@@ -4998,8 +5015,8 @@ function openDashboardModal() {
   const quickActionsHtml = `
     <div class="clean-card" style="background: linear-gradient(135deg, rgba(20,14,8,0.95), rgba(35,22,12,0.95)); border-color: rgba(245,158,11,0.5);">
       <div class="card-title-row">
-        <div class="card-title">⚡ 1-Click Toplu Krallık Eylemleri</div>
-        <span class="card-badge" style="color: #fde047;">TAB Kısayolu</span>
+        <div class="card-title">⚡ Tek dokunuşla toplu işlemler</div>
+        <span class="card-badge kbd-hint" style="color: #fde047;">Kısayol: TAB</span>
       </div>
       <div class="dashboard-1click-grid">
         <button class="btn-1click btn-1click-claim-restart-exp" title="Tamamlanan veya sürmekte olan tüm seferlerin biriken kaynaklarını anında topla ve boştakileri başlat">
