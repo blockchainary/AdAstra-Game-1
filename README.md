@@ -41,9 +41,9 @@ Geliştirme sunucusunda sağ alttaki **🧪 Test Menüsü** (veya `T`) açılır
 | **Seferler** | Orman, maden ve tarla seferleri; aletler dakikada 1 dayanıklılık kaybeder. |
 | **Haftalık dünya kotası** | Odun 180.000 · Demir 130.000 · Buğday 490.000. Kota her gün 1/7 açılır; harcanan hammadde kalıcı yakılır. |
 | **AMM pazarı** | `x · y = k` havuzları, %2 harç ve %2 hammadde yakımı, taban fiyat koruması. |
-| **Zindan** | 6 kat, 18 seviye, boss fazları. Günün 1. girişi ücretsiz (stamina yok, silah aşınmaz); 2.–5. giriş harçsız ödüllü (silah aşınır); 6. girişten itibaren kapı harcı veya antrenman. |
+| **Zindan** | 6 kat, 18 seviye, boss fazları. Her girişte stamina harcanır. Günün 1. girişinde silah aşınmaz; 2.–5. giriş harçsız ödüllü (silah aşınır); 6. girişten itibaren kapı harcı veya antrenman. |
 | **Kolezyum** | 1v1 ELO, lig kademeleri; maç başına 1 anahtar + stamina, günde 10 maç. |
-| **Piyango** | 100 ADA bilet, haftada tek kazanan (ödediğinin 2 katı). Hesap başına haftada en fazla 100 bilet alınır ve elde (devredenler dahil) en fazla 400 bilet tutulur. |
+| **Piyango** | 100 ADA bilet, haftada tek kazanan (ödediğinin 2 katı). Hesap başına haftada en fazla 100 bilet alınır; kazanmayan biletler yanmaz, kazanana kadar sonraki haftalara devreder. |
 | **Hazine** | Harcanan her ADA: %13 yakım · %6 haftalık temel gelir (UBI) · %3 yapımcı payı · %78 hazine kasaları. Ödüller basılmaz, kasadan ödenir. |
 | **Taverna botu** | 24 saatlik otomatik sefer, tamir ve satış. |
 

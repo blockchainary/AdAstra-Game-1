@@ -1,4 +1,4 @@
-// v1.27 — Piyango balina koruması, zindan günlük giriş kuralları ve kota paneli
+// v1.27 — Piyango haftalık sınırı ve devreden biletler, zindan günlük giriş kuralları, kota paneli
 import assert from 'node:assert/strict';
 
 globalThis.localStorage = {
@@ -29,7 +29,6 @@ const ok = (name) => { passed++; console.log(`✅ ${name}`); };
 
 const L = GAME_CONFIG.CARNIVAL.LOTTERY;
 const WEEK = L.MAX_TICKETS_PER_ACCOUNT;
-const HELD = L.MAX_HELD_TICKETS;
 
 // 1) Haftalık alım sınırı: tek seferde de parça parça da aşılamaz
 {
@@ -45,66 +44,41 @@ const HELD = L.MAX_HELD_TICKETS;
   ok(`Piyango: hesap başı haftalık ${WEEK} bilet sınırı`);
 }
 
-// 2) Elde tutma sınırı: haftalarca biriktirerek kasayı emmek mümkün değil
+// 2) Kazanmayan biletler yanmaz ve sayı sınırı olmadan sonraki haftalara devreder
 {
   const gs = fresh();
   gs.state.adAstraBalance = 100_000_000;
-  let weeks = 0;
-  while (weeks < 20) {
-    const st = gs.getLotteryStatus();
-    if (st.canBuy > 0) gs.buyLotteryTickets(st.canBuy);
+  for (let w = 0; w < 10; w++) {
+    assert.equal(gs.buyLotteryTickets(WEEK).success, true, `${w + 1}. hafta ${WEEK} bilet alınabilmeli`);
     nextWeek();
-    weeks++;
   }
   const st = gs.getLotteryStatus();
-  assert.equal(st.myTickets, HELD, `20 haftada bile en fazla ${HELD} bilet tutulabilmeli`);
-  assert.ok(st.weekLeft > 0, 'Yeni haftada haftalık sınır açık olmalı');
-  assert.equal(st.canBuy, 0, 'Elde tutma sınırı doluyken alım kapalı olmalı');
-  const r = gs.buyLotteryTickets(1);
-  assert.equal(r.success, false);
-  assert.match(r.message, /elinde en fazla/);
-  // En büyük olası ödül sınırlı: kasanın küçük bir kısmı
-  assert.ok(st.potentialPrize <= HELD * L.TICKET_COST_ADA * L.WINNER_MULTIPLIER);
-  assert.ok(st.potentialPrize / L.SEED_POOL_ADA < 0.01, 'Tek kazanç tohum kasanın %1\'ini geçmemeli');
-  ok(`Piyango: devreden biletlerle birlikte en fazla ${HELD} bilet tutulur, ödül sınırlı`);
+  assert.equal(st.myTickets, WEEK * 10, 'Biletler haftalar boyunca birikmeli, elde tutma sınırı olmamalı');
+  assert.equal(st.paid, WEEK * 10 * L.TICKET_COST_ADA);
+  assert.equal(st.canBuy, WEEK, 'Yeni haftada yine yalnız haftalık sınır geçerli');
+  ok('Piyango: kazanmayan biletler yanmaz, sınırsız devreder');
 }
 
-// 3) Çark parçaları elde tutma sınırını delemez (çark gerçekten çevrilir, ödül parçaya sabitlenir)
-{
-  const rewards = GAME_CONFIG.CARNIVAL.WHEEL_REWARDS;
-  const total = rewards.reduce((s, r) => s + (r.weight || 1), 0);
-  let cum = 0;
-  for (const r of rewards) { if (r.type === 'ticket_shard') break; cum += r.weight; }
-  const realRandom = Math.random;
-  const spinShard = (gs) => {
-    Math.random = () => (cum + 0.5) / total;
-    try { return gs.spinCarnivalWheel('ada'); } finally { Math.random = realRandom; }
-  };
-
-  const gs = fresh();
-  gs.state.adAstraBalance = 10_000;
-  gs.state.lotteryTickets = HELD;
-  gs.state.wheelTicketShards = 2;
-  assert.equal(spinShard(gs).success, true);
-  assert.equal(gs.state.lotteryTickets, HELD, 'Sınır doluyken parça bilete dönüşmemeli');
-  assert.equal(gs.state.wheelTicketShards, 3, 'Parça kaybolmamalı, beklemeli');
-
-  gs.state.lotteryTickets = HELD - 1;
-  assert.equal(spinShard(gs).success, true);
-  assert.equal(gs.state.lotteryTickets, HELD, 'Yer açılınca bekleyen parçalar bilete dönüşmeli');
-  ok('Piyango: çark parçaları sınırın üstünde bilete dönüşmez, bekler');
-}
-
-// 4) Temsili diğer oyuncular da aynı sınıra uyar
+// 3) Çekilişte kazanamayanın biletleri yanmaz, sonraki haftaya aynen geçer
 {
   const gs = fresh();
-  for (let i = 0; i < 30; i++) gs.simulateOtherLotteryBuyers();
-  const maxSim = Math.max(...gs.getLotterySimHolders().map(h => h.tickets));
-  assert.ok(maxSim <= HELD, `Temsili oyuncu ${maxSim} bilet tutmamalı`);
-  ok('Piyango: temsili oyuncular da elde tutma sınırına uyar');
+  gs.state.adAstraBalance = 1_000_000;
+  gs.buyLotteryTickets(50);
+  // Temsili oyunculara çok bilet ver ki kazanan büyük olasılıkla onlar olsun; kazanan biz olursak tekrar dene
+  let res;
+  for (let i = 0; i < 20; i++) {
+    const snap = JSON.stringify(gs.state);
+    gs.getLotterySimHolders().forEach(h => { h.tickets = 1000; h.paid = 100000; });
+    res = gs.drawWeeklyLottery();
+    if (!res.userWon) break;
+    gs.state = JSON.parse(snap);
+  }
+  assert.equal(res.userWon, false);
+  assert.equal(gs.state.lotteryTickets, 50, 'Kazanamayanın biletleri yanmamalı');
+  ok('Piyango: çekilişte çıkmayan biletler sonraki haftaya devreder');
 }
 
-// 5) Zindan: 1. giriş ücretsiz ve aşınmasız, 2–5 aşınmalı, 6+ harçlı
+// 5) Zindan: her girişte stamina; 1. girişte silah aşınmaz, 2–5 aşınır, 6+ harçlı
 {
   const gs = fresh();
   gs.state.adAstraBalance = 100_000;
@@ -113,14 +87,13 @@ const HELD = L.MAX_HELD_TICKETS;
   const cost = gs.getDungeonStaminaCost(lvl, 2);
 
   const t1 = gs.getDungeonEntryTerms(lvl, false, 2);
-  assert.equal(t1.nextIsFirstFree, true);
-  assert.equal(t1.staminaCost, 0, 'İlk giriş stamina harcamamalı');
+  assert.equal(t1.staminaCost, cost, 'İlk girişte de stamina harcanmalı');
   const e1 = gs.beginDungeonEntry(lvl, false, { soldierCount: 2 });
   assert.equal(e1.success, true);
   assert.equal(e1.rewarded, true);
-  assert.equal(e1.firstFree, true);
+  assert.equal(e1.firstEntry, true);
   assert.equal(e1.weaponWear, false, 'İlk girişte silah aşınmamalı');
-  assert.equal(gs.state.stamina, 1000, 'İlk girişte stamina düşmemeli');
+  assert.equal(1000 - gs.state.stamina, cost, 'İlk girişte stamina düşmeli');
 
   for (let n = 2; n <= 5; n++) {
     const before = gs.state.stamina;
@@ -143,18 +116,16 @@ const HELD = L.MAX_HELD_TICKETS;
   assert.equal(paid.rewarded, true);
   assert.equal(adaBefore - gs.state.adAstraBalance, t6.fee, 'Harç bakiyeden düşmeli');
   assert.equal(gs.getDungeonDayStatus().entriesToday, 7);
-  ok('Zindan: 1. giriş ücretsiz/aşınmasız, 2–5 aşınmalı, 6+ harçlı');
+  ok('Zindan: her girişte stamina, 1. giriş aşınmasız, 2–5 aşınmalı, 6+ harçlı');
 }
 
-// 6) Zindan: stamina yetmezse giriş sayılmaz; ilk giriş staminasız da yapılabilir
+// 6) Zindan: stamina yetmezse ilk giriş dahil hiçbir giriş yapılamaz ve sayılmaz
 {
   const gs = fresh();
   gs.state.stamina = 0;
   const e1 = gs.beginDungeonEntry(5, false, { soldierCount: 3 });
-  assert.equal(e1.success, true, 'Ücretsiz ilk giriş stamina gerektirmemeli');
-  const e2 = gs.beginDungeonEntry(5, false, { soldierCount: 3 });
-  assert.equal(e2.success, false, 'Stamina yoksa ikinci giriş reddedilmeli');
-  assert.equal(gs.getDungeonDayStatus().entriesToday, 1, 'Reddedilen giriş sayılmamalı');
+  assert.equal(e1.success, false, 'Stamina yoksa ilk giriş de reddedilmeli');
+  assert.equal(gs.getDungeonDayStatus().entriesToday, 0, 'Reddedilen giriş sayılmamalı');
   // Harç yetmezse stamina harcanmadan reddedilir
   const gs2 = fresh();
   gs2.state.stamina = 1000;
@@ -162,7 +133,7 @@ const HELD = L.MAX_HELD_TICKETS;
   gs2.state.dailyCounters = { ...gs2.getDailyCounters(), dungeonEntries: 5, dungeonRuns: 5 };
   const r = gs2.beginDungeonEntry(5, false, { soldierCount: 1, payGateFee: true });
   assert.equal(r.success, false);
-  assert.equal(gs2.state.stamina, 1000, 'Harç reddinde stamina geri alınmış olmalı (hiç düşmemeli)');
+  assert.equal(gs2.state.stamina, 1000, 'Harç reddinde stamina düşmemeli');
   ok('Zindan: reddedilen giriş sayılmaz, stamina boşa harcanmaz');
 }
 
@@ -189,7 +160,7 @@ const HELD = L.MAX_HELD_TICKETS;
   c.dungeonPaidEntries = 1;
   const st = gs.getDungeonDayStatus();
   assert.equal(st.entriesToday, 3);
-  assert.equal(st.nextIsFirstFree, false);
+  assert.equal(st.nextIsFirstEntry, false);
   ok('Zindan: eski kayıtlarla uyumlu giriş sayacı');
 }
 

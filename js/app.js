@@ -447,7 +447,7 @@ function renderRealmSidebar(state, maxStamina, staminaInt) {
     const dun = gameState.getDungeonDayStatus();
     const lot = gameState.getLotteryStatus();
     const html = `
-      <span class="spl-chip ${dun.nextIsFirstFree ? 'is-good' : ''}" title="Zindan: harçsız ödüllü giriş">💀 ${dun.freeUsed}/${dun.freeTotal}${dun.nextIsFirstFree ? ' · ücretsiz giriş hazır' : ''}</span>
+      <span class="spl-chip" title="Zindan: bugünkü harçsız ödüllü giriş">💀 ${dun.freeUsed}/${dun.freeTotal}</span>
       <span class="spl-chip" title="Piyango: bu hafta alınan bilet">🎟️ ${lot.boughtThisWeek}/${lot.maxPerWeek}</span>`;
     if (personalEl.innerHTML !== html) personalEl.innerHTML = html;
   }
@@ -3691,7 +3691,7 @@ function renderCarnivalHtml(activeTab = 'wheel') {
     const last = lot.lastResult;
     const nextDraw = globalPool.getNextWeeklyResetTRT ? globalPool.getNextWeeklyResetTRT() : Date.now();
     const fmt = (n) => Math.floor(Number(n) || 0).toLocaleString('tr-TR');
-    const blockedBy = lot.canBuy > 0 ? '' : (lot.weekLeft <= 0 ? 'Bu haftalık alım sınırın doldu. Yeni hafta Pazartesi 00:01 (TSİ) başlar.' : `Elinde en fazla ${lot.maxHeld} bilet tutabilirsin. Bilet kullandıkça (çark) ya da kazandıkça yeniden alabilirsin.`);
+    const blockedBy = lot.canBuy > 0 ? '' : 'Bu haftalık alım sınırın doldu. Yeni hafta Pazartesi 00:01 (TSİ) başlar.';
     tabContentHtml = `
       <div class="lottery-v2">
         <div class="clean-card lottery-hero">
@@ -3714,12 +3714,16 @@ function renderCarnivalHtml(activeTab = 'wheel') {
 
         <div class="clean-card">
           <div class="card-title-row">
-            <div class="card-title">🛡️ Balina koruması: bilet sınırların</div>
+            <div class="card-title">🛡️ Balina koruması: haftalık bilet sınırın</div>
           </div>
           <div class="limit-list">
             ${renderLimitMeter({ icon: '🗓️', label: 'Bu hafta aldığın', used: lot.boughtThisWeek, max: lot.maxPerWeek, note: 'Her hesap haftada en fazla bu kadar bilet alabilir.' })}
-            ${renderLimitMeter({ icon: '🎟️', label: 'Elindeki bilet (devredenler dahil)', used: lot.myTickets, max: lot.maxHeld, note: 'Haftalarca biriktirerek kasayı emmek mümkün olmasın diye elde tutulan bilet de sınırlıdır.' })}
           </div>
+          <div class="quota-ubi">
+            <span>🎟️ Elindeki bilet (önceki haftalardan devredenler dahil)</span>
+            <strong>${fmt(lot.myTickets)} bilet</strong>
+          </div>
+          <div class="pe-note">Kazanmayan biletler yanmaz; kazanana kadar her hafta çekilişe girmeye devam eder.</div>
         </div>
 
         <div class="clean-card lottery-buy">
@@ -5486,13 +5490,11 @@ function openPreBattleModal(monster) {
     <div class="prebattle-entry-card ${terms.nextNeedsFee ? 'is-out' : ''}">
       <div class="pe-row">
         <span>🎟️ Bugünkü ${terms.nextEntryNumber}. girişin</span>
-        <strong>${terms.nextIsFirstFree ? 'Ücretsiz' : terms.nextNeedsFee ? 'Harçlı / antrenman' : 'Ödüllü'}</strong>
+        <strong>${terms.nextNeedsFee ? 'Harçlı / antrenman' : 'Ödüllü'}</strong>
       </div>
       ${renderDungeonEntryLadder(terms)}
-      ${terms.nextIsFirstFree
-        ? '<div class="pe-note pe-good">🎁 Günün ilk girişi: stamina harcanmaz, silahların aşınmaz. Ödül tam verilir.</div>'
-        : !terms.nextNeedsFee
-          ? `<div class="pe-note">Stamina harcanır ve savaşa giren her askerin silahı 1 aşınır. Harçsız ödüllü giriş: ${terms.freeLeft} / ${terms.freeTotal} kaldı. Haklar her gece 00:00'da (TSİ) yenilenir.</div>`
+      ${!terms.nextNeedsFee
+          ? `<div class="pe-note ${terms.nextWeaponWear ? '' : 'pe-good'}">${terms.nextWeaponWear ? 'Savaşa giren her askerin silahı 1 aşınır.' : 'Günün ilk girişi: silahların aşınmaz.'} Stamina harcanır. Harçsız ödüllü giriş: ${terms.freeLeft} / ${terms.freeTotal} kaldı. Haklar her gece 00:00'da (TSİ) yenilenir.</div>`
           : `<label class="pe-fee">
                <input type="checkbox" id="chk-dungeon-gate-fee" ${window.dungeonPayGateFee ? 'checked' : ''} />
                <span><strong>Kapı harcı öde: ${gateFee.toLocaleString('tr-TR')} ADA</strong> — ödülüyle gir. Harcın tamamı zindan kasasına gider.</span>
@@ -5512,7 +5514,7 @@ function openPreBattleModal(monster) {
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <span style="font-weight:700; color:${staminaCheck.canEnter ? '#38bdf8' : '#f87171'}; font-size:0.85rem;">⚡ Savaş Stamina Bedeli:</span>
         <span style="font-weight:800; font-size:1rem; color:${staminaCheck.canEnter ? '#38bdf8' : '#ef4444'};">
-          ${terms.nextIsFirstFree ? '0 ⚡ (ücretsiz giriş)' : selectedCount > 0 ? `${staminaCost} ⚡` : '0 ⚡'}
+          ${selectedCount > 0 ? `${staminaCost} ⚡` : '0 ⚡'}
         </span>
       </div>
       <div style="font-size:0.75rem; color:#94a3b8; margin-top:4px; display:flex; justify-content:space-between; align-items:center;">
@@ -5929,7 +5931,7 @@ function executeMonsterBattle(monster, selectedIndices, { payGateFee = false } =
   arena.startBattle({
     mode: 'dungeon',
     context: `Kat ${monster.level} · Seviye ${monster.level} — <strong>${monster.name}</strong> ${isBossMonster ? '(Zindan Bossu)' : ''}`,
-    rank: `${entry.firstFree ? 'Günün ücretsiz girişi' : entry.rewarded ? (entry.fee > 0 ? 'Kapı harcıyla ödüllü' : 'Ödüllü giriş') : 'Antrenman'} · Stamina: -${staminaCost} ⚡`,
+    rank: `${entry.rewarded ? (entry.fee > 0 ? 'Kapı harcıyla ödüllü' : 'Ödüllü giriş') : 'Antrenman'} · Stamina: -${staminaCost} ⚡`,
     replay: sim,
     allies: arenaAllies,
     enemies: [arenaEnemy],

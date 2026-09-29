@@ -82,13 +82,13 @@ export function renderResourceQuotaCard(key, info, meta) {
     </div>`;
 }
 
-// Zindan günlük giriş basamakları: 1 ücretsiz · 2–5 ödüllü · 6+ harçlı
+// Zindan günlük giriş basamakları: 1 aşınmasız · 2–5 ödüllü · 6+ harçlı (her girişte stamina harcanır)
 export function renderDungeonEntryLadder(st) {
   const freeTotal = st.freeTotal || 5;
   const used = st.entriesToday || 0;
   const steps = [];
   for (let n = 1; n <= freeTotal; n++) {
-    steps.push({ n, label: n === 1 ? 'Ücretsiz' : 'Ödüllü', sub: n === 1 ? 'Aşınma yok' : 'Silah −1' });
+    steps.push({ n, label: 'Ödüllü', sub: n === 1 ? 'Aşınma yok' : 'Silah −1' });
   }
   steps.push({ n: freeTotal + 1, label: 'Harç', sub: 'veya antrenman', plus: true });
   return `
@@ -152,7 +152,7 @@ export function renderQuotaTracker({ gameState, globalPool, config }) {
           <div class="card-title">📅 Günlük sınırların (bugün)</div>
         </div>
         <div class="limit-list">
-          ${renderLimitMeter({ icon: '💀', label: 'Zindan: harçsız ödüllü giriş', used: dun.freeUsed, max: dun.freeTotal, note: dun.nextIsFirstFree ? '🎁 Sıradaki giriş ücretsiz' : dun.nextNeedsFee ? 'Sonraki girişler harçlı' : 'Silahlar her girişte 1 aşınır' })}
+          ${renderLimitMeter({ icon: '💀', label: 'Zindan: harçsız ödüllü giriş', used: dun.freeUsed, max: dun.freeTotal, note: dun.nextNeedsFee ? 'Sonraki girişler harçlı' : (dun.nextWeaponWear ? 'Silahlar her girişte 1 aşınır' : 'Sıradaki girişte silahlar aşınmaz') })}
           ${renderLimitMeter({ icon: '🏟️', label: 'Kolezyum maçı', used: counters.arenaMatches || 0, max: arenaCap })}
           ${renderLimitMeter({ icon: '🏦', label: 'Zindan kasasının bugünkü ödeme bütçesi', used: Math.max(0, (dun.budget || 0) - (dun.budgetLeft || 0)), max: dun.budget || 0, unit: ' ADA', note: 'Kasa günde en fazla bakiyesinin %1\'ini öder' })}
         </div>
@@ -165,7 +165,10 @@ export function renderQuotaTracker({ gameState, globalPool, config }) {
         </div>
         <div class="limit-list">
           ${renderLimitMeter({ icon: '🎟️', label: 'Piyango: bu hafta aldığın bilet', used: lot.boughtThisWeek, max: lot.maxPerWeek })}
-          ${renderLimitMeter({ icon: '🎫', label: 'Piyango: elindeki bilet (devredenler dahil)', used: lot.myTickets, max: lot.maxHeld })}
+        </div>
+        <div class="quota-ubi">
+          <span>🎫 Piyango: elindeki bilet (devredenler dahil, sınırsız)</span>
+          <strong>${fmtInt(lot.myTickets)} bilet</strong>
         </div>
         <div class="quota-ubi ${ubiClaimed ? 'is-done' : ''}">
           <span>🏛️ Haftalık temel gelir (UBI)</span>

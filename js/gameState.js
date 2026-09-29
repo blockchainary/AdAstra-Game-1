@@ -4488,8 +4488,7 @@ export class GameStateManager {
     } else if (selectedReward.type === 'ticket_shard') {
       // 🎟️ AMORTİ BİLETLERİ: 10'dan 3'e indirildi! 3 adet amorti bileti geldiğinde 1 çark çevirme hakkı verir!
       this.state.wheelTicketShards = (this.state.wheelTicketShards || 0) + 1;
-      // Elde tutma sınırı doluysa parçalar bekler, sınırın altına inince bilete dönüşür
-      if (this.state.wheelTicketShards >= 3 && this.getLotteryLimits().heldLeft > 0) {
+      if (this.state.wheelTicketShards >= 3) {
         this.state.wheelTicketShards -= 3;
         this.state.lotteryTickets = (this.state.lotteryTickets || 0) + 1;
         rewardSummaryText += ' (🎉 3 Parça Birikti: +1 Çark Çevirme / Piyango Bileti Kazanıldı!)';
@@ -4595,16 +4594,13 @@ export class GameStateManager {
     const L = GAME_CONFIG.CARNIVAL?.LOTTERY || {};
     const epochId = (globalPool && globalPool.state && globalPool.state.epochId) || 1;
     const maxPerWeek = L.MAX_TICKETS_PER_ACCOUNT || 100;
-    const maxHeld = L.MAX_HELD_TICKETS || maxPerWeek * 4;
     const boughtThisWeek = this.state.lotteryWeekEpoch === epochId ? (this.state.lotteryBoughtThisWeek || 0) : 0;
-    const held = this.state.lotteryTickets || 0;
     const weekLeft = Math.max(0, maxPerWeek - boughtThisWeek);
-    const heldLeft = Math.max(0, maxHeld - held);
-    return { epochId, maxPerWeek, maxHeld, boughtThisWeek, held, weekLeft, heldLeft, canBuy: Math.min(weekLeft, heldLeft) };
+    return { epochId, maxPerWeek, boughtThisWeek, weekLeft, canBuy: weekLeft };
   }
 
   getLotteryStatus() {
-    const { maxPerWeek, maxHeld, boughtThisWeek, weekLeft, heldLeft, canBuy } = this.getLotteryLimits();
+    const { maxPerWeek, boughtThisWeek, weekLeft, canBuy } = this.getLotteryLimits();
     const myTickets = this.state.lotteryTickets || 0;
     const others = this.getLotterySimHolders().reduce((s, h) => s + (h.tickets || 0), 0);
     const totalTickets = myTickets + others;
@@ -4617,9 +4613,7 @@ export class GameStateManager {
       chance: lotteryWinChance(myTickets, totalTickets),
       boughtThisWeek,
       maxPerWeek,
-      maxHeld,
       weekLeft,
-      heldLeft,
       canBuy,
       pool: this.state.lotteryPool || 0,
       amortiPool: this.state.lotteryAmortiPool || 0,
@@ -4641,12 +4635,6 @@ export class GameStateManager {
       return {
         success: false,
         message: `🚫 Bir hesap haftada en fazla ${lim.maxPerWeek} bilet alabilir. Bu hafta aldığın: ${bought}, alabileceğin: ${lim.weekLeft}.`
-      };
-    }
-    if (count > lim.heldLeft) {
-      return {
-        success: false,
-        message: `🚫 Bir hesap elinde en fazla ${lim.maxHeld} bilet tutabilir (devreden biletler dahil). Elindeki: ${lim.held}, alabileceğin: ${lim.heldLeft}.`
       };
     }
 
@@ -4700,9 +4688,8 @@ export class GameStateManager {
   simulateOtherLotteryBuyers() {
     const rules = this.getLotteryRules();
     const perWeek = GAME_CONFIG.CARNIVAL?.LOTTERY?.LOCAL_SIM_TICKETS_PER_WEEK ?? 20;
-    const maxHeld = GAME_CONFIG.CARNIVAL?.LOTTERY?.MAX_HELD_TICKETS || 400;
     for (const h of this.getLotterySimHolders()) {
-      const n = Math.min(Math.max(0, maxHeld - (h.tickets || 0)), Math.max(0, Math.round(perWeek * (0.5 + Math.random()))));
+      const n = Math.max(0, Math.round(perWeek * (0.5 + Math.random())));
       if (n <= 0) continue;
       const split = splitTicketPayment(n, rules);
       h.tickets += n;
@@ -6145,7 +6132,8 @@ export class GameStateManager {
     const freeUsed = c.dungeonRuns || 0;
     // Eski kayıtlarda toplam giriş sayacı yoktu: ödüllü + harçlı girişlerden türet
     const entriesToday = c.dungeonEntries != null ? c.dungeonEntries : freeUsed + (c.dungeonPaidEntries || 0);
-    const nextIsFirstFree = cfg.FREE_FIRST_ENTRY !== false && entriesToday === 0;
+    const nextIsFirstEntry = entriesToday === 0;
+    const nextWeaponWear = !(cfg.FIRST_ENTRY_NO_WEAR !== false && nextIsFirstEntry);
     return {
       freeTotal,
       freeUsed,
@@ -6153,18 +6141,18 @@ export class GameStateManager {
       paidEntries: c.dungeonPaidEntries || 0,
       entriesToday,
       nextEntryNumber: entriesToday + 1,
-      nextIsFirstFree,
-      nextWeaponWear: !nextIsFirstFree,
+      nextIsFirstEntry,
+      nextWeaponWear,
       nextNeedsFee: freeUsed >= freeTotal,
       budget: c.dungeonBudget,
       budgetLeft: Math.max(0, c.dungeonBudget - (c.dungeonPaid || 0))
     };
   }
 
-  // Bir sonraki girişin koşulları: stamina bedeli, silah aşınması, harç
+  // Bir sonraki girişin koşulları: stamina bedeli (her girişte), silah aşınması, harç
   getDungeonEntryTerms(level, isBoss = false, soldierCount = 1) {
     const st = this.getDungeonDayStatus();
-    const staminaCost = st.nextIsFirstFree ? 0 : this.getDungeonStaminaCost(level, soldierCount);
+    const staminaCost = this.getDungeonStaminaCost(level, soldierCount);
     const curStamina = Math.floor(this.state.stamina || 0);
     return {
       ...st,
@@ -6175,7 +6163,7 @@ export class GameStateManager {
     };
   }
 
-  // Savaş başlarken çağrılır: staminayı (gerekiyorsa) tahsil eder, girişi sayar, harcı alır.
+  // Savaş başlarken çağrılır: staminayı tahsil eder, girişi sayar, harcı alır.
   beginDungeonEntry(level, isBoss = false, { payGateFee = false, soldierCount = 1 } = {}) {
     const terms = this.getDungeonEntryTerms(level, isBoss, soldierCount);
     const c = this.state.dailyCounters;
@@ -6183,21 +6171,17 @@ export class GameStateManager {
     if (payFee && (this.state.adAstraBalance || 0) < terms.fee) {
       return { success: false, rewarded: false, fee: terms.fee, message: `Kapı harcı için ${terms.fee} ADA gerekli.` };
     }
-    if (!terms.nextIsFirstFree) {
-      const paid = this.deductDungeonStamina(level, soldierCount);
-      if (!paid.success) return { success: false, rewarded: false, fee: 0, message: paid.message };
-    }
+    const paid = this.deductDungeonStamina(level, soldierCount);
+    if (!paid.success) return { success: false, rewarded: false, fee: 0, message: paid.message };
 
     c.dungeonEntries = terms.entriesToday + 1;
-    const base = { success: true, entryNumber: c.dungeonEntries, firstFree: terms.nextIsFirstFree, weaponWear: terms.nextWeaponWear, staminaCost: terms.staminaCost };
+    const base = { success: true, entryNumber: c.dungeonEntries, firstEntry: terms.nextIsFirstEntry, weaponWear: terms.nextWeaponWear, staminaCost: terms.staminaCost };
     if (!terms.nextNeedsFee) {
       c.dungeonRuns = (c.dungeonRuns || 0) + 1;
       this.saveState();
       return {
         ...base, rewarded: true, fee: 0,
-        message: terms.nextIsFirstFree
-          ? '🎁 Günün ilk girişi: ücretsiz, silahların aşınmaz'
-          : `🎟️ Ödüllü giriş (${c.dungeonRuns}/${terms.freeTotal})`
+        message: `🎟️ Ödüllü giriş (${c.dungeonRuns}/${terms.freeTotal})${terms.nextWeaponWear ? '' : ' · silahların aşınmaz'}`
       };
     }
     if (payFee) {

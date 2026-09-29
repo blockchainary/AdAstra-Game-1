@@ -611,11 +611,12 @@ export const GAME_CONFIG = {
   // ═══════════════════════════════════════════════════════════════════════
   DUNGEON: {
     // v1.27 günlük giriş kuralları (Türkiye saatiyle gece yarısı yenilenir):
-    //  • 1. giriş: ücretsiz — stamina harcanmaz, silahlar aşınmaz.
-    //  • 2.–5. giriş: harçsız ödüllü giriş; stamina harcanır, silahlar aşınır.
+    //  • Her girişte stamina harcanır.
+    //  • 1. giriş: silahlar aşınmaz.
+    //  • 2.–5. giriş: harçsız ödüllü giriş; silahlar aşınır.
     //  • 6. girişten itibaren: kapı harcı ödenirse ödüllü, ödenmezse yalnız deneyim veren antrenman.
     DAILY_RUNS: 5,                    // harçsız ödüllü giriş sayısı
-    FREE_FIRST_ENTRY: true,           // günün ilk girişi stamina ve silah aşınması olmadan
+    FIRST_ENTRY_NO_WEAR: true,        // günün ilk girişinde silahlar aşınmaz
     // Harç, o katın temel ADA ödülünün bu oranı kadardır ve %100'ü zindan kasasına gider.
     GATE_FEE_RATE: 0.20,
     // Zindan kasası bir günde en fazla bakiyesinin bu oranı kadar ADA öder → kasa matematiksel olarak boşalamaz.
@@ -765,13 +766,9 @@ export const GAME_CONFIG = {
     LOTTERY: {
       TICKET_COST_ADA: 100,
       SEED_POOL_ADA: 20000000,     // 20.000.000 ADA AlphaVax Tohum Kasa
-      // Balina koruması (v1.27): iki ayrı sınır birlikte uygulanır.
-      //  • Haftalık alım: bir hesap bir haftada en fazla bu kadar bilet satın alabilir.
-      //  • Elde tutma: devreden biletler dahil bir hesabın elindeki bilet bu sayıyı geçemez.
-      //    Biletler yanmadan devrettiği için yalnız haftalık sınır yetmez; haftalarca biriktiren
-      //    bir hesap hem şansı tekeline alır hem de kazanınca kasadan (ödediği × 2) çok büyük pay çeker.
+      // Balina koruması: bir hesap bir haftada en fazla bu kadar bilet satın alabilir.
+      // Kazanmayan biletler yanmaz; sayı sınırı olmadan, kazanana kadar sonraki haftalara devreder.
       MAX_TICKETS_PER_ACCOUNT: 100,  // haftalık alım sınırı (10.000 ADA)
-      MAX_HELD_TICKETS: 400,         // elde tutulabilecek en fazla bilet (≈ 4 haftalık alım); en büyük ödül 80.000 ADA
       WINNER_MULTIPLIER: 2.0,        // Kazanan, biletlerine ödediğinin 2 katını alır
       AMORTI_SHARE: 0.02             // Bilet bedelinin %2'si amorti kasasına
     }
@@ -1089,12 +1086,12 @@ export const GAME_CONFIG = {
     },
     {
       version: 'v1.27',
-      title: '📊 Kota Paneli, Piyango Balina Koruması & Yeni Zindan Giriş Kuralları',
+      title: '📊 Kota Paneli & Yeni Zindan Giriş Kuralları',
       date: '29 Eylül 2026',
       changes: [
-        'Piyango: haftada en fazla 100 bilet alma sınırına ek olarak, bir hesabın elinde (devreden biletler dahil) en fazla 400 bilet olabilir. Biletler yanmadan devrettiği için tek başına haftalık sınır, haftalarca biriktirip kasayı emmeyi engellemiyordu. Çark parçaları da bu sınıra uyar.',
+        'Piyango: bir hesap haftada en fazla 100 bilet alabilir. Kazanmayan biletler yanmaz, sayı sınırı olmadan kazanana kadar sonraki haftalara devreder.',
         'Piyango ekranı gerçek kurallarla yenilendi: haftalık alımın, elindeki bilet, kazanırsan alacağın tutar, şansın ve sonraki çekilişe kalan süre.',
-        'Zindan: günün 1. girişi ücretsiz (stamina harcanmaz, silahlar aşınmaz). 2.–5. giriş harçsız ödüllüdür; stamina harcanır, savaşa giren her askerin silahı 1 aşınır. 6. girişten itibaren kapı harcı ödenir, ödenmezse antrenman girişi olur.',
+        'Zindan: her girişte stamina harcanır. Günün 1. girişinde silahlar aşınmaz. 2.–5. giriş harçsız ödüllüdür ve savaşa giren her askerin silahı 1 aşınır. 6. girişten itibaren kapı harcı ödenir, ödenmezse antrenman girişi olur.',
         'Yeni "Kota ve Sınırlar" paneli (üst bar 📊, yan panel veya K tuşu): dünya kotasının gün gün açılışı, şu an çıkarılabilecek miktar, zindan / kolezyum / piyango sınırların ve geri sayımlar.',
         'Kolezyum: günlük maç hakkı, anahtar ve stamina bedeli maçtan önce gösterilir; eksik olan kırmızıyla işaretlenir.',
         'Arayüz: bildirimler sağ alta alındı, mobilde bakiye kısaltıldı (1,97 Mn), dar ekranda üst menü taşmıyor, İngilizce etiketler Türkçeleştirildi, kışlada "Infinity" yazısı düzeltildi.',
