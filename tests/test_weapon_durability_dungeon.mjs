@@ -32,9 +32,10 @@ assert(gs.state.equipment.weapon, 'Krallık envanterinde silah olmalı');
 assert.equal(gs.state.equipment.weapon.durability, 13, 'Silah 13/13 dayanıklılıkla başlamalı');
 assert.equal(gs.state.equipment.weapon.maxDurability, 13, 'Max dayanıklılık 13 olmalı');
 
-// 4. Asker doğrudan silah kuşanmadığında krallık silahından yararlanabilmeli
+// 4. v1.25: Depodaki (kuşanılmamış) silah artık hiçbir askere güç vermez. Eski sürümde depodaki TEK
+//    eşya bütün kuşanmamış askerlere aynı anda bonus veriyordu (kopyalama açığı; kuşanmak zararlıydı).
 const statsShared = gs.getSoldierFullStats(0);
-assert(statsShared.bonusAtk >= 25, 'Asker krallık kılıcından ATK bonusu almalı');
+assert.equal(statsShared.bonusAtk, 0, 'Kuşanılmamış depo silahı askere bonus vermemeli');
 
 // 5. Silahı doğrudan askere kuşat
 const equipRes = gs.equipSoldierSlot(0, 'weapon');

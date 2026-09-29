@@ -18,7 +18,8 @@ test('🧪 Kullanıcı Akışı: 50k ADA -> Bot Satın Alma -> Silo Şişmeme ->
     assert.equal(gameState.state.inventory.wood, 60, 'Odun 60 kalmalı');
     assert.equal(gameState.state.inventory.iron, 50, 'Demir sadece 40->50 olarak tamamlanmalı');
     assert.equal(gameState.state.inventory.wheat, 80, 'Buğday 80 kalmalı (şişirilmemeli)');
-    assert.ok(gameState.state.adAstraBalance > 3500, 'Kasada kalan ADA korunmalı');
+    // v1.25: Bot ücreti doğal stamina yenilenmesini de hesaba katıyor (Lv.1'de ~800 ADA yüksek)
+    assert.ok(gameState.state.adAstraBalance > 2800, 'Kasada kalan ADA korunmalı');
   });
 
   await t.test('2. 6 Saat İleri Sarıldığında (fastForwardTime) browser donmadan <100ms içinde 60 sefer tamamlayıp siloyu yükseltmeli', () => {

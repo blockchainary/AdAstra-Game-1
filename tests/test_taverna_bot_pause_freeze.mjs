@@ -65,7 +65,11 @@ describe('24 Saatlik Taverna Botu - 50x Önkoşul Kaynak ve Süre Dondurma (Free
     assert.ok(remainingBeforePause > 23 * 3600 * 1000, 'Kalan süre ~24 saat olmalı');
 
     // Odun miktarını 20ye düşürelim ve ADA kalmasın (satın alamaz -> duraklatılır)
+    // v1.25: Bot, 50'nin üstündeki fazlayı satıp eksiği kendisi tamamlayabiliyorsa durmaz (kullanıcı kuralı:
+    // "yetersiz ADA'da malzeme satarak devam et"). Burada satılabilecek fazla yok denecek kadar az → durmalı.
     gameState.state.inventory.wood = 20;
+    gameState.state.inventory.iron = 52;
+    gameState.state.inventory.wheat = 52;
     gameState.state.adAstraBalance = 0;
 
     // Bot pause durumunu kontrol et
@@ -90,8 +94,10 @@ describe('24 Saatlik Taverna Botu - 50x Önkoşul Kaynak ve Süre Dondurma (Free
     gameState.state.botActiveUntil = Date.now() + oneHourMs;
     gameState.state.tavernaBotExpiresAt = gameState.state.botActiveUntil;
 
-    // Demir 10a düştü ve ADA yok -> Bot duraklatıldı
+    // Demir 10a düştü ve ADA yok -> Bot duraklatıldı (satılabilecek fazla da yok)
     gameState.state.inventory.iron = 10;
+    gameState.state.inventory.wood = 52;
+    gameState.state.inventory.wheat = 52;
     gameState.state.adAstraBalance = 0;
     gameState.updateBotPauseState();
 

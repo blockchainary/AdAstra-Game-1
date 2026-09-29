@@ -79,13 +79,16 @@ const cap1 = gs.getWarehouseCapacity(1);
 
 // %80 barajları: wood: 864 (1080 * 0.8), iron: 576 (720 * 0.8), wheat: 1440 (1800 * 0.8)
 // Depoları %80'in üzerine koyalım (fazlalık olsun: 1050 wood, 700 iron, 1700 wheat)
-gs.state.inventory.wood = 1050; // 1050 - 864 = 186 fazlalık (~465 ADA)
-gs.state.inventory.iron = 700;  // 700 - 576 = 124 fazlalık (~496 ADA)
-gs.state.inventory.wheat = 1700; // 1700 - 1440 = 260 fazlalık (~234 ADA) -> Toplam ~1195 ADA > 1027 ADA açık
+// v1.25: Bot yükseltmeden sonra kasada en az 500 ADA güvenlik payı bırakır; bu yüzden açık ~1.130 ADA.
+// Depolar tam dolu: %80 üstü fazlalık ~1.440 ADA eder ve açığı kapatır.
+gs.state.inventory.wood = 1080; // 1080 - 864 = 216 fazlalık (~540 ADA)
+gs.state.inventory.iron = 720;  // 720 - 576 = 144 fazlalık (~576 ADA)
+gs.state.inventory.wheat = 1800; // 1800 - 1440 = 360 fazlalık (~324 ADA)
 
 // ADA bakiyesini kasıtlı olarak açıklı yapalım (Örn: 3131 gerekiyor, 2500 var, açık ~631 ADA)
 // %80 barajı üzerindeki fazlalıklar satılarak bu açık kapatılacak!
-gs.state.adAstraBalance = 2500;
+// v1.25: 500 ADA güvenlik payı nedeniyle başlangıç 2.800 (açık = 3.457 + 500 − 2.800 ≈ 1.157 ADA, fazlalık satışıyla kapanır)
+gs.state.adAstraBalance = 2800;
 
 const costBefore = gs.getWarehouseUpgradeCost();
 console.log('Silo Yükseltme Durumu Öncesi:');

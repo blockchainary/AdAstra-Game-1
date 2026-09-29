@@ -49,8 +49,8 @@ console.log(`Eski Fiyatlar: Odun: ${oldWoodPrice.toFixed(4)} ADA, Demir: ${oldIr
 
 // Pazarda büyük bir alım simüle ederek fiyatları yükseltelim
 // (veya havuz rezervlerini doğrudan değiştirerek fiyat artışı oluşturalım)
-ammMarket.pools.wood.adAstraReserve = 20000000; // 20M ADA / 4M Odun = ~5.0 ADA (2x Fiyat)
-ammMarket.pools.iron.adAstraReserve = 20000000; // 20M ADA / 2.5M Demir = ~8.0 ADA (2x Fiyat)
+ammMarket.pools.wood.adAstraReserve *= 2; // v1.25: pazar 80 kat derin — fiyatı 2 katına çıkar
+ammMarket.pools.iron.adAstraReserve *= 2;
 ammMarket.savePools();
 
 const newWoodPrice = ammMarket.getPrice('wood');
@@ -139,8 +139,8 @@ assert(initialWeaponCraft.ironCost > 0, 'Silah dövme demir istemeli');
 assert(initialWeaponCraft.adaCost > 0, 'Silah dövme ADA istemeli');
 
 // Piyasa fiyatını yükseltelim
-ammMarket.pools.wood.adAstraReserve = 25000000;
-ammMarket.pools.iron.adAstraReserve = 25000000;
+ammMarket.pools.wood.adAstraReserve *= 2.5; // v1.25: derin pazarda oransal artış
+ammMarket.pools.iron.adAstraReserve *= 2.5;
 ammMarket.savePools();
 
 const highWeaponCraft = gs.calculateEquipmentCraftCost('weapon');
@@ -171,8 +171,8 @@ const normalUpgradeCost = gs.calculateEquipmentUpgradeCost(testSword);
 const normalRepairCost = gs.calculateEquipmentRepairCost(testSword);
 
 // Fiyatları yükseltelim
-ammMarket.pools.wood.adAstraReserve = 25000000;
-ammMarket.pools.iron.adAstraReserve = 25000000;
+ammMarket.pools.wood.adAstraReserve *= 2.5; // v1.25: derin pazarda oransal artış
+ammMarket.pools.iron.adAstraReserve *= 2.5;
 ammMarket.savePools();
 
 const highUpgradeCost = gs.calculateEquipmentUpgradeCost(testSword);

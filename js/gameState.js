@@ -4,13 +4,22 @@ import { globalPool } from './globalPool.js';
 import { sound } from './audio.js';
 import { ammMarket } from './ammMarket.js';
 import { treasury } from './treasury.js';
-import { createUnit, simulateBattle } from './combat.js';
+import { createUnit, simulateBattle, predictBattle, DEFAULT_BOSS_PHASES } from './combat.js';
+import { getDungeonEntry } from './bestiary.js';
+import { splitTicketPayment, runDraw, winChance as lotteryWinChance } from './economy/lottery.js';
+import { levelWeight as ubiLevelWeight } from './economy/ubi.js';
 
 export class GameStateManager {
   constructor() {
     this.storageKey = 'adastra_player_save_v6';
+    this._simNow = null;       // Simülasyon saati (çevrimdışı telafi / ileri sarma sırasında dolu)
+    this._lastSaveAt = 0;      // Kare döngüsünden gelen kayıtları seyreltmek için
     this.state = this.loadState();
     this.listeners = [];
+    // Piyango: ilk açılışta mevcut haftayı "çekilişi yapılmış" say (yeni hesap geçmiş haftayı çekemez)
+    if (this.state.lastLotteryDrawEpoch == null && globalPool && globalPool.state) {
+      this.state.lastLotteryDrawEpoch = globalPool.state.epochId || 1;
+    }
     // 🛡️ Amorti İade Havuzu Düzeltmesi: Bilet alınmışsa ve amorti kasası 0 kalmışsa %2 payını anında aktar
     if (this.state.lotteryTickets > 0 && (!this.state.lotteryAmortiPool || this.state.lotteryAmortiPool === 0)) {
       const ticketCost = (GAME_CONFIG.CARNIVAL?.LOTTERY?.TICKET_COST_ADA || 100);
@@ -23,6 +32,23 @@ export class GameStateManager {
         this.tickUpgradeCostBot(0);
         this.notifyListeners();
       });
+    }
+  }
+
+  // ⏱️ Oyun saati: normalde gerçek saat; çevrimdışı telafi ve ileri sarmada simülasyon saati.
+  // Bot süresi, sefer başlangıcı ve güçlendirme süreleri hep bu saate göre hesaplanır; böylece
+  // "oyun 25 saat kapalı kaldı" gibi durumlarda bot, süresi dolduğu ana kadar doğru çalışır.
+  _now() {
+    return this._simNow != null ? this._simNow : Date.now();
+  }
+
+  // Kare döngüsünden gelen küçük değişiklikler (stamina, iyileşme, sefer ilerlemesi) için seyreltilmiş kayıt.
+  // Oyuncu eylemleri saveState() ile hemen kaydedilmeye devam eder.
+  requestSave(minIntervalMs = 2000) {
+    const t = Date.now();
+    if (this._isFastForwarding) return;
+    if (t - (this._lastSaveAt || 0) >= minIntervalMs) {
+      this.saveState();
     }
   }
 
@@ -86,7 +112,19 @@ export class GameStateManager {
       combatPresets: this.mergeCombatPresets(parsed.combatPresets),
       dungeonMonsterCurrentHp: parsed.dungeonMonsterCurrentHp || {},
       lotteryTickets: parsed.lotteryTickets || 0,
-      lotteryPool: (parsed.lotteryPool != null && parsed.lotteryPool >= 20000000) ? parsed.lotteryPool : (GAME_CONFIG.LOTTERY?.SEED_POOL_ADA || 20000000),
+      // v1.25: Piyango kasası artık her yüklemede 20M'a tamamlanmıyor (sonsuz para açığıydı).
+      // Kayıtlı bakiye neyse o; yalnızca hiç kayıt yoksa tohum ile başlar.
+      lotteryPool: (parsed.lotteryPool != null && isFinite(parsed.lotteryPool) && parsed.lotteryPool >= 0)
+        ? parsed.lotteryPool
+        : (GAME_CONFIG.CARNIVAL?.LOTTERY?.SEED_POOL_ADA || 20000000),
+      lotteryPendingPayout: Number(parsed.lotteryPendingPayout) || 0,
+      lastLotteryDrawEpoch: parsed.lastLotteryDrawEpoch ?? null,
+      lastLotteryResult: parsed.lastLotteryResult || null,
+      onboarding: (parsed.onboarding && typeof parsed.onboarding === 'object') ? parsed.onboarding : {},
+      botTrialUsed: !!parsed.botTrialUsed,
+      pendingNotices: Array.isArray(parsed.pendingNotices) ? parsed.pendingNotices.slice(-20) : [],
+      offlineReport: parsed.offlineReport || null,
+      lastSeenAt: parsed.lastSeenAt || 0,
       lotteryAmortiPool: (parsed.lotteryAmortiPool != null && parsed.lotteryAmortiPool > 0)
         ? parsed.lotteryAmortiPool
         : Math.round((parsed.lotteryTickets || 0) * (GAME_CONFIG.CARNIVAL?.LOTTERY?.TICKET_COST_ADA || 100) * (GAME_CONFIG.CARNIVAL?.LOTTERY?.AMORTI_SHARE || 0.02)),
@@ -219,7 +257,8 @@ export class GameStateManager {
 
       return {
         id: s.id || `soldier_${i + 1}`,
-        name: `AdAstra Şampiyonu #${i + 1}`,
+        // v1.25: Oyuncunun verdiği isim korunur (eskiden her yüklemede varsayılana dönüyordu)
+        name: (typeof s.name === 'string' && s.name.trim()) ? s.name : `AdAstra Şampiyonu #${i + 1}`,
         class: 'adastra_champion',
         className: 'AdAstra Şampiyonu',
         icon: '⚔️',
@@ -352,8 +391,10 @@ export class GameStateManager {
     const soldier = (this.state.soldierUnits || [])[soldierIndex];
     if (!soldier) return null;
     const eq = soldier.equipment || {};
+    // v1.25: Yalnızca askerin kendi üstündeki eşyalar sayılır. Eski sürüm, askerin boş yuvası için
+    // depodaki eşyayı da sayıyordu; depodaki tek eşya bütün askerlere aynı anda güç veriyordu.
     const count = ['weapon', 'helmet', 'armor', 'legs', 'boots'].filter(slot => {
-      const item = eq[slot] || (this.state.equipment ? this.state.equipment[slot] : null);
+      const item = eq[slot];
       return item && (item.durability === undefined || item.durability > 0);
     }).length;
 
@@ -372,7 +413,7 @@ export class GameStateManager {
     const eq = soldier.equipment || {};
 
     ['weapon', 'helmet', 'armor', 'legs', 'boots'].forEach(slot => {
-      const item = eq[slot] || (this.state.equipment ? this.state.equipment[slot] : null);
+      const item = eq[slot];
       if (item && (item.durability === undefined || item.durability > 0)) {
         bonusAtk += (item.atkBonus || 0);
         bonusHp += (item.hpBonus || 0);
@@ -528,7 +569,7 @@ export class GameStateManager {
       this.state.isPassiveHealPaused = false;
     }
 
-    if (changed) this.saveState();
+    if (changed) this.requestSave();
     return { 
       wheatRanOut: this.isArmyPassiveHealBlocked(),
       isPaused: this.isArmyPassiveHealBlocked()
@@ -569,7 +610,7 @@ export class GameStateManager {
 
     return {
       success: true,
-      message: `⚡ ${soldier.name} anında tam cana kavuştu! (-${info.wheatNeeded} 🌾 Buğday, -${info.adaCost} 🟣 ADA • 🔥 %22 Yakıldı)`
+      message: `⚡ ${soldier.name} anında tam cana kavuştu! (-${info.wheatNeeded} 🌾 Buğday, -${info.adaCost} 🟣 ADA • 🔥 %13 Yakıldı)`
     };
   }
 
@@ -629,18 +670,26 @@ export class GameStateManager {
       // 🚀 Simülasyon sırasında diske senkron yazma ve listener tetikleme, sadece bellek içi state güncelle
       return;
     }
+    this.state.lastSeenAt = Date.now();
+    this._lastSaveAt = this.state.lastSeenAt;
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(this.storageKey, JSON.stringify(this.state));
     }
     this.notifyListeners();
   }
 
-  subscribe(callback) {
-    this.listeners.push(callback);
+  // 📣 Oyuncuya gösterilecek bildirimler (arayüz her karede toplayıp kısa mesaj olarak gösterir)
+  pushNotice(message, type = 'info') {
+    if (!message) return;
+    if (!Array.isArray(this.state.pendingNotices)) this.state.pendingNotices = [];
+    this.state.pendingNotices.push({ message, type, at: this._now() });
+    if (this.state.pendingNotices.length > 20) this.state.pendingNotices.splice(0, this.state.pendingNotices.length - 20);
   }
 
-  notifyListeners() {
-    this.listeners.forEach(fn => fn(this.state));
+  consumeNotices() {
+    const list = Array.isArray(this.state.pendingNotices) ? this.state.pendingNotices : [];
+    this.state.pendingNotices = [];
+    return list;
   }
 
   // Karakter Seviyesine Göre Sefer Süresi (Lv 1: 18 dakika / 0.3 saat / 1080 saniye, Lv 81: 72 saat / 4320 dakika / 259200 saniye)
@@ -762,10 +811,11 @@ export class GameStateManager {
   // Doğal Stamina Yenilenmesi (Maksimum Stamina Sınırına Göre)
   regenerateStamina(deltaSeconds) {
     const maxStamina = this.getMaxStamina();
-    if (this.state.stamina < maxStamina) {
+    if (this.state.stamina < maxStamina && deltaSeconds > 0) {
       const regenAmount = (deltaSeconds / GAME_CONFIG.STAMINA_NATURAL_REGEN_INTERVAL);
       this.state.stamina = Math.min(maxStamina, this.state.stamina + regenAmount);
-      this.saveState();
+      // v1.25: Eskiden her karede (saniyede 60 kez) tüm kayıt diske yazılıyordu.
+      this.requestSave();
     }
   }
 
@@ -899,13 +949,14 @@ export class GameStateManager {
       baseDurationSec = Math.floor(baseDurationSec / 1.5);
     }
 
-    const now = Date.now();
+    const now = this._now();
     this.state.stamina -= staminaCost;
     this.state.activeExpeditions[nodeId] = {
       nodeId,
       durationMinutes: minutes,
       durationHours: hours,
       durationSeconds: baseDurationSec,
+      ratePerMinute: this.getResourceRatePerMinute(nodeId),
       elapsedSeconds: 0,
       startedAt: now,
       lastTickAt: now,
@@ -924,83 +975,168 @@ export class GameStateManager {
     return 1.0;
   }
 
+  // =========================================================================
+  // ⏳ ZAMAN SİMÜLASYON MOTORU (Çevrimdışı telafi + Test menüsü ileri sarma)
+  // =========================================================================
+  // [startMs, startMs + seconds] aralığını olay olay işletir:
+  //  • Bot o anda aktifse (süresi dolmamış ve duraklatılmamışsa) hasat → tamir → stamina → silo → yeni sefer
+  //  • Bot süresi aralığın içinde dolarsa oto-yenileme o anda denenir; yenilenemezse bot durur
+  //  • Seferler, doğal stamina yenilenmesi ve askerlerin pasif iyileşmesi ilerler
+  // Eski sürümde çevrimdışı telafi bot o an aktif değilse hiç çalışmıyordu (25 saat kapalı kalan
+  // oyuncunun bütün günlük işi kayboluyordu), en fazla 24 saat ve 80 döngüyle sınırlıydı.
+  simulateTimePassage(totalSeconds, { startMs = Date.now() } = {}) {
+    const report = {
+      seconds: Math.max(0, totalSeconds),
+      expeditionsClaimed: 0,
+      botRenewals: 0,
+      botWorkedSeconds: 0,
+      botStoppedReason: null,
+      before: this._snapshotEconomy(),
+      after: null
+    };
+    if (!(totalSeconds > 0)) { report.after = report.before; return report; }
+
+    const nodes = ['wood', 'iron', 'wheat'];
+    const prevSim = this._simNow;
+    const wasFF = this._isFastForwarding;
+    this._isFastForwarding = true;
+    const endMs = startMs + totalSeconds * 1000;
+    let t = startMs;
+    let guard = 20000;
+    const countClaims = (actions) => {
+      for (const a of (actions || [])) if (typeof a === 'string' && a.includes('toplandı')) report.expeditionsClaimed++;
+    };
+
+    try {
+      while (t < endMs && guard-- > 0) {
+        this._simNow = t;
+        const renewCountBefore = this.state.botRenewCount || 0;
+
+        // Süresi dolmuş bot: oto-yenileme açıksa tam bu anda yenilemeyi dene
+        if (!this.hasPurchasedBot() && this.state.botAutoRenew24h &&
+            (this.state.botActiveUntil || this.state.tavernaBotExpiresAt || (this.state.activeBuffs && this.state.activeBuffs.auto_collector))) {
+          this.updateBotPauseState();
+        }
+
+        // Duraklatılmış bot simülasyon boyunca kendi kendine uyanmaz (süresi donuk kalır);
+        // oyuncu döndüğünde eksik kaynak tamamlanınca canlı döngüde devam eder.
+        if (this.hasPurchasedBot() && !this.isBotPaused()) {
+          const res = this.runTavernaAutomationCycle();
+          countClaims(res && res.actions);
+        }
+        report.botRenewals += Math.max(0, (this.state.botRenewCount || 0) - renewCountBefore);
+
+        const botActive = this.hasPurchasedBot() && !this.isBotPaused();
+
+        // Bir sonraki olay: en yakın sefer bitişi, bot süresinin dolması veya aralığın sonu
+        let nextSec = (endMs - t) / 1000;
+        let anyRunning = false;
+        for (const nodeId of nodes) {
+          const exp = this.state.activeExpeditions ? this.state.activeExpeditions[nodeId] : null;
+          if (exp && !exp.isCompleted) {
+            anyRunning = true;
+            const need = Math.max(1, exp.durationSeconds - (exp.elapsedSeconds || 0));
+            if (need < nextSec) nextSec = need;
+          }
+        }
+        if (botActive) {
+          const expiry = this.getAutoCollectorExpiry();
+          const toExpiry = (expiry - t) / 1000;
+          if (toExpiry > 0 && toExpiry < nextSec) nextSec = Math.max(1, toExpiry);
+          // Bot açık ama stamina yetmediği için sefer başlatamadıysa, stamina dolana kadar küçük adımlarla bekle
+          if (!anyRunning) nextSec = Math.min(nextSec, 600);
+        }
+        if (!(nextSec > 0)) nextSec = Math.min(60, (endMs - t) / 1000);
+
+        // Zamanı ilerlet
+        for (const nodeId of nodes) {
+          const exp = this.state.activeExpeditions ? this.state.activeExpeditions[nodeId] : null;
+          if (exp && !exp.isCompleted) {
+            exp.elapsedSeconds = Math.min(exp.durationSeconds, (exp.elapsedSeconds || 0) + nextSec);
+            exp.lastTickAt = t + nextSec * 1000;
+            if (exp.elapsedSeconds >= exp.durationSeconds) exp.isCompleted = true;
+          }
+        }
+        this.regenerateStamina(nextSec);
+        this.processSoldierPassiveHealing(nextSec);
+        if (botActive) report.botWorkedSeconds += nextSec;
+        t += nextSec * 1000;
+      }
+
+      // Aralığın sonunda son bir döngü: biten seferleri topla, aletleri onar
+      this._simNow = endMs;
+      if (this.hasPurchasedBot() && !this.isBotPaused()) {
+        const res = this.runTavernaAutomationCycle();
+        countClaims(res && res.actions);
+      }
+      if (this.hasPurchasedBot() && this.isBotPaused()) {
+        report.botStoppedReason = this.checkBotPrerequisites().missingText || 'Kaynak eksik';
+      } else if (!this.hasPurchasedBot() && report.botWorkedSeconds > 0) {
+        report.botStoppedReason = 'Bot süresi doldu';
+      }
+    } finally {
+      this._simNow = prevSim;
+      this._isFastForwarding = wasFF;
+    }
+
+    report.after = this._snapshotEconomy();
+    return report;
+  }
+
+  _snapshotEconomy() {
+    const inv = this.state.inventory || {};
+    return {
+      wood: Number(inv.wood) || 0,
+      iron: Number(inv.iron) || 0,
+      wheat: Number(inv.wheat) || 0,
+      ada: Number(this.state.adAstraBalance) || 0,
+      warehouseLevel: Number(this.state.warehouseLevel) || 1,
+      xp: Number(this.state.currentXp) || 0
+    };
+  }
+
+  // 🌙 Oyun kapalıyken (veya sekme arka plandayken) geçen süreyi bir kez işler ve
+  // oyuncuya gösterilecek "Sen yokken olanlar" raporunu hazırlar.
+  processOfflineProgress(gapSeconds, fromMs) {
+    const maxH = (GAME_CONFIG.TAVERNA_BOT && GAME_CONFIG.TAVERNA_BOT.MAX_OFFLINE_CATCHUP_HOURS) || 168;
+    const seconds = Math.min(gapSeconds, maxH * 3600);
+    const skipped = Math.max(0, gapSeconds - seconds);
+    const report = this.simulateTimePassage(seconds, { startMs: fromMs + skipped * 1000 });
+    const now = Date.now();
+    for (const nodeId of Object.keys(this.state.activeExpeditions || {})) {
+      const exp = this.state.activeExpeditions[nodeId];
+      if (exp) exp.lastTickAt = now;
+    }
+    if (seconds >= 15 * 60 && (report.expeditionsClaimed > 0 || report.botWorkedSeconds > 0)) {
+      this.state.offlineReport = { ...report, at: now, skippedSeconds: skipped };
+    }
+    this.saveState();
+    return report;
+  }
+
   updateExpeditions(deltaSeconds) {
     let hasChanges = false;
     const now = Date.now();
     const speedMult = this.getExpeditionSpeedMultiplier();
     const isBot = this.isAutoCollectorActive() || this.hasPurchasedBot();
 
-    // 1. En büyük zaman farkını bul (çevrimdışı/arka plan süresi)
-    let maxDiff = deltaSeconds || 0;
-    for (const nodeId of Object.keys(this.state.activeExpeditions || {})) {
-      const exp = this.state.activeExpeditions[nodeId];
-      if (exp && !exp.isCompleted && exp.lastTickAt && exp.lastTickAt > 0) {
-        const diff = (now - exp.lastTickAt) / 1000;
-        if (diff > maxDiff) maxDiff = Math.min(diff, 86400); // En fazla 24 saat
-      }
-    }
-
-    // 🤖 ÇOKLU DÖNGÜ & ÇEVRİMDIŞI / ARKA PLAN İLERLEME MOTORU (PARALLEL CATCH-UP ENGINE)
-    // Eğer bot aktifse ve geçen süre 1 seferden (örn. 1080s) uzunsa:
-    // 3 sefer alanını (Odun, Demir, Buğday) paralel simüle ederek ardışık tüm döngüleri işlet!
-    if (isBot && maxDiff > 1080) {
-      this._isFastForwarding = true;
-      try {
-        let remainingTime = maxDiff;
-        let safetyCounter = 80; // Maksimum 80 sefer (~24 saat)
-        while (remainingTime > 0 && safetyCounter-- > 0) {
-          let minNeeded = remainingTime;
-          let anyActive = false;
-          for (const nodeId of ['wood', 'iron', 'wheat']) {
-            const exp = this.state.activeExpeditions ? this.state.activeExpeditions[nodeId] : null;
-            if (exp && !exp.isCompleted) {
-              anyActive = true;
-              const needed = Math.max(1, (exp.durationSeconds - (exp.elapsedSeconds || 0)) / speedMult);
-              if (needed < minNeeded) minNeeded = needed;
-            }
-          }
-
-          if (!anyActive) {
-            this.runTavernaAutomationCycle();
-            hasChanges = true;
-            let startedAny = false;
-            for (const nid of ['wood', 'iron', 'wheat']) {
-              const exp = this.state.activeExpeditions ? this.state.activeExpeditions[nid] : null;
-              if (exp && !exp.isCompleted) { startedAny = true; break; }
-            }
-            if (!startedAny || this.isBotPaused()) break;
-            continue;
-          }
-
-          const stepToApply = Math.min(remainingTime, minNeeded);
-          remainingTime -= stepToApply;
-
-          for (const nodeId of ['wood', 'iron', 'wheat']) {
-            const exp = this.state.activeExpeditions ? this.state.activeExpeditions[nodeId] : null;
-            if (exp && !exp.isCompleted) {
-              exp.elapsedSeconds = Math.min(exp.durationSeconds, (exp.elapsedSeconds || 0) + (stepToApply * speedMult));
-              exp.lastTickAt = now;
-              if (exp.elapsedSeconds >= exp.durationSeconds) {
-                exp.isCompleted = true;
-              }
-            }
-          }
-          hasChanges = true;
-
-          this.runTavernaAutomationCycle();
-          if (this.isBotPaused()) break;
-        }
-
+    // 1. Çevrimdışı / arka plan boşluğunu bul: son kare (oturum içi) ya da son kayıt (oturumlar arası)
+    if (!this._isFastForwarding) {
+      let lastSeen = this._lastFrameAt || this.state.lastSeenAt || 0;
+      // Eski kayıtlar için yedek: sefer zaman damgaları
+      if (!lastSeen) {
         for (const nodeId of Object.keys(this.state.activeExpeditions || {})) {
           const exp = this.state.activeExpeditions[nodeId];
-          if (exp) exp.lastTickAt = now;
+          if (exp && !exp.isCompleted && exp.lastTickAt > 0) lastSeen = lastSeen ? Math.min(lastSeen, exp.lastTickAt) : exp.lastTickAt;
         }
-      } finally {
-        this._isFastForwarding = false;
       }
-      this.enforceWarehouseLimits();
-      this.saveState();
-      return;
+      const gapSec = lastSeen ? (now - lastSeen) / 1000 : 0;
+      this._lastFrameAt = now;
+      this.state.lastSeenAt = now;
+      if (gapSec > 90) {
+        this.processOfflineProgress(gapSec, lastSeen);
+        return;
+      }
     }
 
     // Normal Frame Akışı (Realtime 60fps)
@@ -1060,15 +1196,10 @@ export class GameStateManager {
     // Eğer hammadde eksikse ve kasada ADA varsa botun durmaması için asgari (50x) tamamlanır.
     // Kasada ADA yoksa bot duraklatılır ve süre dondurulur.
     // =========================================================================
-    this.updateBotPauseState();
-    if (this.isBotPaused()) {
-      return { active: false, paused: true, actions };
-    }
-
     // =========================================================================
     // 1. ÖNCE TAMAMLANAN SEFERLERİ TOPLA (Hasat)
-    // Sefer bitmişse veya süresi dolmuşsa derhal toplanır.
-    // Bu sayede ambara buğday, demir ve odun girer; yetersizlik çözülür.
+    // v1.25: Hasat artık önkoşul kontrolünden ÖNCE yapılır. Eskiden bot, seferde bekleyen hazır ürünü
+    // toplamadan önce eksik malzemeyi pazardan satın alıyordu (gereksiz harcama).
     // =========================================================================
     let hasClaimedAny = false;
     for (const nodeId of nodes) {
@@ -1083,6 +1214,15 @@ export class GameStateManager {
       }
     }
 
+    this.updateBotPauseState();
+    if (this.isBotPaused()) {
+      if (actions.length > 0) {
+        this.state.lastBotActions = actions;
+        this.saveState();
+      }
+      return { active: false, paused: true, actions };
+    }
+
     // =========================================================================
     // 2. ALETLERİ ONAR
     // Aşınmış veya hasar görmüş aletleri depodaki kaynaklarla otonom tamir et
@@ -1094,9 +1234,11 @@ export class GameStateManager {
       if (tool && tool.durability < maxDur) {
         const repCost = this.calculateRepairCost(toolId);
         if (repCost && repCost.missingDurability > 0) {
-          // A) ADA yetersizse aletleri onarmak için ihtiyaç duyduğu ADA miktarı kadar depodaki kaynaklardan eşit miktarda satarak pazardan ADA elde eder
-          if ((this.state.adAstraBalance || 0) < repCost.adAstraCost) {
-            const fundRes = this.autoFundBotAdaDeficit(repCost.adAstraCost, { wood: repCost.woodCost, iron: repCost.ironCost });
+          // A) Tamir bedeli ödenince kasa güvenlik payının altına inecekse, önce depodaki fazla üründen eşit miktarda
+          //    satarak ADA temin eder (v1.25: güvenlik payı yalnızca silo için değil, tamir için de korunur).
+          //    Satacak ürün kalmadıysa tamir yine yapılır; bot durmaz.
+          if (!this._botCanSpend(repCost.adAstraCost)) {
+            const fundRes = this.autoFundBotAdaDeficit(repCost.adAstraCost + this.getBotAdaReserve(), { wood: repCost.woodCost, iron: repCost.ironCost });
             if (fundRes && fundRes.funded) {
               actions.push(`⚖️ Bot Alet Tamir Finansmanı: Tamir için gereken ${repCost.adAstraCost} ADA için kaynaklardan eşit miktarda (${fundRes.toSell?.wood || 0} Odun, ${fundRes.toSell?.iron || 0} Demir, ${fundRes.toSell?.wheat || 0} Buğday) satılarak +${fundRes.totalEarned?.toFixed(1)} ADA temin edildi.`);
             }
@@ -1287,11 +1429,14 @@ export class GameStateManager {
     let unitsPerNode = Math.ceil(targetToRaise / sumPrices);
     if (unitsPerNode < 1) unitsPerNode = 1;
 
-    // Depodaki kullanılabilir stokları kontrol et (preserveResources hariç tutulur)
+    // Depodaki kullanılabilir stokları kontrol et (preserveResources hariç tutulur).
+    // v1.25: Botun çalışma önkoşulu olan 50'lik taban da her zaman korunur; bot hiçbir malzemeyi
+    // 50'nin altına satmaz (sat-al kısır döngüsünün kaynağı buydu).
+    const floorKeep = 50;
     const curStocks = {
-      wood: Math.max(0, (Number(inv.wood) || 0) - (preserveResources?.wood || 0)),
-      iron: Math.max(0, (Number(inv.iron) || 0) - (preserveResources?.iron || 0)),
-      wheat: Math.max(0, (Number(inv.wheat) || 0) - (preserveResources?.wheat || 0))
+      wood: Math.max(0, (Number(inv.wood) || 0) - (preserveResources?.wood || 0) - floorKeep),
+      iron: Math.max(0, (Number(inv.iron) || 0) - (preserveResources?.iron || 0) - floorKeep),
+      wheat: Math.max(0, (Number(inv.wheat) || 0) - (preserveResources?.wheat || 0) - floorKeep)
     };
 
     // Tüm malzemelerden eşit miktarda satmayı hedefle
@@ -1445,7 +1590,9 @@ export class GameStateManager {
 
     const inv = this.state.inventory = this.state.inventory || {};
     let curAda = Number(this.state.adAstraBalance) || 0;
-    if (curAda <= 0.5) {
+    // v1.25: Bot, çalışma önkoşulu olan 50 ADA'yı asla harcamaz; yalnızca üstündeki parayla alım yapar.
+    const adaFloor = 50;
+    if (curAda - adaFloor <= 0.5) {
       return { bought: false, reason: 'no_ada_balance', currentBalance: curAda };
     }
 
@@ -1483,7 +1630,8 @@ export class GameStateManager {
     const itemsPurchasedText = [];
 
     for (const item of missingNodes) {
-      if (curAda <= 0.1) break;
+      const spendable = curAda - adaFloor;
+      if (spendable <= 0.1) break;
       const node = item.node;
       let qtyToBuy = item.missing;
 
@@ -1492,16 +1640,18 @@ export class GameStateManager {
       if (typeof ammMarket.getEstimatedCostForBuy === 'function') {
         estCost = ammMarket.getEstimatedCostForBuy(node, qtyToBuy);
       }
-      if (!isFinite(estCost) || estCost <= 0 || estCost > curAda) {
+      if (!isFinite(estCost) || estCost <= 0 || estCost > spendable) {
+        // v1.25: Parası yetmeyen miktar alınmaz. Eskiden en az 1 birim alınıyor (Math.max(1, …)),
+        // bakiye 0'da kırpıldığı için ödenmeyen fark yoktan kapanıyordu.
         const p = (typeof ammMarket.getPrice === 'function') ? ammMarket.getPrice(node) : 1;
-        const affordable = Math.floor(curAda / (Math.max(0.01, p) * 1.05));
-        qtyToBuy = Math.min(item.missing, Math.max(1, affordable));
+        qtyToBuy = Math.min(item.missing, Math.floor(spendable / (Math.max(0.01, p) * 1.08)));
+        while (qtyToBuy > 0 && ammMarket.getEstimatedCostForBuy(node, qtyToBuy) > spendable) qtyToBuy--;
       }
 
       if (qtyToBuy > 0) {
         const buyRes = ammMarket.executeBuyAmount(node, qtyToBuy);
         if (buyRes && buyRes.success) {
-          curAda = Math.max(0, curAda - buyRes.cost);
+          curAda = curAda - buyRes.cost;
           this.state.adAstraBalance = curAda;
           inv[node] = (Number(inv[node]) || 0) + buyRes.resourceReceived;
           totalSpentAda += buyRes.cost;
@@ -1534,7 +1684,7 @@ export class GameStateManager {
 
   // ⏸️ Botun Duraklatılması (Pause) ve Süresinin Azalmadan Dondurulması (Freeze) Motoru
   updateBotPauseState() {
-    const now = Date.now();
+    const now = this._now();
     const isTavernaBotPurchased = (this.state.tavernaBotActive && (this.state.tavernaBotExpiresAt || 0) > now) ||
                                   (this.state.botActiveUntil && this.state.botActiveUntil > now) ||
                                   (this.state.activeBuffs && this.state.activeBuffs['auto_collector'] && (this.state.activeBuffs['auto_collector'].expiresAt || 0) > now) ||
@@ -1563,14 +1713,23 @@ export class GameStateManager {
     let prereq = this.checkBotPrerequisites();
 
     // 🤖 KULLANICI KURALI: Çift Yönlü Bot Dengeleme ve Kesintisiz Çalışma Motoru!
-    // 1) Eğer ADA < 50 olduğu için duracaksa depodaki kaynaklardan eşit satıp ADA temin et:
+    // v1.25: Sat-al kısır döngüsü kaldırıldı. Eskiden ADA ve bir malzeme aynı anda 50'nin altındayken bot
+    // eksik malzemeyi de satıp hemen geri alıyordu (saniyede onlarca işlem, her turda komisyon kaybı).
+    // Artık: satış yalnızca 50'nin ÜSTÜNDEKİ fazladan yapılır, alım yalnızca 50 ADA'nın ÜSTÜNDEKİ parayla yapılır.
     if (!prereq.isMet) {
       const hasAdaMissing = prereq.missing.some(m => m.key === 'adAstra');
-      if (hasAdaMissing) {
-        const fundRes = this.autoFundBotAdaDeficit(50);
-        if (fundRes && fundRes.funded) {
-          // Satış yapıldı ve ADA tamamlandı, koşulları tekrar kontrol et!
-          prereq = this.checkBotPrerequisites();
+      const resMissing = prereq.missing.filter(m => ['wood', 'iron', 'wheat'].includes(m.key));
+      if (hasAdaMissing || resMissing.length > 0) {
+        // Eksik malzemenin tahmini alım maliyeti + 50 ADA önkoşulu kadar para topla (tek seferde)
+        let buyCost = 0;
+        for (const m of resMissing) {
+          const c = (ammMarket && ammMarket.getEstimatedCostForBuy) ? ammMarket.getEstimatedCostForBuy(m.key, m.missing) : 0;
+          if (isFinite(c)) buyCost += c;
+        }
+        const needAda = 50 + Math.ceil(buyCost * 1.03 + 1);
+        if ((this.state.adAstraBalance || 0) < needAda) {
+          const fundRes = this.autoFundBotAdaDeficit(needAda);
+          if (fundRes && fundRes.funded) prereq = this.checkBotPrerequisites();
         }
       }
     }
@@ -1579,7 +1738,7 @@ export class GameStateManager {
     // Pazarından SADECE eksik olan kadar (50'ye tamamlayacak kadar minimal) satın al ve botun durmasını engelle!
     if (!prereq.isMet) {
       const hasResourceMissing = prereq.missing.some(m => ['wood', 'iron', 'wheat'].includes(m.key));
-      if (hasResourceMissing && (this.state.adAstraBalance || 0) >= 1) {
+      if (hasResourceMissing && (this.state.adAstraBalance || 0) > 50) {
         const buyRes = this.autoBuyBotResourceDeficit(50);
         if (buyRes && buyRes.bought) {
           prereq = this.checkBotPrerequisites();
@@ -1645,7 +1804,7 @@ export class GameStateManager {
   }
 
   hasPurchasedBot() {
-    const now = Date.now();
+    const now = this._now();
     const isTavernaBot = (this.state.botActiveUntil && this.state.botActiveUntil > now) ||
                          (this.state.tavernaBotActive && this.state.tavernaBotExpiresAt > now) ||
                          (this.state.botPaused && (this.state.botPausedRemainingMs || 0) > 0);
@@ -1658,7 +1817,7 @@ export class GameStateManager {
   isAutoCollectorActive() {
     this.updateBotPauseState();
 
-    const now = Date.now();
+    const now = this._now();
     const isTavernaBot = (this.state.botActiveUntil && this.state.botActiveUntil > now) ||
                          (this.state.tavernaBotActive && this.state.tavernaBotExpiresAt > now) ||
                          (this.state.botPaused && (this.state.botPausedRemainingMs || 0) > 0);
@@ -1674,9 +1833,9 @@ export class GameStateManager {
 
   getAutoCollectorExpiry() {
     if (this.state.botPaused && this.state.botPausedRemainingMs > 0) {
-      return Date.now() + this.state.botPausedRemainingMs;
+      return this._now() + this.state.botPausedRemainingMs;
     }
-    const now = Date.now();
+    const now = this._now();
     let maxExp = 0;
     if (this.state.botActiveUntil && this.state.botActiveUntil > now) {
       maxExp = Math.max(maxExp, this.state.botActiveUntil);
@@ -1698,7 +1857,7 @@ export class GameStateManager {
       return Math.max(0, Math.floor(this.state.botPausedRemainingMs / 1000));
     }
     const exp = this.getAutoCollectorExpiry();
-    return Math.max(0, Math.floor((exp - Date.now()) / 1000));
+    return Math.max(0, Math.floor((exp - this._now()) / 1000));
   }
 
   getAutoCollectorRemainingText() {
@@ -1721,15 +1880,18 @@ export class GameStateManager {
 
   // Belirli bir kaynak için dakika başına fix (sabit) üretim miktarı
   // Her seviyede fix kalır: Seviye arttıkça dakikalık üretim artmaz, sadece sefer süresi uzar.
-  getResourceRatePerMinute(nodeId) {
-    return (GAME_CONFIG.BASE_PRODUCTION && GAME_CONFIG.BASE_PRODUCTION[nodeId]) || 15;
+  // v1.25: Taban üretim × seviye bonusu (her seviye +%1,5)
+  getResourceRatePerMinute(nodeId, level = this.state.level) {
+    const base = (GAME_CONFIG.BASE_PRODUCTION && GAME_CONFIG.BASE_PRODUCTION[nodeId]) || 15;
+    return base * this.getLevelProductionMultiplier(level);
   }
 
   getAccruedExpeditionHarvest(nodeId) {
     const exp = this.state.activeExpeditions[nodeId];
     if (!exp) return { accruedAmount: 0, totalYield: 0, pct: 0, remainingSeconds: 0, elapsedSeconds: 0, durationSeconds: 0, isCompleted: false };
 
-    const ratePm = this.getResourceRatePerMinute(nodeId);
+    // Sefer başladığı andaki üretim hızı kullanılır (sefer sırasında seviye atlamak geçmişe dönük artırmaz)
+    const ratePm = exp.ratePerMinute || this.getResourceRatePerMinute(nodeId);
 
     const speedMult = this.getExpeditionSpeedMultiplier();
     const durationMins = exp.durationMinutes || Math.round((exp.durationHours || 0.3) * 60) || Math.max(1, Math.round(exp.durationSeconds / 60));
@@ -1841,17 +2003,62 @@ export class GameStateManager {
   // ═══════════════════════════════════════════════════════════════════════
   // DEPO KAPASİTESİ — HARD CAP KORUMASI & TAŞMA ENGELLEME
   // ═══════════════════════════════════════════════════════════════════════
+  // v1.25: Son çare koruması. Normal oyunda silo artık taşmaz: hasat siloya sığmayanı seferde bekletir,
+  // pazar alımı kapasiteyle sınırlıdır, ödüller storeResourceOrSell ile sığmayanı pazarda satar.
+  // Buraya yalnızca test menüsü gibi doğrudan eklemeler düşer; fazla kısım kesilir ve eskisi gibi
+  // sessizce değil, oyuncuya bildirilerek kesilir.
   enforceWarehouseLimits() {
     if (!this.state || !this.state.inventory) return;
     const cap = this.getWarehouseCapacity();
     for (const res of ['wood', 'iron', 'wheat']) {
       const limit = cap[res];
       if (limit != null && typeof limit === 'number' && limit > 0) {
-        if ((Number(this.state.inventory[res]) || 0) > limit) {
+        const cur = Number(this.state.inventory[res]) || 0;
+        if (cur > limit) {
+          const excess = cur - limit;
           this.state.inventory[res] = limit;
+          if (!this._isFastForwarding) {
+            const name = this.getResourceNameTr ? this.getResourceNameTr(res) : res;
+            this.pushNotice(`⚠️ Silo dolu: ${Math.floor(excess).toLocaleString('tr-TR')} ${name} siloya sığmadı. Siloyu yükselterek kapasiteyi artırabilirsin.`, 'error');
+          }
         }
       }
     }
+  }
+
+  // Taşan malzemeyi pazarda sat; taban fiyat yüzünden satılamayan kısım bildirilir
+  _sellOverflow(resourceKey, qty, reason = 'Silo dolu') {
+    const amount = Math.floor(Number(qty) || 0);
+    if (amount <= 0) return { soldQty: 0, adaGained: 0, lostQty: 0 };
+    let soldQty = 0, adaGained = 0;
+    if (typeof ammMarket !== 'undefined' && ammMarket && ammMarket.executeSell) {
+      const maxSell = ammMarket.getMaxSellBeforeFloor ? ammMarket.getMaxSellBeforeFloor(resourceKey) : amount;
+      const sellQty = Math.min(amount, Math.max(0, Math.floor(maxSell)));
+      if (sellQty > 0) {
+        const r = ammMarket.executeSell(resourceKey, sellQty);
+        if (r && r.success) {
+          soldQty = sellQty;
+          adaGained = Number(r.adAstraReceived) || 0;
+          this.state.adAstraBalance = (this.state.adAstraBalance || 0) + adaGained;
+        }
+      }
+    }
+    const lostQty = amount - soldQty;
+    const name = this.getResourceNameTr ? this.getResourceNameTr(resourceKey) : resourceKey;
+    if (!this._isFastForwarding) {
+      if (soldQty > 0) this.pushNotice(`📦 ${reason}: siloya sığmayan ${soldQty.toLocaleString('tr-TR')} ${name} pazarda satıldı (+${adaGained.toFixed(1)} ADA).`, 'info');
+      if (lostQty > 0) this.pushNotice(`⚠️ ${reason}: ${lostQty.toLocaleString('tr-TR')} ${name} siloya sığmadı ve pazar taban fiyatta olduğu için satılamadı.`, 'error');
+    }
+    return { soldQty, adaGained, lostQty };
+  }
+
+  // Ödül/teslimat girişi: siloya sığan kısmı depola, sığmayanı pazarda sat
+  storeResourceOrSell(resourceKey, amount, reason = 'Silo dolu') {
+    const qty = Number(amount) || 0;
+    if (qty <= 0) return { stored: 0, soldQty: 0, adaGained: 0, lostQty: 0 };
+    const { stored, overflow } = this.storeResource(resourceKey, qty);
+    const sold = overflow > 0 ? this._sellOverflow(resourceKey, overflow, reason) : { soldQty: 0, adaGained: 0, lostQty: 0 };
+    return { stored, ...sold };
   }
 
   storeResource(resourceKey, amount) {
@@ -1883,7 +2090,8 @@ export class GameStateManager {
     const playerTool = this.state.tools[nodeConfig.requiredTool];
 
     // Matematiksel Sefer Verimi (Dakika Başı Fix Üretim * Dakika * Hız Çarpanı)
-    const ratePm = this.getResourceRatePerMinute(nodeId);
+    // Sefer başladığı andaki üretim hızı kullanılır (sefer sırasında seviye atlamak geçmişe dönük artırmaz)
+    const ratePm = exp.ratePerMinute || this.getResourceRatePerMinute(nodeId);
     const speedMult = this.getExpeditionSpeedMultiplier();
     const durationMinutes = exp.durationMinutes || Math.round((exp.durationHours || 0.3) * 60) || Math.max(1, Math.round(exp.durationSeconds / 60));
     const totalYield = Math.floor(ratePm * durationMinutes * speedMult);
@@ -1911,7 +2119,9 @@ export class GameStateManager {
     // 🤖 Otomasyon Botu Aktifse:
     let botSurplusSold = 0;
     let botSurplusAdaEarned = 0;
-    const isBotActive = this.isAutoCollectorActive() || this.hasPurchasedBot();
+    // Yalnızca bot var mı diye bakılır; isAutoCollectorActive() önkoşul alım-satımını da tetiklediği için
+    // hasattan önce pazardan gereksiz alım yapıyordu.
+    const isBotActive = this.hasPurchasedBot();
     if (isBotActive) {
       const spaceRes = this.handleBotSiloSpace(nodeId, remainingToClaim);
       if (spaceRes && (spaceRes.action === 'sold' || spaceRes.action === 'sold_for_ada' || spaceRes.action === 'upgraded')) {
@@ -2404,12 +2614,17 @@ export class GameStateManager {
   // 4. TAVERNA GÜÇLENDİRMELERİ (24 SAATLİK BOOSTLAR & BOT)
   // =========================================================================
   isBuffActive(buffId) {
-    const buff = this.state.activeBuffs[buffId];
+    const buff = this.state.activeBuffs ? this.state.activeBuffs[buffId] : null;
     if (!buff) return false;
-    return Date.now() < buff.expiresAt;
+    return this._now() < buff.expiresAt;
   }
 
   buyTavernBuff(buffId) {
+    // v1.25: Otomasyon botu yalnızca Taverna'dan güncel (kâr ortaklığı) fiyatıyla alınır. Eski sabit
+    // fiyatlı paketler (24 saat 1.800 ADA vb.) gerçek ücretin çok altındaydı; bu yol kapatıldı.
+    if (String(buffId || '').startsWith('auto_collector')) {
+      return { success: false, message: 'Otomasyon botu yalnızca Taverna\'dan güncel fiyatıyla alınabilir.' };
+    }
     const buffConfig = GAME_CONFIG.TAVERN_BUFFS[buffId];
     if (!buffConfig) return { success: false, message: 'Geçersiz güçlendirme!' };
 
@@ -2420,7 +2635,7 @@ export class GameStateManager {
     this.state.adAstraBalance -= buffConfig.costAdAstra;
     globalPool.recordTokenSpend(buffConfig.costAdAstra);
 
-    const now = Date.now();
+    const now = this._now();
     const currentExpire = (this.state.activeBuffs[buffId] && this.state.activeBuffs[buffId].expiresAt > now)
       ? this.state.activeBuffs[buffId].expiresAt
       : now;
@@ -2534,7 +2749,7 @@ export class GameStateManager {
       // 🤖 KULLANICI KURALI: Eğer alet onarırken hesapta yeteri kadar ADA yok ise bot,
       // aletleri onarmak için ihtiyaç duyduğu ADA miktarı kadar elindeki kaynaklardan
       // eşit miktarda satarak pazardan ADA elde eder!
-      const isBotActive = this.isAutoCollectorActive() || this.hasPurchasedBot();
+      const isBotActive = this.hasPurchasedBot();
       if (isBotActive) {
         this.autoFundBotAdaDeficit(cost.adAstraCost, { wood: cost.woodCost, iron: cost.ironCost });
       }
@@ -3517,26 +3732,78 @@ export class GameStateManager {
   // ═══════════════════════════════════════════════════════════════════════
   // 🤖 TAVERNA 24 SAATLİK OTOMASYON BOTU (KÂRA ORTAK MODELİ)
   // ═══════════════════════════════════════════════════════════════════════
+  // 📈 v1.25: Seviye başına kalıcı üretim çarpanı (Lv.1 = 1,00 · Lv.10 = 1,135 · Lv.81 = 2,20)
+  // 📊 v1.25: Seviyenin somut faydaları (ekranda "şimdiki → sonraki seviye" olarak gösterilir)
+  getLevelBenefits(level = this.state.level) {
+    const L = Math.max(1, Math.min(GAME_CONFIG.MAX_PLAYER_LEVEL || 81, Number(level) || 1));
+    const durMin = this.getExpeditionDurationMinutes(L);
+    const staminaCost = this.getExpeditionStaminaCost(L);
+    // 3 alan birden çalışırken saat başına harcanan stamina ve bunun buğday karşılığı
+    const staminaPerHour = (3 * staminaCost) / Math.max(1e-9, durMin / 60);
+    const wheatPerHour = staminaPerHour * (GAME_CONFIG.WHEAT_PER_STAMINA || 3.15);
+    const minUbi = (GAME_CONFIG.UBI_CONFIG && GAME_CONFIG.UBI_CONFIG.MIN_LEVEL) || 3;
+    return {
+      level: L,
+      productionBonusPct: Math.round((this.getLevelProductionMultiplier(L) - 1) * 1000) / 10,
+      woodPerMinute: Math.round(this.getResourceRatePerMinute('wood', L) * 100) / 100,
+      expeditionHours: Math.round((durMin / 60) * 100) / 100,
+      staminaPerHour: Math.round(staminaPerHour * 10) / 10,
+      wheatPerHour: Math.round(wheatPerHour),
+      maxStamina: this.getMaxStamina(L),
+      fragmentRate: this.getFragmentDropRate(L),
+      boxRate: this.getBoxDropRate(L),
+      ubiEligible: L >= minUbi,
+      ubiWeight: Math.round(ubiLevelWeight(L, { minLevel: minUbi, weight: (x) => 1 + Math.sqrt(Math.max(1, x) - 1) * 0.75 }) * 100) / 100
+    };
+  }
+
+  getLevelProductionMultiplier(level = this.state.level) {
+    const L = Math.max(1, Math.min(GAME_CONFIG.MAX_PLAYER_LEVEL || 81, Number(level) || 1));
+    const per = GAME_CONFIG.LEVEL_PRODUCTION_BONUS_PER_LEVEL || 0;
+    return 1 + per * (L - 1);
+  }
+
+  // 🤖 Bot ücreti = 24 saatlik tahmini net kârın %50'si.
+  // v1.25: Tahmin artık oyuncunun seviyesine (üretim bonusu, sefer süresi, seviyeli stamina maliyeti),
+  // doğal stamina yenilenmesine ve kalan haftalık dünya kotasına göre yapılır. Eski formül her seviyede
+  // 1. seviyenin sayılarını kullanıyor, kotayı hiç hesaba katmıyordu.
   calculateTavernaBotProfitAndCost() {
-    const prod = GAME_CONFIG.BASE_PRODUCTION;
+    const lvl = this.state.level || 1;
+    const mult = this.getLevelProductionMultiplier(lvl);
+    const base = GAME_CONFIG.BASE_PRODUCTION;
+    const prod = { wood: base.wood * mult, iron: base.iron * mult, wheat: base.wheat * mult };
     const woodPrice = ammMarket.getPrice('wood') || 2.50;
     const ironPrice = ammMarket.getPrice('iron') || 4.00;
     const wheatPrice = ammMarket.getPrice('wheat') || 0.90;
 
     const grossValuePerMin = (prod.wood * woodPrice) + (prod.iron * ironPrice) + (prod.wheat * wheatPrice);
-    const staminaPerMin = (3 * (GAME_CONFIG.STAMINA_COST_PER_EXPEDITION || 20)) / 18;
+    const durMin = Math.max(1, this.getExpeditionDurationMinutes(lvl));
+    const regenPerMin = 60 / (GAME_CONFIG.STAMINA_NATURAL_REGEN_INTERVAL || 150);
+    const staminaPerMin = Math.max(0, (3 * this.getExpeditionStaminaCost(lvl)) / durMin - regenPerMin);
     const wheatPerMinForStamina = staminaPerMin * (GAME_CONFIG.WHEAT_PER_STAMINA || 3.15);
     const staminaCostPerMinAda = wheatPerMinForStamina * wheatPrice;
 
-    const toolWoodPerMin = 3 * 1.5;
-    const toolIronPerMin = 3 * 1.0;
+    // Alet aşınması: her alet dakikada 1 dayanıklılık; onarım = dakikalık odun/demir üretiminin %25'i
+    // (3 alete bölünmüş) + aynı değerde ADA
+    const toolWoodPerMin = prod.wood * 0.25;
+    const toolIronPerMin = prod.iron * 0.25;
     const toolMaterialCostPerMinAda = (toolWoodPerMin * woodPrice) + (toolIronPerMin * ironPrice);
-    // Kural: Alet onarımında talep edilen odun ve demirin anlık market değerine eşdeğerde ADA da alınır
     const toolAdaPerMin = toolMaterialCostPerMinAda;
     const toolCostPerMinAda = toolMaterialCostPerMinAda + toolAdaPerMin;
 
+    // Haftalık dünya kotası: kalan kota bir günlük üretimden azsa, o kaynağın kazancı kotayla sınırlıdır
+    let grossDay = 0;
+    let quotaLimited = false;
+    const prices = { wood: woodPrice, iron: ironPrice, wheat: wheatPrice };
+    for (const r of ['wood', 'iron', 'wheat']) {
+      const dayProd = prod[r] * 1440;
+      const info = (globalPool && globalPool.getResourceInfo) ? globalPool.getResourceInfo(r) : null;
+      const remaining = info ? Number(info.remaining) : dayProd;
+      if (remaining < dayProd) quotaLimited = true;
+      grossDay += prices[r] * Math.min(dayProd, Math.max(0, remaining));
+    }
     const netProfitPerMin = Math.max(1, grossValuePerMin - staminaCostPerMinAda - toolCostPerMinAda);
-    const netProfit24h = Math.round(netProfitPerMin * 1440);
+    const netProfit24h = Math.max(1, Math.round(Math.min(netProfitPerMin * 1440, grossDay - (staminaCostPerMinAda + toolCostPerMinAda) * 1440)));
     const botCostAda = Math.max(100, Math.round(netProfit24h * 0.50));
 
     return {
@@ -3556,18 +3823,40 @@ export class GameStateManager {
       dailyToolRepairAda: Math.round(toolCostPerMinAda * 1440),
       dailyNetProfitAda: Math.round(netProfit24h),
       dailyBotCostAda: botCostAda,
+      level: lvl,
+      productionMultiplier: mult,
+      quotaLimited,
       livePrices: { wood: woodPrice, iron: ironPrice, wheat: wheatPrice }
     };
   }
 
-  buyTavernaAutomationBot(useFree = false) {
-    const calc = this.calculateTavernaBotProfitAndCost();
-    const cost = useFree ? 0 : calc.botCostAda;
+  // Paket ücreti: günlük ücretin süreye oranı (6 saat = günlüğün 1/4'ü)
+  getBotPackageCost(hours = 24) {
+    const h = Math.max(1, Number(hours) || 24);
+    const daily = this.calculateTavernaBotProfitAndCost().botCostAda;
+    return Math.max(50, Math.round(daily * h / 24));
+  }
+
+  // 🛡️ Bot güvenlik payı: kasada her zaman bırakılan ADA (oto-yenileme açıksa ertesi günün bot ücreti dahil)
+  getBotAdaReserve() {
+    const minRes = (GAME_CONFIG.TAVERNA_BOT && GAME_CONFIG.TAVERNA_BOT.MIN_ADA_RESERVE) || 500;
+    const renew = this.state.botAutoRenew24h ? this.calculateTavernaBotProfitAndCost().botCostAda : 0;
+    return Math.max(minRes, renew);
+  }
+
+  _botCanSpend(amount) {
+    return ((this.state.adAstraBalance || 0) - (Number(amount) || 0)) >= this.getBotAdaReserve();
+  }
+
+  buyTavernaAutomationBot(useFree = false, hours = 24) {
+    const h = Math.max(1, Number(hours) || 24);
+    const durMs = h * 3600 * 1000;
+    const cost = useFree ? 0 : this.getBotPackageCost(h);
 
     if (!useFree && this.state.adAstraBalance < cost) {
       return {
         success: false,
-        message: `Yetersiz $ADASTRA! 24 Saatlik Otomasyon Botu için ${cost.toLocaleString()} ADA gereklidir (Saf kârın %50'si).`
+        message: `Yetersiz $ADASTRA! ${h} Saatlik Otomasyon Botu için ${cost.toLocaleString()} ADA gereklidir (Saf kârın %50'si).`
       };
     }
 
@@ -3576,14 +3865,14 @@ export class GameStateManager {
       globalPool.recordTokenSpend(cost);
     }
 
-    const now = Date.now();
+    const now = this._now();
     if (this.state.botPaused && this.state.botPausedRemainingMs > 0) {
-      this.state.botPausedRemainingMs += (24 * 3600 * 1000);
+      this.state.botPausedRemainingMs += durMs;
       this.state.botActiveUntil = now + this.state.botPausedRemainingMs;
       this.state.tavernaBotExpiresAt = this.state.botActiveUntil;
     } else {
       const baseTime = (this.state.botActiveUntil && this.state.botActiveUntil > now) ? this.state.botActiveUntil : now;
-      this.state.botActiveUntil = baseTime + (24 * 3600 * 1000);
+      this.state.botActiveUntil = baseTime + durMs;
       this.state.tavernaBotActive = true;
       this.state.tavernaBotExpiresAt = this.state.botActiveUntil;
     }
@@ -3609,8 +3898,23 @@ export class GameStateManager {
       success: true,
       botActiveUntil: this.state.botActiveUntil,
       costPaid: cost,
-      message: `🤖 24 Saatlik Otomasyon Botu aktifleştirildi! (Maliyet: ${cost.toLocaleString()} ADA, Kâr Ortaklığı: %50)`
+      message: useFree
+        ? `🤖 ${h} Saatlik Otomasyon Botu hediye olarak aktifleştirildi!`
+        : `🤖 ${h} Saatlik Otomasyon Botu aktifleştirildi! (Maliyet: ${cost.toLocaleString()} ADA, Kâr Ortaklığı: %50)`
     };
+  }
+
+  // 🎁 Yeni oyunculara bir kerelik ücretsiz bot denemesi
+  startBotTrial() {
+    if (this.state.botTrialUsed) {
+      return { success: false, message: 'Ücretsiz bot denemesini daha önce kullandın.' };
+    }
+    const hours = (GAME_CONFIG.TAVERNA_BOT && GAME_CONFIG.TAVERNA_BOT.TRIAL_HOURS) || 1;
+    this.state.botTrialUsed = true;
+    const res = this.buyTavernaAutomationBot(true, hours);
+    this.checkOnboardingProgress();
+    this.saveState();
+    return { ...res, message: `🎁 ${hours} saatlik ücretsiz bot denemesi başladı! Bot seferleri toplayıp aletleri onaracak ve yeniden gönderecek.` };
   }
 
   setBotSiloOption(autoUpgrade = true) {
@@ -3635,7 +3939,7 @@ export class GameStateManager {
    */
   checkAndProcessBotAutoRenew() {
     if (!this.state.botAutoRenew24h) return false;
-    const now = Date.now();
+    const now = this._now();
     const rawExp = Math.max(
       this.state.botActiveUntil || 0,
       this.state.tavernaBotExpiresAt || 0,
@@ -3654,6 +3958,7 @@ export class GameStateManager {
     if (this.state.adAstraBalance >= cost && cost > 0) {
       const buyRes = this.buyTavernaAutomationBot(false);
       if (buyRes && buyRes.success) {
+        this.state.botRenewCount = (this.state.botRenewCount || 0) + 1;
         if (!this.state.lastBotActions) this.state.lastBotActions = [];
         this.state.lastBotActions.push(`🔄 Bot Otomatik Yenilendi: 24 saat tamamlandı. Kasadaki ${cost.toLocaleString()} $ADASTRA ile bot 24 saat daha uzatıldı ve kesintisiz çalışıyor.`);
         this.saveState();
@@ -3695,12 +4000,12 @@ export class GameStateManager {
 
     // KURAL 0: Her sefer sonlandığında silonun yükseltilip yükseltilemeyeceğini kontrol et.
     // Yükseltilebiliyorsa ve kullanıcı "silo yükseltme" seçeneğini seçmişse HER ZAMAN ÖNCE SİLOYU YÜKSELT!
-    const now = Date.now();
+    const now = this._now();
     const canAutoUpgradeTime = this._isFastForwarding || !this.state.lastAutoWarehouseUpgradeTime || (now - this.state.lastAutoWarehouseUpgradeTime >= 3000);
 
     if (this.state.botSiloAutoUpgrade && canAutoUpgradeTime) {
       const upCost = this.getWarehouseUpgradeCost();
-      if (upCost && upCost.canUpgrade) {
+      if (upCost && upCost.canUpgrade && this._botCanSpend(upCost.adAstra)) {
         const upRes = this.upgradeWarehouse();
         if (upRes && upRes.success) {
           this.state.lastAutoWarehouseUpgradeTime = now;
@@ -3717,10 +4022,10 @@ export class GameStateManager {
       // KURAL 2: Eğer siloyu yükseltmek için yeterli adastra yoksa:
       // Silonun %80 dolacağı kadar kaynak bıraksın sadece siloda,
       // geri kalan kaynağı silo yükseltmek için yeterli adastra birikene kadar satsın marketten!
-      if (upCost && upCost.is80PercentFull && !upCost.canAffordCost) {
+      if (upCost && upCost.is80PercentFull && !(upCost.canAffordCost && this._botCanSpend(upCost.adAstra))) {
         const reqFill = Math.round(limit * 0.8);
         const surplus = Math.max(0, currentAmount - reqFill);
-        const adaDeficit = Math.max(0, upCost.adAstra - (this.state.adAstraBalance || 0));
+        const adaDeficit = Math.max(0, upCost.adAstra + this.getBotAdaReserve() - (this.state.adAstraBalance || 0));
 
         if (surplus > 0 && adaDeficit > 0 && typeof ammMarket !== 'undefined' && ammMarket.executeSell) {
           const price = (ammMarket.getPrice && ammMarket.getPrice(nodeId)) ? ammMarket.getPrice(nodeId) : 1;
@@ -3743,7 +4048,7 @@ export class GameStateManager {
 
               // Satış sonrası ADA tamamlandıysa anında yükseltmeyi dene!
               const freshCost = this.getWarehouseUpgradeCost();
-              if (freshCost && freshCost.canUpgrade && canAutoUpgradeTime) {
+              if (freshCost && freshCost.canUpgrade && canAutoUpgradeTime && this._botCanSpend(freshCost.adAstra)) {
                 const freshUp = this.upgradeWarehouse();
                 if (freshUp && freshUp.success) {
                   this.state.lastAutoWarehouseUpgradeTime = now;
@@ -3850,7 +4155,7 @@ export class GameStateManager {
   tryAutoUpgradeWarehouseWithAdaFinancing() {
     if (!this.state.botSiloAutoUpgrade) return { success: false, reason: 'auto_upgrade_disabled' };
 
-    const now = Date.now();
+    const now = this._now();
     if (!this._isFastForwarding && this.state.lastAutoWarehouseUpgradeTime && (now - this.state.lastAutoWarehouseUpgradeTime < 3000)) {
       return { success: false, reason: 'cooldown' };
     }
@@ -3864,7 +4169,9 @@ export class GameStateManager {
     // Kasadaki nakit yerine ambarlardaki %80 üzeri fazlalık kaynaklar AMM'de satılarak ADA temin edilir.
     // Böylece hem piyasa fiyatları düşer hem de kullanıcının kasası sıfırlanmaz!
     // Eğer zaten yükseltilebiliyorsa doğrudan yükselt!
-    if (cost.canUpgrade) {
+    // v1.25: Bot yükseltme için kasadaki paranın hepsini harcamaz; güvenlik payını (en az 500 ADA,
+    // oto-yenileme açıksa ertesi günün bot ücreti) her zaman bırakır.
+    if (cost.canUpgrade && this._botCanSpend(cost.adAstra)) {
       const upRes = this.upgradeWarehouse();
       if (upRes && upRes.success) {
         this.state.lastAutoWarehouseUpgradeTime = now;
@@ -3873,8 +4180,8 @@ export class GameStateManager {
     }
 
     // %80 Barajında ADA Finansmanı:
-    // Depolar %80 dolu mu fakat ADA eksik mi?
-    if (cost.is80PercentFull && !cost.canAffordCost) {
+    // Depolar %80 dolu mu fakat ADA (güvenlik payı dahil) eksik mi?
+    if (cost.is80PercentFull && !(cost.canAffordCost && this._botCanSpend(cost.adAstra))) {
       const inv = this.state.inventory || {};
       const hasWood = (inv.wood || 0) >= cost.wood;
       const hasIron = (inv.iron || 0) >= cost.iron;
@@ -3882,7 +4189,7 @@ export class GameStateManager {
 
       // Hammaddeler yeterli, sadece ADA eksikse:
       if (hasWood && hasIron && hasWheat) {
-        let adaDeficit = Math.max(0, cost.adAstra - (this.state.adAstraBalance || 0));
+        let adaDeficit = Math.max(0, cost.adAstra + this.getBotAdaReserve() - (this.state.adAstraBalance || 0));
 
         if (adaDeficit > 0 && typeof ammMarket !== 'undefined' && ammMarket.executeSell) {
           const cap = cost.currentCap || this.getWarehouseCapacity();
@@ -3917,7 +4224,7 @@ export class GameStateManager {
 
           // ADA tamamlandıysa siloyu derhal seviye atlat!
           const freshCost = this.getWarehouseUpgradeCost();
-          if (freshCost && freshCost.canUpgrade) {
+          if (freshCost && freshCost.canUpgrade && this._botCanSpend(freshCost.adAstra)) {
             const freshUp = this.upgradeWarehouse();
             if (freshUp && freshUp.success) {
               this.state.lastAutoWarehouseUpgradeTime = now;
@@ -3954,9 +4261,36 @@ export class GameStateManager {
   // ═══════════════════════════════════════════════════════════════════════
   // 🎪 KRALLIK KARNAVALI: 14 ÖDÜLLÜ ŞANS ÇARKI & HAFTALIK PİYANGO
   // ═══════════════════════════════════════════════════════════════════════
+  // 🏛️ Karnaval kasasından ödeme: kasada yoksa ödenmez (v1.25 öncesi boş kasada ödül yoktan ödeniyordu)
+  _drawCarnival(amount) {
+    const want = Math.max(0, Number(amount) || 0);
+    if (!treasury || !treasury.state || !treasury.state.pools) return 0;
+    const pool = treasury.state.pools.carnival || 0;
+    const paid = Math.min(pool, want);
+    if (paid <= 0) return 0;
+    treasury.state.pools.carnival = pool - paid;
+    if (!treasury.state.outflow) treasury.state.outflow = {};
+    treasury.state.outflow.carnival = (treasury.state.outflow.carnival || 0) + paid;
+    treasury.state.lifetimeWithdrawn = (treasury.state.lifetimeWithdrawn || 0) + paid;
+    treasury.save();
+    return paid;
+  }
+
+  isCarnivalWheelOpen() {
+    const minBal = GAME_CONFIG.CARNIVAL?.WHEEL_MIN_CARNIVAL_BALANCE || 5000;
+    const bal = (treasury && treasury.getPool) ? treasury.getPool('carnival') : 0;
+    return { open: bal >= minBal, balance: bal, minBalance: minBal };
+  }
+
   spinCarnivalWheel(paymentMethod = 'ada') {
     const costAda = GAME_CONFIG.CARNIVAL?.WHEEL_COST_ADA || 100;
     const inv = this.state.inventory;
+
+    // v1.25: Kasa en büyük ödülü karşılayamıyorsa çark geçici olarak kapalı
+    const wheelStatus = this.isCarnivalWheelOpen();
+    if (!wheelStatus.open) {
+      return { success: false, wheelClosed: true, message: `🎪 Karnaval kasası yenileniyor (${Math.floor(wheelStatus.balance).toLocaleString('tr-TR')} / ${wheelStatus.minBalance.toLocaleString('tr-TR')} ADA). Pazar ve harcama komisyonlarıyla kasa dolunca çark yeniden açılacak.` };
+    }
 
     let burnedInfo = null;
 
@@ -3969,6 +4303,11 @@ export class GameStateManager {
     } else if (paymentMethod === 'ticket') {
       if ((this.state.lotteryTickets || 0) < 1) {
         return { success: false, message: 'Çark çevirmek için en az 1 Piyango Biletine sahip olmalısın!' };
+      }
+      // Yakılan biletin ödenen bedeli de piyango ödül hesabından düşer (bilet başına ortalama)
+      const tk = this.state.lotteryTickets || 0;
+      if (this.state.lotteryTicketsPaid != null && tk > 0) {
+        this.state.lotteryTicketsPaid = Math.max(0, this.state.lotteryTicketsPaid - this.state.lotteryTicketsPaid / tk);
       }
       this.state.lotteryTickets -= 1;
     } else if (['wood', 'iron', 'wheat'].includes(paymentMethod)) {
@@ -4005,19 +4344,17 @@ export class GameStateManager {
     let rewardSummaryText = selectedReward.name;
     let buybackInfo = null;
 
+    // Pazardan alınamayan eşya ödülünün yerine, ödülün ADA karşılığı kasadan verilir
+    const payAdaFallback = (valueAda, label) => {
+      const paid = this._drawCarnival(valueAda);
+      this.state.adAstraBalance += paid;
+      rewardSummaryText = `${label} yerine ${paid.toLocaleString('tr-TR')} $ADASTRA (pazarda şu an alınamadı; 🏛️ Karnaval Hazinesinden)`;
+    };
+
     if (selectedReward.type === 'ada') {
       // 🏛️ KARNAVAL HAZİNESİNDEN ADA ÖDÜLÜ: Havadan basılmaz, doğrudan Karnaval Hazine Kasasından karşılanır!
       const rewardAmount = selectedReward.amount || 0;
-      const carnivalBalance = (typeof treasury !== 'undefined' && treasury.getPool) ? treasury.getPool('carnival') : ((typeof treasury !== 'undefined' && treasury.state?.pools?.carnival) || 0);
-      const adaToPay = carnivalBalance > 0 ? Math.min(carnivalBalance, rewardAmount) : rewardAmount;
-
-      if (typeof treasury !== 'undefined' && adaToPay > 0 && (treasury.state?.pools?.carnival || 0) > 0) {
-        const actualDeduct = Math.min(treasury.state.pools.carnival, adaToPay);
-        treasury.state.pools.carnival = Math.max(0, treasury.state.pools.carnival - actualDeduct);
-        if (!treasury.state.outflow) treasury.state.outflow = {};
-        treasury.state.outflow.carnival = (treasury.state.outflow.carnival || 0) + actualDeduct;
-        treasury.save();
-      }
+      const adaToPay = this._drawCarnival(rewardAmount);
 
       this.state.adAstraBalance += adaToPay;
       rewardSummaryText = `${adaToPay.toLocaleString('tr-TR')} $ADASTRA (🏛️ Karnaval Hazinesinden Karşılandı)`;
@@ -4028,21 +4365,20 @@ export class GameStateManager {
       const oldPrice = ammMarket.getPrice('fragments') || 45.0;
       
       // AMM DEX Marketinden Fiziki Satın Alma (Havuzdan parça eksilir, fiyata yukarı yönlü etki eder)
-      const buyRes = ammMarket.executeBuyAmount('fragments', fragAmount);
+      const estCost = ammMarket.getEstimatedCostForBuy('fragments', fragAmount);
+      const buyRes = (isFinite(estCost) && estCost <= (treasury.getPool ? treasury.getPool('carnival') : 0))
+        ? ammMarket.executeBuyAmount('fragments', fragAmount)
+        : { success: false };
+      if (!buyRes.success) {
+        payAdaFallback(selectedReward.valAda || Math.round(fragAmount * oldPrice), `${fragAmount} Teçhizat Parçası`);
+      } else {
       const newPrice = ammMarket.getPrice('fragments') || oldPrice;
       const priceDelta = newPrice - oldPrice;
       const priceDeltaPct = oldPrice > 0 ? (priceDelta / oldPrice) * 100 : 0;
-      const costAda = buyRes.success ? buyRes.cost : Math.round(fragAmount * oldPrice);
+      const costAda = buyRes.cost;
 
       // Karnaval Hazine Kasasından Maliyeti Düş
-      if (typeof treasury !== 'undefined' && treasury.state && treasury.state.pools) {
-        const curPool = treasury.state.pools.carnival || 0;
-        const actualDeduct = Math.min(curPool, costAda);
-        treasury.state.pools.carnival = Math.max(0, curPool - actualDeduct);
-        if (!treasury.state.outflow) treasury.state.outflow = {};
-        treasury.state.outflow.carnival = (treasury.state.outflow.carnival || 0) + actualDeduct;
-        treasury.save();
-      }
+      this._drawCarnival(costAda);
 
       // Kullanıcıya teslim edilir
       inv.fragments = (inv.fragments || 0) + fragAmount;
@@ -4060,6 +4396,7 @@ export class GameStateManager {
         poolName: 'Teçhizat Parçası',
         poolIcon: '🧩'
       };
+      }
 
     } else if (selectedReward.type === 'amm_raw' || ['wood', 'iron', 'wheat'].includes(selectedReward.key)) {
       // 🏛️ HAMMADDELER (Odun, Demir, Buğday): Havadan basılmaz, Karnaval Hazinesi bütçesiyle AMM marketten fiziki buyback yapılır!
@@ -4068,24 +4405,23 @@ export class GameStateManager {
       const grantAmount = selectedReward.amount || Math.max(1, Math.round((selectedReward.adaVal || 50) / oldPrice));
       
       // AMM DEX Marketinden Fiziki Satın Alma (Havuzdan hammadde çekilir, fiyat FİZİKİ OLARAK ARTAR!)
-      const buyRes = ammMarket.executeBuyAmount(resKey, grantAmount);
+      const estCostRaw = ammMarket.getEstimatedCostForBuy(resKey, grantAmount);
+      const buyRes = (isFinite(estCostRaw) && estCostRaw <= (treasury.getPool ? treasury.getPool('carnival') : 0))
+        ? ammMarket.executeBuyAmount(resKey, grantAmount)
+        : { success: false };
+      if (!buyRes.success) {
+        payAdaFallback(selectedReward.adaVal || selectedReward.valAda || 50, selectedReward.name);
+      } else {
       const newPrice = ammMarket.getPrice(resKey) || oldPrice;
       const priceDelta = newPrice - oldPrice;
       const priceDeltaPct = oldPrice > 0 ? (priceDelta / oldPrice) * 100 : 0;
-      const costAda = buyRes.success ? buyRes.cost : Math.round(grantAmount * oldPrice);
+      const costAda = buyRes.cost;
 
       // Karnaval Hazine Kasasından Maliyeti Düş
-      if (typeof treasury !== 'undefined' && treasury.state && treasury.state.pools) {
-        const curPool = treasury.state.pools.carnival || 0;
-        const actualDeduct = Math.min(curPool, costAda);
-        treasury.state.pools.carnival = Math.max(0, curPool - actualDeduct);
-        if (!treasury.state.outflow) treasury.state.outflow = {};
-        treasury.state.outflow.carnival = (treasury.state.outflow.carnival || 0) + actualDeduct;
-        treasury.save();
-      }
+      this._drawCarnival(costAda);
 
-      // Kullanıcıya teslim edilir
-      inv[resKey] = (inv[resKey] || 0) + grantAmount;
+      // Kullanıcıya teslim edilir — silo doluysa sığmayan kısım kaybolmaz, pazarda satılıp ADA olarak verilir
+      const stored = this.storeResourceOrSell(resKey, grantAmount, 'Çark ödülü');
       const grantResNameTr = this.getResourceNameTr(resKey);
       const pctSign = priceDeltaPct >= 0 ? '+' : '';
       rewardSummaryText = `${grantAmount.toLocaleString('tr-TR')} ${grantResNameTr} (🏛️ Karnaval AMM Buyback: ${oldPrice.toFixed(4)} ➔ ${newPrice.toFixed(4)} ADA, ${pctSign}%${priceDeltaPct.toFixed(2)} 📈)`;
@@ -4101,6 +4437,10 @@ export class GameStateManager {
         poolName: grantResNameTr,
         poolIcon: resKey === 'wood' ? '🌲' : (resKey === 'iron' ? '⛏️' : '🌾')
       };
+      if (stored.soldQty > 0) {
+        rewardSummaryText += ` — silo dolu olduğu için ${stored.soldQty.toLocaleString('tr-TR')} adedi pazarda satıldı (+${stored.adaGained.toFixed(1)} ADA)`;
+      }
+      }
 
     } else if (selectedReward.type === 'key' || selectedReward.id === 'box_key') {
       // 🏛️ PANDORA KUTUSU ANAHTARLARI: Havadan basılmaz, Karnaval Hazinesi bütçesiyle AMM marketten fiziki buyback yapılır!
@@ -4108,21 +4448,20 @@ export class GameStateManager {
       const oldPrice = ammMarket.getPrice('keys') || 1000.0;
       
       // AMM DEX Marketinden Fiziki Satın Alma (Havuzdan anahtar eksilir, fiyat FİZİKİ OLARAK ARTAR!)
-      const buyRes = ammMarket.executeBuyAmount('keys', keyAmount);
+      const estCostKey = ammMarket.getEstimatedCostForBuy('keys', keyAmount);
+      const buyRes = (isFinite(estCostKey) && estCostKey <= (treasury.getPool ? treasury.getPool('carnival') : 0))
+        ? ammMarket.executeBuyAmount('keys', keyAmount)
+        : { success: false };
+      if (!buyRes.success) {
+        payAdaFallback(selectedReward.valAda || Math.round(keyAmount * oldPrice), `${keyAmount} Pandora Kutusu Anahtarı`);
+      } else {
       const newPrice = ammMarket.getPrice('keys') || oldPrice;
       const priceDelta = newPrice - oldPrice;
       const priceDeltaPct = oldPrice > 0 ? (priceDelta / oldPrice) * 100 : 0;
-      const costAda = buyRes.success ? buyRes.cost : Math.round(keyAmount * oldPrice);
+      const costAda = buyRes.cost;
 
       // Karnaval Hazine Kasasından Maliyeti Düş
-      if (typeof treasury !== 'undefined' && treasury.state && treasury.state.pools) {
-        const curPool = treasury.state.pools.carnival || 0;
-        const actualDeduct = Math.min(curPool, costAda);
-        treasury.state.pools.carnival = Math.max(0, curPool - actualDeduct);
-        if (!treasury.state.outflow) treasury.state.outflow = {};
-        treasury.state.outflow.carnival = (treasury.state.outflow.carnival || 0) + actualDeduct;
-        treasury.save();
-      }
+      this._drawCarnival(costAda);
 
       // Kullanıcıya teslim edilir
       this.state.arenaKeys = (this.state.arenaKeys || 0) + keyAmount;
@@ -4140,9 +4479,10 @@ export class GameStateManager {
         poolName: 'Arena Anahtarı',
         poolIcon: '🔑'
       };
+      }
 
     } else if (selectedReward.type === 'bot_free') {
-      this.buyTavernaAutomationBot(true);
+      this.buyTavernaAutomationBot(true, selectedReward.hours || 24);
     } else if (selectedReward.type === 'scroll') {
       inv[selectedReward.key] = (inv[selectedReward.key] || 0) + selectedReward.amount;
     } else if (selectedReward.type === 'ticket_shard') {
@@ -4156,8 +4496,9 @@ export class GameStateManager {
     } else if (selectedReward.type === 'analysis_code') {
       const code = `ALPHAVAX-COIN-${Date.now().toString(36).toUpperCase()}`;
       if (!Array.isArray(this.state.redeemCodes)) this.state.redeemCodes = [];
-      this.state.redeemCodes.push({ code, type: 'coin_analysis', created: Date.now() });
-      rewardSummaryText = `👑 Kodun: ${code} (Vercel App Coin Analizi)`;
+      this.state.redeemCodes.push({ code, type: 'coin_analysis', created: Date.now(), status: 'pending_integration' });
+      // v1.25: Dürüst açıklama — kod henüz AlphavaxTrade sitesinde geçmiyor, sunucu bağlantısından sonra etkinleşecek
+      rewardSummaryText = `🎫 Coin Analiz Kuponu: ${code} — Envanterinde saklandı. AlphavaxTrade sitesiyle bağlantı kurulduğunda kullanılabilecek (şu an sitede geçerli değil).`;
     }
 
     sound.playLevelUp();
@@ -4234,33 +4575,75 @@ export class GameStateManager {
     return { success: false, message: 'Bilinmeyen parşömen türü!' };
   }
 
+  // ── 🎟️ HAFTALIK PİYANGO (v1.25 kuralları: js/economy/lottery.js) ─────────────
+  getLotteryRules() {
+    const L = GAME_CONFIG.CARNIVAL?.LOTTERY || {};
+    return { ticketPrice: L.TICKET_COST_ADA || 100, winnerMultiplier: L.WINNER_MULTIPLIER || 2, amortiShare: L.AMORTI_SHARE ?? 0.02 };
+  }
+
+  // Tarayıcı sürümünde diğer oyuncular temsili bilet sahipleriyle canlandırılır (sunucuda gerçek oyuncular)
+  getLotterySimHolders() {
+    if (!Array.isArray(this.state.lotterySimHolders)) {
+      const n = GAME_CONFIG.CARNIVAL?.LOTTERY?.LOCAL_SIM_HOLDERS ?? 20;
+      this.state.lotterySimHolders = Array.from({ length: n }, (_, i) => ({ id: `sim_${i + 1}`, tickets: 0, paid: 0 }));
+    }
+    return this.state.lotterySimHolders;
+  }
+
+  getLotteryStatus() {
+    const epochId = (globalPool && globalPool.state && globalPool.state.epochId) || 1;
+    const maxPerWeek = GAME_CONFIG.CARNIVAL?.LOTTERY?.MAX_TICKETS_PER_ACCOUNT || 100;
+    const boughtThisWeek = this.state.lotteryWeekEpoch === epochId ? (this.state.lotteryBoughtThisWeek || 0) : 0;
+    const myTickets = this.state.lotteryTickets || 0;
+    const others = this.getLotterySimHolders().reduce((s, h) => s + (h.tickets || 0), 0);
+    const totalTickets = myTickets + others;
+    const paid = this.state.lotteryTicketsPaid != null ? this.state.lotteryTicketsPaid : myTickets * this.getLotteryRules().ticketPrice;
+    return {
+      myTickets,
+      paid,
+      potentialPrize: paid * this.getLotteryRules().winnerMultiplier,
+      totalTickets,
+      chance: lotteryWinChance(myTickets, totalTickets),
+      boughtThisWeek,
+      maxPerWeek,
+      canBuy: Math.max(0, maxPerWeek - boughtThisWeek),
+      pool: this.state.lotteryPool || 0,
+      amortiPool: this.state.lotteryAmortiPool || 0,
+      pendingPayout: this.state.lotteryPendingPayout || 0,
+      lockedTickets: this.state.lotteryLockedTickets || 0,
+      lastResult: this.state.lastLotteryResult || null
+    };
+  }
+
   buyLotteryTickets(ticketCount = 1) {
     const count = Math.max(1, parseInt(ticketCount) || 1);
-    const maxAllowed = GAME_CONFIG.CARNIVAL?.LOTTERY?.MAX_TICKETS_PER_ACCOUNT || 100;
-    const currentTickets = this.state.lotteryTickets || 0;
-
-    if (currentTickets + count > maxAllowed) {
-      const remainingCanBuy = Math.max(0, maxAllowed - currentTickets);
+    const epochId = (globalPool && globalPool.state && globalPool.state.epochId) || 1;
+    if (this.state.lotteryWeekEpoch !== epochId) {
+      this.state.lotteryWeekEpoch = epochId;
+      this.state.lotteryBoughtThisWeek = 0;
+    }
+    const maxPerWeek = GAME_CONFIG.CARNIVAL?.LOTTERY?.MAX_TICKETS_PER_ACCOUNT || 100;
+    const bought = this.state.lotteryBoughtThisWeek || 0;
+    if (bought + count > maxPerWeek) {
       return {
         success: false,
-        message: `🚫 Balina İstifleme Kuralı: Bir hesap her hafta en fazla ${maxAllowed} bilet (10.000 ADA) satın alabilir! Mevcut biletin: ${currentTickets}, alabileceğin ek bilet: ${remainingCanBuy}.`
+        message: `🚫 Bir hesap haftada en fazla ${maxPerWeek} bilet alabilir. Bu hafta aldığın: ${bought}, alabileceğin: ${Math.max(0, maxPerWeek - bought)}.`
       };
     }
 
-    const cost = count * (GAME_CONFIG.CARNIVAL?.LOTTERY?.TICKET_COST_ADA || 100);
-
+    const rules = this.getLotteryRules();
+    const { cost, toAmorti, toPool } = splitTicketPayment(count, rules);
     if (this.state.adAstraBalance < cost) {
       return { success: false, message: `Yetersiz $ADASTRA! ${count} bilet için ${cost} ADA gereklidir.` };
     }
 
-    const amortiRate = GAME_CONFIG.CARNIVAL?.LOTTERY?.AMORTI_SHARE || 0.02;
-    const amortiAmount = Math.round(cost * amortiRate * 100) / 100;
-    const poolAmount = cost - amortiAmount;
-
+    if (this.state.lotteryTicketsPaid == null) this.state.lotteryTicketsPaid = (this.state.lotteryTickets || 0) * rules.ticketPrice;
     this.state.adAstraBalance -= cost;
-    this.state.lotteryTickets = currentTickets + count;
-    this.state.lotteryAmortiPool = (this.state.lotteryAmortiPool || 0) + amortiAmount;
-    this.state.lotteryPool = (this.state.lotteryPool || 20000000) + poolAmount;
+    this.state.lotteryTickets = (this.state.lotteryTickets || 0) + count;
+    this.state.lotteryTicketsPaid += cost;
+    this.state.lotteryBoughtThisWeek = bought + count;
+    this.state.lotteryAmortiPool = (this.state.lotteryAmortiPool || 0) + toAmorti;
+    this.state.lotteryPool = (this.state.lotteryPool || 0) + toPool;
 
     sound.playHarvest();
     this.saveState();
@@ -4271,114 +4654,134 @@ export class GameStateManager {
       totalTickets: this.state.lotteryTickets,
       lotteryPool: this.state.lotteryPool,
       lotteryAmortiPool: this.state.lotteryAmortiPool,
-      amortiAdded: amortiAmount,
-      message: `🎟️ ${count} Adet Piyango Bileti satın alındı! (+${amortiAmount} ADA Amorti İade Havuzuna aktarıldı, Toplam Biletin: ${this.state.lotteryTickets} / Max ${maxAllowed})`
+      amortiAdded: toAmorti,
+      message: `🎟️ ${count} bilet alındı (${cost.toLocaleString('tr-TR')} ADA). Elindeki bilet: ${this.state.lotteryTickets} · Kazanırsan: ${(this.state.lotteryTicketsPaid * rules.winnerMultiplier).toLocaleString('tr-TR')} ADA`
     };
   }
 
-  drawWeeklyLottery() {
-    const pool = this.state.lotteryPool || 20000000;
-    const amortiShare = Math.round(pool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.AMORTI_SHARE || 0.02));
-    this.state.lotteryAmortiPool = (this.state.lotteryAmortiPool || 0) + amortiShare;
-    this.state.lotteryPool = Math.max(0, pool - amortiShare);
+  // 🗓️ v1.25: Haftalık piyango çekilişi takvime bağlıdır. Yeni haftaya (Pazartesi 00:01 TSİ) geçildiğinde
+  // geçen haftanın çekilişi bir kez, kendiliğinden yapılır. Oyuncu çekilişi istediği an tetikleyemez.
+  processScheduledLottery() {
+    const epochId = (globalPool && globalPool.state && globalPool.state.epochId) || 1;
+    if (this.state.lastLotteryDrawEpoch == null) {
+      this.state.lastLotteryDrawEpoch = epochId;
+      return null;
+    }
+    if (epochId <= this.state.lastLotteryDrawEpoch) return null;
+    this.state.lastLotteryDrawEpoch = epochId;
+    const res = this.drawWeeklyLottery({ scheduled: true });
+    if (!res || !res.drawn) { this.saveState(); return null; }
+    this.state.lastLotteryResult = { at: Date.now(), userWon: res.userWon, wonAmount: res.wonAmount, amorti: res.amortiAmount || 0, poolDepleted: !!res.poolDepleted, epochId };
+    if (res.userWon || res.amortiAmount > 0 || res.userTicketsBefore > 0) this.pushNotice(res.message, res.userWon ? 'success' : 'info');
+    this.saveState();
+    return res;
+  }
 
-    const userTickets = this.state.lotteryTickets || 0;
-    const totalTickets = Math.max(100, userTickets + 900);
-    const userWinChance = userTickets / totalTickets;
-    const userWon = Math.random() < userWinChance;
+  // Temsili diğer oyuncular her hafta bilet alır (yalnızca tarayıcı sürümünde; sunucuda gerçek alımlar)
+  simulateOtherLotteryBuyers() {
+    const rules = this.getLotteryRules();
+    const perWeek = GAME_CONFIG.CARNIVAL?.LOTTERY?.LOCAL_SIM_TICKETS_PER_WEEK ?? 20;
+    for (const h of this.getLotterySimHolders()) {
+      const n = Math.max(0, Math.round(perWeek * (0.5 + Math.random())));
+      if (n <= 0) continue;
+      const split = splitTicketPayment(n, rules);
+      h.tickets += n;
+      h.paid += split.cost;
+      this.state.lotteryPool = (this.state.lotteryPool || 0) + split.toPool;
+      this.state.lotteryAmortiPool = (this.state.lotteryAmortiPool || 0) + split.toAmorti;
+    }
+  }
 
-    let burnedTickets = 0;
-    let keptTickets = userTickets;
+  // Haftalık çekiliş: tek kazanan, kazanan ödediğinin 2 katını alır; kasa yetmezse amorti dağıtılır
+  drawWeeklyLottery({ scheduled = false } = {}) {
+    const rules = this.getLotteryRules();
+    this.simulateOtherLotteryBuyers();
+    const myTickets = this.state.lotteryTickets || 0;
+    const myPaid = this.state.lotteryTicketsPaid != null ? this.state.lotteryTicketsPaid : myTickets * rules.ticketPrice;
+    const holders = [{ id: 'me', tickets: myTickets, paid: myPaid }, ...this.getLotterySimHolders()];
+    const result = runDraw({ pool: this.state.lotteryPool || 0, amortiPool: this.state.lotteryAmortiPool || 0, holders }, Math.random, rules);
+    if (!result.drawn) return { drawn: false };
+
+    this.state.lotteryPool = result.pool;
+    this.state.lotteryAmortiPool = result.amortiPool;
+    const meAfter = result.holders.find(h => h.id === 'me');
+    this.state.lotterySimHolders = result.holders.filter(h => h.id !== 'me');
+
+    const myPrize = result.payouts.find(p => p.id === 'me' && p.kind === 'prize');
+    const myAmorti = result.payouts.find(p => p.id === 'me' && p.kind === 'amorti');
     let wonAmount = 0;
-
-    if (userWon && userTickets > 0) {
-      const ticketCostTotal = userTickets * 100;
-      wonAmount = ticketCostTotal * 2; // Tam 2 katı (2x) kazanç!
-      this.state.adAstraBalance += wonAmount;
-      this.state.lotteryPool = Math.max(0, this.state.lotteryPool - wonAmount);
-      burnedTickets = userTickets;
-      keptTickets = 0;
-      this.state.lotteryTickets = 0;
+    let amortiAmount = 0;
+    if (myPrize) {
+      wonAmount = myPrize.amount;
+      this.state.lotteryPendingPayout = (this.state.lotteryPendingPayout || 0) + wonAmount;
+      // Kazanan biletler ödül çekilirken yanar; o zamana kadar kilitli (sonraki çekilişlere girmez)
+      this.state.lotteryLockedTickets = (this.state.lotteryLockedTickets || 0) + (myPrize.ticketsLocked || 0);
       sound.playLevelUp();
     }
+    if (myAmorti) {
+      amortiAmount = myAmorti.amount;
+      this.state.lotteryPendingPayout = (this.state.lotteryPendingPayout || 0) + amortiAmount;
+    }
+    this.state.lotteryTickets = meAfter ? meAfter.tickets : 0;
+    this.state.lotteryTicketsPaid = meAfter ? meAfter.paid : 0;
+    if (!scheduled) this.saveState();
 
-    const message = userWon
-      ? `👑 TEBRİKLER! Krallık Piyangosu size çıktı! Sahip olduğunuz ${burnedTickets} biletin net 2 katı (+${wonAmount.toLocaleString('tr-TR')} $ADASTRA) anında cüzdanınıza aktarıldı!`
-      : (userTickets > 0
-          ? `🎲 Çekiliş tamamlandı. Bu hafta ikramiye size çıkmadı ancak hiçbir biletiniz yanmadı! Satın aldığınız ${userTickets} adet biletiniz otomatik olarak bir sonraki haftaya devredildi, şansınız kesintisiz devam ediyor.`
-          : `🎲 Çekiliş tamamlandı. Bu hafta biletiniz bulunmuyordu. Bir sonraki haftaya devreden dev kasadan pay almak için bilet alabilirsiniz.`);
+    const userWon = !!myPrize;
+    let message;
+    if (userWon) {
+      message = result.poolDepleted
+        ? `👑 Piyango sana çıktı! Kasada kalan ${wonAmount.toLocaleString('tr-TR')} ADA'nın tamamı senin. Karnaval → Piyango'dan çek; biletlerin çekerken yanar.`
+        : `👑 Piyango sana çıktı! Biletlerine ödediğinin 2 katı: ${wonAmount.toLocaleString('tr-TR')} ADA. Karnaval → Piyango'dan çek; biletlerin çekerken yanar.`;
+    } else if (result.poolDepleted) {
+      message = `🎲 Piyango kasası bitti: kalan tüm biletlere amorti dağıtıldı${amortiAmount > 0 ? ` (sana +${amortiAmount.toLocaleString('tr-TR')} ADA)` : ''}. Biletler kapandı, piyango yeni satışlarla yeniden dolacak.`;
+    } else {
+      message = myTickets > 0
+        ? `🎲 Haftalık çekiliş yapıldı, bu hafta sana çıkmadı. ${myTickets} biletin yanmadı, sonraki haftaya devretti.`
+        : '🎲 Haftalık çekiliş yapıldı.';
+    }
 
     return {
+      drawn: true,
       userWon,
       wonAmount,
-      winnerShare: wonAmount,
-      amortiShare,
+      amortiAmount,
+      poolDepleted: result.poolDepleted,
+      winnerId: result.winnerId,
+      totalTickets: result.totalTickets,
+      userTicketsBefore: myTickets,
+      userTicketsRemaining: this.state.lotteryTickets,
       rolloverPool: this.state.lotteryPool,
-      userTicketsRemaining: keptTickets,
-      burnedTickets,
       message
     };
   }
 
-  burnLotteryTicketsForAmorti(count = 1) {
-    const userTickets = this.state.lotteryTickets || 0;
-    const toBurn = Math.min(userTickets, Math.max(1, parseInt(count) || 1));
-    if (toBurn <= 0) return { success: false, message: 'Yakılacak biletin bulunmuyor!' };
-
-    const amortiPool = this.state.lotteryAmortiPool || 0;
-    if (amortiPool <= 0) {
-      return { success: false, message: 'Amorti havuzunda henüz birikmiş $ADASTRA bulunmuyor.' };
-    }
-
-    const baseAmortiPerTicket = (GAME_CONFIG.CARNIVAL?.LOTTERY?.TICKET_COST_ADA || 100) * (GAME_CONFIG.CARNIVAL?.LOTTERY?.AMORTI_SHARE || 0.02);
-    const calculatedPayout = Math.round(toBurn * baseAmortiPerTicket);
-    const totalPayout = Math.min(amortiPool, Math.max(1, calculatedPayout));
-
-    this.state.lotteryTickets -= toBurn;
-    this.state.lotteryAmortiPool = Math.max(0, amortiPool - totalPayout);
-    this.state.adAstraBalance += totalPayout;
-
-    this.saveState();
-    return {
-      success: true,
-      burned: toBurn,
-      payout: totalPayout,
-      message: `🎟️ ${toBurn} Bilet yakıldı ve Amorti Kasasından +${totalPayout.toLocaleString()} ADA çekildi!`
-    };
+  // v1.25: Amorti yalnızca piyango kasası bittiğinde, kalan tüm biletlere eşit dağıtılır (elle bilet yakıp amorti alma yok).
+  // Biletini erken kullanmak isteyen, çarkta 1 bilet = 1 çevirme olarak yakabilir.
+  burnLotteryTicketsForAmorti() {
+    return { success: false, message: 'Amorti, piyango kasası bittiğinde kalan tüm biletlere otomatik dağıtılır. Biletini beklemek istemezsen çarkta 1 bilet = 1 çevirme olarak kullanabilirsin.' };
   }
 
-  // 👑 TALİHLİ BİLET YAKIMI & 2 KATINA KASADAN ADA ÇEKİMİ
-  claimWinnerLotteryPayout(count = null) {
-    const userTickets = this.state.lotteryTickets || 0;
-    if (userTickets <= 0) {
-      return { success: false, message: 'Yakılacak piyango biletin bulunmuyor!' };
+  // 👑 KAZANAN BİLETİN ÖDÜLÜNÜ ÇEK
+  // v1.25: Yalnızca haftalık çekilişte gerçekten kazanılmış (kasadan ayrılmış) tutar ödenir.
+  // Eski sürüm, çekiliş kazanılmamış olsa bile bileti olan herkese bilet bedelinin 2 katını ödüyordu
+  // (100 bilet al → 10.000 öde → 20.000 çek; sonsuz para açığı).
+  claimWinnerLotteryPayout() {
+    const pending = Number(this.state.lotteryPendingPayout) || 0;
+    if (pending <= 0) {
+      return { success: false, message: 'Çekilecek bir piyango kazancın yok. Çekiliş her Pazartesi 00:01 (TSİ) kendiliğinden yapılır; biletlerin yanmaz, kazanana kadar sonraki haftaya devreder.' };
     }
-
-    const toBurn = (count !== null && count !== undefined && parseInt(count) > 0)
-      ? Math.min(userTickets, parseInt(count))
-      : userTickets;
-
-    const ticketValAda = GAME_CONFIG.CARNIVAL?.LOTTERY?.TICKET_COST_ADA || 100;
-    const multiplier = GAME_CONFIG.CARNIVAL?.LOTTERY?.WINNER_MULTIPLIER || 2.0;
-    const payoutAda = Math.round(toBurn * ticketValAda * multiplier);
-
-    const pool = this.state.lotteryPool || 20000000;
-    const actualPayout = Math.min(pool, payoutAda);
-
-    this.state.lotteryTickets = Math.max(0, userTickets - toBurn);
-    this.state.lotteryPool = Math.max(0, pool - actualPayout);
-    this.state.adAstraBalance += actualPayout;
-
+    const burned = this.state.lotteryLockedTickets || 0;
+    this.state.lotteryPendingPayout = 0;
+    this.state.lotteryLockedTickets = 0; // kazanan biletler ödül çekilirken yanar
+    this.state.adAstraBalance = (this.state.adAstraBalance || 0) + pending;
     sound.playLevelUp();
     this.saveState();
-
     return {
       success: true,
-      burnedTickets: toBurn,
-      payoutAda: actualPayout,
-      remainingTickets: this.state.lotteryTickets,
+      payoutAda: pending,
+      burnedTickets: burned,
       remainingPool: this.state.lotteryPool,
-      message: `🏆 TEBRİKLER TALİHLİ! ${toBurn} adet piyango biletin fırında yakıldı ve bilet değerinin tam 2 katı (+${actualPayout.toLocaleString('tr-TR')} $ADASTRA) Piyango Hazne Kasasından çekilerek cüzdanına aktarıldı!`
+      message: `🏆 Piyango kazancın (+${pending.toLocaleString('tr-TR')} $ADASTRA) cüzdanına aktarıldı!${burned > 0 ? ` Kazanan ${burned} bilet yandı.` : ''}`
     };
   }
 
@@ -4391,19 +4794,34 @@ export class GameStateManager {
   // =========================================================================
 
   // Zindan Canavarı Yenildiğinde XP, AdAstra ve Şansa Bağlı Ganimet Dağıtır
-  addDungeonXpAndDrops(level, isBoss = false) {
+  addDungeonXpAndDrops(level, isBoss = false, { rewarded = true } = {}) {
     const lvl = Math.max(1, Math.min(18, level));
     // SADECE Kat 3 (Lv.9 Kadim Taş Golyat) ve Kat 6 (Lv.18 Kıyamet Ejderhası IGNIS) Bosslarında %100 çarpan etkisi (+%100 ekstra şans, 2 katı)
-    const isMajorBoss = isBoss || lvl === 9 || lvl === 18;
+    const base = this.getDungeonBaseReward(lvl, isBoss);
+    const isMajorBoss = base.isMajorBoss;
     const bossMultiplier = isMajorBoss ? (GAME_CONFIG.BOSS_DROP_MULTIPLIER || 2.0) : 1.0;
 
-    const xpGained = Math.floor(200 * lvl * (isMajorBoss ? 3.0 : 1));
-    const targetAdAstra = Math.floor(90 * lvl * (isMajorBoss ? 3.0 : 1));
-    const draw = (typeof treasury !== 'undefined' && treasury && treasury.withdraw)
-      ? treasury.withdraw('dungeon', targetAdAstra)
-      : { granted: targetAdAstra };
-    const adAstraGained = Math.max(1, Math.round(draw.granted != null ? draw.granted : targetAdAstra));
+    const xpGained = base.xp;
     this.addXp(xpGained);
+
+    // Antrenman girişi (günlük ödüllü haklar bitti, kapı harcı ödenmedi): yalnızca deneyim
+    if (!rewarded) {
+      this.saveState();
+      return { success: true, trainingOnly: true, xpGained, adAstraGained: 0, fragmentsGained: 0, boxGained: 0, artifactDiscovered: null, scrollGained: null };
+    }
+
+    // Günlük zindan bütçesi: kasa bir günde en fazla bakiyesinin %1'ini öder
+    const day = this.getDungeonDayStatus();
+    const targetAdAstra = Math.min(base.ada, day.budgetLeft);
+    let adAstraGained = 0;
+    if (targetAdAstra > 0) {
+      const draw = (typeof treasury !== 'undefined' && treasury && treasury.withdraw)
+        ? treasury.withdraw('dungeon', targetAdAstra)
+        : { granted: targetAdAstra };
+      adAstraGained = Math.max(0, Math.round(draw.granted != null ? draw.granted : targetAdAstra));
+      this.state.dailyCounters.dungeonPaid = (this.state.dailyCounters.dungeonPaid || 0) + adAstraGained;
+    }
+    const budgetCapped = adAstraGained < base.ada;
     this.state.adAstraBalance += adAstraGained;
 
     let fragmentsGained = 0;
@@ -4447,7 +4865,7 @@ export class GameStateManager {
     sound.playLevelUp();
     this.saveState();
 
-    return { xpGained, adAstraGained, fragmentsGained, boxGained, artifactDiscovered, scrollGained, isBoss: isMajorBoss };
+    return { xpGained, adAstraGained, fragmentsGained, boxGained, artifactDiscovered, scrollGained, isBoss: isMajorBoss, budgetCapped, baseAda: base.ada };
   }
 
   // Henüz Keşfedilmemiş Bir Koleksiyon Eserini Açığa Çıkarır (Varsa Zindan Seviyesine Uygun Olanı Önceliklendirir)
@@ -4610,7 +5028,7 @@ export class GameStateManager {
 
   activateTavernBuff(buffId, durationDays = 1) {
     const buffConfig = GAME_CONFIG.TAVERN_BUFFS[buffId] || { name: buffId, durationSeconds: durationDays * 86400 };
-    const now = Date.now();
+    const now = this._now();
     const durSec = (buffConfig.durationSeconds || durationDays * 86400);
     this.state.activeBuffs[buffId] = {
       id: buffId,
@@ -4620,214 +5038,47 @@ export class GameStateManager {
     this.saveState();
   }
 
+  // ⏩ TEST MENÜSÜ: ZAMANI İLERİ SAR
+  // v1.25: Artık çevrimdışı telafiyle aynı simülasyon motorunu kullanır. Bot süresi simülasyon saatine
+  // göre dolar, oto-yenileme tam o anda denenir, doğal stamina yenilenir. Simülasyon bitince oyunun
+  // tüm mutlak zaman damgaları (bot bitişi, güçlendirmeler, sefer başlangıçları) geçen süre kadar geri
+  // alınır; böylece gerçek saatle "o kadar süre geçmiş" hali birebir aynı olur.
   fastForwardTime(hours) {
-    this._isFastForwarding = true;
-    try {
-      const totalSeconds = hours * 3600;
-      const now = Date.now();
-      const hasBot = this.hasPurchasedBot();
-      const isPaused = this.isBotPaused();
+    const totalSeconds = Math.max(0, Number(hours) || 0) * 3600;
+    const now = Date.now();
+    const shiftMs = totalSeconds * 1000;
+    const hadBot = this.hasPurchasedBot();
+    const wasPaused = this.isBotPaused();
+    const before = this._snapshotEconomy();
 
-      const initialInv = {
-        wood: Number(this.state.inventory?.wood) || 0,
-        iron: Number(this.state.inventory?.iron) || 0,
-        wheat: Number(this.state.inventory?.wheat) || 0
-      };
-    const initialAda = Number(this.state.adAstraBalance) || 0;
-    const initialWarehouseLevel = Number(this.state.warehouseLevel) || 1;
-    const initialXp = Number(this.state.currentXp) || 0;
+    const report = this.simulateTimePassage(totalSeconds, { startMs: now });
 
-    let totalExpeditionsClaimed = 0;
-    let botExecutionStatus = 'inactive'; // 'ran', 'paused', 'expired', 'inactive'
-
-    // 1. EĞER BOT AKTİF VE DURAKLATILMAMIŞSA: OTONOM SİMÜLASYON DÖNGÜSÜ
-    if (hasBot && !isPaused) {
-      botExecutionStatus = 'ran';
-      const currentExpiry = this.getAutoCollectorExpiry();
-      const remainingMs = Math.max(0, currentExpiry - now);
-      let remainingBotSec = Math.floor(remainingMs / 1000);
-
-      // 🔄 Eğer offline ilerletilen süre kalan bot süresinden uzunsa ve otomatik yenileme açıksa:
-      while (remainingBotSec < totalSeconds && this.state.botAutoRenew24h) {
-        const calc = this.calculateTavernaBotProfitAndCost();
-        const cost = calc.dailyBotCostAda || calc.botCostAda || 0;
-        if (this.state.adAstraBalance >= cost && cost > 0) {
-          this.state.adAstraBalance -= cost;
-          globalPool.recordTokenSpend(cost);
-          remainingBotSec += 24 * 3600;
-          this.state.botActiveUntil = Math.max(now, this.state.botActiveUntil || now) + (24 * 3600 * 1000);
-          this.state.tavernaBotActive = true;
-          this.state.tavernaBotExpiresAt = this.state.botActiveUntil;
-          if (!this.state.activeBuffs) this.state.activeBuffs = {};
-          this.state.activeBuffs['auto_collector'] = {
-            id: 'auto_collector',
-            name: '24 Saatlik Otomasyon Botu',
-            expiresAt: this.state.botActiveUntil
-          };
-          if (!this.state.lastBotActions) this.state.lastBotActions = [];
-          this.state.lastBotActions.push(`🔄 Bot Çevrimdışı Oto-Yenileme: 24 saat tamamlandı. Kasadaki ${cost.toLocaleString()} $ADASTRA ile bot otomatik satın alındı ve devam ediyor.`);
-        } else {
-          break;
-        }
-      }
-
-      // Simüle edilecek bot çalışma süresi (kalan bot süresini aşamaz)
-      const botWorkSec = Math.min(totalSeconds, remainingBotSec);
-
-      // Adım adım simülasyon: botWorkSec boyunca ardışık seferler ve döngüler
-      let remainingSimTime = botWorkSec;
-      let safetyCounter = Math.min(200, Math.ceil(hours * 15)); // yeterli döngü sınırı
-      const nodes = ['wood', 'iron', 'wheat'];
-
-      while (remainingSimTime > 0 && safetyCounter-- > 0) {
-        // En yakın bitiş zamanını bul
-        let minNeeded = remainingSimTime;
-        let anyActive = false;
-
-        for (const nodeId of nodes) {
-          const exp = this.state.activeExpeditions ? this.state.activeExpeditions[nodeId] : null;
-          if (exp && !exp.isCompleted) {
-            anyActive = true;
-            const needed = Math.max(1, (exp.durationSeconds - (exp.elapsedSeconds || 0)));
-            if (needed < minNeeded) minNeeded = needed;
-          }
-        }
-
-        // Eğer aktif (çalışan) sefer yoksa hemen runTavernaAutomationCycle ile boş madenleri başlat
-        if (!anyActive) {
-          this.runTavernaAutomationCycle();
-          let startedAny = false;
-          for (const nid of nodes) {
-            const exp = this.state.activeExpeditions ? this.state.activeExpeditions[nid] : null;
-            if (exp && !exp.isCompleted) { startedAny = true; break; }
-          }
-          if (!startedAny || this.isBotPaused()) {
-            if (this.isBotPaused()) {
-              botExecutionStatus = 'paused';
-            }
-            break;
-          }
-          continue;
-        }
-
-        const stepToApply = Math.min(remainingSimTime, minNeeded);
-        remainingSimTime -= stepToApply;
-
-        // Seferlerin süresini ilerlet
-        for (const nodeId of nodes) {
-          const exp = this.state.activeExpeditions ? this.state.activeExpeditions[nodeId] : null;
-          if (exp && !exp.isCompleted) {
-            exp.elapsedSeconds = Math.min(exp.durationSeconds, (exp.elapsedSeconds || 0) + stepToApply);
-            if (exp.elapsedSeconds >= exp.durationSeconds) {
-              exp.isCompleted = true;
-            }
-          }
-        }
-
-        // Bitenleri topla ve yeni döngüyü işlet
-        const cycleRes = this.runTavernaAutomationCycle();
-        if (cycleRes && cycleRes.actions) {
-          for (const act of cycleRes.actions) {
-            if (act.includes('toplandı')) {
-              totalExpeditionsClaimed++;
-            }
-          }
-        }
-
-        if (this.isBotPaused()) {
-          botExecutionStatus = 'paused';
-          break;
-        }
-      }
-
-      // 🔄 Simülasyon Bitişinde Botun Aşınmış Aletleri Son Sefer Hasadından Sonra Onarması
-      if (!this.isBotPaused()) {
-        this.runTavernaAutomationCycle();
-      }
-
-      // ⏱️ Simülasyon tamamlandıktan sonra bot süresini totalSeconds kadar düşür
-      if (this.state.botActiveUntil) {
-        this.state.botActiveUntil -= totalSeconds * 1000;
-        if (this.state.botActiveUntil <= now) {
-          this.state.botActiveUntil = 0;
-        }
-      }
-      if (this.state.tavernaBotExpiresAt) {
-        this.state.tavernaBotExpiresAt -= totalSeconds * 1000;
-        if (this.state.tavernaBotExpiresAt <= now) {
-          this.state.tavernaBotExpiresAt = 0;
-          this.state.tavernaBotActive = false;
-        }
-      }
-      for (const id of ['auto_collector', 'auto_collector_weekly', 'auto_collector_monthly']) {
-        if (this.state.activeBuffs && this.state.activeBuffs[id]) {
-          this.state.activeBuffs[id].expiresAt -= totalSeconds * 1000;
-          if (this.state.activeBuffs[id].expiresAt <= now) {
-            delete this.state.activeBuffs[id];
-          }
-        }
-      }
-
-      if (remainingBotSec < totalSeconds) {
-        botExecutionStatus = 'expired';
-      }
-
-      // Kalan simüle edilmemiş (veya bot süresi bittikten sonraki) zaman varsa aktif seferleri ilerlet
-      if (totalSeconds > botWorkSec) {
-        const extraSec = totalSeconds - botWorkSec;
-        for (const nodeId of Object.keys(this.state.activeExpeditions || {})) {
-          const exp = this.state.activeExpeditions[nodeId];
-          if (exp && !exp.isCompleted) {
-            exp.elapsedSeconds += extraSec;
-            if (exp.elapsedSeconds >= exp.durationSeconds) {
-              exp.elapsedSeconds = exp.durationSeconds;
-              exp.isCompleted = true;
-            }
-          }
-        }
-      }
-    } else if (hasBot && isPaused) {
-      botExecutionStatus = 'paused';
-      // Bot dondurulmuş olduğu için kalan bot süresi dondurulmuştur, azaltılmaz.
-      // Sadece varsa önceden gönderilmiş seferlerin süresi ilerletilir.
-      for (const nodeId of Object.keys(this.state.activeExpeditions || {})) {
-        const exp = this.state.activeExpeditions[nodeId];
-        if (exp && !exp.isCompleted) {
-          exp.elapsedSeconds += totalSeconds;
-          if (exp.elapsedSeconds >= exp.durationSeconds) {
-            exp.elapsedSeconds = exp.durationSeconds;
-            exp.isCompleted = true;
-          }
-        }
-      }
-    } else {
-      // Bot yoksa: Yalnızca mevcut seferler ilerletilir
-      botExecutionStatus = 'inactive';
-      for (const nodeId of Object.keys(this.state.activeExpeditions || {})) {
-        const exp = this.state.activeExpeditions[nodeId];
-        if (exp && !exp.isCompleted) {
-          exp.elapsedSeconds += totalSeconds;
-          if (exp.elapsedSeconds >= exp.durationSeconds) {
-            exp.elapsedSeconds = exp.durationSeconds;
-            exp.isCompleted = true;
-          }
-        }
-      }
+    // Simülasyon geleceğe doğru ilerledi: tüm mutlak zaman damgalarını geçen süre kadar geri al
+    const shift = (v) => (v && v > 0 ? v - shiftMs : v);
+    this.state.botActiveUntil = shift(this.state.botActiveUntil);
+    this.state.tavernaBotExpiresAt = shift(this.state.tavernaBotExpiresAt);
+    this.state.botPausedAt = shift(this.state.botPausedAt);
+    this.state.lastAutoWarehouseUpgradeTime = shift(this.state.lastAutoWarehouseUpgradeTime);
+    for (const id of Object.keys(this.state.activeBuffs || {})) {
+      const b = this.state.activeBuffs[id];
+      if (b && b.expiresAt) b.expiresAt -= shiftMs;
+      if (b && b.expiresAt && b.expiresAt <= now && id.startsWith('auto_collector')) delete this.state.activeBuffs[id];
     }
-
-    // 2. Diğer Taverna Güçlendirmelerini İlerlet (expiresAt mutlak zaman damgasını geriye sarar)
-    for (const buffId of Object.keys(this.state.activeBuffs || {})) {
-      if (buffId.startsWith('auto_collector')) continue;
-      const buff = this.state.activeBuffs[buffId];
-      if (buff && buff.expiresAt) {
-        buff.expiresAt -= totalSeconds * 1000;
-      }
+    for (const nodeId of Object.keys(this.state.activeExpeditions || {})) {
+      const exp = this.state.activeExpeditions[nodeId];
+      if (!exp) continue;
+      if (exp.startedAt) exp.startedAt -= shiftMs;
+      exp.lastTickAt = now;
     }
+    if (this.state.botActiveUntil && this.state.botActiveUntil <= now && !this.state.botPaused) this.state.botActiveUntil = 0;
+    if (this.state.tavernaBotExpiresAt && this.state.tavernaBotExpiresAt <= now && !this.state.botPaused) {
+      this.state.tavernaBotExpiresAt = 0;
+      this.state.tavernaBotActive = false;
+    }
+    this._lastFrameAt = now;
+    this.state.lastSeenAt = now;
 
-    // 3. Ordunun (soldierUnits) Buğday ile Pasif İyileşmesini İlerlet
-    this.processSoldierPassiveHealing(totalSeconds);
-
-    // 4. Günlük Otonom AMM Buyback & Yakım Kontrolü (Zaman İlerlemesi)
+    // Günlük hazine geri alımı: geçen her tam gün için bir kez (en fazla 7)
     if (hours >= 24) {
       const daysPassed = Math.floor(hours / 24);
       for (let d = 0; d < Math.min(daysPassed, 7); d++) {
@@ -4837,49 +5088,43 @@ export class GameStateManager {
     }
 
     this.saveState();
+    if (typeof globalPool !== 'undefined' && globalPool && typeof globalPool.saveState === 'function') globalPool.saveState();
+    if (typeof ammMarket !== 'undefined' && ammMarket && typeof ammMarket.savePools === 'function') ammMarket.savePools();
 
-    // Rapor ve Sonuç Bilgisi Oluştur
-    const finalWood = Number(this.state.inventory?.wood) || 0;
-    const finalIron = Number(this.state.inventory?.iron) || 0;
-    const finalWheat = Number(this.state.inventory?.wheat) || 0;
-    const finalAda = Number(this.state.adAstraBalance) || 0;
-    const finalWarehouseLevel = Number(this.state.warehouseLevel) || 1;
+    const after = this._snapshotEconomy();
+    let botExecutionStatus = 'inactive';
+    if (hadBot && wasPaused) botExecutionStatus = 'paused';
+    else if (hadBot) {
+      if (this.isBotPaused()) botExecutionStatus = 'paused';
+      else if (!this.hasPurchasedBot()) botExecutionStatus = 'expired';
+      else botExecutionStatus = 'ran';
+    }
 
     let botRemainingText = 'Kapalı / Yok';
     if (this.hasPurchasedBot()) {
-      const exp = this.getAutoCollectorExpiry();
-      const rem = this.isBotPaused() ? (this.state.botPausedRemainingMs || 0) : Math.max(0, exp - Date.now());
-      const h = Math.floor(rem / (3600 * 1000));
-      const m = Math.floor((rem % (3600 * 1000)) / (60 * 1000));
+      const rem = this.isBotPaused() ? (this.state.botPausedRemainingMs || 0) : Math.max(0, this.getAutoCollectorExpiry() - Date.now());
+      const h = Math.floor(rem / 3600000);
+      const m = Math.floor((rem % 3600000) / 60000);
       botRemainingText = `${h} saat ${m} dakika${this.isBotPaused() ? ' (Donduruldu)' : ''}`;
     }
 
-      return {
-        hours,
-        hasBot,
-        botExecutionStatus,
-        isPaused: this.isBotPaused(),
-        missingText: this.checkBotPrerequisites().missingText,
-        totalExpeditionsClaimed,
-        woodGain: Math.max(0, finalWood - initialInv.wood),
-        ironGain: Math.max(0, finalIron - initialInv.iron),
-        wheatGain: Math.max(0, finalWheat - initialInv.wheat),
-        adaDiff: finalAda - initialAda,
-        warehouseUpgraded: finalWarehouseLevel > initialWarehouseLevel,
-        currentWarehouseLevel: finalWarehouseLevel,
-        botRemainingText,
-        xpGain: Math.max(0, (Number(this.state.currentXp) || 0) - initialXp)
-      };
-    } finally {
-      this._isFastForwarding = false;
-      this.saveState();
-      if (typeof globalPool !== 'undefined' && globalPool && typeof globalPool.saveState === 'function') {
-        globalPool.saveState();
-      }
-      if (typeof ammMarket !== 'undefined' && ammMarket && typeof ammMarket.savePools === 'function') {
-        ammMarket.savePools();
-      }
-    }
+    return {
+      hours,
+      hasBot: hadBot,
+      botExecutionStatus,
+      isPaused: this.isBotPaused(),
+      missingText: this.checkBotPrerequisites().missingText,
+      totalExpeditionsClaimed: report.expeditionsClaimed,
+      botRenewals: report.botRenewals,
+      woodGain: Math.max(0, after.wood - before.wood),
+      ironGain: Math.max(0, after.iron - before.iron),
+      wheatGain: Math.max(0, after.wheat - before.wheat),
+      adaDiff: after.ada - before.ada,
+      warehouseUpgraded: after.warehouseLevel > before.warehouseLevel,
+      currentWarehouseLevel: after.warehouseLevel,
+      botRemainingText,
+      xpGain: Math.max(0, after.xp - before.xp)
+    };
   }
 
   completeAllExpeditionsNow() {
@@ -5026,8 +5271,17 @@ export class GameStateManager {
       armoryInventory: [],
       dungeonMonsterCurrentHp: {},
       lotteryTickets: 0,
-      lotteryPool: (GAME_CONFIG.LOTTERY && GAME_CONFIG.LOTTERY.SEED_POOL_ADA) || 20000000,
+      lotteryPool: (GAME_CONFIG.CARNIVAL && GAME_CONFIG.CARNIVAL.LOTTERY && GAME_CONFIG.CARNIVAL.LOTTERY.SEED_POOL_ADA) || 20000000,
       lotteryAmortiPool: 0,
+      lotteryPendingPayout: 0,
+      lastLotteryDrawEpoch: (globalPool && globalPool.state && globalPool.state.epochId) || 1,
+      lastLotteryResult: null,
+      onboarding: {},
+      botTrialUsed: false,
+      botRenewCount: 0,
+      pendingNotices: [],
+      offlineReport: null,
+      lastSeenAt: Date.now(),
       wheelTicketShards: 0,
       botSiloAutoUpgrade: true,
       botAutoRenew24h: false,
@@ -5708,6 +5962,62 @@ export class GameStateManager {
   // =========================================================================
   // PRE-BATTLE: SAVAŞ TAHMİNİ (ORDU VE KUŞANILMIŞ SİLAHLAR)
   // =========================================================================
+  // ⚔️ Zindan savaşı birimleri — hem tahmin hem gerçek savaş aynı kurulumu kullanır (tek motor: combat.js)
+  buildDungeonBattleUnits(monster, selectedSoldierIndices, monsterHp = null) {
+    const soldiers = this.state.soldierUnits || [];
+    const allies = (selectedSoldierIndices || []).filter(idx => soldiers[idx]).map((idx, i) => {
+      const stats = this.getSoldierFullStats(idx) || { totalAtk: 25, totalMaxHp: 100 };
+      const sol = soldiers[idx];
+      return createUnit({
+        uid: 'a' + i,
+        sourceIndex: idx,
+        name: sol.name,
+        icon: sol.icon || '⚔️',
+        level: sol.level || 1,
+        maxHp: stats.totalMaxHp,
+        hp: Math.min(sol.hp != null ? sol.hp : stats.totalMaxHp, stats.totalMaxHp),
+        atk: stats.totalAtk,
+        skills: Array.isArray(sol.skills) && sol.skills.length ? sol.skills : ['shieldWall', 'armorBreaker'],
+        row: sol.row === 'back' ? 'back' : 'front',
+        side: 'ally'
+      });
+    });
+    const isBoss = !!(monster.isBoss || monster.level === 9 || monster.level === 18);
+    const entry = getDungeonEntry(monster.level);
+    const abilities = entry && Array.isArray(entry.abilities) && entry.abilities.length
+      ? entry.abilities
+      : (isBoss ? ['cleave', 'terrify'] : null);
+    const hp = monsterHp != null ? monsterHp : this.getMonsterCurrentHp(monster.level, monster.hp);
+    const enemy = createUnit({
+      uid: 'e0',
+      name: monster.name,
+      icon: monster.icon || '💀',
+      level: monster.level,
+      maxHp: monster.hp,
+      hp: Math.max(1, Math.min(monster.hp, hp)),
+      atk: monster.atk,
+      abilities,
+      abilityCooldown: isBoss ? 2 : 3,
+      row: 'front',
+      side: 'enemy'
+    });
+    return { allies, enemies: [enemy], bossPhases: DEFAULT_BOSS_PHASES[monster.level] || null, isBoss };
+  }
+
+  // Gerçek savaş motoruyla (combat.js) Monte Carlo kazanma şansı
+  predictDungeonBattle(monster, selectedSoldierIndices, samples = 100) {
+    if (!selectedSoldierIndices || selectedSoldierIndices.length === 0) {
+      return { winChance: 0, difficulty: 'İmkansız', avgRounds: 0, avgCasualties: 0, samples: 0 };
+    }
+    const setup = this.buildDungeonBattleUnits(monster, selectedSoldierIndices);
+    return predictBattle(
+      () => this.buildDungeonBattleUnits(monster, selectedSoldierIndices).allies,
+      () => this.buildDungeonBattleUnits(monster, selectedSoldierIndices).enemies,
+      samples,
+      { bossPhases: setup.bossPhases }
+    );
+  }
+
   getBattlePrediction(enemyHp, enemyAtk, selectedSoldierIndices) {
     const soldiers = this.state.soldierUnits || [];
     let totalAtk = 0;
@@ -5783,11 +6093,67 @@ export class GameStateManager {
 
   // Günlük sayaçlar (arena maçı, zindan koşusu) — gün değişince sıfırlanır
   getDailyCounters() {
-    const today = new Date().toISOString().slice(0, 10);
+    // Günler Türkiye saatiyle (UTC+3) gece yarısı yenilenir
+    const today = new Date(Date.now() + 3 * 3600 * 1000).toISOString().slice(0, 10);
     if (!this.state.dailyCounters || this.state.dailyCounters.date !== today) {
-      this.state.dailyCounters = { date: today, arenaMatches: 0, dungeonRuns: 0 };
+      this.state.dailyCounters = { date: today, arenaMatches: 0, dungeonRuns: 0, dungeonPaidEntries: 0, dungeonBudget: null, dungeonPaid: 0 };
     }
     return this.state.dailyCounters;
+  }
+
+  // ── Zindan günlük hakları, kapı harcı ve kasa bütçesi ─────────────────────
+  getDungeonBaseReward(level, isBoss = false) {
+    const lvl = Math.max(1, Math.min(18, Number(level) || 1));
+    const major = isBoss || lvl === 9 || lvl === 18;
+    return { ada: Math.floor(90 * lvl * (major ? 3 : 1)), xp: Math.floor(200 * lvl * (major ? 3 : 1)), isMajorBoss: major };
+  }
+
+  getDungeonGateFee(level, isBoss = false) {
+    const rate = GAME_CONFIG.DUNGEON?.GATE_FEE_RATE ?? 0.2;
+    return Math.max(1, Math.ceil(this.getDungeonBaseReward(level, isBoss).ada * rate));
+  }
+
+  getDungeonDayStatus() {
+    const c = this.getDailyCounters();
+    const cfg = GAME_CONFIG.DUNGEON || {};
+    if (c.dungeonBudget == null) {
+      const pool = (treasury && treasury.getPool) ? treasury.getPool('dungeon') : 0;
+      c.dungeonBudget = Math.floor(pool * (cfg.DAILY_BUDGET_RATE ?? 0.01));
+      c.dungeonPaid = 0;
+    }
+    const freeTotal = cfg.DAILY_RUNS || 5;
+    const freeUsed = c.dungeonRuns || 0;
+    return {
+      freeTotal,
+      freeUsed,
+      freeLeft: Math.max(0, freeTotal - freeUsed),
+      paidEntries: c.dungeonPaidEntries || 0,
+      budget: c.dungeonBudget,
+      budgetLeft: Math.max(0, c.dungeonBudget - (c.dungeonPaid || 0))
+    };
+  }
+
+  // Savaş başlarken çağrılır: ödüllü mü girildi, kapı harcı alındı mı?
+  beginDungeonEntry(level, isBoss = false, { payGateFee = false } = {}) {
+    const st = this.getDungeonDayStatus();
+    const c = this.state.dailyCounters;
+    if (st.freeLeft > 0) {
+      c.dungeonRuns = (c.dungeonRuns || 0) + 1;
+      this.saveState();
+      return { success: true, rewarded: true, fee: 0, message: `🎟️ Ödüllü giriş (${c.dungeonRuns}/${st.freeTotal})` };
+    }
+    if (payGateFee) {
+      const fee = this.getDungeonGateFee(level, isBoss);
+      if ((this.state.adAstraBalance || 0) < fee) {
+        return { success: false, rewarded: false, fee, message: `Kapı harcı için ${fee} ADA gerekli.` };
+      }
+      this.state.adAstraBalance -= fee;
+      if (treasury && treasury.depositTo) treasury.depositTo('dungeon', fee);
+      c.dungeonPaidEntries = (c.dungeonPaidEntries || 0) + 1;
+      this.saveState();
+      return { success: true, rewarded: true, fee, message: `🚪 Kapı harcı ödendi (-${fee} ADA, zindan kasasına)` };
+    }
+    return { success: true, rewarded: false, fee: 0, message: '🏋️ Antrenman girişi: yalnızca deneyim kazanılır' };
   }
 
   executeColosseum1v1Match(championIndex = 0) {
@@ -5899,11 +6265,15 @@ export class GameStateManager {
       this.state.colosseumStats.wins += 1;
       this.state.colosseumStats.score += 3;
 
-      // Hazine Arena Kasasından Ödül
-      const arenaPool = (typeof treasury !== 'undefined' && treasury.getPool) ? treasury.getPool('arena') : 8000000;
+      // Hazine Arena Kasasından Ödül — v1.25: ödül kasadan gerçekten çekilir (eskiden kasadan düşülmeden
+      // bakiyeye ekleniyordu; kolezyum her zaferde yoktan ADA basıyordu)
+      const arenaPool = (typeof treasury !== 'undefined' && treasury.getPool) ? treasury.getPool('arena') : 0;
       const baseReward = Math.min(2500, Math.round(arenaPool * 0.0002));
-      rewardAda = Math.round(baseReward * tier.rewardMult);
+      const requested = Math.round(baseReward * tier.rewardMult);
+      const draw = (typeof treasury !== 'undefined' && treasury.withdraw) ? treasury.withdraw('arena', requested) : { granted: 0 };
+      rewardAda = Math.floor(draw.granted || 0);
       this.state.adAstraBalance = (this.state.adAstraBalance || 0) + rewardAda;
+      if (this.state.colosseumStats) this.state.colosseumStats.totalAdaWon = (this.state.colosseumStats.totalAdaWon || 0) + rewardAda;
 
       if (Math.random() < 0.25) {
         rewardKeys = 1;
@@ -6593,6 +6963,153 @@ export class GameStateManager {
     }
     this.saveState();
     return { success: true, message: '⚡ Tüm Seferler Anında Tamamlandı!' };
+  }
+
+  // =========================================================================
+  // 🧭 v1.25: YENİ OYUNCU REHBERİ (Görevler oyunun durumundan otomatik algılanır)
+  // =========================================================================
+  checkOnboardingProgress() {
+    if (!this.state.onboarding || typeof this.state.onboarding !== 'object') this.state.onboarding = {};
+    const ob = this.state.onboarding;
+    const tools = this.state.tools || {};
+    const gathered = Object.values(tools).some(t => (t && t.totalGathered) > 0);
+    const active = this.state.activeExpeditions || {};
+    const conditions = {
+      first_expedition: Object.keys(active).length > 0 || gathered,
+      first_harvest: gathered,
+      three_expeditions: ['wood', 'iron', 'wheat'].every(n => !!active[n]),
+      bot_trial: !!this.state.botTrialUsed,
+      first_level_up: (this.state.level || 1) >= 2,
+      first_silo_upgrade: (this.state.warehouseLevel || 1) >= 2
+    };
+    let newlyDone = [];
+    for (const q of (GAME_CONFIG.ONBOARDING_QUESTS || [])) {
+      if (conditions[q.id] && !(ob[q.id] && ob[q.id].done)) {
+        ob[q.id] = { done: true, claimed: false, at: this._now() };
+        newlyDone.push(q);
+      }
+    }
+    if (newlyDone.length > 0 && !this._isFastForwarding) {
+      newlyDone.forEach(q => this.pushNotice(`🧭 Görev tamamlandı: ${q.title} — ödülünü Rehber panelinden al (+${q.rewardAda} ADA)`, 'success'));
+    }
+    return newlyDone;
+  }
+
+  // 🔓 v1.25: İlk oturumda menüler adım adım açılır. Kurallar oyunun durumundan hesaplanır; zaten
+  // ilerlemiş (Sv.3+, askeri olan, silosunu yükseltmiş) hesaplarda her şey açıktır.
+  getFeatureLock(zoneId) {
+    if (GAME_CONFIG.PROGRESSIVE_UNLOCK === false) return null;
+    const st = this.state;
+    const ob = st.onboarding || {};
+    const done = (id) => !!(ob[id] && ob[id].done);
+    const lvl = st.level || 1;
+    const soldiers = (st.soldierUnits || []).length;
+    const dungeonCleared = (st.dungeonProgress || 1) > 1;
+    const veteran = lvl >= 3 || soldiers > 0 || (st.warehouseLevel || 1) >= 2 || dungeonCleared;
+    const rules = {
+      market:      { name: 'Meydan Pazarı', ok: veteran || done('first_harvest'),                  reason: 'İlk hasadını topladıktan sonra açılır.' },
+      blacksmith:  { name: 'Demirci',       ok: veteran || done('three_expeditions'),              reason: 'Odun, demir ve buğday seferlerini aynı anda çalıştırınca açılır.' },
+      barracks:    { name: 'Kışla',         ok: veteran || done('three_expeditions'),              reason: 'Odun, demir ve buğday seferlerini aynı anda çalıştırınca açılır.' },
+      carnival:    { name: 'Karnaval',      ok: veteran || lvl >= 2,                               reason: 'Seviye 2\'ye ulaşınca açılır.' },
+      dungeon:     { name: 'Zindan',        ok: soldiers > 0 || lvl >= 3,                          reason: 'Kışladan ilk askerini alınca açılır.' },
+      colosseum:   { name: 'Kolezyum',      ok: dungeonCleared || lvl >= 3,                        reason: 'Zindanda ilk zaferinden sonra açılır.' },
+      battlefield: { name: 'Savaş Alanı',   ok: dungeonCleared || lvl >= 3,                        reason: 'Zindanda ilk zaferinden sonra açılır.' }
+    };
+    const r = rules[zoneId];
+    if (!r || r.ok) return null;
+    return { zoneId, name: r.name, reason: r.reason };
+  }
+
+  isFeatureUnlocked(zoneId) {
+    return !this.getFeatureLock(zoneId);
+  }
+
+  getOnboardingStatus() {
+    const ob = this.state.onboarding || {};
+    const quests = (GAME_CONFIG.ONBOARDING_QUESTS || []).map(q => ({
+      ...q,
+      done: !!(ob[q.id] && ob[q.id].done),
+      claimed: !!(ob[q.id] && ob[q.id].claimed)
+    }));
+    const doneCount = quests.filter(q => q.done).length;
+    const claimable = quests.filter(q => q.done && !q.claimed);
+    return {
+      quests,
+      doneCount,
+      total: quests.length,
+      allClaimed: quests.every(q => q.claimed),
+      claimableCount: claimable.length,
+      claimableAda: claimable.reduce((s, q) => s + (q.rewardAda || 0), 0),
+      next: quests.find(q => !q.done) || null
+    };
+  }
+
+  // Ödül Zindan Ganimet Kasası'ndan çekilir (basılmaz); kasa boşsa ödül küçülür
+  claimOnboardingReward(questId) {
+    const q = (GAME_CONFIG.ONBOARDING_QUESTS || []).find(x => x.id === questId);
+    if (!q) return { success: false, message: 'Görev bulunamadı.' };
+    const ob = this.state.onboarding || (this.state.onboarding = {});
+    const entry = ob[questId];
+    if (!entry || !entry.done) return { success: false, message: 'Bu görev henüz tamamlanmadı.' };
+    if (entry.claimed) return { success: false, message: 'Bu görevin ödülünü zaten aldın.' };
+    let granted = 0;
+    if ((q.rewardAda || 0) > 0 && treasury && treasury.withdraw) {
+      const draw = treasury.withdraw('dungeon', q.rewardAda);
+      granted = Math.floor(draw.granted || 0);
+    }
+    entry.claimed = true;
+    this.state.adAstraBalance = (this.state.adAstraBalance || 0) + granted;
+    sound.playLevelUp();
+    this.saveState();
+    return { success: true, granted, message: `🧭 ${q.title} ödülü: +${granted.toLocaleString('tr-TR')} $ADASTRA (Krallık Hazinesinden)` };
+  }
+
+  // =========================================================================
+  // 🏪 v1.25: PAZAR ALIM-SATIM (tek yerde; taban fiyat, gerçek %2 yakım ve silo kontrolüyle)
+  // =========================================================================
+  marketSell(resKey, qty) {
+    const amount = Number(qty);
+    if (!(amount > 0)) return { success: false, message: 'Lütfen satmak istediğin geçerli bir miktar gir!' };
+    const owned = resKey === 'boxes' ? (this.state.lockedBoxes || 0)
+      : resKey === 'keys' ? (this.state.arenaKeys || 0)
+      : (Number(this.state.inventory[resKey]) || 0);
+    if (owned < amount) {
+      return { success: false, message: `Yetersiz ${this.getResourceNameTr(resKey) || resKey}! Envanterinde ${Math.floor(owned).toLocaleString('tr-TR')} adet var.` };
+    }
+    const res = ammMarket.executeSell(resKey, amount);
+    if (!res.success) return res;
+    if (resKey === 'boxes') this.state.lockedBoxes -= amount;
+    else if (resKey === 'keys') this.state.arenaKeys -= amount;
+    else this.state.inventory[resKey] = (Number(this.state.inventory[resKey]) || 0) - amount;
+    this.state.adAstraBalance = (this.state.adAstraBalance || 0) + res.adAstraReceived;
+    this.saveState();
+    return { ...res, qty: amount };
+  }
+
+  marketBuy(resKey, qty) {
+    const amount = Number(qty);
+    if (!(amount > 0)) return { success: false, message: 'Lütfen satın almak istediğin geçerli bir miktar gir!' };
+    const est = ammMarket.getEstimatedCostForBuy(resKey, amount);
+    if (!isFinite(est)) return { success: false, message: 'Havuzda bu miktarı karşılayacak yeterli likidite yok!' };
+    if ((this.state.adAstraBalance || 0) < est) {
+      return { success: false, message: `Yetersiz $ADASTRA! Gereken: ~${est.toFixed(2)} ADA, bakiyen: ${(this.state.adAstraBalance || 0).toFixed(2)} ADA` };
+    }
+    if (['wood', 'iron', 'wheat'].includes(resKey)) {
+      const limit = this.getWarehouseCapacity()[resKey];
+      const cur = Number(this.state.inventory[resKey]) || 0;
+      if (limit != null && cur + amount > limit) {
+        return { success: false, message: `Silo kapasitesi aşılamaz! Alabileceğin en fazla boş alan: ${Math.max(0, Math.floor(limit - cur)).toLocaleString('tr-TR')} ${this.getResourceNameTr(resKey)}` };
+      }
+    }
+    const res = ammMarket.executeBuyAmount(resKey, amount);
+    if (!res.success) return res;
+    this.state.adAstraBalance = (this.state.adAstraBalance || 0) - res.cost;
+    if (resKey === 'boxes') this.state.lockedBoxes = (this.state.lockedBoxes || 0) + res.resourceReceived;
+    else if (resKey === 'keys') this.state.arenaKeys = (this.state.arenaKeys || 0) + res.resourceReceived;
+    else this.state.inventory[resKey] = (Number(this.state.inventory[resKey]) || 0) + res.resourceReceived;
+    this.saveState();
+    const resume = this.updateBotPauseState();
+    return { ...res, qty: amount, botJustResumed: !!(resume && resume.justResumed) };
   }
 
   // =========================================================================

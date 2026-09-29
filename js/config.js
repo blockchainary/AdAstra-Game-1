@@ -1,28 +1,11 @@
 // Realm of Astra - Karakter Seviyesi, Kışla Ordusu, Taverna Güçlendirmeleri & AMM Konfigürasyonu
 export const GAME_CONFIG = {
   GAME_TITLE: 'Realm of Astra',
+  GAME_VERSION: '1.26.0',
   EPOCH_DURATION_SECONDS: 24 * 3600, // 24 Saatlik Günlük Havuz
-  
-  // 📢 CANLI DUYURU & RİSK BİLDİRİM PANELİ KONFİGÜRASYONU
-  ANNOUNCEMENT_TICKER: {
-    enabled: true,
-    speedSeconds: 55, // 55 saniyede akış hızı (okunabilir pürüzsüz marquee)
-    pauseOnHover: true,
-    separator: '✦'
-  },
+  // Not: Duyuru şeridi ayarları (ANNOUNCEMENT_TICKER / ANNOUNCEMENTS) dosyanın sonunda TEK yerde tanımlıdır.
+  // v1.25 öncesinde üç ayrı kopya vardı ve yalnızca sonuncusu geçerli oluyordu.
 
-  // 🚨 CANLI MARQUEE DUYURU & UYARI METİNLERİ LİSTESİ
-  ANNOUNCEMENTS: [
-    {
-      id: 'audit_risk_warning',
-      badge: '🚨 GÜVENLİK & RİSK UYARISI',
-      badgeColor: '#ef4444',
-      text: 'bu oyun tamamen antigravity ide gemini 3.8 flash botu ile yazılmıştır. hiçbir audit yapılmamıştır ve yazılım/kodlama bilmeyen tek bir kullanıcı tarafından geliştirilmektedir, bu sebepten bir çok güvenik açığı bulunabilir. bu güvenlik açıkları tamamen tespit edilip oyun audit edilene kadar lütfen oyuna ana web3 cüzdanınızla bağlanmayın. sadece bu oyunda kullancağınız yeni bir web3 cüzdan açın, yapacağınız yatırımlarda olası bir hacklenme veya güvenlik zaafında yatırımlarınızın gidebileceğini unutmayın. şuan bu oyun tamamen deneysel bir süreçtir lütfen riskinizi gözeterek yatırım yapın. eğer sürece ve şu anki duruma güvenmiyorsanız lütfen oyunu oynamayın, yatırıp yapmayın veya tamamen free to play olarak oynayın. anlayısınız ve ilginiz için teşekkür ederim',
-      active: true,
-      timestamp: 1726488000000
-    }
-  ],
-  
   // Stamina — v2.5: Seferler ve Zindan savaşları için genişletilmiş stamina havuzu.
   // Her seviye atlandığında Max Stamina +50 artar (Lv 1: 100, Lv 2: 150, Lv 3: 200, Lv 10: 550, Lv 81: 4.100).
   // Böylece 3 paralel sefer gönderilse dahi geriye zindan katları ve boss savaşları için bol miktarda stamina kalır.
@@ -61,7 +44,10 @@ export const GAME_CONFIG = {
     BASE_WEIGHT_DIVISOR: 100,            // Pay tabanı
     MAX_SINGLE_CLAIM_SHARE: 0.05,        // 🛡️ TEK ÇEKİM TAVANI: Tek bir kullanıcı haftalık havuzun %5'inden fazlasını çekemez!
     BASE_REALM_ACTIVE_WEIGHT: 12500,     // Krallık aktif ağırlık pay tabanı
-    INITIAL_SEED_POOL: 2400000           // Başlangıç tohum fonu: 2.4 Milyon $ADASTRA
+    INITIAL_SEED_POOL: 2400000,          // (v1.25'te kullanılmıyor: UBI yalnızca harcamaların %6'sından beslenir)
+    MIN_LEVEL: 3,                        // v1.25: Haftalık temel gelir 3. seviyeden itibaren
+    // Tarayıcı sürümünde dünya tek oyuncudur; sunucuya geçince hak sahiplerinin gerçek ağırlık toplamı kullanılır
+    LOCAL_OTHER_PLAYERS_WEIGHT: 0
   },
 
   // =========================================================================
@@ -80,8 +66,32 @@ export const GAME_CONFIG = {
       wood: 50,
       wheat: 50,
       adAstra: 50
-    }
+    },
+    // v1.25: Bot kasadaki ADA'nın tamamını silo yükseltmeye gömmez; en az bu kadarını ve
+    // (oto-yenileme açıksa) bir sonraki günün bot ücretini her zaman kasada bırakır.
+    MIN_ADA_RESERVE: 500,
+    // Satın alınabilir süreler (saat). Ücret = 24 saatlik tahmini net kârın %50'si × (süre / 24)
+    PACKAGE_HOURS: [6, 24],
+    // Yeni oyunculara bir kerelik ücretsiz deneme (saat)
+    TRIAL_HOURS: 1,
+    // Oyun kapalıyken bot en fazla bu kadar saati telafi eder (oto-yenileme ile günler boyunca)
+    MAX_OFFLINE_CATCHUP_HOURS: 168
   },
+
+  // 📈 v1.25: Seviye başına kalıcı üretim bonusu. Eskiden dakikalık üretim hiçbir seviyede artmıyordu;
+  // botla oynayan biri için en kârlı seviye 1'di. Artık her seviye dakikalık üretimi %1,5 artırır
+  // (Lv.10: +%13,5 · Lv.30: +%43,5 · Lv.81: +%120). Seviye atlama maliyetleri taban üretimden hesaplanır.
+  LEVEL_PRODUCTION_BONUS_PER_LEVEL: 0.015,
+
+  // 🧭 v1.25: Yeni oyuncu rehberi — ödüller Zindan Ganimet Kasası'ndan (hazine) çekilir, basılmaz.
+  ONBOARDING_QUESTS: [
+    { id: 'first_expedition',   icon: '🚀', title: 'İlk seferini başlat',        desc: 'Ormana, madene ya da tarlaya bir işçi gönder.',              rewardAda: 100 },
+    { id: 'first_harvest',      icon: '🌾', title: 'İlk hasadını topla',         desc: 'Biten bir seferin ürününü ambarına al.',                     rewardAda: 150 },
+    { id: 'three_expeditions',  icon: '⚙️', title: 'Üç alanı birden çalıştır',   desc: 'Odun, demir ve buğday seferleri aynı anda sürsün.',           rewardAda: 200 },
+    { id: 'bot_trial',          icon: '🤖', title: 'Otomasyon botunu dene',      desc: 'Tavernadan 1 saatlik ücretsiz bot denemesini başlat.',        rewardAda: 100 },
+    { id: 'first_level_up',     icon: '⭐', title: 'Seviye 2\'ye ulaş',          desc: 'Deneyim barını doldur ve ilk seviyeni atla.',                 rewardAda: 300 },
+    { id: 'first_silo_upgrade', icon: '🏰', title: 'Siloyu büyüt',               desc: 'Ambarını ilk kez yükselt; daha fazla ürün sakla.',            rewardAda: 400 }
+  ],
   TAVERN_BOOSTS: {
     short: {
       id: 'short',
@@ -247,6 +257,8 @@ export const GAME_CONFIG = {
 
   // Swap ücreti: %2.00 piyasa komisyonu (Hazine Ödül Kasaları, Kalıcı Yakım & UBI'ye aktarılır)
   AMM_FEE_RATE: 0.02,
+  // v1.25: Hammadde pazar derinliği = haftalık dünya kotasının bu katı (80× → kotanın tamamı satılsa bile %90 düşüş ~3,4 yıl)
+  AMM_RAW_DEPTH_WEEKS: 80,
   // Hammadde Yakım Ücreti: Alınan ve satılan tüm hammaddelerden (odun, demir, buğday vb.) %2.00 kesilir ve anında yakılır
   AMM_RESOURCE_FEE_RATE: 0.02,
   AMM_FEE_BURN_SHARE: 0.5,
@@ -598,7 +610,12 @@ export const GAME_CONFIG = {
   // 💀 ZİNDAN KOŞUSU — sonsuz farm yerine günlük hak + azalan getiri (F-01)
   // ═══════════════════════════════════════════════════════════════════════
   DUNGEON: {
-    DAILY_RUNS: 5,                    // günde 5 koşu hakkı
+    DAILY_RUNS: 5,                    // günde 5 ödüllü giriş (Türkiye saatiyle gece yarısı yenilenir)
+    // v1.25: 5 ödüllü girişten sonra oyuncu isteğe bağlı kapı harcı ödeyerek ödüllü girmeye devam edebilir.
+    // Harç, o katın temel ADA ödülünün bu oranı kadardır ve %100'ü zindan kasasına gider.
+    GATE_FEE_RATE: 0.20,
+    // Zindan kasası bir günde en fazla bakiyesinin bu oranı kadar ADA öder → kasa matematiksel olarak boşalamaz.
+    DAILY_BUDGET_RATE: 0.01,
     RUN_STAMINA_COST: 15,
     ROOMS_PER_RUN: 3,                 // 2 normal oda + 1 kat muhafızı
     FIRST_CLEAR_MULTIPLIER: 1.0,      // ilk temizlemede tam ödül
@@ -716,7 +733,11 @@ export const GAME_CONFIG = {
   // ═══════════════════════════════════════════════════════════════════════
   CARNIVAL: {
     WHEEL_COST_ADA: 100, // 100 ADA veya dengi hammadde veya 1 Piyango Bileti
-    // 14 Potansiyel Ödül (Kasa Asla Kaybetmez - RTP ~%78, Kasa Kârı %22)
+    // Karnaval kasasında en az bu kadar ADA yoksa çark geçici olarak kapanır (ödüller asla yoktan ödenmez)
+    WHEEL_MIN_CARNIVAL_BALANCE: 5000,
+    // 15 Potansiyel Ödül — Oyuncuya ortalama geri dönüş ~%67 (kasa kârı ~%33, hazineye akar).
+    // v1.25: Eski "24 saatlik ücretsiz bot" %0,6 ihtimalle çıkıyordu; botun gerçek değeri ~46.000 ADA
+    // olduğu için 100 ADA'lık çevirme ortalamada 300+ ADA geri veriyordu. Artık %0,02'lik nadir ikramiye.
     WHEEL_REWARDS: [
       { id: 'frag_1',        name: '1 Teçhizat Parçası',              icon: '🧩', type: 'resource', key: 'fragments', amount: 1,    valAda: 45,   weight: 60 },
       { id: 'frag_10',       name: '10 Teçhizat Parçası',             icon: '🧩', type: 'resource', key: 'fragments', amount: 10,   valAda: 450,  weight: 20 },
@@ -726,12 +747,14 @@ export const GAME_CONFIG = {
       { id: 'raw_50_wood',   name: 'Amorti: 50 ADA Değerinde Odun',   icon: '🌲', type: 'amm_raw',  key: 'wood',      adaVal: 50,   valAda: 50,   weight: 1320 },
       { id: 'raw_50_iron',   name: 'Amorti: 50 ADA Değerinde Demir',  icon: '⛏️', type: 'amm_raw',  key: 'iron',      adaVal: 50,   valAda: 50,   weight: 1320 },
       { id: 'raw_50_wheat',  name: 'Amorti: 50 ADA Değerinde Buğday', icon: '🌾', type: 'amm_raw',  key: 'wheat',     adaVal: 50,   valAda: 50,   weight: 1320 },
-      { id: 'free_bot_24h',  name: '24 Saatlik Otomasyon Botu (Ücretsiz)', icon: '🤖', type: 'bot_free', hours: 24,                  valAda: 200,  weight: 60 },
+      { id: 'free_bot_24h',  name: '🏆 24 Saatlik Otomasyon Botu (Nadir İkramiye)', icon: '🤖', type: 'bot_free', hours: 24,       valAda: 46000, weight: 2 },
       { id: 'ada_200',       name: '200 $ADASTRA Nakit Ödül',         icon: '🟣', type: 'ada',      amount: 200,                    valAda: 200,  weight: 475 },
       { id: 'ada_1000',      name: '🏆 1.000 $ADASTRA BÜYÜK İKRAMİYE',icon: '👑', type: 'ada',      amount: 1000,                   valAda: 1000, weight: 10 },
-      { id: 'ada_50',        name: '50 $ADASTRA Ödül',                icon: '🟣', type: 'ada',      amount: 50,                     valAda: 50,   weight: 2000 },
+      { id: 'ada_50',        name: '50 $ADASTRA Ödül',                icon: '🟣', type: 'ada',      amount: 50,                     valAda: 50,   weight: 2058 },
       { id: 'box_key',       name: '1 Pandora Kutusu Anahtarı',       icon: '🔑', type: 'key',      amount: 1,                      valAda: 1000, weight: 8 },
       { id: 'wheel_ticket_shard', name: 'Amorti Çark Bileti (3 Adet = 1 Çevirme)', icon: '🎟️', type: 'ticket_shard', amount: 1,  valAda: 33.3, weight: 3312 },
+      // v1.25: Kupon kodu kaydedilir; trade sitesi (AlphavaxTrade) bu kodları henüz tanımadığı için ekranda
+      // "site bağlantısı kurulunca kullanılabilir" diye açıkça belirtilir (eskiden geçerli bir kodmuş gibi gösteriliyordu).
       { id: 'coin_analysis_code', name: 'AlphAvax Vercel App Özel Coin Analiz Bileti', icon: '🎫', type: 'analysis_code', amount: 1, valAda: 0, weight: 50 }
     ],
     // Haftalık Piyango Sistemi
@@ -1024,40 +1047,36 @@ export const GAME_CONFIG = {
         'Başlangıç Profili Demir Stoğu (40 -> 50): Yeni başlayan oyuncunun 50x bot çalışma önkoşulunu (50 Demir, 50 Odun, 50 Buğday, 50 ADA) eksiksiz karşılaması için başlangıç demiri 50 yapıldı.',
         'Bot Üretici Kimliği Güvencesi: Bot yalnızca seferlerden hammadde toplar. Alet tamiri için ADA gerektiğinde silodaki fazla hammaddeyi AMM\'de satarak hem ADA üretir hem de pazar fiyatlarını düşürür.'
       ]
-    }
-  ],
-
-  // 📢 EKRAN ÜSTÜ CANLI KAYAN DUYURU & RİSK UYARI ŞERİDİ (TICKER)
-  ANNOUNCEMENT_TICKER: {
-    enabled: true,
-    speedSeconds: 65,         // Akış hızı (saniye) - uzun metinler için rahat okunabilir süre
-    pauseOnHover: true,       // Fare imleci üzerine geldiğinde kaymayı duraklat
-    showLiveBadge: true,      // Sol tarafta yanıp sönen 'CANLI DUYURU' etiketi
-    separator: '✦'           // Duyurular arası görsel ayraç
-  },
-
-  // 📢 Canlı Gösterge Paneli / Marquee Uyarı ve Duyurular
-  ANNOUNCEMENTS: [
-    {
-      id: 'v124_realm_of_astra',
-      badge: '👑 v1.24 REALM OF ASTRA',
-      text: 'Realm of Astra resmi olarak yayında! 24s Bot alımında ani silo yükselmesi ve AMM pazar fiyatlarının artmasına neden olan bot oto-tedarik alımları tamamen düzeltildi!',
-      active: true,
-      priority: 1
     },
     {
-      id: 'audit_risk_warning',
-      badge: '🚨 GÜVENLİK & RİSK UYARISI',
-      text: 'bu oyun tamamen antigravity ide gemini 3.8 flash botu ile yazılmıştır. hiçbir audit yapılmamıştır ve yazılım/kodlama bilmeyen tek bir kullanıcı tarafından geliştirilmektedir, bu sebepten bir çok güvenik açığı bulunabilir. bu güvenlik açıkları tamamen tespit edilip oyun audit edilene kadar lütfen oyuna ana web3 cüzdanınızla bağlanmayın. sadece bu oyunda kullancağınız yeni bir web3 cüzdan açın, yapacağınız yatırımlarda olası bir hacklenme veya güvenlik zaafında yatırımlarınızın gidebileceğini unutmayın. şuan bu oyun tamamen deneysel bir süreçtir lütfen riskinizi gözeterek yatırım yapın. eğer sürece ve şu anki duruma güvenmiyorsanız lütfen oyunu oynamayın, yatırım yapmayın veya tamamen free to play olarak oynayın. anlayısınız ve ilginiz için teşekkür ederim',
-      active: true,
-      priority: 1
+      version: 'v1.25',
+      title: '🛡️ Ekonomi Güvenliği, Yeni Oyuncu Rehberi & Yenilenen Arayüz',
+      date: '29 Eylül 2026',
+      changes: [
+        'Para açıkları kapatıldı: piyango artık yalnızca gerçekten kazananlara ödeme yapar ve çekiliş her Pazartesi 00:01 (TSİ) kendiliğinden yapılır; çark kasası yetmediğinde kapanır; kolezyum ödülü arena kasasından çekilir.',
+        'Bot: oyun 24 saatten uzun kapalı kalsa da bot kendi süresi boyunca çalışmış sayılır; parası yetmeden alım yapmaz; al-sat kısır döngüsü giderildi; hasat beklerken pazardan gereksiz alım yapmaz; siloyu büyütürken ve alet tamirinde kasada güvenlik payı bırakır.',
+        'Yeni: 6 ve 24 saatlik bot paketleri, 1 saatlik ücretsiz bot denemesi, oyuna dönünce "Sen yokken olanlar" raporu ve ödüllü Krallık Rehberi görevleri.',
+        'Pazar: taban fiyat koruması ve gerçek %2 hammadde yakımı; sayfa yenilenince haftalık kota artık yeniden dolmuyor.',
+        'Arayüz baştan yenilendi: sade üst bar, silo doluluk çizgileri, tek renk sistemi, okunaklı yazı tipleri, telefonda alt gezinme çubuğu ve tam ekran pencereler.',
+        'Test menüsü yalnızca geliştirme sürümünde görünür; oyunculara açık değildir.',
+        'Çalışmayan üç düğme onarıldı: kışladan asker alma, demircide ekipman onarımı ve karnaval moral bonusu.'
+      ]
     },
     {
-      id: 'f2p_welcome',
-      badge: '⚔️ KRALLIK DUYURUSU',
-      text: 'AdAstra: Genesis Realm v1.21 devrede! Seviye bazlı uzayan sefer süresi ve dinamik tamirat rezervi (+%50 Marj) motoru aktiftir.',
-      active: true,
-      priority: 2
+      version: 'v1.26',
+      title: '⚖️ Yeni Ekonomi Kuralları, Adım Adım Açılan Menüler & Hız',
+      date: '30 Eylül 2026',
+      changes: [
+        'Piyango: her bilet 100 ADA, haftalık bilet sınırı var. Her hafta tek kazanan çıkar ve biletlerine ödediğinin 2 katını alır; biletleri ödülü çekerken yanar. Kazanamayanın biletleri yanmaz, sonraki haftaya devreder. Kasa biterse amorti kasası kalan tüm biletlere eşit dağıtılır.',
+        'Çarkta 1 piyango bileti = 1 çevirme; yakılan biletin bedeli piyango ödül hesabından da düşer.',
+        'Haftalık temel gelir (UBI): oyunda harcanan her ADA\'nın %6\'sı haftalık kasada birikir, Pazartesi 00:01 (TSİ) açılır ve 3. seviyeden itibaren seviyeye göre paylaşılır; çekilmeyen pay sonraki haftaya devreder.',
+        'Haftalık kota her gün bir parça açılır (Pazartesi sabahı tek seferde bitmez). Pazar derinliği haftalık kotanın 80 katına çıkarıldı: fiyatın %90 düşmesi yıllar alır.',
+        'Zindan: günde 5 ödüllü giriş; sonrasında isteğe bağlı kapı harcıyla ödüllü giriş (harcın tamamı zindan kasasına). Zindan kasası günde bakiyesinin en fazla %1\'ini öder, bu yüzden boşalamaz. Zindanda da asıl savaş motoru kullanılır.',
+        'İlk oturumda menüler adım adım açılır: pazar ilk hasattan, kışla ve demirci üç alan birden çalışınca, karnaval 2. seviyede, zindan ilk askerle, kolezyum ilk zindan zaferiyle.',
+        'Karakter panelinde "Bir sonraki seviyede ne kazanırsın?" tablosu: üretim bonusu, buğday tasarrufu, stamina, sefer süresi, ganimet şansı ve UBI payı.',
+        'Hız: ekran yazıları saniyede 4, bot ve hesaplar saniyede 1 kez güncellenir; yan panel açıkken yaşanan yavaşlama giderildi.',
+        'Resimler küçültüldü (23,8 MB → 4,2 MB). Ganimet ve parşömen resimleri yayın paketine eklendi (önceden yalnız geliştirme modunda görünüyordu).'
+      ]
     }
   ],
 
@@ -1111,10 +1130,10 @@ export const GAME_CONFIG = {
       priority: 1
     },
     {
-      id: 'ecosystem-notice',
-      badge: '👑 ADASTRA REALM v1.16',
+      id: 'v125_economy_update',
+      badge: '👑 REALM OF ASTRA v1.25',
       badgeColor: '#f59e0b',
-      text: 'AdAstra Krallığı v1.16 devrede! Buğday silo kapasitesi (1.800) dengelendi, XP tankı hard cap ile taşma engellendi, AMM DEX serbest piyasa satış engeli kaldırıldı ve her gün sonu otonom buyback & yakım döngüsü bağlandı.',
+      text: 'v1.25 yayında: canlı krallık haritası, yenilenen arayüz, güvenli piyango ve çark, çevrimdışıyken de çalışan bot, seviye başına %1,5 üretim bonusu ve yeni oyuncu rehberi.',
       active: true,
       priority: 2
     }

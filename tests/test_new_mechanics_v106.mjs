@@ -223,14 +223,15 @@ console.log('Piyango Çekiliş Sonucu:', {
   amortiShare: drawRes.amortiShare,
   userWon: drawRes.userWon
 });
-assert(drawRes.rolloverPool > 0, '%80 devir havuzu oluşmalı');
-assert(drawRes.amortiShare > 0, '%2 amorti havuzu oluşmalı');
+// v1.25 (kullanıcı kuralı): tek kazanan, kasa devreder; amorti her bilet alımında birikir ve
+// yalnızca piyango kasası bittiğinde kalan tüm biletlere eşit dağıtılır.
+assert(drawRes.drawn, 'Çekiliş yapılmalı');
+assert(drawRes.rolloverPool > 0, 'Kasa sonraki haftaya devretmeli');
+assert(gs.state.lotteryAmortiPool >= 10, 'Amorti kasası kasa bitene kadar korunmalı');
 
-// Amorti Bilet Yakma Testi
-if (gs.state.lotteryTickets > 0 && (gs.state.lotteryAmortiPool || 0) > 0) {
-  const burnRes = gs.burnLotteryTicketsForAmorti(1);
-  assert(burnRes.success, 'Çıkmayan bilet amorti parşömen veya çark parçasına dönüştürülebilmeli');
-}
+// Elle amorti yakma kapalı: bilet erken kullanılmak istenirse çarkta 1 bilet = 1 çevirme
+const burnRes = gs.burnLotteryTicketsForAmorti(1);
+assert(!burnRes.success && burnRes.message.includes('çark'), 'Elle amorti alma kapalı olmalı, çarka yönlendirmeli');
 
 console.log('✅ Krallık Karnavalı Haftalık Piyango ve Kasa Devri %100 doğrulandı.');
 

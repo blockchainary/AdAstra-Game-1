@@ -4,7 +4,7 @@ cd /d "%~dp0"
 cls
 echo ====================================================================
 echo   ADASTRA: GENESIS REALM - 7/24 KESINTISIZ YEREL SUNUCU (WATCHDOG)
-echo   Adres: http://localhost:5173/
+echo   Adres: http://localhost:5180/
 echo ====================================================================
 node keep_server_alive.cjs
 pause

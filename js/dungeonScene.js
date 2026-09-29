@@ -133,7 +133,7 @@ const TOP_BAR_HEIGHT = 92;
 function getViewportSize() {
   return {
     w: window.innerWidth,
-    h: Math.max(300, window.innerHeight - TOP_BAR_HEIGHT)
+    h: (window.getStageSize ? window.getStageSize().h : Math.max(300, window.innerHeight - TOP_BAR_HEIGHT))
   };
 }
 

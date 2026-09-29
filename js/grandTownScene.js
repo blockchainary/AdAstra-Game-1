@@ -1,335 +1,470 @@
-// AdAstra: Genesis Realm - Grand Kingdom Scene (Kusursuz Tıklama Engelleme & Tam Ekran Motoru)
+// Realm of Astra — Krallık Haritası (v1.25)
+// ============================================================================
+//  • Harita oranı bozulmadan ekranı doldurur (cover); sürükle-kaydır, tekerlek/iki parmakla yakınlaştır
+//  • Binanın üzerine gelince bilgi kartı (ad, açıklama, canlı durum); biten seferde küçük "Hazır" rozeti
+//  • Hareketli süsler (köylüler, bulut, kuş, duman, gece karartması) kullanıcı isteğiyle kaldırıldı
+// Harita resmi 1024×572; tüm koordinatlar resim pikseli cinsindendir.
+// ============================================================================
 import { gameState } from './gameState.js';
+import { globalPool } from './globalPool.js';
+import { ammMarket } from './ammMarket.js';
+import { GAME_CONFIG } from './config.js';
 import { sound } from './audio.js';
+
+const IMG_W = 1024;
+const IMG_H = 572;
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 2.2;
+
+// Konumlar — px/py resim üzerindeki oran, pr tıklama yarıçapı (resim genişliğine oran)
+export const TOWN_ZONES = [
+  { id: 'dungeon',     icon: '💀', name: 'Zindan Mağarası',   sub: '18 seviyeli zindana in',          px: 0.078, py: 0.295, pr: 0.055, color: '#a855f7' },
+  { id: 'warehouse',   icon: '📦', name: 'Krallık Silosu',    sub: 'Ambar, envanter ve yükseltme',     px: 0.105, py: 0.550, pr: 0.065, color: '#fbbf24' },
+  { id: 'barracks',    icon: '⚔️', name: 'Kışla',             sub: 'Ordu, asker ve teçhizat',          px: 0.160, py: 0.840, pr: 0.090, color: '#60a5fa' },
+  { id: 'mine',        icon: '⛏️', name: 'Maden Ocağı',       sub: 'Demir seferleri',                  px: 0.275, py: 0.185, pr: 0.065, color: '#38bdf8' },
+  { id: 'blacksmith',  icon: '⚒️', name: 'Demirci',           sub: 'Silah ve zırh dövme, onarım',      px: 0.275, py: 0.515, pr: 0.045, color: '#fb923c' },
+  { id: 'market',      icon: '🏪', name: 'Meydan Pazarı',     sub: 'AMM pazar: al ve sat',             px: 0.380, py: 0.535, pr: 0.065, color: '#f43f5e' },
+  { id: 'carnival',    icon: '🎪', name: 'Karnaval',          sub: 'Şans çarkı ve haftalık piyango',   px: 0.465, py: 0.415, pr: 0.050, color: '#ec4899' },
+  { id: 'tavern',      icon: '🍺', name: 'Taverna',           sub: 'Otomasyon botu ve rehber',         px: 0.585, py: 0.275, pr: 0.065, color: '#eab308' },
+  { id: 'colosseum',   icon: '🏟️', name: 'Kolezyum',          sub: 'Gladyatör düelloları',             px: 0.745, py: 0.535, pr: 0.110, color: '#ef4444' },
+  { id: 'farm',        icon: '🌾', name: 'Güneş Tarlası',     sub: 'Buğday seferleri',                 px: 0.945, py: 0.540, pr: 0.065, color: '#facc15' },
+  { id: 'forest',      icon: '🌲', name: 'Zümrüt Ormanı',     sub: 'Odun seferleri',                   px: 0.845, py: 0.165, pr: 0.070, color: '#4ade80' },
+  { id: 'battlefield', icon: '🚩', name: 'Savaş Alanı',       sub: 'Dünya Bossu cephesi',              px: 0.530, py: 0.860, pr: 0.120, color: '#f87171' }
+];
+
+const NODE_OF_ZONE = { forest: 'wood', mine: 'iron', farm: 'wheat' };
+
+function isAnyModalActive() {
+  const rpgModal = document.getElementById('rpg-modal');
+  const devModal = document.getElementById('dev-modal');
+  const arena = document.getElementById('battle-arena-modal');
+  return (rpgModal && rpgModal.classList.contains('active')) ||
+    (devModal && !devModal.classList.contains('hidden')) ||
+    (arena && arena.classList.contains('active')) ||
+    document.body.classList.contains('modal-open');
+}
+
+function fmtCountdown(sec) {
+  const s = Math.max(0, Math.ceil(sec));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const ss = s % 60;
+  if (h > 0) return `${h}s ${String(m).padStart(2, '0')}d`;
+  return `${String(m).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+}
 
 export class GrandTownScene extends Phaser.Scene {
   constructor() {
     super({ key: 'GrandTownScene' });
-    this.zones = [];
+    this.hoverZone = null;
+    this.labels = new Map();
+    this.statusTimer = 0;
   }
 
   preload() {
     const v = Date.now();
     this.load.image('grand_town_map', 'assets/adastra_grand_town.jpg?v=' + v);
-    // NOT: Bu katlar DungeonScene.preload() içinde de aynı anahtarlarla
-    // yükleniyor, ancak Phaser zaten kayıtlı bir texture anahtarını tekrar
-    // indirmiyor. Bu yüzden cache-busting sorgu parametresi burada da
-    // eklenmeli; aksi halde DungeonScene tarafındaki cache-busting hiç
-    // devreye girmez (anahtar zaten burada, sorgusuz olarak kayıtlı olur).
+    // Zindan katları da burada yüklenir (DungeonScene aynı anahtarları kullanır)
     this.load.image('dungeon_tex_f1', 'assets/dungeon_map.jpg?v=' + v);
     this.load.image('dungeon_tex_f2', 'assets/dungeon_floor2.jpg?v=' + v);
     this.load.image('dungeon_tex_f3', 'assets/dungeon_floor3.jpg?v=' + v);
     this.load.image('dungeon_tex_f4', 'assets/dungeon_floor4.jpg?v=' + v);
     this.load.image('dungeon_tex_f5', 'assets/dungeon_floor5.jpg?v=' + v);
     this.load.image('dungeon_tex_f6', 'assets/dungeon_floor6.jpg?v=' + v);
-
     this.load.on('progress', (value) => {
       if (window.__updateLoadingBar) window.__updateLoadingBar(30 + value * 60);
     });
-
-    this.load.on('loaderror', (file) => {
-      console.error('[Phaser Preload ERROR] Failed to load:', file.key, file.src);
-    });
-
-    this.load.on('complete', () => {
-      console.log('[Phaser] All assets loaded successfully!');
-    });
+    this.load.on('loaderror', (file) => console.error('[Phaser] Yüklenemedi:', file.key, file.src));
   }
 
   create() {
-    if (window.__finishLoadingBar) {
-      window.__finishLoadingBar();
-    }
+    if (window.__finishLoadingBar) window.__finishLoadingBar();
 
-    const w = this.scale.width || window.innerWidth;
-    const h = this.scale.height || window.innerHeight;
-
-    // 1. Arka Plan Haritası - Güvenli Yükleme
     if (this.textures.exists('grand_town_map')) {
       this.map = this.add.image(0, 0, 'grand_town_map').setOrigin(0, 0);
-      console.log('[GrandTownScene] Map texture loaded OK');
     } else {
-      // Fallback: imaj yoksa koyu arka plan dikdörtgeni çiz
-      console.warn('[GrandTownScene] grand_town_map texture not found! Using fallback background.');
-      this.add.rectangle(w / 2, h / 2, w, h, 0x1a0f08);
-      this.map = { setDisplaySize: () => {} }; // dummy
+      this.map = this.add.rectangle(0, 0, IMG_W, IMG_H, 0x1a2a14).setOrigin(0, 0);
     }
+    this.map.setDepth(0);
 
-    // 2. Krallık Haritası Bölge Koordinatları (Tüm Görsellerle 100% Milimetrik Senkronize)
-    this.zoneDefs = [
-      // 1. GÖRSEL (Önceki 1): DAĞ ZİNDAN MAĞARASI (Sol Üst Mor Kristalli Mağara)
-      {
-        id: 'dungeon',
-        name: '💀 DAĞ ZİNDAN MAĞARASI',
-        sub: '🔮 Tıkla ve 18 Seviyeli Zindana Gir!',
-        px: 0.078,
-        py: 0.295,
-        pr: 0.055,
-        colorHex: '#a855f7'
-      },
 
-      // 2. GÖRSEL (Önceki 2): KRALLIK SİLOSU & DEPO (Sol Orta Silolar & Ahşap Depo)
-      {
-        id: 'warehouse',
-        name: '📦 KRALLIK SİLOSU & DEPO',
-        sub: '🛡️ Envanter, Hammaddeler & Teçhizat',
-        px: 0.105,
-        py: 0.550,
-        pr: 0.065,
-        colorHex: '#fbbf24'
-      },
+    this.layout(true);
+    this.createOverlay();
+    this.bindInput();
 
-      // 3. GÖRSEL (Önceki 3): ASKERİ KIŞLA & TALİM KAMPI (Sol Alt Surlu Talim Kalesi)
-      {
-        id: 'barracks',
-        name: '⚔️ ASKERİ KIŞLA & TALİM KAMPI',
-        sub: '🛡️ Asker Alma, Okçuluk & Ordu Yönetimi',
-        px: 0.160,
-        py: 0.840,
-        pr: 0.090,
-        colorHex: '#3b82f6'
-      },
-
-      // 4. GÖRSEL (Önceki 4): DAĞ MADEN OCAĞI (Sol Üst Dağ Tepesi Tüneller & Raylar)
-      {
-        id: 'mine',
-        name: '⛏️ DAĞ MADEN OCAĞI & DEMİR',
-        sub: '💎 Demir ve Değerli Cevher Seferleri',
-        px: 0.275,
-        py: 0.185,
-        pr: 0.065,
-        colorHex: '#38bdf8'
-      },
-
-      // 5. GÖRSEL (Önceki 5): DEMİRCİ FIRINI & TAMİRHANE (Şehir İçi Sol Yanan Ocak & Örs)
-      {
-        id: 'blacksmith',
-        name: '⚒️ KRALLIK DEMİRCİSİ & TAMİRHANE',
-        sub: '🔥 Silah & Zırh Dövme, Ekipman Onarımı',
-        px: 0.275,
-        py: 0.515,
-        pr: 0.045,
-        colorHex: '#f97316'
-      },
-
-      // 6. YENİ GÖRSEL 1: KRALLIK MEYDANI PAZARI (Şehir Merkezi Çeşme & Tezgahlar)
-      {
-        id: 'market',
-        name: '🏪 KRALLIK MEYDANI PAZARI',
-        sub: '🪙 AMM DEX & Ticaret Çadırları',
-        px: 0.380,
-        py: 0.535,
-        pr: 0.065,
-        colorHex: '#e11d48'
-      },
-
-      // 7. YENİ GÖRSEL 2: KRALLIK KARNAVALI & SİRK (Şehir İçi Çizgili Sirk Çadırı)
-      {
-        id: 'carnival',
-        name: '🎪 KRALLIK KARNAVALI & SİRK',
-        sub: '🎈 Şenlikler, Gösteriler & Sürprizler',
-        px: 0.465,
-        py: 0.415,
-        pr: 0.050,
-        colorHex: '#ec4899'
-      },
-
-      // 8. YENİ GÖRSEL 3: KRALLIK TAVERNASI & HAN (Şehir İçi Kuzeydoğu İki Katlı Han)
-      {
-        id: 'tavern',
-        name: '🍺 KRALLIK TAVERNASI & HAN',
-        sub: '🍗 Günlük Güçlendirmeler & Dinlenme',
-        px: 0.585,
-        py: 0.275,
-        pr: 0.065,
-        colorHex: '#eab308'
-      },
-
-      // 9. YENİ GÖRSEL 4: BÜYÜK GLADYATÖR KOLEZYUMU (Şehir Sağı Devasa Arena)
-      {
-        id: 'colosseum',
-        name: '🏟️ BÜYÜK GLADYATÖR KOLEZYUMU',
-        sub: '⚔️ Gladyatör Düelloları & Ordu Arenası',
-        px: 0.745,
-        py: 0.535,
-        pr: 0.110,
-        colorHex: '#ef4444'
-      },
-
-      // 10. YENİ GÖRSEL 5: GÜNEŞ TARLASI & DEĞİRMEN (Sağ Taraf Yel Değirmeni & Hasat)
-      {
-        id: 'farm',
-        name: '🌾 GÜNEŞ TARLASI & DEĞİRMEN',
-        sub: '🥖 Buğday ve Tarım Hasadı',
-        px: 0.945,
-        py: 0.540,
-        pr: 0.065,
-        colorHex: '#facc15'
-      },
-
-      // 11. ZÜMRÜT ORMANI & ODUNCU KULÜBESİ (Sağ Üst Çam Ormanı & Kütükler)
-      {
-        id: 'forest',
-        name: '🌲 ZÜMRÜT ORMANI & ODUNCU KULÜBESİ',
-        sub: '🪓 Odun & Kereste Toplama',
-        px: 0.845,
-        py: 0.165,
-        pr: 0.070,
-        colorHex: '#22c55e'
-      },
-
-      // 12. GÖRSEL 1: BÜYÜK SAVAŞ ALANI & CEPHE (Alt Orta Ordu Formasyonları)
-      {
-        id: 'battlefield',
-        name: '⚔️ BÜYÜK SAVAŞ ALANI & CEPHE',
-        sub: '🚩 Krallık Orduları Meydan Savaşı',
-        px: 0.530,
-        py: 0.860,
-        pr: 0.120,
-        colorHex: '#dc2626'
-      }
-    ];
-
-    // 3. Ekranı 100% Doldur & Bölgeleri Oluştur
-    this.layoutScreen();
-
-    // 4. Pencere Boyutu Değiştiğinde Otomatik Uyum
-    // NOT: this.scale (ScaleManager) sahneler arası paylaşılan/global bir
-    // nesnedir. create() her scene.start() çağrısında yeniden çalıştığı için
-    // (Phaser aynı sahne örneğini yeniden kullanır), dinleyici shutdown'da
-    // temizlenmezse kasaba<->zindan geçişleri arttıkça aynı olay için
-    // katlanarak çoğalan dinleyiciler birikir. Bu yüzden referansı saklayıp
-    // sahne kapanırken kaldırıyoruz.
-    this.resizeHandler = () => this.layoutScreen();
+    this.resizeHandler = () => this.layout(false);
     this.scale.on('resize', this.resizeHandler);
+
+    window.realmMap = {
+      flyTo: (zoneId, opts = {}) => this.flyTo(zoneId, opts),
+      zones: TOWN_ZONES
+    };
 
     this.events.once('shutdown', () => {
       this.scale.off('resize', this.resizeHandler);
+      const overlay = document.getElementById('map-overlay');
+      if (overlay) overlay.classList.add('is-hidden');
+      if (window.realmMap && window.realmMap.flyTo) window.realmMap.flyTo = () => {};
     });
+
+    this.refreshStatuses();
   }
 
-  layoutScreen() {
-    const w = window.innerWidth;
-    const h = Math.max(300, window.innerHeight - 92);
-
+  // ── Yerleşim: cover ölçek, dünya sınırları, kamera ────────────────────────
+  layout(initial) {
+    const parent = this.game.canvas && this.game.canvas.parentElement;
+    const w = (parent && parent.clientWidth) || window.innerWidth;
+    const h = (parent && parent.clientHeight) || window.innerHeight;
     try {
-      if (this.scale && (this.scale.width !== w || this.scale.height !== h)) {
-        this.scale.resize(w, h);
+      if (this.scale.width !== w || this.scale.height !== h) this.scale.resize(w, h);
+    } catch (e) { /* yoksay */ }
+
+    const cam = this.cameras.main;
+    const prevCenter = (!initial && this.worldScale)
+      ? { x: (cam.worldView.centerX) / this.worldScale, y: (cam.worldView.centerY) / this.worldScale }
+      : { x: 430, y: 300 }; // ilk açılış: kasaba meydanı biraz sağında
+    const prevZoom = initial ? 1 : cam.zoom;
+
+    this.worldScale = Math.max(w / IMG_W, h / IMG_H);
+    this.worldW = IMG_W * this.worldScale;
+    this.worldH = IMG_H * this.worldScale;
+
+    this.map.setScale(this.worldScale);
+    cam.setSize(w, h);
+    cam.setBounds(0, 0, this.worldW, this.worldH);
+    cam.setZoom(Phaser.Math.Clamp(prevZoom, MIN_ZOOM, MAX_ZOOM));
+    cam.centerOn(prevCenter.x * this.worldScale, prevCenter.y * this.worldScale);
+  }
+
+  toWorld(ix, iy) { return { x: ix * this.worldScale, y: iy * this.worldScale }; }
+  zoneWorld(z) { return { x: z.px * this.worldW, y: z.py * this.worldH, r: Math.min(z.pr * this.worldW, 170 * this.worldScale) }; }
+
+  // ── Giriş: sürükle, tıkla, yakınlaştır ────────────────────────────────────
+  bindInput() {
+    this.input.addPointer(1);
+    const cam = this.cameras.main;
+    let down = null;
+    let pinch = null;
+
+    this.input.on('pointerdown', (p) => {
+      if (isAnyModalActive()) return;
+      down = { x: p.x, y: p.y, sx: cam.scrollX, sy: cam.scrollY, dragging: false, onCanvas: true };
+      const p1 = this.input.pointer1, p2 = this.input.pointer2;
+      if (p1 && p2 && p1.isDown && p2.isDown) {
+        pinch = { d: Phaser.Math.Distance.Between(p1.x, p1.y, p2.x, p2.y), z: cam.zoom };
       }
-    } catch(e) {}
+    });
 
-    this.cameras.main.setSize(w, h);
-    this.cameras.main.setScroll(0, 0);
-    this.cameras.main.setZoom(1);
+    this.input.on('pointermove', (p) => {
+      if (isAnyModalActive()) { this.setHover(null); return; }
+      const p1 = this.input.pointer1, p2 = this.input.pointer2;
+      if (pinch && p1 && p2 && p1.isDown && p2.isDown) {
+        const d = Phaser.Math.Distance.Between(p1.x, p1.y, p2.x, p2.y);
+        this.zoomAt((p1.x + p2.x) / 2, (p1.y + p2.y) / 2, pinch.z * (d / Math.max(1, pinch.d)));
+        if (down) down.dragging = true;
+        return;
+      }
+      if (down && p.isDown) {
+        const dx = p.x - down.x, dy = p.y - down.y;
+        if (!down.dragging && Math.hypot(dx, dy) > 6) down.dragging = true;
+        if (down.dragging) {
+          cam.scrollX = down.sx - dx / cam.zoom;
+          cam.scrollY = down.sy - dy / cam.zoom;
+          this.setHover(null);
+          if (this.game.canvas) this.game.canvas.style.cursor = 'grabbing';
+          return;
+        }
+      }
+      this.setHover(this.zoneAtScreen(p.x, p.y));
+    });
 
-    if (this.map && typeof this.map.setDisplaySize === 'function') {
-      this.map.setDisplaySize(w, h);
+    this.input.on('pointerup', (p) => {
+      const wasDown = down;
+      down = null;
+      if (!this.input.pointer2 || !this.input.pointer2.isDown) pinch = null;
+      if (this.game.canvas) this.game.canvas.style.cursor = this.hoverZone ? 'pointer' : 'grab';
+      if (!wasDown || !wasDown.onCanvas || wasDown.dragging) return;
+      if (isAnyModalActive()) return;
+      const z = this.zoneAtScreen(p.x, p.y);
+      if (z) this.openZone(z);
+    });
+
+    this.input.on('wheel', (p, _objs, _dx, dy) => {
+      if (isAnyModalActive()) return;
+      const factor = dy > 0 ? 0.9 : 1.1;
+      this.zoomAt(p.x, p.y, cam.zoom * factor);
+    });
+
+    this.input.on('gameout', () => this.setHover(null));
+
+    if (this.game.canvas) this.game.canvas.style.cursor = 'grab';
+  }
+
+  zoomAt(sx, sy, targetZoom) {
+    const cam = this.cameras.main;
+    const z = Phaser.Math.Clamp(targetZoom, MIN_ZOOM, MAX_ZOOM);
+    const before = cam.getWorldPoint(sx, sy);
+    cam.setZoom(z);
+    const after = cam.getWorldPoint(sx, sy);
+    cam.scrollX += before.x - after.x;
+    cam.scrollY += before.y - after.y;
+  }
+
+  zoneAtScreen(sx, sy) {
+    const wp = this.cameras.main.getWorldPoint(sx, sy);
+    let best = null, bestD = Infinity;
+    for (const z of TOWN_ZONES) {
+      const c = this.zoneWorld(z);
+      const d = Math.hypot(wp.x - c.x, wp.y - c.y);
+      if (d <= c.r && d < bestD) { best = z; bestD = d; }
+    }
+    return best;
+  }
+
+  setHover(zone) {
+    if (this.hoverZone === zone) return;
+    if (this.hoverZone) {
+      const el = this.labels.get(this.hoverZone.id);
+      if (el) el.classList.remove('is-hover');
+    }
+    this.hoverZone = zone;
+    if (zone) {
+      const el = this.labels.get(zone.id);
+      if (el) el.classList.add('is-hover');
+    }
+    this.fillCard(zone);
+    if (this.game.canvas) this.game.canvas.style.cursor = zone ? 'pointer' : 'grab';
+  }
+
+  // ── Bilgi kartı ───────────────────────────────────────────────────────────
+  fillCard(zone) {
+    const card = this.card;
+    if (!card) return;
+    if (!zone) {
+      card.classList.remove('is-visible');
+      return;
+    }
+    card.style.setProperty('--zc', zone.color);
+    card.querySelector('.mc-icon').textContent = zone.icon;
+    card.querySelector('.mc-name').textContent = zone.name;
+    card.querySelector('.mc-sub').textContent = zone.sub;
+    const locked = !gameState.isFeatureUnlocked(zone.id);
+    card.classList.toggle('is-locked', locked);
+    card.querySelector('.mc-hint-text').textContent = locked ? 'Henüz kilitli' : (zone.id === 'dungeon' ? 'Zindana inmek için tıkla' : 'Açmak için tıkla');
+    this.syncCardStatus();
+    this.cardSize = null;
+    card.classList.add('is-visible');
+    this.positionCard();
+  }
+
+  syncCardStatus() {
+    if (!this.card || !this.hoverZone) return;
+    const label = this.labels.get(this.hoverZone.id);
+    const text = label ? (label.querySelector('[data-status]')?.textContent || '') : '';
+    const statusEl = this.card.querySelector('.mc-status');
+    this.card.querySelector('.mc-status-text').textContent = text;
+    statusEl.hidden = !text;
+    this.card.dataset.tone = (label && label.dataset.tone) || '';
+  }
+
+  positionCard() {
+    const card = this.card;
+    if (!card || !this.hoverZone) return;
+    const cam = this.cameras.main;
+    const view = cam.worldView;
+    const zoom = cam.zoom;
+    const c = this.zoneWorld(this.hoverZone);
+    const ax = (c.x - view.x) * zoom;
+    const topY = (c.y - c.r * 0.55 - view.y) * zoom;
+    const bottomY = (c.y + c.r * 0.45 - view.y) * zoom;
+    if (!this.cardSize) this.cardSize = { w: card.offsetWidth || 270, h: card.offsetHeight || 120 };
+    const { w, h } = this.cardSize;
+    const gap = 14;
+    const below = topY - h - gap < 8;
+    const y = below ? Math.min(bottomY + gap, cam.height - h - 8) : topY - h - gap;
+    const left = Math.max(8, Math.min(cam.width - w - 8, ax - w / 2));
+    const arrowX = Math.max(18, Math.min(w - 18, ax - left));
+    card.classList.toggle('is-below', below);
+    card.style.setProperty('--arrow-x', `${arrowX.toFixed(0)}px`);
+    card.style.transform = `translate(${left.toFixed(1)}px, ${y.toFixed(1)}px)`;
+  }
+
+  openZone(z) {
+    if (!gameState.isFeatureUnlocked(z.id)) {
+      window.dispatchEvent(new CustomEvent('feature-locked', { detail: { zoneId: z.id } }));
+      return;
+    }
+    try { sound.playPickaxe(); } catch (e) { /* ses kapalı olabilir */ }
+    if (z.id === 'dungeon') {
+      window.dispatchEvent(new CustomEvent('enter-dungeon-view'));
+      this.scene.start('DungeonScene');
+      return;
+    }
+    window.dispatchEvent(new CustomEvent('open-town-modal', { detail: { zoneId: z.id, zoneName: `${z.icon} ${z.name.toLocaleUpperCase('tr-TR')}` } }));
+  }
+
+  // DFK tarzı: konuma uç, sonra aç
+  flyTo(zoneId, { open = false } = {}) {
+    const z = TOWN_ZONES.find(x => x.id === zoneId);
+    if (!z) return;
+    const c = this.zoneWorld(z);
+    const cam = this.cameras.main;
+    const targetZoom = Math.max(cam.zoom, 1.35);
+    cam.pan(c.x, c.y, 550, 'Sine.easeInOut', true);
+    cam.zoomTo(targetZoom, 550, 'Sine.easeInOut', true);
+    this.setHover(z);
+    if (open) this.time.delayedCall(600, () => { this.setHover(null); this.openZone(z); });
+  }
+
+  // ── DOM etiketleri (net yazı, CSS ile tasarlanır) ────────────────────────
+  createOverlay() {
+    const container = document.getElementById('phaser-game-container');
+    if (!container) return;
+    let overlay = document.getElementById('map-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'map-overlay';
+      overlay.className = 'map-overlay';
+      container.appendChild(overlay);
+    }
+    overlay.classList.remove('is-hidden');
+    overlay.innerHTML = '';
+    this.labels.clear();
+    for (const z of TOWN_ZONES) {
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'map-label';
+      el.dataset.zone = z.id;
+      el.style.setProperty('--zc', z.color);
+      el.innerHTML = `
+        <span class="ml-icon" aria-hidden="true">${z.icon}</span>
+        <span class="ml-body">
+          <span class="ml-name">${z.name}</span>
+          <span class="ml-status" data-status></span>
+        </span>`;
+      el.setAttribute('aria-label', `${z.name} — ${z.sub}`);
+      el.addEventListener('mouseenter', () => this.setHover(z));
+      el.addEventListener('mouseleave', () => { if (this.hoverZone === z) this.setHover(null); });
+      el.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        if (isAnyModalActive()) return;
+        this.openZone(z);
+      });
+      overlay.appendChild(el);
+      this.labels.set(z.id, el);
     }
 
-    // Eski bölgeleri temizle
-    this.zones.forEach(z => z.destroy());
-    this.zones = [];
+    const card = document.createElement('div');
+    card.className = 'map-card';
+    card.id = 'map-hover-card';
+    card.setAttribute('role', 'tooltip');
+    card.innerHTML = `
+      <div class="mc-head">
+        <span class="mc-icon" aria-hidden="true"></span>
+        <span class="mc-titles"><span class="mc-name"></span><span class="mc-sub"></span></span>
+      </div>
+      <div class="mc-status"><span class="mc-dot"></span><span class="mc-status-text"></span></div>
+      <div class="mc-hint"><span class="mc-hint-text">Açmak için tıkla</span><span class="mc-hint-arrow" aria-hidden="true">→</span></div>`;
+    overlay.appendChild(card);
+    this.card = card;
+  }
 
-    const tooltipEl = document.getElementById('realm-hover-tooltip');
-    const titleEl = document.getElementById('realm-tooltip-title');
-    const subEl = document.getElementById('realm-tooltip-sub');
+  positionLabels() {
+    const cam = this.cameras.main;
+    const view = cam.worldView;
+    const zoom = cam.zoom;
+    const compact = cam.width < 720;
+    for (const z of TOWN_ZONES) {
+      const el = this.labels.get(z.id);
+      if (!el) continue;
+      const c = this.zoneWorld(z);
+      const sx = (c.x - view.x) * zoom;
+      const sy = (c.y - c.r * 0.55 - view.y) * zoom;
+      const visible = sx > -80 && sx < cam.width + 80 && sy > -40 && sy < cam.height + 60;
+      el.style.transform = `translate(${sx.toFixed(1)}px, ${sy.toFixed(1)}px) translate(-50%, -100%)`;
+      el.classList.toggle('is-offscreen', !visible);
+      el.classList.toggle('is-compact', compact);
+    }
+  }
 
-    // Yeni ekran boyutuna göre bölgeleri tam yerlerine koy
-    this.zoneDefs.forEach(def => {
-      const cx = def.px * w;
-      const cy = def.py * h;
-      const radius = Math.min(def.pr * w, 150);
+  // ── Canlı durum levhaları ─────────────────────────────────────────────────
+  refreshStatuses() {
+    const st = gameState.state;
+    const set = (id, text, tone = '') => {
+      const el = this.labels.get(id);
+      if (!el) return;
+      const s = el.querySelector('[data-status]');
+      if (s && s.textContent !== text) s.textContent = text;
+      el.dataset.tone = tone;
+    };
 
-      const zoneCircle = this.add.circle(cx, cy, radius, 0x000000, 0.001)
-        .setInteractive({ cursor: 'pointer', useHandCursor: true });
+    for (const zoneId of Object.keys(NODE_OF_ZONE)) {
+      const node = NODE_OF_ZONE[zoneId];
+      const exp = st.activeExpeditions && st.activeExpeditions[node];
+      if (!exp) set(zoneId, 'Boşta · sefer gönder', 'idle');
+      else if (exp.isCompleted) set(zoneId, '✅ Hazır · topla', 'ready');
+      else {
+        const pct = Math.min(100, Math.floor((exp.elapsedSeconds / exp.durationSeconds) * 100));
+        set(zoneId, `⏳ ${fmtCountdown(exp.durationSeconds - exp.elapsedSeconds)} · %${pct}`, 'busy');
+      }
+    }
 
-      const isAnyModalActive = () => {
-        const rpgModal = document.getElementById('rpg-modal');
-        const devModal = document.getElementById('dev-modal');
-        return (rpgModal && rpgModal.classList.contains('active')) ||
-               (devModal && !devModal.classList.contains('hidden')) ||
-               document.body.classList.contains('modal-open');
-      };
+    // Taverna: bot durumu
+    if (gameState.isBotPaused()) set('tavern', '⏸️ Bot duraklatıldı', 'warn');
+    else if (gameState.hasPurchasedBot()) set('tavern', `🤖 Bot aktif · ${fmtCountdown(gameState.getAutoCollectorRemainingSeconds())}`, 'ready');
+    else set('tavern', st.botTrialUsed ? 'Bot kapalı' : '🎁 Ücretsiz bot denemesi', st.botTrialUsed ? '' : 'gift');
 
-      zoneCircle.on('pointerover', (pointer) => {
-        if (isAnyModalActive()) return;
+    // Silo doluluğu
+    const cap = gameState.getWarehouseCapacity();
+    const inv = st.inventory || {};
+    const fill = Math.max(...['wood', 'iron', 'wheat'].map(r => (Number(inv[r]) || 0) / Math.max(1, cap[r] || 1)));
+    set('warehouse', `Sv.${st.warehouseLevel || 1} · %${Math.round(fill * 100)} dolu`, fill >= 0.95 ? 'warn' : '');
 
-        // Menü açıksa veya fare menü bölgesindeyse arka plan hoverını engelle
-        const sidebar = document.getElementById('realm-sidebar');
-        const isSidebarOpen = sidebar && sidebar.classList.contains('open');
-        if (isSidebarOpen && pointer.x > w - 380) return;
-        if (pointer.y < 70 && (pointer.x > w - 140 || (isSidebarOpen && pointer.x > w - 420))) return;
+    // Kışla
+    const units = st.soldierUnits || [];
+    const wounded = units.filter(s => s && s.hp < s.maxHp).length;
+    set('barracks', units.length ? `${units.length} asker${wounded ? ` · ${wounded} yaralı` : ''}` : 'İlk askerini al', wounded ? 'warn' : '');
 
-        // Fare imlecini el (pointer) yap
-        if (this.input) this.input.setDefaultCursor('pointer');
-        if (this.game && this.game.canvas) this.game.canvas.style.cursor = 'pointer';
+    // Pazar
+    set('market', `🌲 ${ammMarket.getPrice('wood').toFixed(2)} · ⛏️ ${ammMarket.getPrice('iron').toFixed(2)} ADA`, '');
 
-        if (!tooltipEl) return;
+    // Karnaval / piyango
+    if ((st.lotteryPendingPayout || 0) > 0) set('carnival', '🎟️ Piyango kazancın hazır!', 'gift');
+    else set('carnival', `Çark · ${st.lotteryTickets || 0} bilet`, '');
 
-        const clampedX = Phaser.Math.Clamp(cx, 190, w - 190);
+    // Kolezyum
+    const counters = (typeof gameState.getDailyCounters === 'function') ? gameState.getDailyCounters() : { arenaMatches: 0 };
+    const cap10 = (GAME_CONFIG.COLOSSEUM && GAME_CONFIG.COLOSSEUM.DAILY_MATCH_CAP) || 10;
+    set('colosseum', `Bugün ${Math.max(0, cap10 - (counters.arenaMatches || 0))} maç hakkı`, '');
 
-        // Canvas'ın viewport üzerindeki başlangıcı (Marquee Ticker + Header = 92px)
-        const canvasTop = (this.game && this.game.canvas) ? this.game.canvas.getBoundingClientRect().top : 92;
+    set('blacksmith', 'Dövme · onarım', '');
+    set('dungeon', `Kat ${Math.ceil((st.dungeonProgress || 1) / 3)} · Sv.${st.dungeonProgress || 1}`, '');
+    set('battlefield', st.worldBoss && st.worldBoss.userStaked ? '🔒 Ordun savaşta' : 'Dünya Bossu', st.worldBoss && st.worldBoss.claimableRewardAda > 0 ? 'gift' : '');
 
-        // dungeon, mine, carnival için yukarıda; forest için ise menünün altında (aşağıda) göster
-        const forceAbove = def.id === 'dungeon' || def.id === 'mine' || def.id === 'carnival';
-        const isForest = def.id === 'forest';
-        const tooltipCy = forceAbove ? Math.max(cy, 110) : (isForest ? cy + 30 : cy);
+    // 🔓 İlk oturumda henüz açılmamış bölümler: kilit ve nasıl açılacağı
+    for (const z of TOWN_ZONES) {
+      const lock = gameState.getFeatureLock(z.id);
+      const el = this.labels.get(z.id);
+      if (el) el.classList.toggle('is-locked', !!lock);
+      if (lock) set(z.id, `🔒 ${lock.reason.replace(/ açılır\.?$/, '')}`, 'locked');
+    }
 
-        titleEl.textContent = def.name;
-        subEl.textContent = def.sub;
-        tooltipEl.style.borderColor = def.colorHex;
-        tooltipEl.style.left = `${clampedX}px`;
-        tooltipEl.style.top = `${tooltipCy + canvasTop}px`;
+    if (this.hoverZone) {
+      const before = this.card && this.card.querySelector('.mc-status-text').textContent;
+      this.syncCardStatus();
+      if (this.card && this.card.querySelector('.mc-status-text').textContent.length !== (before || '').length) this.cardSize = null;
+    }
+  }
 
-        if (isForest || (!forceAbove && (def.flipDown || cy < 160))) {
-          tooltipEl.classList.add('flip-down');
-        } else {
-          tooltipEl.classList.remove('flip-down');
-        }
+  update(time, delta) {
+    if (this.hoverZone && isAnyModalActive()) this.setHover(null);
+    this.positionCard();
+    this.positionLabels();
 
-        tooltipEl.classList.remove('hidden');
-        tooltipEl.classList.add('visible');
-      });
-
-      zoneCircle.on('pointerout', () => {
-        if (this.input) this.input.setDefaultCursor('default');
-        if (this.game && this.game.canvas) this.game.canvas.style.cursor = 'default';
-
-        if (tooltipEl) {
-          tooltipEl.classList.remove('visible');
-          tooltipEl.classList.add('hidden');
-        }
-      });
-
-      zoneCircle.on('pointerup', (pointer) => {
-        if (this.input) this.input.setDefaultCursor('default');
-        if (this.game && this.game.canvas) this.game.canvas.style.cursor = 'default';
-
-        if (tooltipEl) {
-          tooltipEl.classList.remove('visible');
-          tooltipEl.classList.add('hidden');
-        }
-
-        // CRITICAL: Check if ANY modal is currently open - if so, IMMEDIATELY RETURN and ignore click
-        if (isAnyModalActive()) return;
-
-        // KORUMA: Menü açıksa veya fare menü toggle butonuna basıyorsa haritayı ASLA tetikleme
-        const sidebar = document.getElementById('realm-sidebar');
-        const isSidebarOpen = sidebar && sidebar.classList.contains('open');
-        if (isSidebarOpen && pointer.x > w - 380) return;
-        if (pointer.y < 75 && (pointer.x > w - 150 || (isSidebarOpen && pointer.x > w - 430))) return;
-
-        sound.playPickaxe();
-        if (def.id === 'dungeon') {
-          window.dispatchEvent(new CustomEvent('enter-dungeon-view'));
-          this.scene.start('DungeonScene');
-        } else {
-          window.dispatchEvent(new CustomEvent('open-town-modal', { detail: { zoneId: def.id, zoneName: def.name } }));
-        }
-      });
-
-      this.zones.push(zoneCircle);
-    });
+    this.statusTimer += delta;
+    if (this.statusTimer >= 500) {
+      this.statusTimer = 0;
+      this.refreshStatuses();
+    }
   }
 }

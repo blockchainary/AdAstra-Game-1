@@ -1,4 +1,4 @@
-# 🌌 Realm of Astra (v2.4.0 Enterprise)
+# 🌌 Realm of Astra (v1.26)
 
 > **Avalanche (AVAX) Ekosisteminde Yeni Nesil Web3 GameFi & Strateji RPG Başyapıtı**  
 > *DeFi Kingdoms standartlarında hiper-deflasyonist mikro/makro ekonomi, Phaser 3 Canvas rendering motoru ve Vanilla ES6+ modüler State mimarisi.*  
@@ -13,17 +13,23 @@
 
 ---
 
-## 🌟 Öne Çıkan Temel Sistemler ve Güncel Mekanikler (v2.4.0)
+## 🌟 Öne Çıkan Temel Sistemler ve Güncel Mekanikler (v1.26)
 
 ### 1. 🔥 Evrensel Hammadde Yakımı (Universal Resource Burn)
 Oyunda harcama olarak tüketilen **tüm Odun, Demir ve Buğdaylar kalıcı olarak yakılır (burn)** ve küresel haftalık toplam arzdan silinir:
 - Silo yükseltme, hesap seviyesi atlama, alet tamiri, teçhizat dövme (craft), teçhizat seviye yükseltme, teçhizat onarımı, stamina doldurma, asker iyileştirme ve çark çevirme harcamaları anında yakılarak deflasyona uğrar.
 - Küresel havuzdaki kaynak kotası (`totalCap`) harcanan miktar kadar küçülür; hiçbir kaynak havuza geri dönmez.
 
-### 2. 🤝 Adil Evrensel Temel Gelir (UBI) & Balina Koruması
-- **Adil Kök Modeli:** $W(L) = 1 + \sqrt{L - 1} \times 0.75$. Üstel balina sübvansiyonu kaldırılmış; yeni başlayanlar ile son seviye arasında sürdürülebilir bir denge kurulmuştur.
-- **Tek Çekim Tavanı:** Hiçbir hesap tek talepte UBI havuzunun **%5'inden fazlasını** çekemez.
-- **Havuz Emniyet Tamponu:** Havuz bakiyesi %50 seviyesine indiğinde ödemeler orantılı dengelenir, havuz asla sıfırlanmaz.
+### 2. 🤝 Haftalık Evrensel Temel Gelir (UBI)
+- **Kaynak:** Oyunda harcanan her ADA'nın **%6'sı** o haftanın UBI kasasında birikir (başlangıç tohumu dağıtılmaz).
+- **Açılış:** Her **Pazartesi 00:01 (TSİ)** geçen haftanın kasası açılır; çekilmeyen pay bir sonraki haftaya devreder.
+- **Hak ve pay:** En az **3. seviye** oyuncular, seviye ağırlığıyla paylaşır: $W(L) = 1 + \sqrt{L - 1} \times 0.75$ (Sv.3 = 2,06 · Sv.10 = 3,25 · Sv.81 = 7,71).
+
+### 2b. 🎟️ Haftalık Piyango & Şans Çarkı
+- Bilet 100 ADA; hesap başına haftalık bilet sınırı vardır. Biletin %2'si amorti kasasına, kalanı piyango kasasına gider.
+- Her hafta **tek kazanan** çıkar (şans = bileti / toplam bilet) ve biletlerine ödediğinin **2 katını** alır; biletleri ödülü çekerken yanar.
+- Kazanamayanın biletleri yanmaz, sonraki haftaya devreder. Kasa kazananı karşılayamazsa amorti kasası kalan tüm biletlere eşit dağıtılır.
+- Çarkta **1 bilet = 1 çevirme**; çark ödülleri karnaval kasasından ödenir, kasa yetersizse çark geçici olarak kapanır.
 
 ### 3. ⚔️ Tek Tip Asker + Yetenek Yükü (Skill Loadout) & Formasyon
 - **Tek Tip Asker Stat Modeli:** Askerler sınıf kısıtı olmadan aynı temel eğriyi ($100 + 25 \cdot (L - 1)$ HP, $25 + 6 \cdot (L - 1)$ ATK) takip eder. Ordu sınırı kaldırılmıştır; ilk asker 5.000 ADA, 18. asker 1.800.000 ADA'dır.
@@ -41,7 +47,8 @@ Oyunda harcama olarak tüketilen **tüm Odun, Demir ve Buğdaylar kalıcı olara
 
 ### 5. 💱 AMM DEX ($x \cdot y = k$) & Canlı Maliyet Botu
 - Spot piyasa fiyatları sabit çarpım formülüyle belirlenir; her işlemden **%2.00 AMM Harcı** ve hammadde işlemlerinden **%2.00 Hammadde Yakımı** alınır.
-- Tüm havuzlar `derivePool()` ile `AMM_CORRIDORS`'tan türetilir.
+- Tüm havuzlar `derivePool()` ile `AMM_CORRIDORS`'tan türetilir. Ham madde havuzları **haftalık kotanın 80 katı** derinliktedir; tüm kota her hafta satılsa bile fiyatın %90 düşmesi yıllar alır. Satış taban fiyatın altına inemez.
+- **Haftalık kota gün gün açılır:** kotanın tamamı Pazartesi sabahı bitmez, her gün yeni bir parça serbest kalır.
 - Saniyelik canlı bot (`tickUpgradeCostBot`), silo ve seviye atlama için talep edilen hammaddelerin borsa değerini anlık ADA maliyeti olarak yansıtır.
 
 ### 6. 💀 6 Katlı & 18 Seviyeli Zindan, Sıra Tabanlı Motor & Boss Fazları
@@ -51,11 +58,12 @@ Oyunda harcama olarak tüketilen **tüm Odun, Demir ve Buğdaylar kalıcı olara
   - *Seviye 9 Kadim Taş Golyat:* %50 HP altına düştüğünde *"Faz 2: Taş Kabuk"* (+%35 Zırh kalkanı).
   - *Seviye 18 Kıyamet Ejderhası IGNIS:* %60 HP altında *"Faz 2: Ejderha Gazabı"* (+%50 ATK), %25 HP altında *"Faz 3: Kıyamet Alevi"* (tüm orduya yakıcı alan hasarı).
 - Bosslar +%100 Düşürme Çarpanı (2.0x) ve garanti anahtar ganimeti sunar.
+- **Günde 5 ödüllü giriş**; sonrasında isteğe bağlı **kapı harcı** (katın ödülünün %20'si, tamamı zindan kasasına) ile ödüllü girişe devam edilir. Zindan kasası günde bakiyesinin en fazla %1'ini dağıtır, bu yüzden boşalamaz.
 
 ### 7. 🪙 10 Milyar Makro Tokenomics & Hazine
 - **Sabit Maksimum Arz:** 10.000.000.000 $ADASTRA.
 - **Gelir Dağılım Anayasası:** %13 Kalıcı Yakım • %78 Krallık Hazinesi • %6 Evrensel Temel Gelir (UBI) • %3 Yapımcı Telifi.
-- **Anti-Tamper & HTTP Network Saati:** Sistem saati manipülasyonu ve haftalık kotaları sonsuz re-farm etme istismarı sunucu HTTP Date başlığı doğrulamasıyla engellenmiştir.
+- **Önemli not (güvenlik):** Bu sürüm tamamen tarayıcıda çalışan bir deneme dünyasıdır; hesap, hazine ve pazar oyuncunun kendi tarayıcısında tutulur ve değiştirilebilir. Saat kontrolü (HTTP Date başlığı) yalnızca basit bir önlemdir. Gerçek değerli token ile açılmadan önce oyun hesabını tutan bir sunucuya geçilecektir.
 
 ---
 
@@ -111,11 +119,11 @@ cd adastra-realm
 # 2. Bağımlılıkları yükleyin
 npm install
 
-# 3. Geliştirme sunucusunu başlatın (Port: 5173)
+# 3. Geliştirme sunucusunu başlatın (Port: 5180)
 npm run dev
 
 # 4. Tarayıcınızda açın:
-# http://localhost:5173/
+# http://localhost:5180/
 ```
 
 ### Kalite Güvencesi & Testler:

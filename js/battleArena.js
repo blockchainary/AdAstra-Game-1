@@ -123,6 +123,11 @@ export class AdAstraBattleArena {
     let phaseIndexUsed = {};
     let activeMatchConfig = null;
     let onCompleteCallback = null;
+    // Kayıttan oynatma: sonuç combat.js'te hesaplanır, arena yalnızca olayları canlandırır
+    let replay = null;
+    let replayQueue = [];
+    let replayIdx = 0;
+    let finished = false;
 
     const $ = sel => root.querySelector(sel);
     const stage = $('#aa-stage');
@@ -491,8 +496,14 @@ export class AdAstraBattleArena {
       const enemiesAlive = units.some(u => u.side === 'enemy' && !u.dead);
       if (alliesAlive && enemiesAlive) return false;
 
+      showResult(!enemiesAlive);
+      return true;
+    }
+
+    function showResult(win) {
+      if (finished) return;
+      finished = true;
       stop();
-      const win = !enemiesAlive;
       if (stateVal) stateVal.textContent = win ? 'Zafer' : 'Yenilgi';
       const rTitle = $('#aa-resultTitle');
       if (rTitle) {
@@ -530,8 +541,119 @@ export class AdAstraBattleArena {
           units: [...units]
         });
       }
+    }
 
-      return true;
+    // ── Kayıttan oynatma ────────────────────────────────────────────────
+    function unitByUid(uid) {
+      return uid ? units.find(u => u.uid === uid) : null;
+    }
+
+    function pulseActing(u) {
+      const el = root.querySelector('#aa-unit-' + u.id);
+      if (!el) return;
+      el.classList.add('acting');
+      setTimeout(() => el.classList.remove('acting'), 450);
+    }
+
+    function applyEvent(ev, animate) {
+      const actor = unitByUid(ev.actorUid);
+      const target = unitByUid(ev.targetUid);
+      switch (ev.type) {
+        case 'damage': {
+          if (actor && animate) pulseActing(actor);
+          if (target) {
+            target.hp = Math.max(0, ev.targetHp);
+            if (ev.died || target.hp <= 0) target.dead = true;
+            if (animate) {
+              updateUnitDom(target);
+              flash(target.id);
+              spawnDmg(target.id, (ev.isCrit ? '💥 ' : '') + '-' + ev.amount, ev.isCrit ? 'dmg crit' : 'dmg');
+              if (sound && sound.playPickaxe) sound.playPickaxe();
+            }
+          }
+          const how = ev.label && ev.label !== 'Saldırı' ? ` <span class="muted">(${ev.label})</span>` : '';
+          const shieldTxt = ev.absorbed > 0 ? ` <span class="muted">· kalkan ${ev.absorbed} emdi</span>` : '';
+          log(`${ev.isCrit ? '💥 <b>KRİTİK!</b> ' : '⚔️ '}<b>${ev.actor}</b> → ${ev.target} <b class="num">-${ev.amount}</b>${how}${shieldTxt}`, 'dmg');
+          if (target && target.dead) log(`💀 <b>${ev.target}</b> yere serildi!`, 'dmg');
+          break;
+        }
+        case 'heal': {
+          if (target) {
+            target.hp = Math.max(0, ev.targetHp);
+            if (animate) { updateUnitDom(target); spawnDmg(target.id, '+' + ev.amount, 'heal'); }
+          }
+          log(`✨ <b>${ev.actor}</b> → ${ev.target} <b class="num">+${ev.amount}</b> iyileştirdi.`, 'heal skill');
+          break;
+        }
+        case 'ability': {
+          if (actor && animate) {
+            pulseActing(actor);
+            spawnBurst(actor.id);
+            caption((ev.icon || '✨') + ' ' + (ev.ability || ''));
+            if (/Kalkan|Son Nefes/.test(ev.ability || '')) {
+              const sr = root.querySelector('#aa-shield-' + actor.id);
+              if (sr) sr.classList.add('show');
+            }
+          }
+          log(ev.text || `${ev.icon || '✨'} <b>${ev.actor}</b> ${ev.ability}`, 'skill');
+          break;
+        }
+        case 'phase': {
+          if (animate) {
+            const m = /FAZ \d+:\s*([^—]+)—\s*(.*)/.exec(ev.text || '');
+            showPhaseBanner(m ? m[1].trim() : (ev.text || 'YENİ FAZ'), m ? m[2].trim() : '');
+            if (sound && sound.playBreakWarning) sound.playBreakWarning();
+          }
+          log(`⚡ <b class="num">${ev.text}</b>`, 'system');
+          break;
+        }
+        case 'rage':
+        case 'modifier':
+          log(ev.text, 'system');
+          break;
+        case 'stunned':
+          log(`😵 <b>${ev.actor}</b> sersemlemiş, hamle yapamadı.`, 'system');
+          break;
+        case 'dot': {
+          if (target) {
+            target.hp = Math.max(0, ev.targetHp);
+            if (ev.died || target.hp <= 0) target.dead = true;
+            if (animate) { updateUnitDom(target); spawnDmg(target.id, '-' + ev.amount, 'dmg'); }
+          }
+          log(`🔥 ${ev.target} <b class="num">-${ev.amount}</b> (${ev.dotType === 'poison' ? 'zehir' : 'yanma'})`, 'dmg');
+          break;
+        }
+        default:
+          break;
+      }
+    }
+
+    function syncFinalHp() {
+      if (!replay) return;
+      const finals = [...(replay.allies || []), ...(replay.enemies || [])];
+      finals.forEach(fu => {
+        const u = unitByUid(fu.uid);
+        if (u) { u.hp = Math.max(0, Math.round(fu.hp)); u.dead = u.hp <= 0; }
+      });
+    }
+
+    function finishReplay() {
+      syncFinalHp();
+      render();
+      showResult(!!replay.victory);
+    }
+
+    function playReplayStep() {
+      if (!running || finished) return;
+      if (replayIdx >= replayQueue.length) { finishReplay(); return; }
+      const item = replayQueue[replayIdx++];
+      if (item.round !== round) {
+        round = item.round;
+        if (roundVal) roundVal.textContent = round;
+      }
+      applyEvent(item.ev, true);
+      const wait = item.ev.type === 'phase' ? 1400 : (item.ev.type === 'ability' ? 700 : 480);
+      timer = setTimeout(playReplayStep, wait / speed);
     }
 
     function stepRound() {
@@ -561,6 +683,7 @@ export class AdAstraBattleArena {
       running = true;
       if (stateVal) stateVal.textContent = 'Savaşta';
       if (playBtn) playBtn.textContent = '⏸ Duraklat';
+      if (replay) { playReplayStep(); return; }
       stepRound();
     }
 
@@ -573,6 +696,16 @@ export class AdAstraBattleArena {
 
     function skipToEnd() {
       stop();
+      if (replay) {
+        while (replayIdx < replayQueue.length) {
+          const item = replayQueue[replayIdx++];
+          round = item.round;
+          applyEvent(item.ev, false);
+        }
+        if (roundVal) roundVal.textContent = round;
+        finishReplay();
+        return;
+      }
       let maxSafety = 200;
       while (!endCheck() && maxSafety-- > 0) {
         round++;
@@ -589,6 +722,8 @@ export class AdAstraBattleArena {
 
     function reset() {
       stop();
+      finished = false;
+      replayIdx = 0;
       round = 0;
       if (roundVal) roundVal.textContent = 0;
       if (stateVal) stateVal.textContent = 'Hazır';
@@ -626,6 +761,14 @@ export class AdAstraBattleArena {
       activeMatchConfig = config || {};
       mode = config.mode || 'dungeon';
       onCompleteCallback = config.onComplete || null;
+      replay = config.replay || null;
+      replayQueue = [];
+      if (replay && Array.isArray(replay.rounds)) {
+        replay.rounds.forEach(r => (r.events || []).forEach(ev => replayQueue.push({ round: r.round, ev })));
+        // Tura bağlı olmayan başlangıç olayları (ör. kat etkisi)
+        const counted = new Set(replayQueue.map(x => x.ev));
+        (replay.log || []).filter(ev => !counted.has(ev)).forEach(ev => replayQueue.unshift({ round: 0, ev }));
+      }
 
       root.setAttribute('data-mode', mode);
       updateModeBadge(mode);

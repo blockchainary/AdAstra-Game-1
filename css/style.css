@@ -569,40 +569,7 @@ html, body {
   box-shadow: 0 4px 12px rgba(253, 224, 71, 0.4);
 }
 
-/* 🌾 Buğday */
-#res-pill-wheat {
-  background: linear-gradient(180deg, rgba(45, 30, 8, 0.75) 0%, rgba(20, 13, 4, 0.9) 100%);
-  border-color: rgba(250, 204, 21, 0.5);
-  color: #fef08a;
-}
-#res-pill-wheat:hover {
-  border-color: #facc15;
-  box-shadow: 0 4px 14px rgba(250, 204, 21, 0.45);
-}
-
-/* 🌲 Odun */
-#res-pill-wood {
-  background: linear-gradient(180deg, rgba(8, 38, 18, 0.75) 0%, rgba(4, 18, 8, 0.9) 100%);
-  border-color: rgba(74, 222, 128, 0.5);
-  color: #86efac;
-}
-#res-pill-wood:hover {
-  border-color: #4ade80;
-  box-shadow: 0 4px 14px rgba(74, 222, 128, 0.45);
-}
-
-/* ⛏️ Demir */
-#res-pill-iron {
-  background: linear-gradient(180deg, rgba(14, 28, 48, 0.75) 0%, rgba(6, 14, 26, 0.9) 100%);
-  border-color: rgba(56, 189, 248, 0.5);
-  color: #bae6fd;
-}
-#res-pill-iron:hover {
-  border-color: #38bdf8;
-  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.45);
-}
-
-/* 🧩 Parça (Fragment) */
+/* v1.25: kaynak renkleri theme.css içinde (.res-wheat / .res-wood / .res-iron) */
 .top-res-pill.fragment-pill, .pixi-res-pill.fragment-pill {
   background: linear-gradient(180deg, rgba(38, 14, 60, 0.75) 0%, rgba(18, 6, 30, 0.9) 100%);
   border-color: rgba(192, 132, 252, 0.5);

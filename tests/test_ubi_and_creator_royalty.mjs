@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { gameState } from '../js/gameState.js';
 import { globalPool } from '../js/globalPool.js';
 import { GAME_CONFIG } from '../js/config.js';
+import { shareOf, openWeek } from '../js/economy/ubi.js';
 
 test('Evrensel Temel Gelir (UBI) & %3 Yapımcı Telifi & %13 Yakım Testi', async (t) => {
   gameState.vanillaReset();
@@ -37,66 +38,62 @@ test('Evrensel Temel Gelir (UBI) & %3 Yapımcı Telifi & %13 Yakım Testi', asyn
     assert.equal(globalPool.state.ubiPool, initialUbi + 600);
   });
 
-  await t.test('[3/6] 3 Aylık (12 Haftalık) Dağıtım Amortismanı ve Haftalık Bütçe Hesabı', () => {
-    globalPool.state.ubiPool = 2400000; // 2.4M ADA
-    const info = globalPool.getUbiPoolInfo(1);
-
-    assert.equal(info.amortizationWeeks, 12, 'Amortisman süresi 12 hafta (3 ay) olmalı');
-    assert.equal(info.weeklyBudget, 200000, 'Haftalık bütçe 2.4M / 12 = 200.000 ADA olmalı');
+  // v1.25 UBI modeli (kullanıcı kararı, 29 Eylül 2026): tohum dağıtılmaz. Oyunda harcanan her ADA'nın %6'sı
+  // o haftanın kasasında birikir; Pazartesi 00:01 (TSİ) açılır; en az 3. seviye olanlar seviye ağırlığıyla paylaşır;
+  // çekilmeyen pay sonraki haftaya devreder.
+  await t.test('[3/6] Haftalık birikim ve Pazartesi açılışı: birikim + çekilmeyen pay = yeni kasa', () => {
+    assert.equal(openWeek({ accruedLastWeek: 6000, unclaimedCarry: 1500 }), 7500);
+    const before = globalPool.state.ubiWeekAccrued || 0;
+    globalPool.recordTokenSpend(5000);
+    assert.equal(Math.round((globalPool.state.ubiWeekAccrued - before) * 100) / 100, 300, '5.000 ADA harcamanın %6\'sı (300) bu haftanın kasasına birikmeli');
+    const accrued = globalPool.state.ubiWeekAccrued;
+    const carry = globalPool.state.ubiClaimPot || 0;
+    globalPool.createNewEpoch(globalPool.state);
+    assert.equal(Math.round(globalPool.state.ubiClaimPotAtOpen), Math.round(accrued + carry), 'Yeni haftanın kasası geçen haftanın birikimi + çekilmeyen pay olmalı');
+    assert.equal(globalPool.state.ubiWeekAccrued, 0, 'Yeni hafta birikimi sıfırdan başlamalı');
   });
 
-  await t.test('[4/6] Seviye 1 vs Seviye 81 Adil Kök Pay Dağılımı ve %5 Tek Çekim Tavanı Koruması', () => {
-    globalPool.state.ubiPool = 2400000;
-    const lv1 = globalPool.calculateLevelUbiPayout(1);
-    const lv10 = globalPool.calculateLevelUbiPayout(10);
-    const lv40 = globalPool.calculateLevelUbiPayout(40);
-    const lv81 = globalPool.calculateLevelUbiPayout(81);
-
-    assert(lv1.payout > 0, 'Seviye 1 taban ödül almalı');
-    assert(lv10.payout > lv1.payout, 'Seviye 10, Seviye 1 den fazla pay almalı (~3.25x)');
-    assert(lv81.payout > lv10.payout, 'Seviye 81, Seviye 10 dan fazla pay almalı');
-    
-    // Tek çekim tavanı denetimi: maxSingleCap = havuzun %5'i (2.4M * 0.05 = 120.000 ADA)
-    const maxCap = 2400000 * 0.05;
-    assert(lv81.payout <= maxCap, 'Seviye 81 tek çekimde havuzun %5 inden fazlasını alamaz (Balina Koruması)');
-
-    // Kullanıcı Senaryosu: 22.000 ADA'lık havuzda Seviye 1 vs Seviye 3 dinamik ve adil dağılım
-    globalPool.state.ubiPool = 22000;
-    const userLv1 = globalPool.calculateLevelUbiPayout(1);
-    const userLv3 = globalPool.calculateLevelUbiPayout(3);
-    assert.notEqual(userLv1.payout, userLv3.payout, 'Seviye 1 ve Seviye 3 aynı sabit tutarda kalamaz!');
-    assert(userLv3.payout > userLv1.payout, 'Seviye 3, Seviye 1 den yüksek pay almalıdır');
-
-    // Havuz 22.000'den 50.000'e çıktığında anlık canlı büyüme
-    globalPool.state.ubiPool = 50000;
-    const updatedLv3 = globalPool.calculateLevelUbiPayout(3);
-    assert(updatedLv3.payout > userLv3.payout, 'Havuz doldukça payout anlık olarak artmalı');
+  await t.test('[4/6] En az 3. seviye şartı ve seviyeye göre adil pay', () => {
+    const pot = 100000;
+    const totalWeight = 50;
+    assert.equal(shareOf({ pot, playerLevel: 1, totalWeight }), 0, 'Seviye 1 UBI alamaz');
+    assert.equal(shareOf({ pot, playerLevel: 2, totalWeight }), 0, 'Seviye 2 UBI alamaz');
+    const lv3 = shareOf({ pot, playerLevel: 3, totalWeight });
+    const lv10 = shareOf({ pot, playerLevel: 10, totalWeight });
+    const lv81 = shareOf({ pot, playerLevel: 81, totalWeight });
+    assert.ok(lv3 > 0, 'Seviye 3 pay almalı');
+    assert.ok(lv10 > lv3 && lv81 > lv10, 'Yüksek seviye daha fazla pay almalı');
+    assert.ok(lv81 <= pot, 'Pay kasayı aşamaz');
   });
 
-  await t.test('[5/6] Envanter / Karakter Paneli Haftalık Claim ve Çift Claim Koruması', () => {
-    gameState.state.level = 5;
+  await t.test('[5/6] Haftalık çekim, 3. seviye şartı ve çift çekim koruması', () => {
+    globalPool.state.ubiClaimPotAtOpen = 10000;
+    globalPool.state.ubiClaimPot = 10000;
     gameState.state.lastClaimedUbiEpoch = 0;
-    const initialAda = gameState.state.adAstraBalance || 0;
+    gameState.state.level = 2;
+    const low = gameState.claimWeeklyUbi();
+    assert.equal(low.success, false, 'Seviye 2 UBI çekememeli');
 
+    gameState.state.level = 5;
+    const initialAda = gameState.state.adAstraBalance || 0;
     const claimRes = gameState.claimWeeklyUbi();
     assert.equal(claimRes.success, true, 'İlk claim başarılı olmalı');
     assert(claimRes.amount > 0, 'Dağıtılan ADA pozitif olmalı');
     assert.equal(gameState.state.adAstraBalance, initialAda + claimRes.amount, 'ADA bakiyesi artmalı');
     assert.equal(gameState.state.lastClaimedUbiEpoch, globalPool.state.epochId, 'Epoch ID kaydedilmeli');
+    assert.ok(globalPool.state.ubiClaimPot <= 10000 - claimRes.amount + 1e-6, 'Çekilen pay kasadan düşmeli');
 
-    // Aynı hafta ikinci kez claim denemesi engellenmeli
     const secondClaim = gameState.claimWeeklyUbi();
     assert.equal(secondClaim.success, false, 'Aynı hafta mükerrer claim yapılamaz');
     assert(secondClaim.message.includes('zaten talep ettiniz'), 'Kullanıcıya bilgilendirme mesajı verilmeli');
   });
 
-  await t.test('[6/6] Vanilla Reset ile UBI Havuzunun Tohum Değerine Sıfırlanması', () => {
+  await t.test('[6/6] Vanilla Reset: UBI kasası sıfırdan başlar (tohum dağıtılmaz)', () => {
     globalPool.state.ubiPool = 9999999;
     gameState.state.lastClaimedUbiEpoch = 42;
-
     gameState.vanillaReset();
-
     assert.equal(gameState.state.lastClaimedUbiEpoch, 0, 'Claim epoch sıfırlanmalı');
-    assert.equal(globalPool.state.ubiPool, 2400000, 'UBI havuzu 2.4M başlangıç tohumuna sıfırlanmalı');
+    assert.equal(globalPool.state.ubiWeekAccrued || 0, 0, 'Haftalık birikim sıfırlanmalı');
+    assert.equal(globalPool.state.ubiClaimPot || 0, 0, 'Dağıtım kasası sıfırdan başlamalı');
   });
 });

@@ -237,8 +237,8 @@ function applyDamage(attacker, target, rawDamage, rng, log, { canCrit = true, la
 
   log.push({
     type: 'damage',
-    actor: attacker.name, actorIcon: attacker.icon, actorSide: attacker.side,
-    target: target.name, targetIcon: target.icon,
+    actor: attacker.name, actorIcon: attacker.icon, actorSide: attacker.side, actorUid: attacker.uid,
+    target: target.name, targetIcon: target.icon, targetUid: target.uid,
     amount: dmg, absorbed, isCrit, label,
     element: attacker.element,
     targetHp: target.hp, targetMaxHp: target.maxHp,
@@ -270,8 +270,8 @@ function healUnit(healer, target, amount, log) {
     healer.healingDone += healed;
     log.push({
       type: 'heal',
-      actor: healer.name, actorIcon: healer.icon, actorSide: healer.side,
-      target: target.name, targetIcon: target.icon,
+      actor: healer.name, actorIcon: healer.icon, actorSide: healer.side, actorUid: healer.uid,
+      target: target.name, targetIcon: target.icon, targetUid: target.uid,
       amount: healed, targetHp: target.hp, targetMaxHp: target.maxHp
     });
   }
@@ -298,7 +298,7 @@ export const PLAYER_SKILLS = {
       addStatus(self, { type: 'shield', turns: 3, magnitude: shieldAmt });
       log.push({
         type: 'ability', ability: 'Kalkan Duvarı', icon: '🛡️',
-        actor: self.name, actorIcon: self.icon, actorSide: self.side,
+        actor: self.name, actorIcon: self.icon, actorSide: self.side, actorUid: self.uid,
         text: `${self.name} Kalkan Duvarı kurdu: Düşman ateşini üzerine çekiyor (+%45 Zırh, ${shieldAmt} Kalkan)!`
       });
       return true;
@@ -321,7 +321,7 @@ export const PLAYER_SKILLS = {
       if (targets.length === 0) return false;
       log.push({
         type: 'ability', ability: 'Şok Dalgası', icon: '⚡',
-        actor: self.name, actorIcon: self.icon, actorSide: self.side,
+        actor: self.name, actorIcon: self.icon, actorSide: self.side, actorUid: self.uid,
         text: `${self.name} yeri sarsan bir Şok Dalgası gönderdi — ${targets.length} hedefe vurdu!`
       });
       for (const t of targets) {
@@ -345,7 +345,7 @@ export const PLAYER_SKILLS = {
       const healAmt = Math.round(self.maxHp * 0.22 + effectiveAtk(self) * 0.5);
       log.push({
         type: 'ability', ability: 'Sahra Merhemi', icon: '✨',
-        actor: self.name, actorIcon: self.icon, actorSide: self.side,
+        actor: self.name, actorIcon: self.icon, actorSide: self.side, actorUid: self.uid,
         text: `${self.name} Sahra Merhemi uyguladı: ${wounded.name} ${healAmt} HP iyileşti ve arındı!`
       });
       healUnit(self, wounded, healAmt, log);
@@ -368,7 +368,7 @@ export const PLAYER_SKILLS = {
       if (!target) return false;
       log.push({
         type: 'ability', ability: 'Zırh Kırıcı', icon: '🪓',
-        actor: self.name, actorIcon: self.icon, actorSide: self.side,
+        actor: self.name, actorIcon: self.icon, actorSide: self.side, actorUid: self.uid,
         text: `${self.name} ${target.name}'in zırhına sert bir darbe indirdi (-%40 zırh)!`
       });
       addStatus(target, { type: 'sunder', turns: 3, stackable: false });
@@ -390,7 +390,7 @@ export const PLAYER_SKILLS = {
       if (!target) return false;
       log.push({
         type: 'ability', ability: 'Sersemletme Darbesi', icon: '💫',
-        actor: self.name, actorIcon: self.icon, actorSide: self.side,
+        actor: self.name, actorIcon: self.icon, actorSide: self.side, actorUid: self.uid,
         text: `${self.name} kafaya indirdiği darbeyle ${target.name}'i sersemletti (1 tur devre dışı)!`
       });
       addStatus(target, { type: 'stun', turns: 1, stackable: false });
@@ -412,7 +412,7 @@ export const PLAYER_SKILLS = {
       addStatus(self, { type: 'sunder', turns: 2, stackable: false });
       log.push({
         type: 'ability', ability: 'Kan Çılgınlığı', icon: '🩸',
-        actor: self.name, actorIcon: self.icon, actorSide: self.side,
+        actor: self.name, actorIcon: self.icon, actorSide: self.side, actorUid: self.uid,
         text: `${self.name} Kan Çılgınlığına girdi: +%50 Saldırı Gücü kazandı (-%40 Zırh feragatiyle)!`
       });
       const target = selectTarget(self, enemies, rng);
@@ -440,7 +440,7 @@ export const PLAYER_SKILLS = {
         addStatus(self, { type: 'fortify', turns: 3, magnitude: 0.50, stackable: false });
         log.push({
           type: 'ability', ability: 'Son Nefes', icon: '🔥',
-          actor: self.name, actorIcon: self.icon, actorSide: self.side,
+          actor: self.name, actorIcon: self.icon, actorSide: self.side, actorUid: self.uid,
           text: `🔥 ${self.name} ölümün eşiğinde Son Nefes pasifini tetikledi: ${shieldAmt} Kalkan ve +%50 Zırh kazandı!`
         });
         return true;
@@ -468,7 +468,7 @@ const MONSTER_ABILITIES = {
     const rest = alive.filter(u => !pool.includes(u));
     const targets = [...pool, ...rest].slice(0, GAME_CONFIG.COMBAT.MAX_AOE_TARGETS || 4);
     if (targets.length === 0) return false;
-    log.push({ type: 'ability', ability: 'Yarma Darbesi', icon: '💥', actor: self.name, actorIcon: self.icon, actorSide: self.side,
+    log.push({ type: 'ability', ability: 'Yarma Darbesi', icon: '💥', actor: self.name, actorIcon: self.icon, actorSide: self.side, actorUid: self.uid,
       text: `${self.name} geniş bir yay çizerek ön safta ${targets.length} birimi biçti!` });
     targets.forEach(t => applyDamage(self, t, effectiveAtk(self) * 0.62, rng, log, { label: 'Yarma Darbesi' }));
     return true;
@@ -477,7 +477,7 @@ const MONSTER_ABILITIES = {
   sunder(self, allies, enemies, rng, log) {
     const t = selectTarget(self, enemies, rng);
     if (!t) return false;
-    log.push({ type: 'ability', ability: 'Zırh Parçalayıcı', icon: '🪓', actor: self.name, actorIcon: self.icon, actorSide: self.side,
+    log.push({ type: 'ability', ability: 'Zırh Parçalayıcı', icon: '🪓', actor: self.name, actorIcon: self.icon, actorSide: self.side, actorUid: self.uid,
       text: `${self.name} ${t.name}'in zırhını paramparça etti (-%40 zırh)!` });
     addStatus(t, { type: 'sunder', turns: 3, stackable: false });
     applyDamage(self, t, effectiveAtk(self) * 1.1, rng, log, { label: 'Zırh Parçalayıcı' });
@@ -486,7 +486,7 @@ const MONSTER_ABILITIES = {
   // Kendini iyileştirir
   regenerate(self, allies, enemies, rng, log) {
     const amount = Math.round(self.maxHp * 0.08);
-    log.push({ type: 'ability', ability: 'Kadim Yenilenme', icon: '🌀', actor: self.name, actorIcon: self.icon, actorSide: self.side,
+    log.push({ type: 'ability', ability: 'Kadim Yenilenme', icon: '🌀', actor: self.name, actorIcon: self.icon, actorSide: self.side, actorUid: self.uid,
       text: `${self.name} kadim güçlerden beslenip ${amount} can yeniledi.` });
     healUnit(self, self, amount, log);
     return true;
@@ -495,7 +495,7 @@ const MONSTER_ABILITIES = {
   terrify(self, allies, enemies, rng, log) {
     const t = selectTarget(self, enemies, rng);
     if (!t) return false;
-    log.push({ type: 'ability', ability: 'Dehşet Çığlığı', icon: '😱', actor: self.name, actorIcon: self.icon, actorSide: self.side,
+    log.push({ type: 'ability', ability: 'Dehşet Çığlığı', icon: '😱', actor: self.name, actorIcon: self.icon, actorSide: self.side, actorUid: self.uid,
       text: `${self.name} dehşet çığlığı attı — ${t.name} bir tur donakaldı!` });
     addStatus(t, { type: 'stun', turns: 1, stackable: false });
     return true;
@@ -504,7 +504,7 @@ const MONSTER_ABILITIES = {
   swoop(self, allies, enemies, rng, log) {
     const t = selectTarget(self, enemies, rng, { piercing: true });
     if (!t) return false;
-    log.push({ type: 'ability', ability: 'Kanat Dalışı', icon: '🦅', actor: self.name, actorIcon: self.icon, actorSide: self.side,
+    log.push({ type: 'ability', ability: 'Kanat Dalışı', icon: '🦅', actor: self.name, actorIcon: self.icon, actorSide: self.side, actorUid: self.uid,
       text: `${self.name} ön safı aşıp arka safa daldı!` });
     applyDamage(self, t, effectiveAtk(self) * 1.35, rng, log, { label: 'Kanat Dalışı' });
     return true;
@@ -524,7 +524,7 @@ function tickStatuses(unit, log) {
       unit.damageTaken += dmg;
       log.push({
         type: 'dot', dotType: s.type,
-        target: unit.name, targetIcon: unit.icon,
+        target: unit.name, targetIcon: unit.icon, targetUid: unit.uid,
         amount: dmg, targetHp: unit.hp, targetMaxHp: unit.maxHp,
         died: unit.hp <= 0
       });
@@ -615,7 +615,7 @@ export function simulateBattle({
       if (!allies.some(isAlive) || !enemies.some(isAlive)) break;
 
       if (hasStatus(unit, 'stun')) {
-        log.push({ type: 'stunned', actor: unit.name, actorIcon: unit.icon, actorSide: unit.side });
+        log.push({ type: 'stunned', actor: unit.name, actorIcon: unit.icon, actorSide: unit.side, actorUid: unit.uid });
         continue;
       }
 

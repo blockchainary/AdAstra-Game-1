@@ -19,6 +19,9 @@ globalThis.localStorage = {
 const gs = new GameStateManager();
 
 // 1. Durum: Kaynakları ve bakiyeyi yükle
+// v1.25: Silo Lv.1 en fazla 1.080 odun tutar; eski test 5.000 odun koyup silonun fazlasını sessizce
+// silmesine güveniyordu. Gerçekçi olsun diye silo Lv.6 (3.966 odun / 2.707 demir) kullanılıyor.
+gs.state.warehouseLevel = 6;
 gs.state.adAstraBalance = 100000;
 gs.state.inventory = { wood: 5000, iron: 5000, wheat: 5000 };
 

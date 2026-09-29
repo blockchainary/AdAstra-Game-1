@@ -2,6 +2,10 @@
 import { GAME_CONFIG } from './config.js';
 
 import { treasury } from './treasury.js';
+import { openWeek, shareOf, isEligible, levelWeight, DEFAULT_UBI_RULES } from './economy/ubi.js';
+
+const DAY_MS = 24 * 3600 * 1000;
+const UBI_RULES = { ...DEFAULT_UBI_RULES, minLevel: (GAME_CONFIG.UBI_CONFIG && GAME_CONFIG.UBI_CONFIG.MIN_LEVEL) || 3 };
 
 export const MAX_SUPPLY = 10000000000;
 
@@ -104,22 +108,33 @@ export class GlobalResourceManager {
         if (now > (parsed.epochEndTime || 0)) {
           return this.createNewEpoch(parsed);
         }
-        // Mevcut kaynak limitlerini config ile senkronize et (overflow hatasını önler)
-        if (parsed.resources) {
-          for (const key of Object.keys(GAME_CONFIG.GLOBAL_RESOURCE_CAPS)) {
-            const configCap = GAME_CONFIG.GLOBAL_RESOURCE_CAPS[key].totalCap;
-            if (!parsed.resources[key] || parsed.resources[key].totalCap !== configCap) {
-              parsed.resources[key] = {
-                remaining: Math.min(configCap, parsed.resources[key]?.remaining || configCap),
-                totalCap: configCap,
-                depleted: false
-              };
-            }
+        // Mevcut kaynak limitlerini config ile senkronize et.
+        // ÖNEMLİ: Hafta içinde yakılan miktar kotadan kalıcı olarak düşer. Eski sürüm, yakım
+        // yüzünden totalCap config'den farklı olunca her sayfa yenilemede kotayı baştan dolduruyordu.
+        // Artık haftanın başındaki taban kota (baseCap) ayrıca saklanır; yalnızca config
+        // gerçekten değişmişse yeniden hizalanır, yakılan miktar korunur.
+        if (!parsed.resources) parsed.resources = {};
+        for (const key of Object.keys(GAME_CONFIG.GLOBAL_RESOURCE_CAPS)) {
+          const configCap = GAME_CONFIG.GLOBAL_RESOURCE_CAPS[key].totalCap;
+          const r = parsed.resources[key];
+          if (!r) {
+            parsed.resources[key] = { remaining: configCap, totalCap: configCap, baseCap: configCap, depleted: false };
+            continue;
           }
+          const baseCap = r.baseCap ?? configCap; // eski kayıtlar: haftanın tabanı config kabul edilir
+          const burnedThisWeek = Math.max(0, baseCap - (r.totalCap ?? baseCap));
+          const totalCap = Math.max(0, configCap - burnedThisWeek);
+          const remaining = Math.max(0, Math.min(totalCap, r.remaining ?? totalCap));
+          const harvested = r.harvested != null ? r.harvested : Math.max(0, (r.baseCap ?? configCap) - (r.remaining ?? configCap) - burnedThisWeek);
+          parsed.resources[key] = { remaining, totalCap, baseCap: configCap, harvested, depleted: remaining <= 0 };
         }
-        // UBI havuzu ve yapımcı cüzdanı eksikse otomatik tohumla ve senkronize et
-        if (parsed.ubiPool === undefined || isNaN(parsed.ubiPool) || parsed.ubiPool <= 0) {
-          parsed.ubiPool = (GAME_CONFIG.UBI_CONFIG && GAME_CONFIG.UBI_CONFIG.INITIAL_SEED_POOL) || 2400000;
+        // v1.25 UBI: haftalık kasa modeli (eski "tohum ÷ 12 hafta" modelinden geçiş; tohum dağıtılmaz)
+        if (!parsed.ubiV2) {
+          parsed.ubiV2 = true;
+          parsed.ubiWeekAccrued = 0;
+          parsed.ubiClaimPot = 0;
+          parsed.ubiClaimPotAtOpen = 0;
+          parsed.ubiPool = 0;
         }
         if (parsed.creatorRoyaltyTotal === undefined) {
           parsed.creatorRoyaltyTotal = 0;
@@ -145,9 +160,16 @@ export class GlobalResourceManager {
       pool[key] = {
         remaining: cap,
         totalCap: cap,
+        baseCap: cap,
+        harvested: 0,
         depleted: false
       };
     }
+
+    // UBI: geçen haftanın %6 birikimi + çekilmeyen pay bu haftanın dağıtım kasası olur
+    const ubiPot = prevState && prevState.ubiV2
+      ? openWeek({ accruedLastWeek: prevState.ubiWeekAccrued || 0, unclaimedCarry: prevState.ubiClaimPot || 0 })
+      : 0;
 
     const state = {
       epochId: prevState ? (prevState.epochId || 1) + 1 : 1,
@@ -162,7 +184,12 @@ export class GlobalResourceManager {
       totalBurned: prevState ? (prevState.totalBurned || 0) : 0, // %13 Kalıcı Yakım
       creatorRoyaltyTotal: prevState ? (prevState.creatorRoyaltyTotal || 0) : 0, // %3 Yapımcı Telifi
       creatorWallet: GAME_CONFIG.CREATOR_WALLET_ADDRESS || '0x58DBCF66bdd7BfA9da98aDba1965b3794321087C',
-      ubiPool: prevState ? prevState.ubiPool || (GAME_CONFIG.UBI_CONFIG ? GAME_CONFIG.UBI_CONFIG.INITIAL_SEED_POOL : 2400000) : 2400000, // %6 Evrensel Temel Gelir Havuzu
+      // %6 Evrensel Temel Gelir: bu hafta birikenler + bu hafta dağıtılan kasa
+      ubiV2: true,
+      ubiWeekAccrued: 0,
+      ubiClaimPot: ubiPot,
+      ubiClaimPotAtOpen: ubiPot,
+      ubiPool: ubiPot,
       ubiWeeklyDistributed: prevState ? prevState.ubiWeeklyDistributed || 0 : 0,
       totalTreasury: prevState ? prevState.totalTreasury || 40000000 : 40000000, // %78 Hazine
       treasury: prevState ? prevState.treasury || {
@@ -225,12 +252,37 @@ export class GlobalResourceManager {
   }
 
   // Kullanıcı kaynak topladığında küresel havuzdan düş
+  // ── Kota gün gün açılır: haftalık kotanın her gün 1/7'si açılır, açılan ama çıkarılmayan kısım hafta içinde birikir ──
+  getEpochDayIndex(now = this.getTrustedTime()) {
+    const start = (this.state.epochEndTime || now) - 7 * DAY_MS;
+    return Math.max(0, Math.min(6, Math.floor((now - start) / DAY_MS)));
+  }
+
+  getReleasedCap(resourceKey, now = this.getTrustedTime()) {
+    const res = this.state.resources[resourceKey];
+    if (!res) return 0;
+    const base = res.baseCap ?? res.totalCap ?? 0;
+    return Math.floor(base * (this.getEpochDayIndex(now) + 1) / 7);
+  }
+
+  getAvailableToday(resourceKey, now = this.getTrustedTime()) {
+    const res = this.state.resources[resourceKey];
+    if (!res) return 0;
+    return Math.max(0, Math.min(res.remaining, this.getReleasedCap(resourceKey, now) - (res.harvested || 0)));
+  }
+
+  getNextReleaseTime(now = this.getTrustedTime()) {
+    const start = (this.state.epochEndTime || now) - 7 * DAY_MS;
+    return start + (this.getEpochDayIndex(now) + 1) * DAY_MS;
+  }
+
   harvest(resourceKey, amount) {
     const res = this.state.resources[resourceKey];
     if (!res) return 0;
 
-    const actualHarvested = Math.min(amount, res.remaining);
+    const actualHarvested = Math.max(0, Math.min(amount, this.getAvailableToday(resourceKey)));
     res.remaining -= actualHarvested;
+    res.harvested = (res.harvested || 0) + actualHarvested;
 
     if (res.remaining <= 0) {
       res.remaining = 0;
@@ -264,7 +316,8 @@ export class GlobalResourceManager {
 
     // 3. %6 Evrensel Temel Gelir (Seviye Stake) Havuzu
     const ubiShare = adAstraAmount * ubiRate;
-    this.state.ubiPool = (this.state.ubiPool || 0) + ubiShare;
+    this.state.ubiWeekAccrued = (this.state.ubiWeekAccrued || 0) + ubiShare;
+    this.state.ubiPool = (this.state.ubiClaimPot || 0) + this.state.ubiWeekAccrued;
 
     // 4. %78 Hazine Girişi
     const treasuryShare = adAstraAmount * treasuryRate;
@@ -279,8 +332,8 @@ export class GlobalResourceManager {
       dungeon: treasury.getPool('dungeon'),
       ammBuyback: treasury.getPool('ammBuyback'),
       arena: treasury.getPool('arena'),
-      staking: treasury.getPool('season'),
-      worldBoss: treasury.getPool('worldBoss')
+      worldBoss: treasury.getPool('worldBoss'),
+      carnival: treasury.getPool('carnival')
     };
 
     this.saveState();
@@ -291,22 +344,37 @@ export class GlobalResourceManager {
   }
 
   // 🏛️ EVRENSEL TEMEL GELİR (UBI) BİLGİSİ VE SEVİYEYE GÖRE HESAPLAMA MOTORU
+  // Bu haftanın hak sahiplerinin ağırlık toplamı. Tarayıcı sürümünde dünya tek oyuncudur
+  // (+ ayarlardaki temsili diğer oyuncular); sunucuda bu, gerçek hak sahiplerinin toplamı olur.
+  getUbiTotalWeight(playerLevel = 1) {
+    const others = (GAME_CONFIG.UBI_CONFIG && GAME_CONFIG.UBI_CONFIG.LOCAL_OTHER_PLAYERS_WEIGHT) || 0;
+    return levelWeight(playerLevel, UBI_RULES) + others;
+  }
+
   getUbiPoolInfo(playerLevel = 1, lastClaimedEpoch = 0) {
-    const totalPool = this.state.ubiPool || 0;
-    const amortizationWeeks = (GAME_CONFIG.UBI_CONFIG && GAME_CONFIG.UBI_CONFIG.AMORTIZATION_WEEKS) || 12; // 3 Ay = 12 Hafta
-    const weeklyBudget = totalPool / amortizationWeeks;
-
-    const calc = this.calculateLevelUbiPayout(playerLevel, weeklyBudget);
-    const alreadyClaimedThisWeek = (lastClaimedEpoch === this.state.epochId);
-
+    const lvl = Math.max(1, Math.min(81, playerLevel || 1));
+    const pot = this.state.ubiClaimPotAtOpen || 0;
+    const payoutFor = (L) => shareOf({ pot, playerLevel: L, totalWeight: this.getUbiTotalWeight(L), rules: UBI_RULES });
+    const payout = payoutFor(lvl);
+    const nextLevel = Math.min(81, lvl + 1);
+    const w = levelWeight(lvl, UBI_RULES);
+    const wNext = levelWeight(nextLevel, UBI_RULES);
     return {
-      totalPool: Math.round(totalPool),
-      weeklyBudget: Math.round(weeklyBudget),
-      amortizationWeeks,
+      totalPool: Math.round((this.state.ubiClaimPot || 0) + (this.state.ubiWeekAccrued || 0)),
+      weeklyBudget: Math.round(pot),
+      claimRemaining: Math.round(this.state.ubiClaimPot || 0),
+      accruingThisWeek: Math.round(this.state.ubiWeekAccrued || 0),
       epochId: this.state.epochId,
-      alreadyClaimedThisWeek,
+      alreadyClaimedThisWeek: lastClaimedEpoch === this.state.epochId,
+      eligible: isEligible(lvl, UBI_RULES),
+      minLevel: UBI_RULES.minLevel,
       nextResetTimestamp: this.getNextWeeklyResetTRT(),
-      ...calc
+      playerLevel: lvl,
+      playerWeight: Math.round(w * 100) / 100,
+      nextLevelWeight: Math.round(wNext * 100) / 100,
+      payout,
+      nextLevelPayout: payoutFor(nextLevel),
+      increasePct: w > 0 ? Math.round(((wNext - w) / w) * 100) : 0
     };
   }
 
@@ -358,22 +426,20 @@ export class GlobalResourceManager {
     }
 
     const ubiInfo = this.getUbiPoolInfo(playerLevel, lastClaimedEpoch);
-    let amount = ubiInfo.payout;
-
-    if (amount <= 0 || (this.state.ubiPool || 0) <= 0) {
+    if (!ubiInfo.eligible) {
+      return { success: false, message: `Haftalık temel gelir ${ubiInfo.minLevel}. seviyeden itibaren alınabilir.` };
+    }
+    const amount = Math.min(ubiInfo.payout, this.state.ubiClaimPot || 0);
+    if (amount <= 0) {
       return {
         success: false,
-        message: 'UBI havuzunda şu anda dağıtılabilir bakiye bulunmuyor.'
+        message: 'Bu haftanın temel gelir kasası boş. Kasa, oyunda harcanan her ADA\'nın %6\'sıyla dolar ve Pazartesi 00:01 (TSİ) açılır.'
       };
     }
 
-    // Havuz sağlığı koruması: Eğer talep edilen tutar havuzun kalanından fazlaysa, kalan havuzun %50'si verilir, havuz asla sıfırlanmaz
-    if (amount > this.state.ubiPool) {
-      amount = Math.max(0.01, Math.round((this.state.ubiPool * 0.5) * 100) / 100);
-    }
-
-    // Havuzdan düş ve deftere yaz
-    this.state.ubiPool -= amount;
+    // Bu haftanın kasasından düş ve deftere yaz
+    this.state.ubiClaimPot = Math.max(0, (this.state.ubiClaimPot || 0) - amount);
+    this.state.ubiPool = this.state.ubiClaimPot + (this.state.ubiWeekAccrued || 0);
     this.state.ubiWeeklyDistributed = (this.state.ubiWeeklyDistributed || 0) + amount;
     this.saveState();
 
@@ -395,9 +461,15 @@ export class GlobalResourceManager {
   recordBroadcastBuyback(adAstraAmount) {
     if (isNaN(adAstraAmount) || adAstraAmount <= 0) return 0;
     this.state.buybackFromBroadcasting = (this.state.buybackFromBroadcasting || 0) + adAstraAmount;
-    // Buyback yapılan tokenlerin %50'si yakılır, %50'si AMM likiditesine kilitlenir
-    this.state.totalBurned += adAstraAmount * 0.50;
-    this.state.treasury.ammBuyback += adAstraAmount * 0.50;
+    // Buyback yapılan tokenlerin %50'si yakılır, %50'si gerçek hazine defterindeki AMM geri alım kasasına girer.
+    // (Eski sürüm %50'yi yalnızca gösterim kopyasına yazıyordu; para hiçbir kasaya ulaşmıyordu.)
+    const half = adAstraAmount * 0.50;
+    this.state.totalBurned = (this.state.totalBurned || 0) + half;
+    treasury.recordBurn(half);
+    treasury.state.pools.ammBuyback = (treasury.state.pools.ammBuyback || 0) + half;
+    treasury.state.inflow.ammBuyback = (treasury.state.inflow.ammBuyback || 0) + half;
+    treasury.state.lifetimeDeposited += half;
+    treasury.save();
     this.saveState();
     return adAstraAmount;
   }
@@ -527,7 +599,12 @@ export class GlobalResourceManager {
       ...config,
       remaining: Math.floor(current.remaining),
       percent: percent.toFixed(1),
-      isDepleted: current.remaining <= 0
+      isDepleted: current.remaining <= 0,
+      availableToday: Math.floor(this.getAvailableToday(resourceKey)),
+      releasedCap: this.getReleasedCap(resourceKey),
+      harvestedThisWeek: Math.floor(current.harvested || 0),
+      dayIndex: this.getEpochDayIndex(),
+      nextReleaseAt: this.getNextReleaseTime()
     };
   }
 

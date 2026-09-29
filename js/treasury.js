@@ -75,6 +75,17 @@ export class TreasuryLedger {
     return { allocations };
   }
 
+  // Belirli bir kasaya doğrudan giriş (ör. zindan kapı harcının tamamı zindan kasasına)
+  depositTo(poolId, amount) {
+    const v = Number(amount);
+    if (!POOL_IDS.includes(poolId) || !isFinite(v) || v <= 0) return 0;
+    this.state.pools[poolId] = (this.state.pools[poolId] || 0) + v;
+    this.state.inflow[poolId] = (this.state.inflow[poolId] || 0) + v;
+    this.state.lifetimeDeposited += v;
+    this.save();
+    return v;
+  }
+
   recordBurn(amount) {
     if (!isFinite(amount) || amount <= 0) return;
     this.state.lifetimeBurned += amount;

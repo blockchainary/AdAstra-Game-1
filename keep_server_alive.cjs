@@ -4,9 +4,9 @@ console.log('🛡️ [AdAstra Realm] 7/24 Kesintisiz Dev Server Watchdog Aktif E
 
 function startVite() {
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  console.log('🚀 Vite dev server başlatılıyor (http://localhost:5173/)...');
+  console.log('🚀 Vite dev server başlatılıyor (http://localhost:5180/)...');
   
-  const child = spawn(npxCmd, ['vite', '--host', '0.0.0.0', '--port', '5173'], {
+  const child = spawn(npxCmd, ['vite', '--host', '0.0.0.0', '--port', '5180', '--strictPort'], {
     cwd: __dirname,
     stdio: 'inherit',
     shell: true
