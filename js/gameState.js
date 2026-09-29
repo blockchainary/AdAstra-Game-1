@@ -5081,7 +5081,7 @@ export class GameStateManager {
       for (let d = 0; d < Math.min(daysPassed, 7); d++) {
         this.executeAmmTreasuryBuyback(0.15);
       }
-      this.state.lastAmmBuybackDate = new Date().toISOString().slice(0, 10);
+      this.state.lastAmmBuybackDate = new Date(this._calendarNow()).toISOString().slice(0, 10);
     }
 
     this.saveState();
@@ -5693,7 +5693,7 @@ export class GameStateManager {
 
   // 🔄 Gün Sonu Otonom Buyback & Yakım Kontrolü (Günde 1 kez çalışır)
   checkDailyAutonomousBuyback(forcedToday = null) {
-    const today = forcedToday || new Date().toISOString().slice(0, 10);
+    const today = forcedToday || new Date(this._calendarNow()).toISOString().slice(0, 10);
     if (!this.state.lastAmmBuybackDate) {
       this.state.lastAmmBuybackDate = today;
       return { executed: false, reason: 'initial_marker' };
@@ -6086,10 +6086,17 @@ export class GameStateManager {
     return this.state.colosseumLeaderboard;
   }
 
+  // Takvim saati: bilgisayar saati yerine sunucunun HTTP Date başlığıyla düzeltilmiş saat (globalPool).
+  // Bilgisayar saatini ileri almak artık günlük hakları yenilemez. Not: bu da istemci tarafında bir
+  // önlemdir; üretimde günlük haklar sunucuda tutulmalıdır (bkz. docs/GELISTIRME_ONERILERI.md §7).
+  _calendarNow() {
+    return (globalPool && typeof globalPool.getTrustedTime === 'function') ? globalPool.getTrustedTime() : Date.now();
+  }
+
   // Günlük sayaçlar (arena maçı, zindan koşusu) — gün değişince sıfırlanır
   getDailyCounters() {
     // Günler Türkiye saatiyle (UTC+3) gece yarısı yenilenir
-    const today = new Date(Date.now() + 3 * 3600 * 1000).toISOString().slice(0, 10);
+    const today = new Date(this._calendarNow() + 3 * 3600 * 1000).toISOString().slice(0, 10);
     if (!this.state.dailyCounters || this.state.dailyCounters.date !== today) {
       this.state.dailyCounters = { date: today, arenaMatches: 0, dungeonEntries: 0, dungeonRuns: 0, dungeonPaidEntries: 0, dungeonBudget: null, dungeonPaid: 0 };
     }
