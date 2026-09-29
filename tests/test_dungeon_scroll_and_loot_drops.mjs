@@ -16,7 +16,7 @@ test('Zindan Parşömen Düşüşü, Görselleri ve Resimli Ganimet Doğrulama T
     ];
 
     for (const assetRelPath of requiredAssets) {
-      const fullPath = path.resolve(process.cwd(), assetRelPath);
+      const fullPath = path.resolve(process.cwd(), 'public', assetRelPath);
       assert.ok(fs.existsSync(fullPath), `Görsel dosyası eksik: ${assetRelPath}`);
       const stats = fs.statSync(fullPath);
       assert.ok(stats.size > 10000, `Görsel dosyası çok küçük veya bozuk: ${assetRelPath} (${stats.size} bayt)`);

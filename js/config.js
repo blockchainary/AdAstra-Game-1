@@ -1,7 +1,7 @@
 // Realm of Astra - Karakter Seviyesi, Kışla Ordusu, Taverna Güçlendirmeleri & AMM Konfigürasyonu
 export const GAME_CONFIG = {
   GAME_TITLE: 'Realm of Astra',
-  GAME_VERSION: '1.26.0',
+  GAME_VERSION: '1.27.0',
   EPOCH_DURATION_SECONDS: 24 * 3600, // 24 Saatlik Günlük Havuz
   // Not: Duyuru şeridi ayarları (ANNOUNCEMENT_TICKER / ANNOUNCEMENTS) dosyanın sonunda TEK yerde tanımlıdır.
   // v1.25 öncesinde üç ayrı kopya vardı ve yalnızca sonuncusu geçerli oluyordu.
@@ -1085,6 +1085,20 @@ export const GAME_CONFIG = {
         'Karakter panelinde "Bir sonraki seviyede ne kazanırsın?" tablosu: üretim bonusu, buğday tasarrufu, stamina, sefer süresi, ganimet şansı ve UBI payı.',
         'Hız: ekran yazıları saniyede 4, bot ve hesaplar saniyede 1 kez güncellenir; yan panel açıkken yaşanan yavaşlama giderildi.',
         'Resimler küçültüldü (23,8 MB → 4,2 MB). Ganimet ve parşömen resimleri yayın paketine eklendi (önceden yalnız geliştirme modunda görünüyordu).'
+      ]
+    },
+    {
+      version: 'v1.27',
+      title: '📊 Kota Paneli, Piyango Balina Koruması & Yeni Zindan Giriş Kuralları',
+      date: '29 Eylül 2026',
+      changes: [
+        'Piyango: haftada en fazla 100 bilet alma sınırına ek olarak, bir hesabın elinde (devreden biletler dahil) en fazla 400 bilet olabilir. Biletler yanmadan devrettiği için tek başına haftalık sınır, haftalarca biriktirip kasayı emmeyi engellemiyordu. Çark parçaları da bu sınıra uyar.',
+        'Piyango ekranı gerçek kurallarla yenilendi: haftalık alımın, elindeki bilet, kazanırsan alacağın tutar, şansın ve sonraki çekilişe kalan süre.',
+        'Zindan: günün 1. girişi ücretsiz (stamina harcanmaz, silahlar aşınmaz). 2.–5. giriş harçsız ödüllüdür; stamina harcanır, savaşa giren her askerin silahı 1 aşınır. 6. girişten itibaren kapı harcı ödenir, ödenmezse antrenman girişi olur.',
+        'Yeni "Kota ve Sınırlar" paneli (üst bar 📊, yan panel veya K tuşu): dünya kotasının gün gün açılışı, şu an çıkarılabilecek miktar, zindan / kolezyum / piyango sınırların ve geri sayımlar.',
+        'Kolezyum: günlük maç hakkı, anahtar ve stamina bedeli maçtan önce gösterilir; eksik olan kırmızıyla işaretlenir.',
+        'Arayüz: bildirimler sağ alta alındı, mobilde bakiye kısaltıldı (1,97 Mn), dar ekranda üst menü taşmıyor, İngilizce etiketler Türkçeleştirildi, kışlada "Infinity" yazısı düzeltildi.',
+        'Windows: OYUNU-BASLAT.bat oyunu arka planda sürekli açık tutar; pencere kapansa ve bilgisayar yeniden açılsa da http://localhost:5180 çalışır. OYUNU-DURDUR.bat kapatır.'
       ]
     }
   ],

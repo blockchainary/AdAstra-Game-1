@@ -110,5 +110,6 @@ const combined = {
   dungeonMd
 };
 
-fs.writeFileSync('docs/GENERATED_TABLES.json', JSON.stringify(combined, null, 2), 'utf8');
+// Tablolar yalnızca konsola yazılır; kalıcı dosya üretilmez.
+console.log(JSON.stringify(combined, null, 2));
 console.log('✅ Tüm matematiksel tablolar başarıyla oluşturuldu!');
