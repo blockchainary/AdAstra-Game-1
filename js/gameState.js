@@ -6183,6 +6183,44 @@ export class GameStateManager {
     return { ...base, rewarded: false, fee: 0, message: '🏋️ Antrenman girişi: yalnızca deneyim kazanılır' };
   }
 
+  // Zindan savaşının sonucunu savaş BAŞLARKEN tek seferde işler ve kaydeder: askerlerin canı, silah
+  // aşınması, ödül ve deneyim ya da canavarın kalan canı. Arena yalnızca bu sonucu oynatır.
+  // Önceden sonuç animasyon bittikten sonra işleniyordu; yenilgi sırasında sayfa yenilenirse
+  // can kaybı, aşınma ve canavarın kalan canı hiç yazılmıyordu.
+  settleDungeonBattle(monster, selectedIndices, sim, entry) {
+    const soldiers = this.state.soldierUnits || [];
+    const allies = Array.isArray(sim.allies) ? sim.allies : [];
+    for (const u of allies) {
+      if (soldiers[u.sourceIndex]) soldiers[u.sourceIndex].hp = Math.max(1, Math.round(u.hp));
+    }
+    const weaponsWorn = entry.weaponWear ? this.applyDungeonWeaponWear(allies.map(u => u.sourceIndex)) : [];
+    const isBoss = !!(monster.isBoss || monster.level === 9 || monster.level === 18);
+    const outcome = { victory: !!sim.victory, weaponsWorn, adaReward: 0, scrollGained: null, levelUps: [], remainingEnemyHp: 0 };
+
+    if (outcome.victory) {
+      this.clearMonsterHp(monster.level);
+      const drop = this.addDungeonXpAndDrops(monster.level, isBoss, { rewarded: entry.rewarded });
+      outcome.adaReward = drop.adAstraGained || 0;
+      outcome.scrollGained = drop.scrollGained || null;
+      for (const idx of selectedIndices) {
+        const sRes = this.addSoldierXp(idx, monster.rewardXp);
+        if (sRes && sRes.leveledUp) {
+          outcome.levelUps.push(`Asker #${idx + 1} Lv.${sRes.newLevel}'e Yükseldi!`);
+          if (sRes.unlockedSkills && sRes.unlockedSkills.length) {
+            outcome.levelUps.push(`✨ Yeni Yetenek Açıldı: ${sRes.unlockedSkills.join(', ')}!`);
+          }
+        }
+      }
+      this.state.dungeonProgress = Math.max(this.state.dungeonProgress || 1, monster.level + 1);
+    } else {
+      const enemy = (sim.enemies || [])[0];
+      outcome.remainingEnemyHp = enemy ? Math.max(1, Math.round(enemy.hp)) : 50;
+      this.recordMonsterHp(monster.level, outcome.remainingEnemyHp);
+    }
+    this.saveState();
+    return outcome;
+  }
+
   // Savaş bitince silahların dayanıklılığını 1 düşürür (günün ilk girişinde çağrılmaz)
   applyDungeonWeaponWear(selectedIndices = []) {
     const soldiers = this.state.soldierUnits || [];
@@ -6292,6 +6330,7 @@ export class GameStateManager {
       side: 'enemy'
     });
 
+    const championStartHp = allyUnit.hp;
     const simRes = simulateBattle({
       allies: [allyUnit],
       enemies: [enemyUnit],
@@ -6357,6 +6396,13 @@ export class GameStateManager {
       damageTaken,
       currentHp: champion.hp,
       maxHp: champion.maxHp,
+      // Arena gerçek savaşı oynatsın diye: kayıt ve birim kimlikleri (önceden arena kendi rastgele savaşını
+      // oynatıyordu; ekrandaki sonuç ödül ve ELO ile çelişebiliyor, şampiyonun canını da eziyordu)
+      replay: simRes,
+      championStartHp,
+      championMaxHp: playerMaxHp,
+      allyUid: 'player_champ',
+      enemyUid: 'opp_champ',
       rewardAda,
       rewardKeys,
       ratingDelta,

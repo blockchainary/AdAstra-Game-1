@@ -4677,18 +4677,20 @@ function openColosseumModal() {
 
       const champStats = gameState.getSoldierFullStats(selectedColosseumChampionIdx) || { totalAtk: 65, totalMaxHp: 500 };
       const allyUnit = {
+        uid: res.allyUid,
         name: res.championName || champ.name,
         icon: champ.icon || '🦁',
         avatar: champ.avatar || 'assets/soldier_avatar.jpg',
         sourceIndex: selectedColosseumChampionIdx,
-        hp: champ.hp || champStats.totalMaxHp,
-        maxHp: champStats.totalMaxHp,
+        hp: res.championStartHp != null ? res.championStartHp : champStats.totalMaxHp,
+        maxHp: res.championMaxHp || champStats.totalMaxHp,
         atk: champStats.totalAtk,
         skills: Array.isArray(champ.skills) && champ.skills.length ? champ.skills : ['shieldWall', 'armorBreaker'],
         row: champ.row || 'front'
       };
 
       const enemyUnit = {
+        uid: res.enemyUid,
         name: res.opponentName,
         icon: res.opponentIcon || '🥷',
         avatar: 'assets/gladiator_rival.jpg',
@@ -4712,14 +4714,11 @@ function openColosseumModal() {
         allies: [allyUnit],
         enemies: [enemyUnit],
         loot,
-        onComplete: ({ win, units }) => {
-          const survivingAlly = units.find(u => u.side === 'ally');
-          if (survivingAlly && (gameState.state.soldierUnits || [])[selectedColosseumChampionIdx]) {
-            gameState.state.soldierUnits[selectedColosseumChampionIdx].hp = Math.max(1, Math.round(survivingAlly.hp));
-            gameState.saveState();
-          }
+        replay: res.replay,
+        onComplete: () => {
+          // Can, ödül ve ELO executeColosseum1v1Match içinde işlendi; burada yalnızca bildirim
           renderTopBar();
-          if (win) {
+          if (res.isVictory) {
             sound.playLevelUp();
             showToast(`🏆 Zafer! +${res.rewardAda} $ADASTRA ve ${res.ratingDelta >= 0 ? '+' : ''}${res.ratingDelta} ELO kazanıldı!`, 'success');
           } else {
@@ -5908,6 +5907,9 @@ function executeMonsterBattle(monster, selectedIndices, { payGateFee = false } =
     return;
   }
 
+  // Sonuç animasyondan ÖNCE işlenip kaydedilir; arena yalnızca oynatır (sayfa yenileme hilesi kapalı)
+  const outcome = gameState.settleDungeonBattle(monster, selectedIndices, sim, entry);
+
   let eCurHp = gameState.getMonsterCurrentHp(monster.level, monster.hp);
   const isBossMonster = !!(monster.isBoss || monster.level === 9 || monster.level === 18);
 
@@ -5954,38 +5956,15 @@ function executeMonsterBattle(monster, selectedIndices, { payGateFee = false } =
     allies: arenaAllies,
     enemies: [arenaEnemy],
     loot: lootPreview,
-    onComplete: ({ win, units }) => {
-      // 1. Askerlerin gerçek canlarının güncellenmesi
-      units.filter(u => u.side === 'ally').forEach(a => {
-        if (soldiers[a.sourceIndex]) soldiers[a.sourceIndex].hp = Math.max(1, Math.round(a.hp));
-      });
-      // 2. Silah aşınması (günün ilk girişinde yok)
-      const weaponsWorn = entry.weaponWear
-        ? gameState.applyDungeonWeaponWear(units.filter(u => u.side === 'ally').map(u => u.sourceIndex))
-        : [];
-
-      if (win) {
+    onComplete: () => {
+      // Durum savaş başında işlendi (settleDungeonBattle); burada yalnızca bildirimler gösterilir
+      const weaponsWorn = outcome.weaponsWorn;
+      if (outcome.victory) {
         sound.playLevelUp();
-        gameState.clearMonsterHp(monster.level);
-        const dropRes = gameState.addDungeonXpAndDrops(monster.level, isBossMonster, { rewarded: entry.rewarded });
-        const adaReward = dropRes.adAstraGained || 0;
-
-        let levelUpNotice = [];
-        selectedIndices.forEach(idx => {
-          const sRes = gameState.addSoldierXp(idx, monster.rewardXp);
-          if (sRes && sRes.leveledUp) {
-            levelUpNotice.push(`Asker #${idx + 1} Lv.${sRes.newLevel}'e Yükseldi!`);
-            if (sRes.unlockedSkills && sRes.unlockedSkills.length) {
-              levelUpNotice.push(`✨ Yeni Yetenek Açıldı: ${sRes.unlockedSkills.join(', ')}!`);
-            }
-          }
-        });
-
-        state.dungeonProgress = Math.max(state.dungeonProgress || 1, monster.level + 1);
-
-        const lvlMsg = levelUpNotice.length > 0 ? ` • 🎉 ${levelUpNotice.join(', ')}` : '';
+        const adaReward = outcome.adaReward;
+        const lvlMsg = outcome.levelUps.length > 0 ? ` • 🎉 ${outcome.levelUps.join(', ')}` : '';
         const wearMsg = weaponsWorn.length > 0 ? ` • ⚔️ Silah Aşınması: ${weaponsWorn.join(', ')}` : '';
-        const scrollNotice = dropRes.scrollGained ? ` • 📜 ${dropRes.scrollGained.name} DÜŞTÜ!` : '';
+        const scrollNotice = outcome.scrollGained ? ` • 📜 ${outcome.scrollGained.name} DÜŞTÜ!` : '';
         addNotification('🏆', `${monster.name} yenildi! +${adaReward} ADA kazandın (⚡ -${staminaCost} Stamina).${scrollNotice} Savaşa katılan askerlerin +${monster.rewardXp} Asker XP kazandı.${lvlMsg}${wearMsg}`);
 
         if (weaponsWorn.length > 0) {
@@ -5996,13 +5975,8 @@ function executeMonsterBattle(monster, selectedIndices, { payGateFee = false } =
           : `🏋️ Antrenman zaferi: ${monster.name} yenildi (yalnızca deneyim)`, 'success');
       } else {
         sound.playBreakWarning();
-        const enemySurvivor = units.find(u => u.side === 'enemy');
-        const remainingEnemyHp = enemySurvivor ? Math.max(1, Math.round(enemySurvivor.hp)) : 50;
-        gameState.recordMonsterHp(monster.level, remainingEnemyHp);
-        showToast(`💀 Bozgun! Ordun ${monster.name} karşısında geri çekildi. Kalan Can: ${remainingEnemyHp}/${monster.hp}`, 'error');
+        showToast(`💀 Bozgun! Ordun ${monster.name} karşısında geri çekildi. Kalan Can: ${outcome.remainingEnemyHp}/${monster.hp}`, 'error');
       }
-
-      gameState.saveState();
       renderTopBar();
     }
   });
