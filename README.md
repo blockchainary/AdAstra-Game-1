@@ -49,7 +49,7 @@ Geliştirme sunucusunda sağ alttaki **🧪 Test Menüsü** (veya `T`) açılır
 
 Tüm sınırlar oyunda **📊 Kotalar** panelinden (üst bar, yan panel veya `K` kısayolu) izlenir.
 
-Ayrıntılar: [Oyun tasarımı ve ekonomi](docs/GAME_DESIGN_AND_ECONOMY_WHITEPAPER.md) · [Seviye ve denge tabloları](docs/LEVEL_PROGRESSION_TABLES.md)
+Ayrıntılar: [Oyun tasarımı ve ekonomi](docs/GAME_DESIGN_AND_ECONOMY_WHITEPAPER.md) · [Seviye ve denge tabloları](docs/LEVEL_PROGRESSION_TABLES.md) · [Geliştirme önerileri (denetim ve yol haritası)](docs/GELISTIRME_ONERILERI.md)
 
 ---
 
