@@ -8,6 +8,32 @@
 
 ---
 
+## Durum güncellemesi — v1.28 (30 Eylül 2026)
+
+### Tamamlananlar
+
+| Madde | Durum |
+|---|---|
+| Bozuk kayıtta veri kaybı (§9, P0) | ✅ `js/storage.js`: son sağlam yedek, bozuk kopyanın saklanması, depolama doluyken uyarı |
+| Phaser'ın CDN'den SRI'sız yüklenmesi (§6, P1) | ✅ npm paketinden (3.80.1), kilit dosyasında bütünlük özeti; ayrı `phaser-*.js` parçası |
+| Sayfa yenileyerek yenilgiden kaçma (§6, P1) | ✅ Zindan sonucu `settleDungeonBattle` ile animasyondan önce kaydedilir |
+| Günlük sayaçların bilgisayar saatine bağlı olması (§6, P1) | ✅ Günlük zindan/kolezyum hakları ve günlük geri alım güvenilir saati kullanır. Çevrimdışı telafi ve bot süreleri hâlâ bilgisayar saatine bağlı (sunucu gerektirir) |
+| CI (§9, P1) | ✅ `.github/workflows/ci.yml`: sözdizimi kontrolü, testler ve derleme |
+
+### Denetimden sonra bulunan yeni sorunlar
+
+| # | Bulgu | Durum |
+|---|---|---|
+| N1 | **Kolezyum savaş ekranı gerçek maçı oynatmıyordu.** Arenaya savaş kaydı verilmediği için kendi rastgele savaşını oynatıyordu: ekrandaki zafer/yenilgi verilen ödül ve ELO ile çelişebiliyor, bitişte şampiyonun canı bu uydurma sonuçla eziliyordu | ✅ v1.28'de düzeltildi |
+| N2 | **Kolezyumda ELO yükselmiyor.** Bronz ligde rakip puanı 0–150 arasında üretiliyor; 1000 puanlı oyuncunun beklenen skoru ≈ %99,8 olduğundan zafer başına puan artışı `round(32 × 0,002) = 0`. Oyuncu gümüş lige (1150) hiç çıkamıyor | ⏳ Açık — rakip puanının oyuncu puanına göre üretilmesi gerekiyor; formül bir tasarım kararı, onay bekliyor |
+| N3 | **Test menüsü düğmeleri iki kez çalışıyordu** (+6 saat ileri sarma 12 saat sarıyordu) | ✅ v1.27'de düzeltildi |
+
+### Düzeltme notu
+
+§5'teki "Phaser'da hiç animasyon yok" tespiti kısmen bilinçli bir karar: `grandTownScene.js` başındaki nota göre haritadaki hareketli süsler (köylüler, bulut, kuş, duman, gece karartması) kullanıcı isteğiyle kaldırılmış. Geri bildirim animasyonu önerileri (kaynak kazanımı, seviye atlama, ganimet, boss girişi) bu karardan ayrı tutulmalı ve kullanıcıya sorularak eklenmeli.
+
+---
+
 ## İçindekiler
 
 1. [Mimari haritası](#1-mimari-haritası)
@@ -153,7 +179,7 @@ Ekonomiden kalıcı olarak çıkan pay yalnızca %13, yapımcı payıyla birlikt
 **Zayıf yanlar:**
 - Arayüz bu sanatla konuşmuyor; paneller genel koyu kartlar.
 - `app.js`'de **1.179 satır içi stil** (`style="..."`) kullanımı ve CSS'te **473 `!important`** var. Üç katman (eski `style.css`, tema `theme.css`, satır içi stiller) üst üste biniyor; renk ve boşluk tutarlılığı sağlanamıyor.
-- **Phaser neredeyse kullanılmıyor:** 1,1 MB'lık kütüphane yalnızca bir resim ve tıklama alanları için yükleniyor.
+- **Phaser neredeyse kullanılmıyor:** 1,1 MB'lık kütüphane yalnızca bir resim ve tıklama alanları için yükleniyor. (Haritadaki hareketli süsler kullanıcı isteğiyle kaldırılmış; bkz. durum güncellemesi.)
 - **Ses yok:** `audio.js` içindeki tüm fonksiyonlar boş.
 - Kaynak kazanımı, harcama, seviye atlama, ganimet açma, nadir düşüş ve boss girişi için geri bildirim animasyonu yok. Yalnızca savaş arenasında hasar sayıları var.
 - İkonlar emojiye dayanıyor; platforma göre farklı görünüyor.
@@ -305,13 +331,14 @@ Bugün kabul edilebilir düzeyde. En büyük kazanç, Phaser'ı npm'den pakete a
 | **P0** | Gerçek token veya cüzdan bağlamadan önce sunucu otoritesi mimarisi | Tasarım — **onay gerekli** |
 | **P0** | E1 ve E2: dünya kotası modeli | Ekonomi — **onay gerekli** |
 | **P0** | E3: piyangonun ödeme gücü ve adaleti | Kullanıcının kuralı — **karar kullanıcıda** |
-| **P0** | Bozuk kayıtta veri kaybı (yedek alma ve kurtarma) | Güvenli düzeltme |
-| **P1** | Phaser'ı pakete almak (CDN bağımlılığı, SRI eksikliği) | Güvenli düzeltme |
+| **P0** | Bozuk kayıtta veri kaybı (yedek alma ve kurtarma) | ✅ v1.28 |
+| **P1** | Phaser'ı pakete almak (CDN bağımlılığı, SRI eksikliği) | ✅ v1.28 |
 | **P1** | Tek canavar tablosu; config'i tek doğruluk kaynağı yapmak; kullanılmayan anahtarları temizlemek | Güvenli yeniden düzenleme |
 | **P1** | G1 zindan giriş duvarı · G4 ve G5 savaş ödüllerinin dengesi | Denge — **onay gerekli** |
 | **P1** | E4: bot yenileme koruması | Oyuncuyu korur — **onay gerekli** |
-| **P1** | Günlük sayaçları "güvenilir saate" bağlamak; sayfa yenileyerek yenilgiden kaçmayı kapatmak | Güvenli düzeltme |
-| **P1** | CI (her gönderimde test ve derleme) ve kod denetleyici | Güvenli |
+| **P1** | Günlük sayaçları "güvenilir saate" bağlamak; sayfa yenileyerek yenilgiden kaçmayı kapatmak | ✅ v1.28 |
+| **P1** | N2: kolezyum ELO'sunun yükselmemesi | Hata — **formül için onay gerekli** |
+| **P1** | CI (her gönderimde test ve derleme) ✅ v1.28 · kod denetleyici (linter) | Güvenli |
 | **P2** | Ses, geri bildirim animasyonları, ganimet ve boss sunumu | Oyun hissi |
 | **P2** | Tek gezinme modeli, pencere yığını, arayüz bileşen sistemi | UX |
 | **P2** | `gameState.js`'i alan modüllerine bölmek (sunucuya taşımanın ön adımı) | Mimari |

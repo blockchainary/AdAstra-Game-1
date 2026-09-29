@@ -1,7 +1,7 @@
 // Realm of Astra - Karakter Seviyesi, Kışla Ordusu, Taverna Güçlendirmeleri & AMM Konfigürasyonu
 export const GAME_CONFIG = {
   GAME_TITLE: 'Realm of Astra',
-  GAME_VERSION: '1.27.0',
+  GAME_VERSION: '1.28.0',
   EPOCH_DURATION_SECONDS: 24 * 3600, // 24 Saatlik Günlük Havuz
   // Not: Duyuru şeridi ayarları (ANNOUNCEMENT_TICKER / ANNOUNCEMENTS) dosyanın sonunda TEK yerde tanımlıdır.
   // v1.25 öncesinde üç ayrı kopya vardı ve yalnızca sonuncusu geçerli oluyordu.
@@ -1096,6 +1096,19 @@ export const GAME_CONFIG = {
         'Kolezyum: günlük maç hakkı, anahtar ve stamina bedeli maçtan önce gösterilir; eksik olan kırmızıyla işaretlenir.',
         'Arayüz: bildirimler sağ alta alındı, mobilde bakiye kısaltıldı (1,97 Mn), dar ekranda üst menü taşmıyor, İngilizce etiketler Türkçeleştirildi, kışlada "Infinity" yazısı düzeltildi.',
         'Windows: OYUNU-BASLAT.bat oyunu arka planda sürekli açık tutar; pencere kapansa ve bilgisayar yeniden açılsa da http://localhost:5180 çalışır. OYUNU-DURDUR.bat kapatır.'
+      ]
+    },
+    {
+      version: 'v1.28',
+      title: '🛡️ Kayıt Güvenliği, Tutarlı Savaş Sonuçları & Güvenilir Saat',
+      date: '30 Eylül 2026',
+      changes: [
+        'Kayıt güvenliği: kayıt dosyası bozulursa oyun artık sıfırlanmaz; son sağlam yedekten açılır ve bozuk kopya ayrıca saklanır. Tarayıcının depolama alanı dolarsa oyun durmaz, uyarı verir.',
+        'Zindan: savaşın sonucu (can kaybı, silah aşınması, ödül) savaş başlarken kaydedilir; animasyon sırasında sayfayı yenilemek yenilginin bedelini ortadan kaldırmaz.',
+        'Kolezyum: savaş ekranı artık gerçek maçı oynatır. Önceden ekranda görünen zafer/yenilgi verilen ödül ve ELO ile çelişebiliyor, şampiyonun canı yanlış yazılabiliyordu.',
+        'Günlük zindan ve kolezyum hakları ile günlük hazine geri alımı bilgisayar saatine değil, sunucu saatiyle düzeltilmiş saate bağlandı; bilgisayar saatini ileri almak hakları yenilemez.',
+        'Oyun motoru (Phaser) artık oyunla birlikte paketlenir; dış bir siteye (CDN) erişilemediğinde oyunun hiç açılmaması sorunu giderildi.',
+        'Test menüsü düğmeleri iki kez çalışıyordu (+6 saat ileri sarma 12 saat sarıyordu); düzeltildi.'
       ]
     }
   ],
