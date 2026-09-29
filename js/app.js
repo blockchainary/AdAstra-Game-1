@@ -6172,12 +6172,6 @@ function initAppEvents() {
       openInventoryModal();
     } else if (key === 'K') {
       openDailyLimitsModal();
-    } else if (key === 'T') {
-      const devModal = document.getElementById('dev-modal');
-      if (devModal) {
-        if (devModal.classList.contains('hidden')) openDevModal();
-        else closeDevModal();
-      }
     }
   });
 
@@ -7932,9 +7926,6 @@ function initAppEvents() {
       if (!sound.isMuted) sound.playLevelUp();
     });
   }
-
-  // Geliştirici & Hızlı Test Paneli Olayları
-  initDevPanelEvents();
 }
 
 // =========================================================================
@@ -7980,7 +7971,12 @@ function closeDevModal() {
   }
 }
 
+// Test paneli olayları yalnızca bir kez bağlanır. (Önceden iki kez bağlandığı için her test
+// düğmesi iki kez çalışıyordu: +6 saat ileri sarma botun süresinden 12 saat düşüyordu.)
+let devPanelEventsBound = false;
 function initDevPanelEvents() {
+  if (devPanelEventsBound) return;
+  devPanelEventsBound = true;
   const btnToggle = document.getElementById('btn-dev-panel-toggle');
   const btnClose = document.getElementById('btn-close-dev-modal');
   const modal = document.getElementById('dev-modal');
