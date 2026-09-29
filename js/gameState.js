@@ -8,6 +8,7 @@ import { createUnit, simulateBattle, predictBattle, DEFAULT_BOSS_PHASES } from '
 import { getDungeonEntry } from './bestiary.js';
 import { splitTicketPayment, runDraw, winChance as lotteryWinChance } from './economy/lottery.js';
 import { levelWeight as ubiLevelWeight } from './economy/ubi.js';
+import { readJSON, writeJSON, removeJSON } from './storage.js';
 
 export class GameStateManager {
   constructor() {
@@ -69,21 +70,12 @@ export class GameStateManager {
   }
 
   loadState() {
-    let parsed = {};
-    if (typeof localStorage !== 'undefined') {
-      const saved = localStorage.getItem(this.storageKey);
-      if (saved) {
-        try {
-          parsed = JSON.parse(saved) || {};
-          delete parsed.dailyQuests;
-          if (parsed.characterXp != null) {
-            parsed.currentXp = (Number(parsed.currentXp) || 0) + Number(parsed.characterXp);
-            delete parsed.characterXp;
-          }
-        } catch (e) {
-          console.error('Save state error:', e);
-        }
-      }
+    // Bozuk kayıt son sağlam yedekten açılır (bkz. storage.js)
+    const parsed = readJSON(this.storageKey).data || {};
+    delete parsed.dailyQuests;
+    if (parsed.characterXp != null) {
+      parsed.currentXp = (Number(parsed.currentXp) || 0) + Number(parsed.characterXp);
+      delete parsed.characterXp;
     }
     return {
       ...GAME_CONFIG.STARTING_PROFILE,
@@ -672,9 +664,7 @@ export class GameStateManager {
     }
     this.state.lastSeenAt = Date.now();
     this._lastSaveAt = this.state.lastSeenAt;
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(this.storageKey, JSON.stringify(this.state));
-    }
+    writeJSON(this.storageKey, this.state);
     this.notifyListeners();
   }
 
@@ -5218,9 +5208,7 @@ export class GameStateManager {
   // 8. Zindan katlarını ve canavar canlarını Seviye 1'e ve %100 tam cana sıfırlar.
   // Toplam 100 Milyon $ADASTRA başlangıç fonu ilk anki oranlarıyla oyuna yeniden dağıtılır!
   vanillaReset() {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem(this.storageKey);
-    }
+    removeJSON(this.storageKey);
     if (typeof globalPool !== 'undefined' && globalPool) {
       if (typeof globalPool.vanillaReset === 'function') {
         globalPool.vanillaReset();

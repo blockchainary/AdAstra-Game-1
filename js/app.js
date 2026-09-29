@@ -9,6 +9,7 @@ import { DungeonScene } from './dungeonScene.js';
 import { createUnit, simulateBattle, DEFAULT_BOSS_PHASES, PLAYER_SKILLS } from './combat.js';
 import { AdAstraBattleArena, getMonsterAvatar, getUnitAvatar } from './battleArena.js';
 import { renderQuotaTracker, renderLimitMeter, renderDungeonEntryLadder, formatDuration, fmtInt } from './ui/limits.js';
+import { consumeStorageEvents, CORRUPT_SUFFIX } from './storage.js';
 
 // 🧪 Test menüsü yalnızca geliştirme sunucusunda (npm run dev) açılır; yayına çıkan sürümde oyuncular göremez.
 const DEV_TOOLS = !!(import.meta.env && import.meta.env.DEV);
@@ -600,6 +601,22 @@ window.addEventListener('enter-dungeon-view', () => {
 // =========================================================================
 // 1. KOTA VE SINIRLAR PANELİ (haftalık kota, günlük açılan kota, kişisel sınırlar)
 // =========================================================================
+// Kayıt kurtarma ve yazma hatalarını oyuncuya bildir (her hata türü oturumda bir kez)
+const reportedStorageIssues = new Set();
+function reportStorageEvents() {
+  for (const ev of consumeStorageEvents()) {
+    if (reportedStorageIssues.has(ev.type + ev.key)) continue;
+    reportedStorageIssues.add(ev.type + ev.key);
+    if (ev.type === 'recovered') {
+      showToast(`💾 Kayıt dosyası okunamadı; oyun son sağlam yedekten açıldı. Bozuk kopya "${ev.key}${CORRUPT_SUFFIX}" adıyla saklandı.`, 'warning');
+    } else if (ev.type === 'lost') {
+      showToast(`⚠️ Kayıt dosyası okunamadı ve yedek bulunamadı; oyun yeni profille açıldı. Bozuk kopya "${ev.key}${CORRUPT_SUFFIX}" adıyla saklandı.`, 'error');
+    } else if (ev.type === 'write-failed') {
+      showToast('⚠️ İlerleme kaydedilemedi: tarayıcının depolama alanı dolu olabilir.', 'error');
+    }
+  }
+}
+
 // Panel açıkken sayaçlar saniyede bir güncellenir (kaydırma konumu korunur)
 function refreshQuotaTrackerUI() {
   const el = dom.modalBody && dom.modalBody.querySelector('.quota-tracker');
@@ -8802,6 +8819,7 @@ function uiGameLoop(currentTime) {
     refreshBarracksLiveUI(slowDelta);
     refreshLiveUpgradeCostUI(slowDelta);
     refreshQuotaTrackerUI();
+    reportStorageEvents();
     }
 
     if (loopUiAccMs < 250) return;

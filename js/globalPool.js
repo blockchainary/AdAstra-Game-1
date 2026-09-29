@@ -3,6 +3,7 @@ import { GAME_CONFIG } from './config.js';
 
 import { treasury } from './treasury.js';
 import { openWeek, shareOf, isEligible, levelWeight, DEFAULT_UBI_RULES } from './economy/ubi.js';
+import { readJSON, writeJSON, removeJSON } from './storage.js';
 
 const DAY_MS = 24 * 3600 * 1000;
 const UBI_RULES = { ...DEFAULT_UBI_RULES, minLevel: (GAME_CONFIG.UBI_CONFIG && GAME_CONFIG.UBI_CONFIG.MIN_LEVEL) || 3 };
@@ -93,10 +94,10 @@ export class GlobalResourceManager {
 
   loadState() {
     if (typeof localStorage === 'undefined') return this.createNewEpoch();
-    const saved = localStorage.getItem(this.storageKey);
+    const { data: saved } = readJSON(this.storageKey);
     if (saved) {
       try {
-        const parsed = JSON.parse(saved);
+        const parsed = saved;
         const now = this.getTrustedTime();
 
         // Anti-Tamper: Saat geriye sarılırsa son kaydedilen zamandan önceye gidemez
@@ -248,7 +249,7 @@ export class GlobalResourceManager {
     if (this.state) {
       this.state.lastSavedTime = this.getTrustedTime();
     }
-    localStorage.setItem(this.storageKey, JSON.stringify(this.state));
+    writeJSON(this.storageKey, this.state);
   }
 
   // Kullanıcı kaynak topladığında küresel havuzdan düş
@@ -633,9 +634,7 @@ export class GlobalResourceManager {
 
   // 🏛️ Vanilla Reset: Tokenomik yakım, harcama ve sayaçları tam 0'a sıfırlar
   vanillaReset() {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem(this.storageKey);
-    }
+    removeJSON(this.storageKey);
     this.state = this.createNewEpoch(null);
     this.state.totalSpent = 0;
     this.state.totalBurned = 0;
