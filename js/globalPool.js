@@ -600,6 +600,8 @@ export class GlobalResourceManager {
       remaining: Math.floor(current.remaining),
       percent: percent.toFixed(1),
       isDepleted: current.remaining <= 0,
+      baseCap: current.baseCap ?? config.totalCap,
+      currentCap: current.totalCap,
       availableToday: Math.floor(this.getAvailableToday(resourceKey)),
       releasedCap: this.getReleasedCap(resourceKey),
       harvestedThisWeek: Math.floor(current.harvested || 0),

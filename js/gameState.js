@@ -4488,7 +4488,8 @@ export class GameStateManager {
     } else if (selectedReward.type === 'ticket_shard') {
       // 🎟️ AMORTİ BİLETLERİ: 10'dan 3'e indirildi! 3 adet amorti bileti geldiğinde 1 çark çevirme hakkı verir!
       this.state.wheelTicketShards = (this.state.wheelTicketShards || 0) + 1;
-      if (this.state.wheelTicketShards >= 3) {
+      // Elde tutma sınırı doluysa parçalar bekler, sınırın altına inince bilete dönüşür
+      if (this.state.wheelTicketShards >= 3 && this.getLotteryLimits().heldLeft > 0) {
         this.state.wheelTicketShards -= 3;
         this.state.lotteryTickets = (this.state.lotteryTickets || 0) + 1;
         rewardSummaryText += ' (🎉 3 Parça Birikti: +1 Çark Çevirme / Piyango Bileti Kazanıldı!)';
@@ -4590,10 +4591,20 @@ export class GameStateManager {
     return this.state.lotterySimHolders;
   }
 
-  getLotteryStatus() {
+  getLotteryLimits() {
+    const L = GAME_CONFIG.CARNIVAL?.LOTTERY || {};
     const epochId = (globalPool && globalPool.state && globalPool.state.epochId) || 1;
-    const maxPerWeek = GAME_CONFIG.CARNIVAL?.LOTTERY?.MAX_TICKETS_PER_ACCOUNT || 100;
+    const maxPerWeek = L.MAX_TICKETS_PER_ACCOUNT || 100;
+    const maxHeld = L.MAX_HELD_TICKETS || maxPerWeek * 4;
     const boughtThisWeek = this.state.lotteryWeekEpoch === epochId ? (this.state.lotteryBoughtThisWeek || 0) : 0;
+    const held = this.state.lotteryTickets || 0;
+    const weekLeft = Math.max(0, maxPerWeek - boughtThisWeek);
+    const heldLeft = Math.max(0, maxHeld - held);
+    return { epochId, maxPerWeek, maxHeld, boughtThisWeek, held, weekLeft, heldLeft, canBuy: Math.min(weekLeft, heldLeft) };
+  }
+
+  getLotteryStatus() {
+    const { maxPerWeek, maxHeld, boughtThisWeek, weekLeft, heldLeft, canBuy } = this.getLotteryLimits();
     const myTickets = this.state.lotteryTickets || 0;
     const others = this.getLotterySimHolders().reduce((s, h) => s + (h.tickets || 0), 0);
     const totalTickets = myTickets + others;
@@ -4606,7 +4617,10 @@ export class GameStateManager {
       chance: lotteryWinChance(myTickets, totalTickets),
       boughtThisWeek,
       maxPerWeek,
-      canBuy: Math.max(0, maxPerWeek - boughtThisWeek),
+      maxHeld,
+      weekLeft,
+      heldLeft,
+      canBuy,
       pool: this.state.lotteryPool || 0,
       amortiPool: this.state.lotteryAmortiPool || 0,
       pendingPayout: this.state.lotteryPendingPayout || 0,
@@ -4617,17 +4631,22 @@ export class GameStateManager {
 
   buyLotteryTickets(ticketCount = 1) {
     const count = Math.max(1, parseInt(ticketCount) || 1);
-    const epochId = (globalPool && globalPool.state && globalPool.state.epochId) || 1;
-    if (this.state.lotteryWeekEpoch !== epochId) {
-      this.state.lotteryWeekEpoch = epochId;
+    const lim = this.getLotteryLimits();
+    if (this.state.lotteryWeekEpoch !== lim.epochId) {
+      this.state.lotteryWeekEpoch = lim.epochId;
       this.state.lotteryBoughtThisWeek = 0;
     }
-    const maxPerWeek = GAME_CONFIG.CARNIVAL?.LOTTERY?.MAX_TICKETS_PER_ACCOUNT || 100;
-    const bought = this.state.lotteryBoughtThisWeek || 0;
-    if (bought + count > maxPerWeek) {
+    const bought = lim.boughtThisWeek;
+    if (count > lim.weekLeft) {
       return {
         success: false,
-        message: `🚫 Bir hesap haftada en fazla ${maxPerWeek} bilet alabilir. Bu hafta aldığın: ${bought}, alabileceğin: ${Math.max(0, maxPerWeek - bought)}.`
+        message: `🚫 Bir hesap haftada en fazla ${lim.maxPerWeek} bilet alabilir. Bu hafta aldığın: ${bought}, alabileceğin: ${lim.weekLeft}.`
+      };
+    }
+    if (count > lim.heldLeft) {
+      return {
+        success: false,
+        message: `🚫 Bir hesap elinde en fazla ${lim.maxHeld} bilet tutabilir (devreden biletler dahil). Elindeki: ${lim.held}, alabileceğin: ${lim.heldLeft}.`
       };
     }
 
@@ -4681,8 +4700,9 @@ export class GameStateManager {
   simulateOtherLotteryBuyers() {
     const rules = this.getLotteryRules();
     const perWeek = GAME_CONFIG.CARNIVAL?.LOTTERY?.LOCAL_SIM_TICKETS_PER_WEEK ?? 20;
+    const maxHeld = GAME_CONFIG.CARNIVAL?.LOTTERY?.MAX_HELD_TICKETS || 400;
     for (const h of this.getLotterySimHolders()) {
-      const n = Math.max(0, Math.round(perWeek * (0.5 + Math.random())));
+      const n = Math.min(Math.max(0, maxHeld - (h.tickets || 0)), Math.max(0, Math.round(perWeek * (0.5 + Math.random()))));
       if (n <= 0) continue;
       const split = splitTicketPayment(n, rules);
       h.tickets += n;
@@ -6096,7 +6116,7 @@ export class GameStateManager {
     // Günler Türkiye saatiyle (UTC+3) gece yarısı yenilenir
     const today = new Date(Date.now() + 3 * 3600 * 1000).toISOString().slice(0, 10);
     if (!this.state.dailyCounters || this.state.dailyCounters.date !== today) {
-      this.state.dailyCounters = { date: today, arenaMatches: 0, dungeonRuns: 0, dungeonPaidEntries: 0, dungeonBudget: null, dungeonPaid: 0 };
+      this.state.dailyCounters = { date: today, arenaMatches: 0, dungeonEntries: 0, dungeonRuns: 0, dungeonPaidEntries: 0, dungeonBudget: null, dungeonPaid: 0 };
     }
     return this.state.dailyCounters;
   }
@@ -6123,37 +6143,89 @@ export class GameStateManager {
     }
     const freeTotal = cfg.DAILY_RUNS || 5;
     const freeUsed = c.dungeonRuns || 0;
+    // Eski kayıtlarda toplam giriş sayacı yoktu: ödüllü + harçlı girişlerden türet
+    const entriesToday = c.dungeonEntries != null ? c.dungeonEntries : freeUsed + (c.dungeonPaidEntries || 0);
+    const nextIsFirstFree = cfg.FREE_FIRST_ENTRY !== false && entriesToday === 0;
     return {
       freeTotal,
       freeUsed,
       freeLeft: Math.max(0, freeTotal - freeUsed),
       paidEntries: c.dungeonPaidEntries || 0,
+      entriesToday,
+      nextEntryNumber: entriesToday + 1,
+      nextIsFirstFree,
+      nextWeaponWear: !nextIsFirstFree,
+      nextNeedsFee: freeUsed >= freeTotal,
       budget: c.dungeonBudget,
       budgetLeft: Math.max(0, c.dungeonBudget - (c.dungeonPaid || 0))
     };
   }
 
-  // Savaş başlarken çağrılır: ödüllü mü girildi, kapı harcı alındı mı?
-  beginDungeonEntry(level, isBoss = false, { payGateFee = false } = {}) {
+  // Bir sonraki girişin koşulları: stamina bedeli, silah aşınması, harç
+  getDungeonEntryTerms(level, isBoss = false, soldierCount = 1) {
     const st = this.getDungeonDayStatus();
+    const staminaCost = st.nextIsFirstFree ? 0 : this.getDungeonStaminaCost(level, soldierCount);
+    const curStamina = Math.floor(this.state.stamina || 0);
+    return {
+      ...st,
+      staminaCost,
+      staminaOk: curStamina >= staminaCost,
+      staminaShortfall: Math.max(0, staminaCost - curStamina),
+      fee: st.nextNeedsFee ? this.getDungeonGateFee(level, isBoss) : 0
+    };
+  }
+
+  // Savaş başlarken çağrılır: staminayı (gerekiyorsa) tahsil eder, girişi sayar, harcı alır.
+  beginDungeonEntry(level, isBoss = false, { payGateFee = false, soldierCount = 1 } = {}) {
+    const terms = this.getDungeonEntryTerms(level, isBoss, soldierCount);
     const c = this.state.dailyCounters;
-    if (st.freeLeft > 0) {
+    const payFee = terms.nextNeedsFee && payGateFee;
+    if (payFee && (this.state.adAstraBalance || 0) < terms.fee) {
+      return { success: false, rewarded: false, fee: terms.fee, message: `Kapı harcı için ${terms.fee} ADA gerekli.` };
+    }
+    if (!terms.nextIsFirstFree) {
+      const paid = this.deductDungeonStamina(level, soldierCount);
+      if (!paid.success) return { success: false, rewarded: false, fee: 0, message: paid.message };
+    }
+
+    c.dungeonEntries = terms.entriesToday + 1;
+    const base = { success: true, entryNumber: c.dungeonEntries, firstFree: terms.nextIsFirstFree, weaponWear: terms.nextWeaponWear, staminaCost: terms.staminaCost };
+    if (!terms.nextNeedsFee) {
       c.dungeonRuns = (c.dungeonRuns || 0) + 1;
       this.saveState();
-      return { success: true, rewarded: true, fee: 0, message: `🎟️ Ödüllü giriş (${c.dungeonRuns}/${st.freeTotal})` };
+      return {
+        ...base, rewarded: true, fee: 0,
+        message: terms.nextIsFirstFree
+          ? '🎁 Günün ilk girişi: ücretsiz, silahların aşınmaz'
+          : `🎟️ Ödüllü giriş (${c.dungeonRuns}/${terms.freeTotal})`
+      };
     }
-    if (payGateFee) {
-      const fee = this.getDungeonGateFee(level, isBoss);
-      if ((this.state.adAstraBalance || 0) < fee) {
-        return { success: false, rewarded: false, fee, message: `Kapı harcı için ${fee} ADA gerekli.` };
-      }
-      this.state.adAstraBalance -= fee;
-      if (treasury && treasury.depositTo) treasury.depositTo('dungeon', fee);
+    if (payFee) {
+      this.state.adAstraBalance -= terms.fee;
+      if (treasury && treasury.depositTo) treasury.depositTo('dungeon', terms.fee);
       c.dungeonPaidEntries = (c.dungeonPaidEntries || 0) + 1;
       this.saveState();
-      return { success: true, rewarded: true, fee, message: `🚪 Kapı harcı ödendi (-${fee} ADA, zindan kasasına)` };
+      return { ...base, rewarded: true, fee: terms.fee, message: `🚪 Kapı harcı ödendi (-${terms.fee} ADA, zindan kasasına)` };
     }
-    return { success: true, rewarded: false, fee: 0, message: '🏋️ Antrenman girişi: yalnızca deneyim kazanılır' };
+    this.saveState();
+    return { ...base, rewarded: false, fee: 0, message: '🏋️ Antrenman girişi: yalnızca deneyim kazanılır' };
+  }
+
+  // Savaş bitince silahların dayanıklılığını 1 düşürür (günün ilk girişinde çağrılmaz)
+  applyDungeonWeaponWear(selectedIndices = []) {
+    const soldiers = this.state.soldierUnits || [];
+    const worn = [];
+    for (const idx of selectedIndices) {
+      const sol = soldiers[idx];
+      if (!sol) continue;
+      const own = sol.equipment && sol.equipment.weapon;
+      const w = own || (this.state.equipment && this.state.equipment.weapon);
+      if (!w) continue;
+      const maxD = w.maxDurability || 13;
+      w.durability = Math.max(0, (w.durability != null ? w.durability : maxD) - 1);
+      worn.push(`${own ? `${sol.name} silahı` : 'Krallık Kılıcı'} (${w.durability}/${maxD})`);
+    }
+    return worn;
   }
 
   executeColosseum1v1Match(championIndex = 0) {
@@ -7127,6 +7199,7 @@ export class GameStateManager {
       { id: 'dungeon', icon: '💀', label: 'Zindan', shortcut: '6 / D', category: 'Bina' },
       { id: 'colosseum', icon: '🏟️', label: 'Kolezyum Arenası', shortcut: '7 / C', category: 'Bina' },
       { id: 'inventory', icon: '🎒', label: 'Envanter & Karakter', shortcut: 'E', category: 'Panel' },
+      { id: 'quota', icon: '📊', label: 'Kota ve Sınırlar (haftalık kota, zindan, piyango)', shortcut: 'K', category: 'Panel' },
       { id: 'claimAll', icon: '⚡', label: 'Tüm Seferleri Topla & Yeniden Başlat', shortcut: '', category: 'Eylem' },
       { id: 'repairAll', icon: '🔨', label: 'Tüm Aletleri Onar', shortcut: '', category: 'Eylem' },
       { id: 'healAll', icon: '🌾', label: 'Tüm Orduyu İyileştir', shortcut: '', category: 'Eylem' },

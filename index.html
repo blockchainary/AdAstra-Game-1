@@ -107,6 +107,9 @@
         <span class="bot-indicator-dot" id="top-bot-indicator-dot"></span>
         <span id="top-bot-status-text" class="hud-btn-label">Bot: Kapalı</span>
       </button>
+      <button type="button" class="hud-btn" id="btn-daily-limits" title="Haftalık kota, günlük açılan kota ve kişisel sınırların">
+        <span class="hud-btn-icon">📊</span><span class="hud-btn-label">Kotalar</span>
+      </button>
       <button type="button" class="hud-btn" id="btn-carnival-pill" title="Şans çarkı ve piyango">
         <span class="hud-btn-icon">🎪</span><span class="hud-btn-label">Karnaval</span>
       </button>
@@ -264,27 +267,28 @@
       </button>
     </div>
 
-    <!-- 3. BÖLÜM: Kompakt Haftalık Kaynak Çıkarma Limiti -->
+    <!-- 3. BÖLÜM: Kompakt kota özeti (ayrıntı: Kotalar paneli) -->
     <div class="sidebar-section sidebar-weekly-box">
-      <div class="sidebar-section-title" style="display: flex; justify-content: space-between; align-items: center;">
-        <span>📊 HAFTALIK KOTA</span>
-        <span id="sidebar-reset-timer" style="font-size: 0.7rem; color: #94a3b8; font-weight: 700;">⏳ 6g 18s</span>
-      </div>
+      <button type="button" id="sidebar-quota-open" class="sidebar-section-title sidebar-quota-head" title="Kota ve sınırların ayrıntısı">
+        <span>📊 KOTA · BUGÜN AÇIK</span>
+        <span id="sidebar-reset-timer" class="sidebar-quota-timer">⏳</span>
+      </button>
 
       <div class="sidebar-mini-quota-row">
-        <div class="mini-quota-item" title="Demir Haftalık Çıkarma Kotası">
+        <div class="mini-quota-item" title="Dünya kotasından şu an çıkarılabilecek demir / haftalık toplam">
           <div class="mini-quota-label"><span>⛏️ Demir</span><span id="sidebar-limit-text-iron">0 / 0</span></div>
-          <div class="mini-quota-track"><div id="sidebar-limit-fill-iron" class="mini-quota-fill iron"></div></div>
+          <div class="mini-quota-track"><div id="sidebar-limit-released-iron" class="mini-quota-released"></div><div id="sidebar-limit-fill-iron" class="mini-quota-fill iron"></div></div>
         </div>
-        <div class="mini-quota-item" title="Odun Haftalık Çıkarma Kotası">
+        <div class="mini-quota-item" title="Dünya kotasından şu an çıkarılabilecek odun / haftalık toplam">
           <div class="mini-quota-label"><span>🌲 Odun</span><span id="sidebar-limit-text-wood">0 / 0</span></div>
-          <div class="mini-quota-track"><div id="sidebar-limit-fill-wood" class="mini-quota-fill wood"></div></div>
+          <div class="mini-quota-track"><div id="sidebar-limit-released-wood" class="mini-quota-released"></div><div id="sidebar-limit-fill-wood" class="mini-quota-fill wood"></div></div>
         </div>
-        <div class="mini-quota-item" title="Buğday Haftalık Çıkarma Kotası">
+        <div class="mini-quota-item" title="Dünya kotasından şu an çıkarılabilecek buğday / haftalık toplam">
           <div class="mini-quota-label"><span>🌾 Buğday</span><span id="sidebar-limit-text-wheat">0 / 0</span></div>
-          <div class="mini-quota-track"><div id="sidebar-limit-fill-wheat" class="mini-quota-fill wheat"></div></div>
+          <div class="mini-quota-track"><div id="sidebar-limit-released-wheat" class="mini-quota-released"></div><div id="sidebar-limit-fill-wheat" class="mini-quota-fill wheat"></div></div>
         </div>
       </div>
+      <div id="sidebar-personal-limits" class="sidebar-personal-limits"></div>
     </div>
 
     <!-- 4. BÖLÜM: Krallık Kontrol Paneli (Modern Glassmorphism 2x4 Grid) -->

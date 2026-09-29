@@ -610,8 +610,12 @@ export const GAME_CONFIG = {
   // 💀 ZİNDAN KOŞUSU — sonsuz farm yerine günlük hak + azalan getiri (F-01)
   // ═══════════════════════════════════════════════════════════════════════
   DUNGEON: {
-    DAILY_RUNS: 5,                    // günde 5 ödüllü giriş (Türkiye saatiyle gece yarısı yenilenir)
-    // v1.25: 5 ödüllü girişten sonra oyuncu isteğe bağlı kapı harcı ödeyerek ödüllü girmeye devam edebilir.
+    // v1.27 günlük giriş kuralları (Türkiye saatiyle gece yarısı yenilenir):
+    //  • 1. giriş: ücretsiz — stamina harcanmaz, silahlar aşınmaz.
+    //  • 2.–5. giriş: harçsız ödüllü giriş; stamina harcanır, silahlar aşınır.
+    //  • 6. girişten itibaren: kapı harcı ödenirse ödüllü, ödenmezse yalnız deneyim veren antrenman.
+    DAILY_RUNS: 5,                    // harçsız ödüllü giriş sayısı
+    FREE_FIRST_ENTRY: true,           // günün ilk girişi stamina ve silah aşınması olmadan
     // Harç, o katın temel ADA ödülünün bu oranı kadardır ve %100'ü zindan kasasına gider.
     GATE_FEE_RATE: 0.20,
     // Zindan kasası bir günde en fazla bakiyesinin bu oranı kadar ADA öder → kasa matematiksel olarak boşalamaz.
@@ -761,10 +765,15 @@ export const GAME_CONFIG = {
     LOTTERY: {
       TICKET_COST_ADA: 100,
       SEED_POOL_ADA: 20000000,     // 20.000.000 ADA AlphaVax Tohum Kasa
-      MAX_TICKETS_PER_ACCOUNT: 100,// Balina istiflemesini önleme: Hesap başı haftalık max 100 bilet (10.000 ADA)
-      WINNER_MULTIPLIER: 2.0,      // Kazanan talihli bilet maliyetinin tam 2 katını (2x) nakit kazanır!
-      AMORTI_SHARE: 0.02,          // %2 Amorti Hazinesine
-      MAX_ROLLOVER_WEEKS: 4        // Çıkmayan biletler sonraki çekilişe devredebilir veya amorti alınabilir
+      // Balina koruması (v1.27): iki ayrı sınır birlikte uygulanır.
+      //  • Haftalık alım: bir hesap bir haftada en fazla bu kadar bilet satın alabilir.
+      //  • Elde tutma: devreden biletler dahil bir hesabın elindeki bilet bu sayıyı geçemez.
+      //    Biletler yanmadan devrettiği için yalnız haftalık sınır yetmez; haftalarca biriktiren
+      //    bir hesap hem şansı tekeline alır hem de kazanınca kasadan (ödediği × 2) çok büyük pay çeker.
+      MAX_TICKETS_PER_ACCOUNT: 100,  // haftalık alım sınırı (10.000 ADA)
+      MAX_HELD_TICKETS: 400,         // elde tutulabilecek en fazla bilet (≈ 4 haftalık alım); en büyük ödül 80.000 ADA
+      WINNER_MULTIPLIER: 2.0,        // Kazanan, biletlerine ödediğinin 2 katını alır
+      AMORTI_SHARE: 0.02             // Bilet bedelinin %2'si amorti kasasına
     }
   },
 

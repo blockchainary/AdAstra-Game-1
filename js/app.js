@@ -8,6 +8,7 @@ import { GrandTownScene } from './grandTownScene.js';
 import { DungeonScene } from './dungeonScene.js';
 import { createUnit, simulateBattle, DEFAULT_BOSS_PHASES, PLAYER_SKILLS } from './combat.js';
 import { AdAstraBattleArena, getMonsterAvatar, getUnitAvatar } from './battleArena.js';
+import { renderQuotaTracker, renderLimitMeter, renderDungeonEntryLadder, formatDuration, fmtInt } from './ui/limits.js';
 
 // 🧪 Test menüsü yalnızca geliştirme sunucusunda (npm run dev) açılır; yayına çıkan sürümde oyuncular göremez.
 const DEV_TOOLS = !!(import.meta.env && import.meta.env.DEV);
@@ -105,12 +106,6 @@ const dom = {
   expTimeWood: document.getElementById('exp-time-wood'),
   expFillWheat: document.getElementById('exp-fill-wheat'),
   expTimeWheat: document.getElementById('exp-time-wheat'),
-  sidebarLimitTextIron: document.getElementById('sidebar-limit-text-iron'),
-  sidebarLimitFillIron: document.getElementById('sidebar-limit-fill-iron'),
-  sidebarLimitTextWood: document.getElementById('sidebar-limit-text-wood'),
-  sidebarLimitFillWood: document.getElementById('sidebar-limit-fill-wood'),
-  sidebarLimitTextWheat: document.getElementById('sidebar-limit-text-wheat'),
-  sidebarLimitFillWheat: document.getElementById('sidebar-limit-fill-wheat'),
   sidebarResetTimer: document.getElementById('sidebar-reset-timer'),
   toastContainer: document.getElementById('toast-container'),
   rpgModal: document.getElementById('rpg-modal'),
@@ -423,31 +418,32 @@ function renderRealmSidebar(state, maxStamina, staminaInt) {
     sweepBtn.innerHTML = readyCount > 0 ? `⚡ ${readyCount} BİTEN SEFERİ TOPLA` : '⚡ BİTEN TÜM SEFERLERİ TOPLA';
   }
 
-  // 3. Global Haftalık Çıkarma Limitleri
-  const getRem = (key) => {
+  // 3. Kota özeti: çubuğun açık kısmı bugüne kadar açılan kota, dolu kısmı şu an çıkarılabilecek miktar
+  for (const key of ['iron', 'wood', 'wheat']) {
     const info = globalPool.getResourceInfo(key);
-    return { remaining: info.remaining, maxCap: info.totalCap, pct: Math.floor(parseFloat(info.percent)) };
-  };
-
-  const ironInfo = getRem('iron');
-  const woodInfo = getRem('wood');
-  const wheatInfo = getRem('wheat');
-
-  if (dom.sidebarLimitTextIron) dom.sidebarLimitTextIron.innerText = `${ironInfo.remaining.toLocaleString('tr-TR')} / ${ironInfo.maxCap.toLocaleString('tr-TR')}`;
-  if (dom.sidebarLimitFillIron) dom.sidebarLimitFillIron.style.width = `${ironInfo.pct}%`;
-
-  if (dom.sidebarLimitTextWood) dom.sidebarLimitTextWood.innerText = `${woodInfo.remaining.toLocaleString('tr-TR')} / ${woodInfo.maxCap.toLocaleString('tr-TR')}`;
-  if (dom.sidebarLimitFillWood) dom.sidebarLimitFillWood.style.width = `${woodInfo.pct}%`;
-
-  if (dom.sidebarLimitTextWheat) dom.sidebarLimitTextWheat.innerText = `${wheatInfo.remaining.toLocaleString('tr-TR')} / ${wheatInfo.maxCap.toLocaleString('tr-TR')}`;
-  if (dom.sidebarLimitFillWheat) dom.sidebarLimitFillWheat.style.width = `${wheatInfo.pct}%`;
-
+    const base = info.baseCap || 1;
+    const textEl = document.getElementById(`sidebar-limit-text-${key}`);
+    const fillEl = document.getElementById(`sidebar-limit-fill-${key}`);
+    const relEl = document.getElementById(`sidebar-limit-released-${key}`);
+    if (textEl) textEl.innerText = `${fmtInt(info.availableToday)} / ${fmtInt(base)}`;
+    if (relEl) relEl.style.width = `${Math.min(100, (info.releasedCap / base) * 100)}%`;
+    if (fillEl) {
+      fillEl.style.left = `${Math.min(100, (info.harvestedThisWeek / base) * 100)}%`;
+      fillEl.style.width = `${Math.min(100, (info.availableToday / base) * 100)}%`;
+    }
+  }
   if (dom.sidebarResetTimer) {
-    const secToReset = globalPool.getSecondsUntilReset();
-    const days = Math.floor(secToReset / 86400);
-    const hrs = Math.floor((secToReset % 86400) / 3600);
-    const mins = Math.floor((secToReset % 3600) / 60);
-    dom.sidebarResetTimer.innerText = days > 0 ? `⏳ ${days}g ${hrs}s` : `⏳ ${hrs}s ${mins}d`;
+    const nextRel = globalPool.getResourceInfo('wood').nextReleaseAt;
+    dom.sidebarResetTimer.innerText = `⏳ +1 gün: ${formatDuration(nextRel - Date.now())}`;
+  }
+  const personalEl = document.getElementById('sidebar-personal-limits');
+  if (personalEl) {
+    const dun = gameState.getDungeonDayStatus();
+    const lot = gameState.getLotteryStatus();
+    const html = `
+      <span class="spl-chip ${dun.nextIsFirstFree ? 'is-good' : ''}" title="Zindan: harçsız ödüllü giriş">💀 ${dun.freeUsed}/${dun.freeTotal}${dun.nextIsFirstFree ? ' · ücretsiz giriş hazır' : ''}</span>
+      <span class="spl-chip" title="Piyango: bu hafta alınan bilet">🎟️ ${lot.boughtThisWeek}/${lot.maxPerWeek}</span>`;
+    if (personalEl.innerHTML !== html) personalEl.innerHTML = html;
   }
 
   // 4. Kışla Yaralı Asker Rozeti
@@ -596,78 +592,20 @@ window.addEventListener('enter-dungeon-view', () => {
 });
 
 // =========================================================================
-// 1. GÜNLÜK KALAN KAYNAK LİMİTLERİ MODALI
+// 1. KOTA VE SINIRLAR PANELİ (haftalık kota, günlük açılan kota, kişisel sınırlar)
 // =========================================================================
+// Panel açıkken sayaçlar saniyede bir güncellenir (kaydırma konumu korunur)
+function refreshQuotaTrackerUI() {
+  const el = dom.modalBody && dom.modalBody.querySelector('.quota-tracker');
+  if (!el) return;
+  const scroll = dom.modalBody.scrollTop;
+  dom.modalBody.innerHTML = renderQuotaTracker({ gameState, globalPool, config: GAME_CONFIG });
+  dom.modalBody.scrollTop = scroll;
+}
+
 function openDailyLimitsModal() {
-  dom.modalTitle.innerHTML = `<span>📊</span> <span>HAFTALIK KAYNAK ÇIKARTIM HAVUZU</span>`;
-
-  const getRem = (key) => {
-    const info = globalPool.getResourceInfo(key);
-    return { remaining: info.remaining, maxCap: info.totalCap, pct: Math.floor(parseFloat(info.percent)) };
-  };
-
-  const woodInfo = getRem('wood');
-  const ironInfo = getRem('iron');
-  const wheatInfo = getRem('wheat');
-
-  dom.modalBody.innerHTML = `
-    <div class="clean-card">
-      <div class="card-title">🌐 Krallık Haftalık Kaynak Üretim Limitleri</div>
-      <div class="clean-desc">
-        Krallık ekonomisini korumak ve enflasyonu önlemek adına 7 günlük dönemde krallık genelinde çıkartılabilecek maksimum hammadde miktarı belirlenmiştir. Limitler her hafta sıfırlanır.
-      </div>
-    </div>
-
-    <div style="display: flex; flex-direction: column; gap: 10px;">
-      
-      <!-- Odun -->
-      <div class="clean-card" style="padding: 12px 16px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 1.5rem;">🌲</span>
-            <strong style="font-size: 1rem; color: #4ade80;">Zümrüt Meşe Odunu</strong>
-          </div>
-          <span class="card-badge" style="color: #4ade80;">%${woodInfo.pct} Kalan</span>
-        </div>
-        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #94a3b8; font-weight: 600;">
-          <span>Bu Hafta Kalan: <strong style="color: #fff;">${woodInfo.remaining.toLocaleString('tr-TR')} Adet</strong></span>
-          <span>Haftalık Toplam: ${woodInfo.maxCap.toLocaleString('tr-TR')}</span>
-        </div>
-      </div>
-
-      <!-- Demir -->
-      <div class="clean-card" style="padding: 12px 16px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 1.5rem;">⛏️</span>
-            <strong style="font-size: 1rem; color: #38bdf8;">Derin Demir Cevheri</strong>
-          </div>
-          <span class="card-badge" style="color: #38bdf8;">%${ironInfo.pct} Kalan</span>
-        </div>
-        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #94a3b8; font-weight: 600;">
-          <span>Bu Hafta Kalan: <strong style="color: #fff;">${ironInfo.remaining.toLocaleString('tr-TR')} Adet</strong></span>
-          <span>Haftalık Toplam: ${ironInfo.maxCap.toLocaleString('tr-TR')}</span>
-        </div>
-      </div>
-
-      <!-- Buğday -->
-      <div class="clean-card" style="padding: 12px 16px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 1.5rem;">🌾</span>
-            <strong style="font-size: 1rem; color: #facc15;">Güneş Buğdayı</strong>
-          </div>
-          <span class="card-badge" style="color: #facc15;">%${wheatInfo.pct} Kalan</span>
-        </div>
-        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #94a3b8; font-weight: 600;">
-          <span>Bu Hafta Kalan: <strong style="color: #fff;">${wheatInfo.remaining.toLocaleString('tr-TR')} Adet</strong></span>
-          <span>Haftalık Toplam: ${wheatInfo.maxCap.toLocaleString('tr-TR')}</span>
-        </div>
-      </div>
-
-    </div>
-  `;
-
+  dom.modalTitle.innerHTML = `<span>📊</span> <span>KOTA VE SINIRLAR</span>`;
+  dom.modalBody.innerHTML = renderQuotaTracker({ gameState, globalPool, config: GAME_CONFIG });
   displayModal();
 }
 
@@ -3590,14 +3528,7 @@ function renderCarnivalHtml(activeTab = 'wheel') {
   const costIron = Math.round(100 / pIron);
   const costWood = Math.round(100 / pWood);
 
-  const lotteryPool = state.lotteryPool || 20000000;
-  const amortiPool = state.lotteryAmortiPool || 0;
   const myTickets = state.lotteryTickets || 0;
-  const winnerReward = myTickets > 0 ? myTickets * 100 * 2 : 200;
-  const amortiShare = Math.round(lotteryPool * (GAME_CONFIG.CARNIVAL?.LOTTERY?.AMORTI_SHARE || 0.02));
-  const rolloverShare = Math.max(0, lotteryPool - amortiShare);
-  const totalTicketsEst = Math.max(100, myTickets + 900);
-  const myChancePct = ((myTickets / totalTicketsEst) * 100).toFixed(2);
   const shards = state.wheelTicketShards || 0;
   const redeemCodes = state.redeemCodes || [];
 
@@ -3749,127 +3680,66 @@ function renderCarnivalHtml(activeTab = 'wheel') {
       </div>
     `;
   } else if (activeTab === 'lottery') {
+    const lot = gameState.getLotteryStatus();
+    const pending = lot.pendingPayout || 0;
+    const last = lot.lastResult;
+    const nextDraw = globalPool.getNextWeeklyResetTRT ? globalPool.getNextWeeklyResetTRT() : Date.now();
+    const fmt = (n) => Math.floor(Number(n) || 0).toLocaleString('tr-TR');
+    const blockedBy = lot.canBuy > 0 ? '' : (lot.weekLeft <= 0 ? 'Bu haftalık alım sınırın doldu. Yeni hafta Pazartesi 00:01 (TSİ) başlar.' : `Elinde en fazla ${lot.maxHeld} bilet tutabilirsin. Bilet kullandıkça (çark) ya da kazandıkça yeniden alabilirsin.`);
     tabContentHtml = `
-      <div style="display: flex; flex-direction: column; gap: 12px;">
-        <div class="clean-card" style="border-left: 4px solid #f59e0b; background: #1a150c;">
+      <div class="lottery-v2">
+        <div class="clean-card lottery-hero">
           <div class="card-title-row">
-            <div class="card-title">🎟️ Haftalık Devreden Krallık Piyangosu</div>
-            <span class="card-badge" style="background:#ca8a04; color:#000; font-weight:900;">20.000.000 ADA Tohum Kasa</span>
-          </div>
-          <div class="clean-desc" style="font-size:0.86rem; line-height:1.5;">
-            Piyangomuzda satın aldığınız biletler <strong>kesinlikle yanmaz ve yok olmaz</strong>! Çekilişte ikramiye çıkmasa dahi tüm biletleriniz otomatik olarak sonraki haftalara devreder ve kazanana kadar şansınız devam eder. Kazanan talihli, bilet tutarının <strong>net 2 katını</strong> dev kasadan nakit kazanır ve sadece kazanan talihlinin biletleri ödülü aldıktan sonra yakılır.
-          </div>
-        </div>
-
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
-          <div class="clean-card" style="text-align:center; padding:14px; border-color:#f59e0b;">
-            <div style="font-size:0.8rem; color:#94a3b8;">🏆 Büyük İkramiye Kazancı</div>
-            <div style="font-size:1.35rem; font-weight:900; color:#fde047; margin-top:4px;">
-              Net 2 Katı Nakit Ödül
-            </div>
-            <div style="font-size:0.75rem; color:#4ade80; margin-top:3px;">
-              ${myTickets > 0 ? `Çıkarsa: +${(myTickets * 200).toLocaleString('tr-TR')} ADA` : 'Bilet tutarınızın tam 2 katı'}
-            </div>
-          </div>
-          <div class="clean-card" style="text-align:center; padding:14px; border-color:#a855f7;">
-            <div style="font-size:0.8rem; color:#94a3b8;">🏦 Toplam Piyango Kasası</div>
-            <div style="font-size:1.35rem; font-weight:900; color:#c084fc; margin-top:4px;">
-              ${lotteryPool.toLocaleString('tr-TR')} $ADASTRA
-            </div>
-            <div style="font-size:0.75rem; color:#94a3b8; margin-top:3px;">Devrederek sürekli büyür</div>
-          </div>
-          <div class="clean-card" style="text-align:center; padding:14px; border-color:#0284c7;">
-            <div style="font-size:0.8rem; color:#94a3b8;">🛡️ Amorti İade Havuzu (%2)</div>
-            <div style="font-size:1.35rem; font-weight:900; color:#38bdf8; margin-top:4px;">
-              ${amortiPool.toLocaleString('tr-TR')} $ADASTRA
-            </div>
-            <div style="font-size:0.75rem; color:#94a3b8; margin-top:3px;">İstediğiniz an biletinizi nakde çevirin</div>
-          </div>
-          <div class="clean-card" style="text-align:center; padding:14px; border-color:#10b981;">
-            <div style="font-size:0.8rem; color:#94a3b8;">🎟️ Senin Biletlerin & Şansın</div>
-            <div style="font-size:1.3rem; font-weight:900; color:#4ade80; margin-top:4px;">
-              ${myTickets} / 100 Bilet (%${myChancePct})
-            </div>
-            <div style="font-size:0.75rem; color:#fde047; margin-top:3px;">
-              ${myTickets >= 100 ? '🚫 Haftalık Kota Dolu' : myTickets > 0 ? '✨ Çıkmazsa haftaya devreder (Yanmaz)' : `Kalan Alım: ${100 - myTickets} Bilet`}
-            </div>
-          </div>
-        </div>
-
-        <div class="clean-card" style="border-left: 4px solid #22c55e; background: rgba(10,30,15,0.45); font-size:0.85rem; color:#cbd5e1; line-height:1.6; padding:16px;">
-          <div style="font-weight:900; color:#4ade80; font-size:0.95rem; margin-bottom:8px; display:flex; align-items:center; gap:8px;">
-            <span>🛡️</span>
-            <span>KRALLIK PİYANGOSU NASIL ÇALIŞIR? (YENİ MODEL REHBERİ)</span>
-          </div>
-          <div style="display: flex; flex-direction: column; gap: 8px;">
-            <div>
-              <strong style="color:#fde047;">1. Biletleriniz Asla Yanmaz ve Kaybolmaz:</strong>
-              Piyango çekilişinde biletinize ikramiye çıkmasa bile biletleriniz silinmez veya yok olmaz. Satın aldığınız tüm biletler otomatik olarak bir sonraki haftaya devreder ve siz kazanana kadar her hafta çekilişe katılmaya devam eder.
-            </div>
-            <div>
-              <strong style="color:#4ade80;">2. Net 2 Katı Nakit Kazanç:</strong>
-              Çekiliş her Pazartesi 00:01 (TSİ) kendiliğinden yapılır. Kazanan vatandaş, yatırdığı bilet tutarının (1 Bilet = 100 ADA) tam 2 katını kasadan alır; kazanan biletler bu sırada kullanılmış sayılır.
-            </div>
-            <div>
-              <strong style="color:#38bdf8;">3. Adil Şans ve Balina Koruması:</strong>
-              Büyük yatırımcıların tüm biletleri toplayıp şansı tekeline almasını engellemek ve herkesin eşit şansa sahip olmasını sağlamak için her vatandaş haftalık en fazla 100 bilet (10.000 ADA) alabilir.
-            </div>
-            <div>
-              <strong style="color:#c084fc;">4. 20 Milyon ADA Tohum Kasası:</strong>
-              Piyango havuzu 20.000.000 ADA'lık güçlü bir tohum fonuyla korunur ve bilet satışlarıyla her hafta devrederek büyümeye devam eder.
-            </div>
-            <div>
-              <strong style="color:#f472b6;">5. %2 Amorti İade Kasası:</strong>
-              Her bilet alım bedelinin %2'si (bilet başı 2 ADA) doğrudan Amorti Kasasına aktarılır. Biletini yakarak amorti almak isteyen vatandaşlarımız anında nakit iadesi alabilir.
-            </div>
-          </div>
-        </div>
-
-        <!-- 👑 HAFTALIK ÇEKİLİŞ & KAZANÇ ÇEKİMİ (v1.25: yalnızca gerçekten kazananlar çekebilir) -->
-        ${(() => {
-          const pending = Number(gameState.state.lotteryPendingPayout) || 0;
-          const last = gameState.state.lastLotteryResult || null;
-          const nextDraw = (globalPool && globalPool.getNextWeeklyResetTRT) ? globalPool.getNextWeeklyResetTRT() : Date.now();
-          const ms = Math.max(0, nextDraw - Date.now());
-          const d = Math.floor(ms / 86400000), h = Math.floor((ms % 86400000) / 3600000), m = Math.floor((ms % 3600000) / 60000);
-          return `
-        <div class="clean-card lottery-draw-card ${pending > 0 ? 'is-winner' : ''}">
-          <div class="card-title-row" style="margin-bottom: 6px;">
-            <div class="card-title" style="display:flex; align-items:center; gap:8px;">
-              <span style="font-size: 1.3rem;">👑</span>
-              <span>Haftalık Çekiliş</span>
-            </div>
-            <span class="card-badge">Her Pazartesi 00:01 (TSİ)</span>
+            <div class="card-title">🎟️ Haftalık Krallık Piyangosu</div>
+            <span class="card-badge">Çekiliş: Pazartesi 00:01 (TSİ)</span>
           </div>
           <div class="clean-desc">
-            Çekiliş kendiliğinden yapılır, kimse erkene alamaz. Biletin kazanırsa bilet bedelinin <strong>2 katı</strong> kasadan senin için ayrılır ve buradan cüzdanına çekersin. Kazanmazsan biletlerin yanmaz, bir sonraki haftaya devreder.
+            Her hafta <strong>tek kazanan</strong> çıkar; kazanma şansın elindeki bilet sayısıyla orantılıdır.
+            Kazanan, biletlerine ödediğinin <strong>2 katını</strong> kasadan alır. Kazanamayanın biletleri yanmaz, sonraki haftaya devreder.
+          </div>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat-tile"><span class="stat-tile-label">Piyango kasası</span><strong class="tone-violet">${fmt(lot.pool)} ADA</strong></div>
+          <div class="stat-tile"><span class="stat-tile-label">Kazanırsan alacağın</span><strong class="tone-gold">${fmt(lot.potentialPrize)} ADA</strong><span class="stat-tile-sub">${fmt(lot.paid)} ADA ödedin × 2</span></div>
+          <div class="stat-tile"><span class="stat-tile-label">Kazanma şansın</span><strong class="tone-green">%${(lot.chance * 100).toFixed(2)}</strong><span class="stat-tile-sub">${fmt(lot.myTickets)} / ${fmt(lot.totalTickets)} bilet</span></div>
+          <div class="stat-tile"><span class="stat-tile-label">Sonraki çekiliş</span><strong>${formatDuration(nextDraw - Date.now())}</strong></div>
+        </div>
+
+        <div class="clean-card">
+          <div class="card-title-row">
+            <div class="card-title">🛡️ Balina koruması: bilet sınırların</div>
+          </div>
+          <div class="limit-list">
+            ${renderLimitMeter({ icon: '🗓️', label: 'Bu hafta aldığın', used: lot.boughtThisWeek, max: lot.maxPerWeek, note: 'Her hesap haftada en fazla bu kadar bilet alabilir.' })}
+            ${renderLimitMeter({ icon: '🎟️', label: 'Elindeki bilet (devredenler dahil)', used: lot.myTickets, max: lot.maxHeld, note: 'Haftalarca biriktirerek kasayı emmek mümkün olmasın diye elde tutulan bilet de sınırlıdır.' })}
+          </div>
+        </div>
+
+        <div class="clean-card lottery-buy">
+          <div class="lottery-buy-row">
+            <label for="lottery-ticket-count" class="lottery-buy-label">Bilet adedi</label>
+            <input type="number" id="lottery-ticket-count" class="lottery-buy-input" value="${Math.min(1, lot.canBuy) || 1}" min="1" max="${Math.max(1, lot.canBuy)}" ${lot.canBuy > 0 ? '' : 'disabled'} />
+            <button id="btn-buy-lottery-action" class="btn-clean btn-gold" ${lot.canBuy > 0 ? '' : 'disabled'}>
+              ${lot.canBuy > 0 ? `🎟️ Bilet al (100 ADA/adet) · en fazla ${lot.canBuy}` : '🚫 Şu an bilet alamazsın'}
+            </button>
+          </div>
+          ${blockedBy ? `<div class="pe-note pe-warn">${blockedBy}</div>` : ''}
+          <div class="pe-note">Bilet bedelinin %2'si amorti kasasına (şu an ${fmt(lot.amortiPool)} ADA), kalanı piyango kasasına gider. Amorti yalnız kasa biterse kalan tüm biletlere eşit dağıtılır. Beklemek istemezsen biletini çarkta 1 bilet = 1 çevirme olarak kullanabilirsin.</div>
+        </div>
+
+        <div class="clean-card lottery-draw-card ${pending > 0 ? 'is-winner' : ''}">
+          <div class="card-title-row">
+            <div class="card-title">👑 Kazancın</div>
+            <span class="card-badge">${pending > 0 ? 'Çekilmeyi bekliyor' : 'Bekleyen kazanç yok'}</span>
           </div>
           <div class="lottery-draw-stats">
-            <div><span class="stat-label">Sonraki çekiliş</span><strong>${d > 0 ? d + ' gün ' : ''}${h} saat ${m} dk</strong></div>
-            <div><span class="stat-label">Biletlerin</span><strong>${myTickets} adet</strong></div>
-            <div><span class="stat-label">Çekilecek kazancın</span><strong class="${pending > 0 ? 'text-win' : ''}">${pending.toLocaleString('tr-TR')} ADA</strong></div>
+            <div><span class="stat-label">Çekilecek kazanç</span><strong class="${pending > 0 ? 'text-win' : ''}">${fmt(pending)} ADA</strong></div>
+            <div><span class="stat-label">Son çekiliş</span><strong>${last ? (last.userWon ? `🎉 Kazandın (+${fmt(last.wonAmount)} ADA)` : (last.amorti > 0 ? `Amorti +${fmt(last.amorti)} ADA` : 'Çıkmadı, biletlerin devretti')) : 'Henüz yok'}</strong></div>
           </div>
-          ${last ? `<div class="clean-desc" style="margin-top:10px;">Son çekiliş: ${last.userWon ? '🎉 Kazandın (+' + Number(last.wonAmount || 0).toLocaleString('tr-TR') + ' ADA)' : 'Bu sefer çıkmadı, biletlerin devretti.'}</div>` : ''}
           <div style="margin-top: 12px;">
             <button id="btn-claim-winner-lottery" class="btn-clean btn-gold" ${pending > 0 ? '' : 'disabled'} style="width:auto;">
-              ${pending > 0 ? '🏆 Kazancımı Cüzdana Çek' : 'Çekilecek kazanç yok'}
-            </button>
-          </div>
-        </div>`;
-        })()}
-
-        <div class="clean-card" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; padding:16px;">
-          <div style="display:flex; align-items:center; gap:10px;">
-            <span style="font-size:0.88rem; font-weight:700; color:#fff;">Bilet Adedi:</span>
-            <input type="number" id="lottery-ticket-count" value="1" min="1" max="${Math.max(1, 100 - myTickets)}" style="width:80px; background:#1e293b; color:#fde047; border:1px solid #475569; padding:8px; border-radius:6px; font-weight:800; font-size:1rem; text-align:center;" ${myTickets >= 100 ? 'disabled' : ''} />
-            <button id="btn-buy-lottery-action" class="btn-clean" ${myTickets >= 100 ? 'disabled' : ''} style="width:auto; background:linear-gradient(135deg, #f59e0b, #d97706); color:#000; font-weight:900; padding:10px 18px;">
-              🎟️ ${myTickets >= 100 ? 'Haftalık Kota Doldu (100/100)' : `Bilet Satın Al (100 ADA/Adet) — Kalan: ${100 - myTickets}`}
-            </button>
-          </div>
-
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button id="btn-burn-lottery-amorti-action" class="btn-clean" style="width:auto; background:#0369a1; border-color:#38bdf8; padding:10px 16px; font-size:0.84rem;" ${myTickets > 0 && amortiPool > 0 ? '' : 'disabled'}>
-              🔥 Biletlerimi Yak & Amorti Al
+              ${pending > 0 ? '🏆 Kazancımı cüzdana çek' : 'Çekilecek kazanç yok'}
             </button>
           </div>
         </div>
@@ -5591,28 +5461,31 @@ function openPreBattleModal(monster) {
   const prediction = gameState.predictDungeonBattle(monster, preBattleSelectedSoldiers);
   const isBossForReward = !!(monster.isBoss || monster.level === 9 || monster.level === 18);
   const baseReward = gameState.getDungeonBaseReward(monster.level, isBossForReward);
-  const dayStatus = gameState.getDungeonDayStatus();
+  const selectedCount = preBattleSelectedSoldiers.length;
+  const terms = gameState.getDungeonEntryTerms(monster.level, isBossForReward, selectedCount);
   const gateFee = gameState.getDungeonGateFee(monster.level, isBossForReward);
-  const expectedAda = Math.min(baseReward.ada, dayStatus.budgetLeft);
+  const expectedAda = Math.min(baseReward.ada, terms.budgetLeft);
   const entryCardHtml = `
-    <div class="prebattle-entry-card ${dayStatus.freeLeft > 0 ? '' : 'is-out'}">
+    <div class="prebattle-entry-card ${terms.nextNeedsFee ? 'is-out' : ''}">
       <div class="pe-row">
-        <span>🎟️ Bugünkü ödüllü giriş</span>
-        <strong>${dayStatus.freeLeft} / ${dayStatus.freeTotal} kaldı</strong>
+        <span>🎟️ Bugünkü ${terms.nextEntryNumber}. girişin</span>
+        <strong>${terms.nextIsFirstFree ? 'Ücretsiz' : terms.nextNeedsFee ? 'Harçlı / antrenman' : 'Ödüllü'}</strong>
       </div>
-      ${dayStatus.freeLeft > 0
-        ? '<div class="pe-note">Bu savaş ödüllü girişlerinden birini kullanır. Haklar her gece 00:00\'da (TSİ) yenilenir.</div>'
-        : `<label class="pe-fee">
-             <input type="checkbox" id="chk-dungeon-gate-fee" ${window.dungeonPayGateFee ? 'checked' : ''} />
-             <span><strong>Kapı harcı öde: ${gateFee.toLocaleString('tr-TR')} ADA</strong> — ödülüyle gir. Harcın tamamı zindan kasasına gider.</span>
-           </label>
-           <div class="pe-note">Harç ödemezsen antrenman girişi olur: askerlerin ve hesabın deneyim kazanır, ADA ve ganimet düşmez.</div>`}
+      ${renderDungeonEntryLadder(terms)}
+      ${terms.nextIsFirstFree
+        ? '<div class="pe-note pe-good">🎁 Günün ilk girişi: stamina harcanmaz, silahların aşınmaz. Ödül tam verilir.</div>'
+        : !terms.nextNeedsFee
+          ? `<div class="pe-note">Stamina harcanır ve savaşa giren her askerin silahı 1 aşınır. Harçsız ödüllü giriş: ${terms.freeLeft} / ${terms.freeTotal} kaldı. Haklar her gece 00:00'da (TSİ) yenilenir.</div>`
+          : `<label class="pe-fee">
+               <input type="checkbox" id="chk-dungeon-gate-fee" ${window.dungeonPayGateFee ? 'checked' : ''} />
+               <span><strong>Kapı harcı öde: ${gateFee.toLocaleString('tr-TR')} ADA</strong> — ödülüyle gir. Harcın tamamı zindan kasasına gider.</span>
+             </label>
+             <div class="pe-note">Harç ödemezsen antrenman girişi olur: askerlerin ve hesabın deneyim kazanır, ADA ve ganimet düşmez. Stamina harcanır, silahlar aşınır.</div>`}
       ${expectedAda < baseReward.ada ? `<div class="pe-note pe-warn">Bugünkü zindan kasası bütçesi azaldı: bu zaferin ADA ödülü en fazla ${expectedAda.toLocaleString('tr-TR')} olur.</div>` : ''}
     </div>`;
 
-  const selectedCount = preBattleSelectedSoldiers.length;
-  const staminaCost = gameState.getDungeonStaminaCost(monster.level, selectedCount);
-  const staminaCheck = gameState.canEnterDungeonBattle(monster.level, selectedCount);
+  const staminaCost = terms.staminaCost;
+  const staminaCheck = { canEnter: terms.staminaOk, shortfall: terms.staminaShortfall };
   const curStamina = Math.floor(state.stamina || 0);
   const maxStamina = gameState.getMaxStamina();
   const perSoldierCost = 5 + Number(monster.level);
@@ -5622,7 +5495,7 @@ function openPreBattleModal(monster) {
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <span style="font-weight:700; color:${staminaCheck.canEnter ? '#38bdf8' : '#f87171'}; font-size:0.85rem;">⚡ Savaş Stamina Bedeli:</span>
         <span style="font-weight:800; font-size:1rem; color:${staminaCheck.canEnter ? '#38bdf8' : '#ef4444'};">
-          ${selectedCount > 0 ? `${staminaCost} ⚡` : '0 ⚡'}
+          ${terms.nextIsFirstFree ? '0 ⚡ (ücretsiz giriş)' : selectedCount > 0 ? `${staminaCost} ⚡` : '0 ⚡'}
         </span>
       </div>
       <div style="font-size:0.75rem; color:#94a3b8; margin-top:4px; display:flex; justify-content:space-between; align-items:center;">
@@ -5914,9 +5787,10 @@ function openPreBattleModal(monster) {
         showToast('En az 1 asker seçmelisin!', 'error');
         return;
       }
-      const check = gameState.canEnterDungeonBattle(monster.level, preBattleSelectedSoldiers.length);
-      if (!check.canEnter) {
-        showToast(`⚠️ Yetersiz Stamina! ${preBattleSelectedSoldiers.length} asker için ${check.cost} ⚡ Stamina gerekiyor (Mevcut: ${check.currentStamina} ⚡).`, 'error');
+      const isBossChk = !!(monster.isBoss || monster.level === 9 || monster.level === 18);
+      const check = gameState.getDungeonEntryTerms(monster.level, isBossChk, preBattleSelectedSoldiers.length);
+      if (!check.staminaOk) {
+        showToast(`⚠️ Yetersiz Stamina! ${preBattleSelectedSoldiers.length} asker için ${check.staminaCost} ⚡ Stamina gerekiyor (Mevcut: ${Math.floor(gameState.state.stamina || 0)} ⚡).`, 'error');
         openPreBattleModal(monster);
         return;
       }
@@ -5944,20 +5818,15 @@ function executeMonsterBattle(monster, selectedIndices, { payGateFee = false } =
   const state = gameState.state;
   const soldiers = state.soldierUnits || [];
 
-  // ⚡ Savaş Başlangıcında Stamina Tahsilatı
-  const staminaCost = gameState.getDungeonStaminaCost(monster.level, selectedIndices.length);
-  const deductRes = gameState.deductDungeonStamina(monster.level, selectedIndices.length);
-  if (!deductRes.success) {
-    showToast(deductRes.message, 'error');
+  // Giriş: stamina (günün ilk girişinde alınmaz), günlük sayaç ve kapı harcı tek yerde işlenir
+  const isBossEntry = !!(monster.isBoss || monster.level === 9 || monster.level === 18);
+  const entry = gameState.beginDungeonEntry(monster.level, isBossEntry, { payGateFee, soldierCount: selectedIndices.length });
+  if (!entry.success) {
+    showToast(entry.message, 'error');
     openPreBattleModal(monster);
     return;
   }
-  const isBossEntry = !!(monster.isBoss || monster.level === 9 || monster.level === 18);
-  const entry = gameState.beginDungeonEntry(monster.level, isBossEntry, { payGateFee });
-  if (!entry.success) {
-    showToast(entry.message, 'error');
-    return;
-  }
+  const staminaCost = entry.staminaCost;
   renderTopBar();
 
   const arena = getBattleArena();
@@ -6043,33 +5912,20 @@ function executeMonsterBattle(monster, selectedIndices, { payGateFee = false } =
   arena.startBattle({
     mode: 'dungeon',
     context: `Kat ${monster.level} · Seviye ${monster.level} — <strong>${monster.name}</strong> ${isBossMonster ? '(Zindan Bossu)' : ''}`,
-    rank: `${entry.rewarded ? (entry.fee > 0 ? 'Kapı harcıyla ödüllü' : 'Ödüllü giriş') : 'Antrenman'} · Stamina: -${staminaCost} ⚡`,
+    rank: `${entry.firstFree ? 'Günün ücretsiz girişi' : entry.rewarded ? (entry.fee > 0 ? 'Kapı harcıyla ödüllü' : 'Ödüllü giriş') : 'Antrenman'} · Stamina: -${staminaCost} ⚡`,
     replay: sim,
     allies: arenaAllies,
     enemies: [arenaEnemy],
     loot: lootPreview,
     onComplete: ({ win, units }) => {
-      // 1. Askerlerin gerçek canlarının güncellenmesi ve silah aşınması
-      const weaponsWorn = [];
+      // 1. Askerlerin gerçek canlarının güncellenmesi
       units.filter(u => u.side === 'ally').forEach(a => {
-        const idx = a.sourceIndex;
-        if (soldiers[idx]) {
-          soldiers[idx].hp = Math.max(1, Math.round(a.hp));
-
-          // Silah aşınması
-          if (soldiers[idx].equipment?.weapon) {
-            const w = soldiers[idx].equipment.weapon;
-            const maxD = w.maxDurability || 13;
-            w.durability = Math.max(0, (w.durability != null ? w.durability : maxD) - 1);
-            weaponsWorn.push(`${soldiers[idx].name} silahı (${w.durability}/${maxD})`);
-          } else if (state.equipment?.weapon) {
-            const w = state.equipment.weapon;
-            const maxD = w.maxDurability || 13;
-            w.durability = Math.max(0, (w.durability != null ? w.durability : maxD) - 1);
-            weaponsWorn.push(`Krallık Kılıcı (${w.durability}/${maxD})`);
-          }
-        }
+        if (soldiers[a.sourceIndex]) soldiers[a.sourceIndex].hp = Math.max(1, Math.round(a.hp));
       });
+      // 2. Silah aşınması (günün ilk girişinde yok)
+      const weaponsWorn = entry.weaponWear
+        ? gameState.applyDungeonWeaponWear(units.filter(u => u.side === 'ally').map(u => u.sourceIndex))
+        : [];
 
       if (win) {
         sound.playLevelUp();
@@ -6217,6 +6073,7 @@ function executeCommand(actionId) {
     case 'colosseum': openColosseumModal(); break;
     case 'inventory': openInventoryModal(); break;
     case 'economy': openEconomyDashboardModal('overview'); break;
+    case 'quota': openDailyLimitsModal(); break;
     case 'claimAll':
       const cRes = gameState.claimAndRestartAllExpeditions();
       if (cRes.staminaWarning) {
@@ -6254,7 +6111,7 @@ function executeCommand(actionId) {
 
 // Event Dinleyicileri
 function initAppEvents() {
-  // Global Klavye Kısayolları (TAB, Ctrl+K, S, I, F, B, M, D, C, Q, E, Esc)
+  // Global Klavye Kısayolları (TAB, Ctrl+K, S, I, F, B, M, D, C, E, K, Esc)
   window.addEventListener('keydown', (e) => {
     // Ctrl+K veya Cmd+K -> Command Palette
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -6294,6 +6151,8 @@ function initAppEvents() {
       openColosseumModal();
     } else if (key === 'E') {
       openInventoryModal();
+    } else if (key === 'K') {
+      openDailyLimitsModal();
     } else if (key === 'T') {
       const devModal = document.getElementById('dev-modal');
       if (devModal) {
@@ -6344,6 +6203,8 @@ function initAppEvents() {
 
   // Günlük Limitler Paneli Butonu
   if (dom.btnDailyLimits) dom.btnDailyLimits.addEventListener('click', openDailyLimitsModal);
+  const sidebarQuotaBtn = document.getElementById('sidebar-quota-open');
+  if (sidebarQuotaBtn) sidebarQuotaBtn.addEventListener('click', openDailyLimitsModal);
 
   // Test & Dev Cheat Paneli Butonu
   const btnTestMenu = document.getElementById('btn-open-test-menu');
@@ -7715,20 +7576,6 @@ function initAppEvents() {
       return;
     }
 
-    // Karnaval: Piyango Amorti Payı Al (#btn-burn-lottery-amorti-action)
-    if (e.target.closest('#btn-burn-lottery-amorti-action')) {
-      const res = gameState.burnLotteryTicketsForAmorti();
-      if (res.success) {
-        showToast(res.message, 'success');
-        sound.playHarvest();
-        openCarnivalModal('lottery');
-      } else {
-        showToast(res.message, 'error');
-      }
-      renderTopBar();
-      return;
-    }
-
     // Karnaval Hazine & Havuzlar Sekmesinden İlgili Alanlara Hızlı Geçiş (.btn-eco-pool-jump)
     const ecoPoolJumpBtn = e.target.closest('.btn-eco-pool-jump');
     if (ecoPoolJumpBtn) {
@@ -8939,6 +8786,7 @@ function uiGameLoop(currentTime) {
     globalPool.simulateGlobalActivity(slowDelta);
     refreshBarracksLiveUI(slowDelta);
     refreshLiveUpgradeCostUI(slowDelta);
+    refreshQuotaTrackerUI();
     }
 
     if (loopUiAccMs < 250) return;
