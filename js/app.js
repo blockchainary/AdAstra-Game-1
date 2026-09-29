@@ -4062,10 +4062,10 @@ function openChangelogModal() {
       <div class="clean-card" style="border-left: 4px solid #38bdf8; background: #0c1929;">
         <div style="font-size: 1.05rem; font-weight: 800; color: #fff;">📜 Krallık Güncelleme Günlüğü (v1.00 — ${logs[logs.length - 1]?.version || 'v1.07'})</div>
         <div style="font-size: 0.85rem; color: #94a3b8; margin-top:2px;">
-          AdAstra krallığının ilk gününden bugüne kadar devreye alınan tüm sistem mekanikleri, tokenomics kuralları ve sürüm notları.
+          En yeni sürüm en üstte. Krallığın ilk gününden bugüne kadar devreye alınan kurallar ve sürüm notları.
         </div>
       </div>
-      ${logs.map(log => `
+      ${[...logs].reverse().map(log => `
         <div class="clean-card" style="border-left: 4px solid #a855f7; padding: 14px 18px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; flex-wrap:wrap; gap:6px;">
             <div style="display:flex; align-items:center; gap:8px;">
